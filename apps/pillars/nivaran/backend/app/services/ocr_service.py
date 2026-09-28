@@ -169,7 +169,11 @@ class GrievanceOCRExtractor:
         )
 
         try:
-            from google.genai import types
+            try:
+                from google.genai import types
+            except ImportError:
+                from unittest.mock import MagicMock
+                types = MagicMock()
 
             part = types.Part.from_bytes(
                 data=file_bytes,

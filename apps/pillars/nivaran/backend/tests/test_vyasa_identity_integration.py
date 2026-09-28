@@ -577,7 +577,7 @@ def test_14_real_asgi_contract_test_connecting_nivaran_to_vyasa_core():
     script = (
         "import sys, uuid\n"
         "from unittest.mock import MagicMock\n"
-        "sys.path = [p for p in sys.path if 'nivaran' not in p.lower() and p != '']\n"
+        "sys.path = [p for p in sys.path if 'site-packages' in p or ('nivaran' not in p.lower() and p != '')]\n"
         "sys.path.insert(0, r'C:\\Projects\\VYASA\\apps\\vyasa\\backend')\n"
         "from app.main import app as vyasa_app\n"
         "from app.api.dependencies import get_db\n"
