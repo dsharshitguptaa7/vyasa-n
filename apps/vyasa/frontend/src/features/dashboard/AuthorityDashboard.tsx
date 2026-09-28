@@ -9,16 +9,19 @@ export const AuthorityDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const nivaranUrl = import.meta.env.VITE_NIVARAN_APP_URL || 'http://localhost:5174';
+    const nivaranOrigin = new URL(nivaranUrl).origin;
+
     const handleMessage = (event: MessageEvent) => {
-      // Security check: Only respond to NIVARAN frontend
-      if (event.origin !== 'http://localhost:5174') return;
+      // Security check: Only respond to configured NIVARAN frontend
+      if (event.origin !== nivaranOrigin) return;
 
       if (event.data?.type === 'REQUEST_VYASA_SESSION') {
         const token = authService.getToken();
         if (token && event.source) {
           (event.source as Window).postMessage(
             { type: 'VYASA_SESSION_TOKEN', token },
-            event.origin
+            nivaranOrigin
           );
         }
       }
@@ -31,14 +34,15 @@ export const AuthorityDashboard: React.FC = () => {
   }, []);
 
   const handleOpenNivaran = () => {
-    const targetUrl = 'http://localhost:5174';
-    const nivaranWin = window.open(targetUrl, '_blank');
+    const nivaranUrl = import.meta.env.VITE_NIVARAN_APP_URL || 'http://localhost:5174';
+    const nivaranOrigin = new URL(nivaranUrl).origin;
+    const nivaranWin = window.open(nivaranUrl, '_blank');
     const token = authService.getToken();
     if (nivaranWin && token) {
       // Proactively push token as soon as child window is accessible
       const sendToken = () => {
         try {
-          nivaranWin.postMessage({ type: 'VYASA_SESSION_TOKEN', token }, targetUrl);
+          nivaranWin.postMessage({ type: 'VYASA_SESSION_TOKEN', token }, nivaranOrigin);
         } catch {
           // ignore cross-origin restrictions if child not yet loaded
         }

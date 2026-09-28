@@ -2,6 +2,8 @@ export interface FrontendConfig {
   apiBaseUrl: string;
   appName: string;
   appTagline: string;
+  nivaranAppUrl: string;
+  nivaranOrigin: string;
 }
 
 /**
@@ -33,8 +35,34 @@ export function normalizeApiBaseUrl(rawUrl?: string): string {
   return `${cleaned}/api`;
 }
 
+/**
+ * Resolves the configured NIVARAN application URL.
+ * Falls back to local development URL (http://localhost:5174) if not set.
+ */
+export function resolveNivaranUrl(rawUrl?: string): string {
+  const url = (rawUrl !== undefined ? rawUrl : import.meta.env.VITE_NIVARAN_APP_URL) || 'http://localhost:5174';
+  const trimmed = url.trim();
+  return trimmed || 'http://localhost:5174';
+}
+
+/**
+ * Derives the origin (protocol + host + port) from the configured NIVARAN application URL.
+ * Strictly used for window postMessage origin targeting and listener validation.
+ */
+export function resolveNivaranOrigin(rawUrl?: string): string {
+  const targetUrl = resolveNivaranUrl(rawUrl);
+  try {
+    return new URL(targetUrl).origin;
+  } catch {
+    return 'http://localhost:5174';
+  }
+}
+
 export const config: FrontendConfig = {
   apiBaseUrl: normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'),
   appName: import.meta.env.VITE_APP_NAME || 'VYASA',
   appTagline: import.meta.env.VITE_APP_TAGLINE || 'Research & Governance Ecosystem',
+  nivaranAppUrl: resolveNivaranUrl(),
+  nivaranOrigin: resolveNivaranOrigin(),
 };
+

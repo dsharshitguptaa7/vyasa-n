@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeApiBaseUrl, config } from '../env';
+import { normalizeApiBaseUrl, resolveNivaranUrl, resolveNivaranOrigin, config } from '../env';
 import { authService } from '../../services/authService';
 
 describe('API Base URL Normalization & AuthService Endpoint Resolution', () => {
@@ -39,5 +39,39 @@ describe('API Base URL Normalization & AuthService Endpoint Resolution', () => {
 
     expect(loginUrl).toBe('http://localhost:8000/api/auth/login');
     expect(meUrl).toBe('http://localhost:8000/api/auth/me');
+  });
+});
+
+describe('NIVARAN App URL & Origin Configuration (VITE_NIVARAN_APP_URL)', () => {
+  it('Requirement 4: Local development configuration resolves to http://localhost:5174', () => {
+    expect(resolveNivaranUrl()).toBe('http://localhost:5174');
+    expect(resolveNivaranUrl('')).toBe('http://localhost:5174');
+    expect(resolveNivaranUrl(undefined)).toBe('http://localhost:5174');
+    expect(resolveNivaranOrigin()).toBe('http://localhost:5174');
+  });
+
+  it('Requirement 5: Production configuration resolves to production NIVARAN URL and derives origin', () => {
+    const prodUrl = 'https://nivaran-production-app.onrender.com';
+    expect(resolveNivaranUrl(prodUrl)).toBe(prodUrl);
+    expect(resolveNivaranOrigin(prodUrl)).toBe('https://nivaran-production-app.onrender.com');
+
+    // Handles subpaths or trailing slashes while preserving exact origin
+    const prodUrlWithPath = 'https://nivaran-production-app.onrender.com/app/triage?tab=active';
+    expect(resolveNivaranOrigin(prodUrlWithPath)).toBe('https://nivaran-production-app.onrender.com');
+  });
+
+  it('Derives exact origin matching protocol, hostname, and port', () => {
+    expect(resolveNivaranOrigin('http://localhost:5174/subpath')).toBe('http://localhost:5174');
+    expect(resolveNivaranOrigin('https://subdomain.university.edu:8443')).toBe('https://subdomain.university.edu:8443');
+  });
+
+  it('Safely falls back to default origin on invalid URL string', () => {
+    expect(resolveNivaranOrigin('not a valid url')).toBe('http://localhost:5174');
+  });
+
+  it('config object exposes valid nivaranAppUrl and nivaranOrigin', () => {
+    expect(config.nivaranAppUrl).toBeDefined();
+    expect(config.nivaranOrigin).toBeDefined();
+    expect(new URL(config.nivaranAppUrl).origin).toBe(config.nivaranOrigin);
   });
 });

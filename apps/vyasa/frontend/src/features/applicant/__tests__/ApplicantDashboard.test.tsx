@@ -259,7 +259,7 @@ describe('Applicant Dashboard & Session Experience', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Open NIVARAN/i }));
 
-    expect(openSpy).toHaveBeenCalledWith('http://localhost:5174?role=applicant', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('http://localhost:5174', '_blank');
     expect(screen.getByText(/Cross-Pillar Handoff Active:/i)).toBeInTheDocument();
   });
 

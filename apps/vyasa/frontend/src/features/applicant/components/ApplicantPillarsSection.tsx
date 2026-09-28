@@ -10,16 +10,19 @@ export const ApplicantPillarsSection: React.FC = () => {
   const [handoffStatus, setHandoffStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    const nivaranUrl = import.meta.env.VITE_NIVARAN_APP_URL || 'http://localhost:5174';
+    const nivaranOrigin = new URL(nivaranUrl).origin;
+
     const handleMessage = (event: MessageEvent) => {
-      // Security check: Only respond to NIVARAN frontend
-      if (event.origin !== 'http://localhost:5174') return;
+      // Security check: Only respond to configured NIVARAN frontend
+      if (event.origin !== nivaranOrigin) return;
 
       if (event.data?.type === 'REQUEST_VYASA_SESSION') {
         const token = authService.getToken();
         if (token && event.source) {
           (event.source as Window).postMessage(
             { type: 'VYASA_SESSION_TOKEN', token, role: 'applicant' },
-            event.origin
+            nivaranOrigin
           );
         }
       }
@@ -57,8 +60,9 @@ export const ApplicantPillarsSection: React.FC = () => {
   }, []);
 
   const handleOpenNivaran = () => {
-    const targetUrl = 'http://localhost:5174?role=applicant';
-    const nivaranWin = window.open(targetUrl, '_blank');
+    const nivaranUrl = import.meta.env.VITE_NIVARAN_APP_URL || 'http://localhost:5174';
+    const nivaranOrigin = new URL(nivaranUrl).origin;
+    const nivaranWin = window.open(nivaranUrl, '_blank');
     const token = authService.getToken();
     if (nivaranWin && token) {
       setHandoffStatus('Cross-pillar session dispatched to NIVARAN.');
@@ -66,7 +70,7 @@ export const ApplicantPillarsSection: React.FC = () => {
         try {
           nivaranWin.postMessage(
             { type: 'VYASA_SESSION_TOKEN', token, role: 'applicant' },
-            'http://localhost:5174'
+            nivaranOrigin
           );
         } catch {
           // ignore cross-origin restrictions if child not yet ready
