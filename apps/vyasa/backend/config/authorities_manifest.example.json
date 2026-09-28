@@ -1,0 +1,115 @@
+{
+  "_comment": "VYASA Institutional Authority Identities Manifest Template (16 Slots: 13 Authorities, 1 Dean, 1 Manager, 1 Guest Member). Fill in real institutional values in a private environment or deploy-time secret; never commit production credentials to source control.",
+  "AUTHORITY_01": {
+    "id": "10000000-0000-0000-0000-000000000001",
+    "email": "authority01@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 01",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_02": {
+    "id": "10000000-0000-0000-0000-000000000002",
+    "email": "authority02@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 02",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_03": {
+    "id": "10000000-0000-0000-0000-000000000003",
+    "email": "authority03@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 03",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_04": {
+    "id": "10000000-0000-0000-0000-000000000004",
+    "email": "authority04@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 04",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_05": {
+    "id": "10000000-0000-0000-0000-000000000005",
+    "email": "authority05@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 05",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_06": {
+    "id": "10000000-0000-0000-0000-000000000006",
+    "email": "authority06@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 06",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_07": {
+    "id": "10000000-0000-0000-0000-000000000007",
+    "email": "authority07@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 07",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_08": {
+    "id": "10000000-0000-0000-0000-000000000008",
+    "email": "authority08@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 08",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_09": {
+    "id": "10000000-0000-0000-0000-000000000009",
+    "email": "authority09@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 09",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_10": {
+    "id": "10000000-0000-0000-0000-000000000010",
+    "email": "authority10@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 10",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_11": {
+    "id": "10000000-0000-0000-0000-000000000011",
+    "email": "authority11@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 11",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_12": {
+    "id": "10000000-0000-0000-0000-000000000012",
+    "email": "authority12@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 12",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_13": {
+    "id": "10000000-0000-0000-0000-000000000013",
+    "email": "authority13@institution.ac.in",
+    "first_name": "Institutional",
+    "last_name": "Authority 13",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_14": {
+    "id": "10000000-0000-0000-0000-000000000014",
+    "email": "dean@institution.ac.in",
+    "first_name": "Dean",
+    "last_name": "Office",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_15": {
+    "id": "10000000-0000-0000-0000-000000000015",
+    "email": "manager@institution.ac.in",
+    "first_name": "Central",
+    "last_name": "Manager",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  },
+  "AUTHORITY_16": {
+    "id": "10000000-0000-0000-0000-000000000016",
+    "email": "guestmember@institution.ac.in",
+    "first_name": "Guest",
+    "last_name": "Member",
+    "password": "CHANGE_IN_PRODUCTION_ENV_ONLY"
+  }
+}

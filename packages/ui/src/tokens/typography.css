@@ -1,0 +1,58 @@
+/**
+ * VYASA Design System: Typography System
+ * Scholarly, prestigious, and contemporary with dual English & Devanagari optimization.
+ */
+
+:root {
+  /* Font Stacks */
+  --vyasa-font-sans: 'Noto Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --vyasa-font-devanagari: 'Noto Sans Devanagari', 'Mukta', 'Kohinoor Devanagari', 'Mangal', 'Nirmala UI', sans-serif;
+  --vyasa-font-scholarly: 'Cinzel', 'Noto Serif Devanagari', 'Georgia', 'Cambria', serif;
+  --vyasa-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Font Sizes */
+  --vyasa-text-xs: 0.75rem;    /* 12px */
+  --vyasa-text-sm: 0.875rem;   /* 14px */
+  --vyasa-text-base: 1rem;     /* 16px */
+  --vyasa-text-lg: 1.125rem;   /* 18px */
+  --vyasa-text-xl: 1.25rem;    /* 20px */
+  --vyasa-text-2xl: 1.5rem;    /* 24px */
+  --vyasa-text-3xl: 1.875rem;  /* 30px */
+  --vyasa-text-4xl: 2.25rem;   /* 36px */
+  --vyasa-text-5xl: 3rem;      /* 48px */
+
+  /* Font Weights */
+  --vyasa-weight-regular: 400;
+  --vyasa-weight-medium: 500;
+  --vyasa-weight-semibold: 600;
+  --vyasa-weight-bold: 700;
+  --vyasa-weight-extrabold: 800;
+
+  /* Line Heights */
+  --vyasa-leading-tight: 1.2;
+  --vyasa-leading-snug: 1.35;
+  --vyasa-leading-normal: 1.5;
+  --vyasa-leading-relaxed: 1.65;
+  --vyasa-leading-loose: 1.8;
+
+  /* Letter Spacing */
+  --vyasa-tracking-tight: -0.025em;
+  --vyasa-tracking-normal: 0em;
+  --vyasa-tracking-wide: 0.035em;
+  --vyasa-tracking-wider: 0.08em;
+  --vyasa-tracking-widest: 0.15em;
+}
+
+/* Devanagari Typography Utility */
+.vyasa-devanagari {
+  font-family: var(--vyasa-font-devanagari);
+  font-feature-settings: 'blws' 1, 'abvs' 1, 'psts' 1, 'haln' 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Scholarly Display Heading */
+.vyasa-scholarly-heading {
+  font-family: var(--vyasa-font-scholarly);
+  letter-spacing: var(--vyasa-tracking-wider);
+  text-transform: uppercase;
+}

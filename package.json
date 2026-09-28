@@ -1,0 +1,10 @@
+{
+  "name": "vyasa-ecosystem",
+  "private": true,
+  "description": "VYASA Research & Governance Ecosystem",
+  "workspaces": [
+    "apps/vyasa/*",
+    "apps/pillars/*/*",
+    "packages/*"
+  ]
+}

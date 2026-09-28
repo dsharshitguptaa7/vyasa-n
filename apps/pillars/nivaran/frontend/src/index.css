@@ -1,0 +1,28 @@
+/* Import Shared VYASA UI Design System Tokens and Components */
+@import '../../../../../packages/ui/src/styles/index.css';
+
+/* NIVARAN Pillar Ground & Baseline */
+html, body {
+  background-color: var(--vyasa-ivory, #FAF8F5);
+  color: var(--vyasa-text, #1E293B);
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  line-height: var(--vyasa-leading-normal, 1.5);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* NIVARAN Pillar Accent & Theming */
+.nivaran-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}

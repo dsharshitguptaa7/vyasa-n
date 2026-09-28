@@ -1,0 +1,206 @@
+/* Import Shared VYASA UI Design System Tokens and Components */
+@import '../../../../packages/ui/src/styles/index.css';
+
+/* Application Ground & Baseline */
+html, body {
+  background-color: var(--vyasa-ivory);
+  color: var(--vyasa-text);
+  font-family: var(--vyasa-font-sans);
+  line-height: var(--vyasa-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Ecosystem Visual Styles */
+.vyasa-hero-scholarly {
+  padding: var(--vyasa-space-12) 0 var(--vyasa-space-8);
+  text-align: center;
+  position: relative;
+}
+
+.vyasa-hero-scholarly__emblem-seal {
+  display: inline-flex;
+  margin-bottom: var(--vyasa-space-4);
+}
+
+.vyasa-hero-scholarly__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vyasa-space-2);
+  padding: var(--vyasa-space-1) var(--vyasa-space-3);
+  background-color: var(--vyasa-primary-surface);
+  border: 1px solid var(--vyasa-primary-border);
+  border-radius: var(--vyasa-radius-pill);
+  font-size: var(--vyasa-text-xs);
+  font-weight: var(--vyasa-weight-semibold);
+  letter-spacing: var(--vyasa-tracking-wider);
+  text-transform: uppercase;
+  color: var(--vyasa-primary);
+  margin-bottom: var(--vyasa-space-4);
+}
+
+.vyasa-hero-scholarly__title {
+  font-family: var(--vyasa-font-scholarly);
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: var(--vyasa-weight-bold);
+  color: var(--vyasa-primary);
+  letter-spacing: var(--vyasa-tracking-wider);
+  line-height: 1.1;
+  margin-bottom: var(--vyasa-space-3);
+}
+
+.vyasa-hero-scholarly__tagline {
+  font-family: var(--vyasa-font-devanagari);
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  font-weight: var(--vyasa-weight-semibold);
+  color: var(--vyasa-saffron);
+  letter-spacing: 0.01em;
+  margin-bottom: var(--vyasa-space-4);
+}
+
+.vyasa-hero-scholarly__lead {
+  font-size: var(--vyasa-text-lg);
+  color: var(--vyasa-text-secondary);
+  max-width: 740px;
+  margin: 0 auto var(--vyasa-space-8);
+  line-height: var(--vyasa-leading-relaxed);
+}
+
+.vyasa-hero-scholarly__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vyasa-space-4);
+  flex-wrap: wrap;
+}
+
+/* Ecosystem Architecture Diagram (Scholarly & Institutional) */
+.vyasa-ecosystem-visual {
+  background-color: var(--vyasa-surface);
+  border: 1px solid var(--vyasa-border);
+  border-radius: var(--vyasa-radius-md);
+  padding: var(--vyasa-space-8);
+  box-shadow: var(--vyasa-shadow-sm);
+  margin: var(--vyasa-space-8) 0;
+  position: relative;
+}
+
+.vyasa-ecosystem-visual::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vyasa-primary) 0%, var(--vyasa-gold) 50%, var(--vyasa-teal) 100%);
+  border-radius: var(--vyasa-radius-md) var(--vyasa-radius-md) 0 0;
+}
+
+.vyasa-ecosystem-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--vyasa-space-6);
+  margin-top: var(--vyasa-space-6);
+}
+
+.vyasa-ecosystem-pillar-track {
+  background-color: var(--vyasa-surface-warm);
+  border: 1px dashed var(--vyasa-border);
+  border-radius: var(--vyasa-radius-sm);
+  padding: var(--vyasa-space-6);
+  margin-top: var(--vyasa-space-6);
+  text-align: center;
+}
+
+.vyasa-ecosystem-pillar-track__tags {
+  display: flex;
+  justify-content: center;
+  gap: var(--vyasa-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--vyasa-space-3);
+}
+
+/* Diagnostic / Health Banner in Ivory Theme */
+.vyasa-health-panel {
+  background-color: var(--vyasa-surface-warm);
+  border: 1px solid var(--vyasa-border-subtle);
+  border-radius: var(--vyasa-radius-sm);
+  padding: var(--vyasa-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--vyasa-space-4);
+}
+
+.vyasa-health-panel__info {
+  display: flex;
+  align-items: center;
+  gap: var(--vyasa-space-3);
+  font-size: var(--vyasa-text-sm);
+  color: var(--vyasa-text);
+}
+
+/* Institutional Footer */
+.vyasa-institutional-footer {
+  background-color: var(--vyasa-primary);
+  color: #ffffff;
+  border-top: 3px solid var(--vyasa-gold);
+  margin-top: auto;
+  padding: var(--vyasa-space-10) 0 var(--vyasa-space-6);
+}
+
+.vyasa-institutional-footer__top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--vyasa-space-8);
+  margin-bottom: var(--vyasa-space-8);
+}
+
+.vyasa-institutional-footer__tagline {
+  font-family: var(--vyasa-font-devanagari);
+  color: var(--vyasa-gold-border);
+  font-size: var(--vyasa-text-sm);
+  margin-top: var(--vyasa-space-2);
+}
+
+.vyasa-institutional-footer__desc {
+  font-size: var(--vyasa-text-sm);
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 440px;
+  line-height: var(--vyasa-leading-relaxed);
+  margin-top: var(--vyasa-space-2);
+}
+
+.vyasa-institutional-footer__bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: var(--vyasa-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--vyasa-text-xs);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Responsive adjust */
+@media (max-width: 768px) {
+  .vyasa-ecosystem-grid {
+    grid-template-columns: 1fr;
+  }
+  .vyasa-institutional-footer__top {
+    flex-direction: column;
+  }
+  .vyasa-health-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--vyasa-space-3);
+  }
+}

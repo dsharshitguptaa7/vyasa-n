@@ -1,0 +1,26 @@
+{
+  "name": "@vyasa/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared UI Design System and Component Library for VYASA Ecosystem",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./branding": "./src/branding/index.ts",
+    "./styles/*": "./src/styles/*"
+  },
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "^5.7.3"
+  }
+}

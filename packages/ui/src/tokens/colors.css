@@ -1,0 +1,72 @@
+/**
+ * VYASA Design System: Semantic Color Tokens
+ *
+ * 1. Deep Scholarly Blue  - Authority, knowledge, institutional trust (Primary)
+ * 2. Refined Indian Saffron - Accent, cultural identity, energy (Careful highlight)
+ * 3. Academic Gold         - Premium scholarly accent, subtle borders/details
+ * 4. Technology Teal       - AI/technology accent, interactive states, indicators
+ * 5. Ivory                 - Warm academic ground, non-glare foundation
+ * 6. Soft Black            - High-contrast, scholarly typography
+ */
+
+:root {
+  /* 1. Deep Scholarly Blue */
+  --vyasa-primary: #0f2b48;
+  --vyasa-primary-hover: #091c30;
+  --vyasa-primary-light: #1b4572;
+  --vyasa-primary-surface: #eff5fa;
+  --vyasa-primary-border: #cadbef;
+  --vyasa-primary-contrast: #ffffff;
+
+  /* 2. Refined Indian Saffron */
+  --vyasa-saffron: #c85602;
+  --vyasa-saffron-hover: #a54400;
+  --vyasa-saffron-light: #fef4eb;
+  --vyasa-saffron-border: #fbd2ad;
+  --vyasa-saffron-contrast: #ffffff;
+
+  /* 3. Academic Gold */
+  --vyasa-gold: #b2811a;
+  --vyasa-gold-hover: #8f650e;
+  --vyasa-gold-light: #fcf7eb;
+  --vyasa-gold-border: #ecdfba;
+  --vyasa-gold-contrast: #ffffff;
+
+  /* 4. Technology Teal */
+  --vyasa-teal: #0d766e;
+  --vyasa-teal-hover: #09524c;
+  --vyasa-teal-light: #f0fdfa;
+  --vyasa-teal-border: #99f6e4;
+  --vyasa-teal-contrast: #ffffff;
+
+  /* 5. Ivory & Neutral Backgrounds */
+  --vyasa-ivory: #faf7f2;
+  --vyasa-ivory-dark: #f2ede4;
+  --vyasa-surface: #ffffff;
+  --vyasa-surface-warm: #fdfbf7;
+  --vyasa-surface-muted: #f6f2ea;
+
+  /* 6. Soft Black & Content Colors */
+  --vyasa-text: #19202a;
+  --vyasa-text-secondary: #4b5565;
+  --vyasa-text-muted: #6b7280;
+  --vyasa-text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --vyasa-border: #e3dcd1;
+  --vyasa-border-subtle: #ede7de;
+  --vyasa-border-focus: #0f2b48;
+
+  /* Semantic Feedback Tokens */
+  --vyasa-success: #15803d;
+  --vyasa-success-light: #f0fdf4;
+  --vyasa-success-border: #bbf7d0;
+
+  --vyasa-warning: #b45309;
+  --vyasa-warning-light: #fffbeb;
+  --vyasa-warning-border: #fde68a;
+
+  --vyasa-danger: #b91c1c;
+  --vyasa-danger-light: #fef2f2;
+  --vyasa-danger-border: #fecaca;
+}

@@ -1,0 +1,214 @@
+# VYASA Core Backend Service
+
+Foundational platform, identity, and governance API service for the **VYASA Research & Governance Ecosystem** at Chhatrapati Shahu Ji Maharaj University, Kanpur (CSJMU).
+
+Built with **Python**, **FastAPI**, **SQLAlchemy 2.x**, **PostgreSQL** (Neon), and **Alembic**.
+
+---
+
+## 1. Architectural Principles
+
+- **Independent Platform Core**: VYASA Core owns platform-level services:
+  - User identity and profiles
+  - Role-Based Access Control (RBAC: roles & permissions)
+  - Modular Pillar Registry & discovery contracts
+  - Platform notifications dispatching and tracking
+- **Decoupled Pillars**: VYASA Core does **not** contain pillar-specific business logic or domain tables (e.g. NIVARAN grievance tickets, committees, or workflows). Pillars interface with VYASA through standardized contracts and identity tokens.
+- **Single Modern Stack**: Built entirely on FastAPI + PostgreSQL with async-ready connection pooling, declarative SQLAlchemy 2.x ORM models, and strict Pydantic v2 validation.
+
+---
+
+## 2. Directory Structure
+
+```
+apps/vyasa/backend/
+├── app/
+│   ├── main.py                     # FastAPI application factory & lifespan
+│   ├── core/
+│   │   ├── config.py               # Pydantic Settings & environment parsing
+│   │   ├── database.py             # SQLAlchemy 2.x engine, pooling & SessionLocal
+│   │   ├── security.py             # PBKDF2 hashing & JWT token foundation
+│   │   └── logging.py              # Structured logging configuration
+│   ├── api/
+│   │   ├── router.py               # Central route aggregator (/api)
+│   │   ├── dependencies.py         # DB session, pagination & auth dependencies
+│   │   └── routes/
+│   │       ├── health.py           # GET /api/health, GET /api/health/db
+│   │       ├── pillars.py          # GET /api/pillars, GET /api/pillars/{slug}
+│   │       ├── users.py            # GET /api/users, GET /api/users/{id}, POST /api/users
+│   │       ├── roles.py            # GET /api/roles, GET /api/roles/{name_or_id}
+│   │       ├── permissions.py      # GET /api/permissions
+│   │       └── notifications.py    # GET /api/notifications, PATCH /api/notifications/{id}/read
+│   ├── models/                     # Declarative SQLAlchemy ORM models
+│   │   ├── user.py                 # users table
+│   │   ├── role.py                 # roles table & user_roles junction
+│   │   ├── permission.py           # permissions table & role_permissions junction
+│   │   ├── pillar.py               # pillar_registry table
+│   │   └── notification.py         # notifications table
+│   ├── schemas/                    # Pydantic v2 schemas
+│   │   ├── common.py               # ApiResponse envelope & pagination
+│   │   ├── health.py               # Service & DB health payloads
+│   │   ├── pillar.py               # Pillar metadata models
+│   │   ├── user.py                 # User creation & response models
+│   │   ├── role.py                 # Role & permission models
+│   │   └── notification.py         # Notification models
+│   └── services/
+│       └── seed_service.py         # Idempotent DB seeder (roles, permissions, pillars)
+├── alembic/
+│   ├── env.py                      # Alembic migration runner
+│   └── versions/                   # Versioned schema migrations
+├── tests/                          # Automated Pytest suite (12 test modules)
+├── .env.example                    # Safe environment template
+├── alembic.ini                     # Alembic configuration
+├── pyproject.toml                  # Python package configuration
+├── pytest.ini                      # Pytest runner settings
+├── requirements.txt                # Production and test dependencies
+└── README.md                       # Service documentation
+```
+
+---
+
+## 3. Prerequisites
+
+- **Python**: 3.11+ (Python 3.12, 3.13, or 3.14 recommended)
+- **Database**: PostgreSQL 15+ or Neon Serverless PostgreSQL instance
+- **Package Manager**: `uv` or `pip`
+
+---
+
+## 4. Setup & Installation
+
+### Step 1: Create and Activate Virtual Environment
+
+```powershell
+# Using uv (recommended)
+uv venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Or using standard python
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### Step 2: Install Dependencies
+
+```powershell
+uv pip install -r requirements.txt
+# Or: pip install -r requirements.txt
+```
+
+### Step 3: Configure Environment Variables
+
+Copy the template file to `.env`:
+
+```powershell
+cp .env.example .env
+```
+
+Configure your `.env` variables:
+
+```ini
+PORT=5000
+NODE_ENV=development
+SERVICE_NAME=vyasa-core-backend
+API_PREFIX=/api
+CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+
+# PostgreSQL Connection String (Neon)
+DATABASE_URL=postgresql://username:password@ep-sample-pooler.region.neon.tech/neondb?sslmode=require
+
+# Database Connection Pool Settings
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=10
+DB_POOL_TIMEOUT=30
+DB_POOL_RECYCLE=1800
+
+# Security Foundation
+SECRET_KEY=change-this-to-a-secure-random-secret-key-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+> **Security Note**: Never commit `.env` or hardcode database credentials.
+
+---
+
+## 5. Database Migrations & Seeding
+
+### Run Migrations
+
+Alembic manages all schema revisions. Apply migrations to update the database schema:
+
+```powershell
+alembic upgrade head
+```
+
+### Seed Initial Platform Data
+
+Populate default system roles (`administrator`, `authority`, `applicant`), platform permissions, and default ecosystem pillars (`pillar-1`, `pillar-2`, `pillar-3`, `nivaran`). The seed script is completely **idempotent**:
+
+```powershell
+python -m app.services.seed_service
+```
+
+---
+
+## 6. Running the Service
+
+### Start Development Server
+
+Run FastAPI with auto-reload:
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+```
+
+The service will start on `http://localhost:5000`.
+
+### Interactive API Documentation
+
+FastAPI automatically generates interactive OpenAPI/Swagger docs:
+
+- **Swagger UI**: `http://localhost:5000/docs`
+- **ReDoc**: `http://localhost:5000/redoc`
+- **OpenAPI Schema**: `http://localhost:5000/openapi.json`
+
+---
+
+## 7. API Endpoints Overview
+
+All platform routes are prefixed by `/api`:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Root server status |
+| `GET` | `/api/health` | Service uptime and identity |
+| `GET` | `/api/health/db` | Live Neon PostgreSQL connection and latency ping (`SELECT 1`) |
+| `GET` | `/api/pillars` | List enabled ecosystem pillars (supports `X-User-Roles` filtering) |
+| `GET` | `/api/pillars/{slug}` | Contract metadata for a specific pillar (e.g. `nivaran`) |
+| `GET` | `/api/users` | List platform users with assigned roles (paginated) |
+| `GET` | `/api/users/{user_id}` | Retrieve user profile by UUID |
+| `POST` | `/api/users` | Create user profile with hashed password and role assignment |
+| `GET` | `/api/roles` | List all platform roles with linked permissions |
+| `GET` | `/api/roles/{name_or_id}` | Retrieve role by name slug or UUID |
+| `GET` | `/api/permissions` | List all platform permissions |
+| `GET` | `/api/notifications` | List platform notifications (filter by `user_id`, `is_read`) |
+| `POST` | `/api/notifications` | Dispatch notification to target user |
+| `PATCH` | `/api/notifications/{id}/read` | Mark notification as read |
+
+---
+
+## 8. Running Automated Tests
+
+Run the full Pytest test suite:
+
+```powershell
+pytest -v
+```
+
+All 27 automated tests cover:
+- Database connectivity and pooling
+- Model ORM creation, relationships, and cascade behaviors
+- Password hashing (PBKDF2) and JWT token validation
+- Idempotent database seeding
+- Health, DB health, pillar, user, role, permission, and notification API endpoints
