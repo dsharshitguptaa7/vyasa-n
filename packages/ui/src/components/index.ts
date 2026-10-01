@@ -9,3 +9,4 @@ export * from './Modal';
 export * from './Toast';
 export * from './Layout';
 export * from './Feedback';
+export * from './Icon';

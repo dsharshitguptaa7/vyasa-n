@@ -53,7 +53,7 @@ Point to an external JSON manifest outside git:
 ```bash
 AUTHORITIES_MANIFEST_PATH=/secure/credentials/authorities_manifest.json
 ```
-A template is provided at [`apps/vyasa/backend/config/authorities_manifest.example.json`](file:///C:/Projects/VYASA/apps/vyasa/backend/config/authorities_manifest.example.json).
+A template is provided at [`backend/config/authorities_manifest.example.json`](file:///C:/Projects/VYASA/backend/config/authorities_manifest.example.json).
 
 ### Pathway B: Inline JSON Environment Variable
 Pass the JSON string directly via environment variable in deployment:
@@ -92,7 +92,7 @@ Before any database write occurs, the seed engine runs exhaustive pre-flight val
 
 ### Dedicated Authority Seeding CLI
 ```bash
-# In apps/vyasa/backend
+# In backend
 python -m app.services.authority_seed_service --manifest config/authorities_manifest.json
 
 # Or load from environment variables (AUTHORITIES_MANIFEST_JSON or slot variables)

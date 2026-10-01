@@ -1,0 +1,916 @@
+/**
+ * VYASA Public Landing Page - Institutional Vision Story Styling
+ * Editorial, Scholarly, Prestigious, Restrained, and Technologically Sophisticated
+ */
+
+/* 1. Hero Editorial Layout */
+.vyasa-landing-hero {
+  padding: 52px 32px 48px;
+  text-align: center;
+  position: relative;
+  scroll-margin-top: 90px;
+  background: radial-gradient(circle at 50% 0%, rgba(212, 160, 23, 0.05) 0%, rgba(255, 255, 255, 0.7) 60%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(212, 160, 23, 0.2);
+  border-radius: var(--vyasa-radius-xl, 16px);
+  box-shadow: 0 4px 20px -2px rgba(15, 43, 72, 0.04), 0 1px 3px rgba(15, 43, 72, 0.02);
+  margin-top: 24px;
+  margin-bottom: 24px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+
+.vyasa-landing-hero:hover {
+  border-color: rgba(212, 160, 23, 0.38);
+  box-shadow: 0 16px 40px -8px rgba(15, 43, 72, 0.08), 0 0 0 1px rgba(212, 160, 23, 0.15);
+}
+
+.vyasa-landing-hero__seals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.vyasa-landing-hero__seal-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.vyasa-landing-hero__seal-wrap:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.vyasa-landing-hero__seal--csjmu {
+  width: 104px !important;
+  height: 104px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease;
+}
+
+.vyasa-landing-hero__seal--csjmu img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+.vyasa-landing-hero__seal--vyasa {
+  height: 72px !important;
+  width: 108px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease;
+}
+
+.vyasa-landing-hero__seal--vyasa img {
+  height: 72px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+.vyasa-landing-hero__divider {
+  width: 1.5px;
+  height: 52px;
+  background-color: var(--vyasa-border, #e3dcd1);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.vyasa-landing-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background-color: var(--vyasa-surface-warm, #fdfbf7);
+  border: 1px solid var(--vyasa-gold-border, #ecdfba);
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vyasa-primary, #0f2b48);
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vyasa-landing-hero__eyebrow:hover {
+  transform: translateY(-1px);
+  border-color: var(--vyasa-gold, #b2811a);
+  box-shadow: 0 3px 8px rgba(178, 129, 26, 0.12);
+}
+
+.vyasa-landing-hero__title {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-size: clamp(2.8rem, 6vw, 4.2rem);
+  font-weight: 800;
+  color: var(--vyasa-primary, #0f2b48);
+  letter-spacing: 0.12em;
+  line-height: 1.05;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.vyasa-landing-hero__tagline {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-size: clamp(1.25rem, 2.8vw, 1.85rem);
+  font-weight: 600;
+  color: var(--vyasa-saffron, #c85602);
+  margin-bottom: 20px;
+  letter-spacing: 0.02em;
+}
+
+.vyasa-landing-hero__secondary {
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  font-weight: 600;
+  color: var(--vyasa-primary-light, #1b4572);
+  max-width: 820px;
+  margin: 0 auto 16px;
+  line-height: 1.5;
+}
+
+.vyasa-landing-hero__statement {
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--vyasa-text-secondary, #4b5565);
+  max-width: 680px;
+  margin: 0 auto 32px;
+  line-height: 1.6;
+}
+
+.vyasa-landing-hero__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* 2. Editorial Section Spacing & Dividers */
+.vyasa-story-section {
+  padding: 56px 0;
+  position: relative;
+  scroll-margin-top: 90px;
+}
+
+.vyasa-story-divider {
+  width: 72px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--vyasa-gold, #b2811a), transparent);
+  margin: 0 auto 36px;
+}
+
+/* 3. The Vision Section & Subtle Institutional Attribution */
+.vyasa-vision-container {
+  max-width: 840px;
+  margin: 36px auto 0;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-radius: var(--vyasa-radius-lg, 12px);
+  padding: 36px 40px;
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.04);
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.vyasa-vision-container:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(15, 43, 72, 0.08);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+
+.vyasa-vision-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vyasa-primary, #0f2b48) 0%, var(--vyasa-gold, #b2811a) 50%, var(--vyasa-saffron, #c85602) 100%);
+  border-top-left-radius: var(--vyasa-radius-lg, 12px);
+  border-top-right-radius: var(--vyasa-radius-lg, 12px);
+}
+
+.vyasa-vision-narrative {
+  font-size: 1.08rem;
+  line-height: 1.8;
+  color: var(--vyasa-text, #19202a);
+}
+
+.vyasa-vision-narrative p {
+  margin-bottom: 20px;
+}
+
+/* Subtle, Restrained Institutional Attribution */
+.vyasa-attribution-block {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--vyasa-gold-border, #ecdfba);
+  position: relative;
+}
+
+.vyasa-attribution-divider {
+  width: 44px;
+  height: 2px;
+  background-color: var(--vyasa-gold, #b2811a);
+  margin-bottom: 14px;
+  border-radius: 1px;
+}
+
+.vyasa-attribution-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.vyasa-attribution-inst-note {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--vyasa-text-secondary, #4b5565);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.vyasa-attribution-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vyasa-gold, #b2811a);
+  margin-bottom: 4px;
+}
+
+.vyasa-attribution-person {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  margin-bottom: 2px;
+}
+
+.vyasa-attribution-credential {
+  font-size: 0.875rem;
+  color: var(--vyasa-text-secondary, #4b5565);
+}
+
+/* 4. Four Domains - Centerpiece Composition */
+.vyasa-domains-composition {
+  margin-top: 48px;
+  position: relative;
+}
+
+.vyasa-domains-hub-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 24px;
+  align-items: center;
+}
+
+.vyasa-domains-cell--top {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.vyasa-domains-cell--left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.vyasa-domains-cell--center {
+  grid-column: 2;
+  grid-row: 2;
+  text-align: center;
+  padding: 32px 20px;
+  background: var(--vyasa-surface-warm, #fdfbf7);
+  border: 2px solid var(--vyasa-gold-border, #ecdfba);
+  border-radius: 50%;
+  width: 220px;
+  height: 220px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 30px rgba(15, 43, 72, 0.08);
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.vyasa-domains-cell--center:hover {
+  transform: scale(1.04);
+  box-shadow: 0 14px 38px rgba(15, 43, 72, 0.14);
+  border-color: var(--vyasa-gold, #b2811a);
+}
+
+.vyasa-domains-cell--right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.vyasa-domains-cell--bottom {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+/* Domain Cards */
+.vyasa-domain-card {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-radius: var(--vyasa-radius-md, 8px);
+  padding: 24px;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(15, 43, 72, 0.03);
+}
+
+.vyasa-domain-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(15, 43, 72, 0.08);
+  border-color: var(--vyasa-primary-border, #b5c4d6);
+}
+
+.vyasa-domain-card--operational {
+  border-color: var(--vyasa-teal, #0d766e);
+  background: linear-gradient(180deg, #ffffff 0%, var(--vyasa-teal-light, #f0fdfa) 100%);
+  box-shadow: 0 4px 20px rgba(13, 118, 110, 0.08);
+}
+
+.vyasa-domain-card--operational:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 36px rgba(13, 118, 110, 0.16);
+  border-color: var(--vyasa-teal, #0d766e);
+}
+
+.vyasa-domain-card--conceptual {
+  background: var(--vyasa-surface-warm, #fdfbf7);
+  border-style: dashed;
+}
+
+.vyasa-domain-card--conceptual:hover {
+  border-style: solid;
+  border-color: var(--vyasa-gold, #b2811a);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(178, 129, 26, 0.1);
+}
+
+.vyasa-domain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.vyasa-domain-title {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  margin: 0;
+}
+
+.vyasa-domain-dimension {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vyasa-saffron, #c85602);
+  margin-bottom: 8px;
+}
+
+.vyasa-domain-role {
+  font-size: 0.875rem;
+  color: var(--vyasa-text-secondary, #4b5565);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+/* 5. NIVARAN-AI Operational Feature Section */
+.vyasa-nivaran-banner {
+  background: linear-gradient(135deg, #091c30 0%, #0f2b48 100%);
+  color: #ffffff;
+  border-radius: var(--vyasa-radius-lg, 12px);
+  padding: 48px;
+  margin-top: 36px;
+  border-top: 3px solid var(--vyasa-gold, #b2811a);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgba(9, 28, 48, 0.15);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vyasa-nivaran-banner:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 50px rgba(9, 28, 48, 0.25), 0 0 0 1px rgba(212, 160, 23, 0.2);
+}
+
+.vyasa-nivaran-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vyasa-gold-border, #ecdfba);
+  margin-bottom: 12px;
+}
+
+.vyasa-nivaran-header-block {
+  margin-bottom: 20px;
+}
+
+.vyasa-nivaran-title-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+.vyasa-nivaran-title {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+/* Subtle Contribution Indicator Button & Popover */
+.vyasa-nivaran-credit-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.vyasa-nivaran-credit-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(236, 223, 186, 0.35);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vyasa-gold-border, #ecdfba);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  transition: all 0.18s ease;
+  line-height: 1;
+}
+
+.vyasa-nivaran-credit-btn:hover,
+.vyasa-nivaran-credit-btn:focus-visible {
+  background: rgba(212, 160, 23, 0.25);
+  border-color: var(--vyasa-gold, #d4a017);
+  color: #ffffff;
+  outline: 2px solid var(--vyasa-gold, #d4a017);
+  outline-offset: 2px;
+}
+
+.vyasa-nivaran-credit-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0a1f33;
+  border: 1px solid var(--vyasa-gold, #b2811a);
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  width: 280px;
+  max-width: 90vw;
+  text-align: left;
+  animation: vyasaCreditFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+@keyframes vyasaCreditFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.vyasa-nivaran-credit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(236, 223, 186, 0.15);
+}
+
+.vyasa-nivaran-credit-module {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+}
+
+.vyasa-nivaran-credit-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(13, 118, 110, 0.3);
+  border: 1px solid var(--vyasa-teal, #0d766e);
+  border-radius: 3px;
+  color: #5eead4;
+  font-weight: 600;
+}
+
+.vyasa-nivaran-credit-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vyasa-gold, #d4a017);
+  margin-bottom: 6px;
+}
+
+.vyasa-nivaran-credit-contributors {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vyasa-nivaran-credit-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.vyasa-nivaran-credit-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  line-height: 1.4;
+}
+
+.vyasa-nivaran-subtitle {
+  font-size: 1.15rem;
+  color: var(--vyasa-gold, #b2811a);
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.vyasa-nivaran-desc {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 820px;
+  margin-bottom: 32px;
+}
+
+/* NIVARAN Workflow Visual */
+.vyasa-workflow-pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--vyasa-radius-md, 8px);
+  padding: 20px 24px;
+  margin-bottom: 36px;
+  overflow-x: auto;
+  gap: 12px;
+}
+
+.vyasa-workflow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1;
+  min-width: 96px;
+  padding: 10px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.vyasa-workflow-step:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.vyasa-workflow-step__num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(212, 160, 23, 0.2);
+  border: 1px solid var(--vyasa-gold, #b2811a);
+  color: var(--vyasa-gold-border, #ecdfba);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.vyasa-workflow-step:hover .vyasa-workflow-step__num {
+  transform: scale(1.12);
+  background: rgba(212, 160, 23, 0.35);
+}
+
+.vyasa-workflow-step__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.3;
+}
+
+.vyasa-workflow-arrow {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* 6. Why VYASA - 4 Integrated Pillars */
+.vyasa-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.vyasa-pillar-item {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-radius: var(--vyasa-radius-md, 8px);
+  padding: 30px 22px;
+  border-top: 3px solid var(--vyasa-primary, #0f2b48);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(15, 43, 72, 0.03);
+}
+
+.vyasa-pillar-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 30px rgba(15, 43, 72, 0.08);
+  border-top-color: var(--vyasa-gold, #b2811a);
+  border-left-color: rgba(212, 160, 23, 0.3);
+  border-right-color: rgba(212, 160, 23, 0.3);
+  border-bottom-color: rgba(212, 160, 23, 0.3);
+}
+
+.vyasa-pillar-title {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  letter-spacing: 0.08em;
+  margin: 0 0 10px;
+}
+
+.vyasa-pillar-desc {
+  font-size: 0.9rem;
+  color: var(--vyasa-text-secondary, #4b5565);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 7. Built at CSJMU Section */
+.vyasa-csjmu-panel {
+  background: var(--vyasa-surface-warm, #fdfbf7);
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-radius: var(--vyasa-radius-lg, 12px);
+  padding: 36px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  margin-top: 36px;
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.03);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.vyasa-csjmu-panel:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(15, 43, 72, 0.08);
+  border-color: rgba(212, 160, 23, 0.4);
+}
+
+.vyasa-csjmu-content {
+  flex: 1;
+}
+
+.vyasa-csjmu-heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  margin: 0 0 8px;
+}
+
+.vyasa-csjmu-subheading {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-size: 1rem;
+  color: var(--vyasa-saffron, #c85602);
+  margin-bottom: 16px;
+}
+
+.vyasa-csjmu-text {
+  font-size: 0.95rem;
+  color: var(--vyasa-text-secondary, #4b5565);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+/* 8. Research Innovation Section */
+.vyasa-innovation-box {
+  background: #ffffff;
+  border-left: 4px solid var(--vyasa-gold, #b2811a);
+  border-top: 1px solid var(--vyasa-border-subtle, #ede7de);
+  border-right: 1px solid var(--vyasa-border-subtle, #ede7de);
+  border-bottom: 1px solid var(--vyasa-border-subtle, #ede7de);
+  border-radius: 0 var(--vyasa-radius-md, 8px) var(--vyasa-radius-md, 8px) 0;
+  padding: 32px 36px;
+  margin-top: 36px;
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.03);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.vyasa-innovation-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(15, 43, 72, 0.08);
+  border-top-color: rgba(212, 160, 23, 0.4);
+  border-right-color: rgba(212, 160, 23, 0.4);
+  border-bottom-color: rgba(212, 160, 23, 0.4);
+}
+
+.vyasa-innovation-text {
+  font-size: 1.05rem;
+  color: var(--vyasa-text, #19202a);
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+
+/* 9. Final Vision Closing */
+.vyasa-closing-section {
+  text-align: center;
+  padding: 72px 0 36px;
+}
+
+.vyasa-closing-equation {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--vyasa-primary-light, #1b4572);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.vyasa-closing-arrow {
+  font-size: 24px;
+  color: var(--vyasa-gold, #b2811a);
+  margin-bottom: 16px;
+}
+
+.vyasa-closing-brand {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--vyasa-primary, #0f2b48);
+  letter-spacing: 0.15em;
+  margin: 0 0 8px;
+}
+
+.vyasa-closing-tagline {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--vyasa-saffron, #c85602);
+  margin-bottom: 16px;
+}
+
+.vyasa-closing-inst {
+  font-size: 0.95rem;
+  color: var(--vyasa-text-secondary, #4b5565);
+  margin-bottom: 32px;
+}
+
+.vyasa-gateway-card {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.vyasa-gateway-card:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 16px 36px rgba(15, 43, 72, 0.1) !important;
+}
+
+/* Responsive Adaptations */
+@media (max-width: 1024px) {
+  .vyasa-domains-hub-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .vyasa-domains-cell--top,
+  .vyasa-domains-cell--left,
+  .vyasa-domains-cell--center,
+  .vyasa-domains-cell--right,
+  .vyasa-domains-cell--bottom {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .vyasa-domains-cell--center {
+    width: 100%;
+    height: auto;
+    border-radius: var(--vyasa-radius-md, 8px);
+    padding: 24px;
+  }
+  .vyasa-pillars-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .vyasa-vision-grid {
+    grid-template-columns: 1fr;
+  }
+  .vyasa-landing-hero__seals {
+    gap: 16px;
+  }
+  .vyasa-landing-hero__seal--csjmu {
+    width: 92px !important;
+    height: 92px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa {
+    height: 64px !important;
+    width: 96px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa img {
+    height: 64px !important;
+  }
+  .vyasa-landing-hero__divider {
+    height: 46px;
+  }
+}
+
+@media (max-width: 768px) {
+  .vyasa-pillars-grid {
+    grid-template-columns: 1fr;
+  }
+  .vyasa-csjmu-panel {
+    flex-direction: column;
+    text-align: center;
+  }
+  .vyasa-nivaran-banner {
+    padding: 32px 20px;
+  }
+  .vyasa-workflow-pipeline {
+    padding: 16px;
+  }
+  .vyasa-landing-hero__seals {
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .vyasa-landing-hero__seal--csjmu {
+    width: 78px !important;
+    height: 78px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa {
+    height: 54px !important;
+    width: 81px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa img {
+    height: 54px !important;
+  }
+  .vyasa-landing-hero__divider {
+    height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .vyasa-landing-hero__seals {
+    gap: 10px;
+  }
+  .vyasa-landing-hero__seal--csjmu {
+    width: 66px !important;
+    height: 66px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa {
+    height: 46px !important;
+    width: 69px !important;
+  }
+  .vyasa-landing-hero__seal--vyasa img {
+    height: 46px !important;
+  }
+  .vyasa-landing-hero__divider {
+    height: 32px;
+  }
+}

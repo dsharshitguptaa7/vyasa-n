@@ -1,1 +1,0 @@
-"""NIVARAN Backend Test Suite."""

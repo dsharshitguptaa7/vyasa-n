@@ -230,6 +230,19 @@
   border-color: var(--vyasa-primary);
 }
 
+/* High-contrast header/masthead context for outline buttons */
+.vyasa-masthead .vyasa-btn--outline,
+.csjmu-top-bar .vyasa-btn--outline {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.vyasa-masthead .vyasa-btn--outline:hover:not(:disabled),
+.csjmu-top-bar .vyasa-btn--outline:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--vyasa-gold, #d4a017);
+  color: #ffffff;
+}
+
 .vyasa-btn--ghost {
   background-color: transparent;
   color: var(--vyasa-text-secondary);
@@ -485,8 +498,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
   padding: var(--vyasa-space-4);
+  overflow-y: auto;
 }
 
 .vyasa-modal {
@@ -496,22 +510,44 @@
   box-shadow: var(--vyasa-shadow-modal);
   width: 100%;
   max-width: 540px;
+  max-height: min(90vh, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   animation: vyasa-fade-in var(--vyasa-transition-normal);
+  margin: auto;
+}
+
+.vyasa-modal--sm {
+  max-width: 420px;
+}
+
+.vyasa-modal--md {
+  max-width: 540px;
+}
+
+.vyasa-modal--lg {
+  max-width: 760px;
+}
+
+.vyasa-modal--xl {
+  max-width: 960px;
 }
 
 .vyasa-modal__header {
-  padding: var(--vyasa-space-6);
+  padding: var(--vyasa-space-5) var(--vyasa-space-6);
   border-bottom: 1px solid var(--vyasa-border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .vyasa-modal__title {
   font-size: var(--vyasa-text-lg);
   font-weight: var(--vyasa-weight-semibold);
   color: var(--vyasa-primary);
+  margin: 0;
 }
 
 .vyasa-modal__body {
@@ -519,6 +555,9 @@
   font-size: var(--vyasa-text-sm);
   color: var(--vyasa-text);
   line-height: var(--vyasa-leading-relaxed);
+  overflow-y: auto;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
 }
 
 .vyasa-modal__footer {
@@ -529,6 +568,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--vyasa-space-3);
+  flex-shrink: 0;
 }
 
 /* 11. Toast / Notification */
@@ -652,4 +692,113 @@
   .vyasa-card__body {
     padding: var(--vyasa-space-4);
   }
+}
+
+/* =========================================================================
+   14. Global Institutional Dropdown System (Neutral University UI)
+   ========================================================================= */
+
+@keyframes vyasaDropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vyasa-dropdown-menu {
+  background-color: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-lg, 8px);
+  box-shadow: var(--vyasa-shadow-dropdown, 0 6px 18px rgba(0, 0, 0, 0.08));
+  z-index: 1000;
+  overflow: hidden;
+  animation: vyasaDropdownFade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.vyasa-dropdown-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vyasa-primary, #0f2b48);
+  padding: 10px 14px 8px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid rgba(15, 43, 72, 0.08);
+  margin: 0;
+}
+
+.vyasa-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background-color: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--vyasa-primary, #0f2b48);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.vyasa-dropdown-item:hover,
+.vyasa-dropdown-item:focus-visible {
+  background-color: #f8fafc;
+  border-left-color: var(--vyasa-gold, #b2811a);
+  outline: none;
+}
+
+.vyasa-dropdown-item--danger:hover,
+.vyasa-dropdown-item--danger:focus-visible {
+  background-color: #fef2f2;
+  border-left-color: #dc2626;
+  color: #dc2626;
+}
+
+.vyasa-dropdown-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f2b48;
+  line-height: 1.3;
+}
+
+.vyasa-dropdown-item-desc {
+  font-size: 11.5px;
+  color: #5a6a7e;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.vyasa-dropdown-icon {
+  font-size: 16px;
+  margin-top: 1px;
+  color: #475569;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vyasa-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.vyasa-chevron-icon {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.vyasa-chevron-icon.is-open {
+  transform: rotate(180deg);
 }

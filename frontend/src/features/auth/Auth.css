@@ -1,0 +1,187 @@
+/**
+ * VYASA Institutional Authentication Pages Styling
+ * Premium Scholarly Atmosphere, Balanced Hierarchy, Clean Inputs
+ */
+
+/* 1. Page Frame & Ground */
+.vyasa-auth-page-container {
+  padding: 48px 16px 80px;
+  position: relative;
+  min-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* 2. Institutional Branding Masthead above Card */
+.vyasa-auth-masthead {
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.vyasa-auth-seal-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 60%, rgba(253, 251, 247, 0.9) 100%);
+  border: 1.5px solid var(--vyasa-gold-border, #ecdfba);
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.08);
+  margin-bottom: 18px;
+  padding: 6px;
+}
+
+.vyasa-auth-page-title {
+  font-family: var(--vyasa-font-display, Georgia, serif);
+  font-size: 30px;
+  color: var(--vyasa-primary, #0f2b48);
+  margin: 0 0 8px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.vyasa-auth-page-subtitle {
+  font-size: 13.5px;
+  color: var(--vyasa-text-secondary, #4b5565);
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* 3. Central Login Card Customization */
+.vyasa-auth-card {
+  box-shadow: 0 10px 30px -5px rgba(15, 43, 72, 0.08), 0 4px 12px -2px rgba(15, 43, 72, 0.04) !important;
+  border: 1px solid var(--vyasa-border, #e3dcd1) !important;
+  border-radius: 12px !important;
+  background-color: #ffffff !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.vyasa-auth-card--applicant {
+  border-top: 4px solid var(--vyasa-saffron, #c85602) !important;
+}
+
+.vyasa-auth-card--authority {
+  border-top: 4px solid var(--vyasa-teal, #0d766e) !important;
+}
+
+/* Header inside card */
+.vyasa-auth-card .vyasa-card__header {
+  padding: 24px 28px 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f5 100%);
+  border-bottom: 1px solid var(--vyasa-border-subtle, #ede7de);
+}
+
+.vyasa-auth-card .vyasa-card__title {
+  font-family: var(--vyasa-font-sans, system-ui, sans-serif);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  letter-spacing: -0.01em;
+}
+
+.vyasa-auth-card .vyasa-card__subtitle {
+  font-size: 13px;
+  color: var(--vyasa-text-secondary, #4b5565);
+  margin-top: 4px;
+}
+
+.vyasa-auth-card .vyasa-card__body {
+  padding: 24px 28px 28px;
+}
+
+/* 4. High-Affordance Institutional Inputs */
+.vyasa-auth-card .vyasa-form-group {
+  margin-bottom: 20px;
+}
+
+.vyasa-auth-card .vyasa-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vyasa-primary, #0f2b48);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.vyasa-auth-card .vyasa-input {
+  background-color: #ffffff !important;
+  border: 1.5px solid #d3dbe3 !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  color: var(--vyasa-text, #19202a) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: inset 0 1px 2px rgba(15, 43, 72, 0.03);
+}
+
+.vyasa-auth-card .vyasa-input:focus {
+  border-color: var(--vyasa-primary, #0f2b48) !important;
+  box-shadow: 0 0 0 3px rgba(15, 43, 72, 0.12), inset 0 1px 2px rgba(15, 43, 72, 0.02) !important;
+  outline: none;
+}
+
+.vyasa-auth-card .vyasa-input--error {
+  border-color: var(--vyasa-danger, #b91c1c) !important;
+}
+
+/* 5. Button Actions Stack */
+.vyasa-auth-card .vyasa-btn--primary {
+  height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 6px rgba(15, 43, 72, 0.2);
+  transition: all 0.18s ease;
+}
+
+.vyasa-auth-card .vyasa-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(15, 43, 72, 0.25);
+  transform: translateY(-1px);
+}
+
+.vyasa-auth-card .vyasa-btn--outline {
+  height: 38px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  color: var(--vyasa-text-secondary, #4b5565);
+  border-color: var(--vyasa-border, #e3dcd1);
+  background-color: #ffffff;
+  transition: all 0.15s ease;
+}
+
+.vyasa-auth-card .vyasa-btn--outline:hover:not(:disabled) {
+  background-color: var(--vyasa-surface-warm, #fdfbf7);
+  border-color: var(--vyasa-primary, #0f2b48);
+  color: var(--vyasa-primary, #0f2b48);
+}
+
+/* 6. Protocol Note Footer */
+.vyasa-auth-protocol {
+  margin-top: 26px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  background-color: var(--vyasa-surface-warm, #fdfbf7);
+  border: 1px solid var(--vyasa-border-subtle, #ede7de);
+  font-size: 12px;
+  color: var(--vyasa-text-muted, #6b7280);
+  line-height: 1.55;
+  text-align: left;
+}
+
+.vyasa-auth-protocol-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--vyasa-primary, #0f2b48);
+  margin-bottom: 4px;
+  font-size: 12px;
+}

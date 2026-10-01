@@ -8,6 +8,7 @@ export interface InstitutionalHeaderProps {
   actions?: React.ReactNode;
   onLogoClick?: () => void;
   className?: string;
+  subBrand?: React.ReactNode;
 }
 
 /**
@@ -20,6 +21,7 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
   actions,
   onLogoClick,
   className = '',
+  subBrand,
 }) => {
   return (
     <header className={`vyasa-institutional-header ${className}`} style={{ position: 'sticky', top: 0, zIndex: 50 }}>
@@ -72,12 +74,22 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
           }}
         >
           {/* Prominent Official VYASA Brand Lockup */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
             <VyasaBrand size="md" showTagline={true} onClick={onLogoClick} />
+            {subBrand && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '1px', height: '36px', backgroundColor: 'rgba(236, 223, 186, 0.35)' }} />
+                {subBrand}
+              </div>
+            )}
           </div>
 
           {/* Navigation Slot */}
-          {children && <div className="vyasa-masthead__nav">{children}</div>}
+          {children && (
+            <div className="vyasa-masthead__nav" style={{ position: 'relative', overflow: 'visible' }}>
+              {children}
+            </div>
+          )}
 
           {/* Action CTAs */}
           {actions && <div className="vyasa-masthead__actions">{actions}</div>}

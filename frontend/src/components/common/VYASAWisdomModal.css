@@ -1,0 +1,325 @@
+/**
+ * VYASA Wisdom Modal Component Styles
+ *
+ * Culturally respectful, academic, calm, institutional.
+ * University heritage aesthetic: deep navy / warm ivory / subtle gold foil accent.
+ * Focus is on exceptional Sanskrit typography and dignified visual weight.
+ */
+
+.vyasa-wisdom-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  background-color: rgba(10, 25, 47, 0.68);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: vyasaWisdomFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vyasa-wisdom-backdrop {
+    animation: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@keyframes vyasaWisdomFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.vyasa-wisdom-dialog {
+  background: #ffffff;
+  color: var(--vyasa-navy, #0f2b48);
+  border-radius: 10px;
+  border: 1px solid rgba(184, 134, 11, 0.28);
+  box-shadow: 
+    0 24px 48px -12px rgba(10, 25, 47, 0.22),
+    0 4px 12px rgba(10, 25, 47, 0.06),
+    0 0 0 1px rgba(15, 43, 72, 0.04);
+  max-width: 560px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: vyasaWisdomSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vyasa-wisdom-dialog {
+    animation: none !important;
+  }
+}
+
+@keyframes vyasaWisdomSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Gold heritage institutional accent bar */
+.vyasa-wisdom-dialog::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #936b12 0%,
+    #d4a017 25%,
+    #eec643 50%,
+    #d4a017 75%,
+    #936b12 100%
+  );
+}
+
+/* Header */
+.vyasa-wisdom-header {
+  padding: 18px 24px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #eef2f6;
+  background: #ffffff;
+}
+
+.vyasa-wisdom-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vyasa-wisdom-brand-logo-frame {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 2px;
+}
+
+.vyasa-wisdom-brand-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.vyasa-wisdom-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.vyasa-wisdom-header-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #854d0e;
+  line-height: 1.2;
+}
+
+.vyasa-wisdom-heading {
+  font-family: var(--vyasa-font-display, Georgia, 'Times New Roman', serif);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--vyasa-navy, #0f2b48);
+  margin: 1px 0 0;
+  line-height: 1.2;
+}
+
+.vyasa-wisdom-close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: #64748b;
+}
+
+.vyasa-wisdom-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Content Body */
+.vyasa-wisdom-body {
+  padding: 22px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #ffffff;
+}
+
+/* Metadata pills row */
+.vyasa-wisdom-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vyasa-wisdom-veda-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background-color: #fefce8;
+  border: 1px solid rgba(212, 160, 23, 0.35);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #854d0e;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.vyasa-wisdom-theme-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #475569;
+  letter-spacing: 0.2px;
+}
+
+/* Central Verse Frame */
+.vyasa-wisdom-verse-frame {
+  background: #fdfbf7;
+  border: 1px solid rgba(184, 134, 11, 0.2);
+  border-radius: 8px;
+  padding: 16px 20px;
+  position: relative;
+  text-align: center;
+  box-shadow: inset 0 1px 3px rgba(184, 134, 11, 0.03);
+}
+
+.vyasa-wisdom-sanskrit {
+  font-family: 'Martel', 'Tiro Devanagari Sanskrit', 'Noto Serif Devanagari', 'Sanskrit Text', Georgia, serif;
+  font-size: 20px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: #0b1e33;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.vyasa-wisdom-transliteration {
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: 13px;
+  color: #556980;
+  font-style: italic;
+  line-height: 1.5;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(184, 134, 11, 0.15);
+  letter-spacing: 0.1px;
+}
+
+/* Meanings */
+.vyasa-wisdom-meanings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.vyasa-wisdom-meaning-hi {
+  font-family: 'Noto Sans Devanagari', 'Mukta', var(--vyasa-font-sans, sans-serif);
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e293b;
+  font-weight: 500;
+  margin: 0;
+}
+
+.vyasa-wisdom-meaning-en {
+  font-family: var(--vyasa-font-sans, sans-serif);
+  font-size: 13px;
+  line-height: 1.55;
+  color: #475569;
+  margin: 0;
+}
+
+/* Source citation */
+.vyasa-wisdom-source-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.vyasa-wisdom-source {
+  font-size: 11.5px;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+.vyasa-wisdom-source strong {
+  color: #334155;
+  font-weight: 600;
+}
+
+/* Footer Actions */
+.vyasa-wisdom-footer {
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #eef2f6;
+  background: #f8fafc;
+}
+
+.vyasa-wisdom-btn-skip {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.vyasa-wisdom-btn-skip:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+

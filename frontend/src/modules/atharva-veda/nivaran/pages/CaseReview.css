@@ -1,0 +1,752 @@
+/**
+ * NIVARAN Case Review & Grievance Dossier Styles
+ * Stately Academic Governance & Judicial Case Review
+ */
+
+/* 1. Executive Case Review Header */
+.nivaran-case-header {
+  background-color: var(--vyasa-surface, #ffffff);
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-lg, 8px);
+  padding: 22px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04), 0 1px 2px -1px rgba(27, 42, 74, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.nivaran-case-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vyasa-primary, #1b2a4a) 0%, var(--vyasa-gold, #d4a017) 50%, var(--vyasa-teal, #0d9488) 100%);
+  border-top-left-radius: var(--vyasa-radius-lg, 8px);
+  border-top-right-radius: var(--vyasa-radius-lg, 8px);
+}
+
+.nivaran-case-header__top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nivaran-case-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.nivaran-case-icon-chip {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  background-color: rgba(27, 42, 74, 0.06);
+  border: 1px solid rgba(27, 42, 74, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nivaran-case-heading {
+  font-family: var(--vyasa-font-scholarly, Georgia, serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin: 0;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nivaran-case-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: var(--vyasa-text-secondary, #475569);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.nivaran-case-meta__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nivaran-case-meta__separator {
+  color: var(--vyasa-border, #cbd5e1);
+  user-select: none;
+}
+
+/* 2. Structured Dossier Cards */
+.nivaran-card {
+  position: relative;
+  background-color: var(--vyasa-surface, #ffffff);
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-md, 6px);
+  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04), 0 1px 2px -1px rgba(27, 42, 74, 0.02);
+  overflow: hidden;
+}
+
+.nivaran-card--gold::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--vyasa-gold, #d4a017);
+  border-top-left-radius: var(--vyasa-radius-md, 6px);
+  border-top-right-radius: var(--vyasa-radius-md, 6px);
+}
+
+.nivaran-card--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--vyasa-primary, #1b2a4a);
+  border-top-left-radius: var(--vyasa-radius-md, 6px);
+  border-top-right-radius: var(--vyasa-radius-md, 6px);
+}
+
+.nivaran-card__header {
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--vyasa-border-subtle, #f1f5f9);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nivaran-card__header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nivaran-card__header-chip {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: rgba(27, 42, 74, 0.05);
+  border: 1px solid rgba(27, 42, 74, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nivaran-card__header-chip--gold {
+  background-color: rgba(212, 160, 23, 0.1);
+  border-color: rgba(212, 160, 23, 0.25);
+}
+
+.nivaran-card__header-chip--teal {
+  background-color: rgba(13, 148, 136, 0.08);
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+.nivaran-card__title {
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.nivaran-card__subtitle {
+  font-size: 12.5px;
+  color: var(--vyasa-text-secondary, #64748b);
+  margin: 2px 0 0;
+}
+
+.nivaran-card__body {
+  padding: 20px 24px;
+}
+
+/* 3. Particulars Section Fields */
+.nivaran-case-title-box {
+  background-color: rgba(27, 42, 74, 0.03);
+  border: 1px solid rgba(27, 42, 74, 0.08);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.nivaran-case-title-box__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--vyasa-text-muted, #64748b);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.nivaran-case-title-box__text {
+  font-family: var(--vyasa-font-scholarly, Georgia, serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.nivaran-particulars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.nivaran-field-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.nivaran-field-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--vyasa-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 3px;
+}
+
+.nivaran-field-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  line-height: 1.4;
+}
+
+.nivaran-field-sub {
+  font-size: 12.5px;
+  color: var(--vyasa-text-secondary, #64748b);
+  margin-top: 1px;
+}
+
+.nivaran-statement-box {
+  background-color: var(--vyasa-surface-warm, #fbfaf7);
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-left: 3px solid var(--vyasa-gold, #d4a017);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--vyasa-navy, #1b2a4a);
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+/* 4. Action Section Divider */
+.nivaran-action-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.nivaran-action-divider::before,
+.nivaran-action-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--vyasa-border, #e2e8f0);
+}
+
+.nivaran-action-divider span {
+  padding: 0 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--vyasa-text-muted, #94a3b8);
+}
+
+/* 5. Clean Empty State */
+.nivaran-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  text-align: center;
+  background-color: rgba(27, 42, 74, 0.02);
+  border: 1px dashed var(--vyasa-border, #cbd5e1);
+  border-radius: 6px;
+}
+
+.nivaran-empty-state__icon {
+  margin-bottom: 8px;
+  color: #94a3b8;
+}
+
+.nivaran-empty-state__text {
+  font-size: 13px;
+  color: var(--vyasa-text-secondary, #64748b);
+  margin: 0;
+}
+
+/* 6. Refined Timeline Ledger */
+.nivaran-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nivaran-timeline-node {
+  display: flex;
+  gap: 14px;
+  padding: 12px 16px;
+  background-color: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-left: 3px solid var(--vyasa-primary, #1b2a4a);
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.nivaran-timeline-node__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.nivaran-timeline-node__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nivaran-timeline-node__transition {
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  font-size: 13.5px;
+}
+
+.nivaran-timeline-node__time {
+  font-size: 11.5px;
+  color: var(--vyasa-text-muted, #64748b);
+}
+
+.nivaran-timeline-node__remarks {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: #334155;
+  background-color: rgba(27, 42, 74, 0.03);
+  padding: 6px 10px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.nivaran-timeline-node__actor {
+  font-size: 11px;
+  color: var(--vyasa-text-muted, #64748b);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* 7. Institutional Docket & Dashboard Styles */
+.nivaran-docket-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.nivaran-docket-kpi {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-md, 6px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nivaran-docket-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px 0 rgba(27, 42, 74, 0.08);
+}
+
+.nivaran-docket-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--kpi-accent, var(--vyasa-primary, #1b2a4a));
+}
+
+.nivaran-docket-kpi--navy { --kpi-accent: var(--vyasa-primary, #1b2a4a); }
+.nivaran-docket-kpi--amber { --kpi-accent: #d97706; }
+.nivaran-docket-kpi--sky { --kpi-accent: #0284c7; }
+.nivaran-docket-kpi--emerald { --kpi-accent: #059669; }
+
+.nivaran-docket-kpi__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.nivaran-docket-kpi__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--vyasa-text-muted, #64748b);
+}
+
+.nivaran-docket-kpi__icon-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(27, 42, 74, 0.04);
+  color: var(--kpi-accent, #1b2a4a);
+}
+
+.nivaran-docket-kpi__value {
+  font-family: var(--vyasa-font-scholarly, Georgia, serif);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin-bottom: 4px;
+}
+
+.nivaran-docket-kpi__subtext {
+  font-size: 12px;
+  color: var(--vyasa-text-secondary, #64748b);
+}
+
+/* Docket Control Toolbar */
+.nivaran-docket-toolbar {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-md, 6px);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.03);
+}
+
+.nivaran-docket-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: rgba(27, 42, 74, 0.03);
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(27, 42, 74, 0.06);
+}
+
+.nivaran-docket-tab-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vyasa-text-secondary, #475569);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.nivaran-docket-tab-btn:hover {
+  color: var(--vyasa-navy, #1b2a4a);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.nivaran-docket-tab-btn--active {
+  background: #ffffff !important;
+  color: var(--vyasa-navy, #1b2a4a) !important;
+  border-color: rgba(27, 42, 74, 0.12) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.nivaran-docket-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nivaran-docket-select {
+  padding: 7px 12px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--vyasa-navy, #1b2a4a);
+  background-color: #ffffff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.nivaran-docket-select:focus {
+  border-color: var(--vyasa-navy, #1b2a4a);
+  box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1);
+}
+
+.nivaran-docket-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nivaran-docket-search-input {
+  padding: 7px 12px 7px 32px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  font-size: 12.5px;
+  width: 230px;
+  color: var(--vyasa-navy, #1b2a4a);
+  background-color: #ffffff;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.nivaran-docket-search-input:focus {
+  border-color: var(--vyasa-navy, #1b2a4a);
+  width: 270px;
+  box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1);
+}
+
+.nivaran-docket-search-icon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Docket Data Table */
+.nivaran-docket-table-card {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-md, 6px);
+  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04);
+  overflow: hidden;
+}
+
+.nivaran-docket-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.nivaran-docket-table thead tr {
+  background-color: #f8fafc;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+
+.nivaran-docket-table th {
+  padding: 13px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.nivaran-docket-row {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.12s ease;
+}
+
+.nivaran-docket-row:hover {
+  background-color: rgba(27, 42, 74, 0.018);
+}
+
+.nivaran-docket-row:last-child {
+  border-bottom: none;
+}
+
+.nivaran-docket-cell {
+  padding: 14px 18px;
+  vertical-align: middle;
+}
+
+.nivaran-tracking-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  background-color: rgba(27, 42, 74, 0.05);
+  border: 1px solid rgba(27, 42, 74, 0.1);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.nivaran-category-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nivaran-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  background-color: #ffffff;
+  border: 1px solid rgba(27, 42, 74, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.nivaran-review-btn:hover {
+  background-color: var(--vyasa-navy, #1b2a4a);
+  color: #ffffff;
+  border-color: var(--vyasa-navy, #1b2a4a);
+  box-shadow: 0 2px 6px rgba(27, 42, 74, 0.15);
+}
+
+.nivaran-review-btn svg {
+  transition: transform 0.15s ease;
+}
+
+.nivaran-review-btn:hover svg {
+  transform: translateX(2px);
+}
+
+.nivaran-docket-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 12.5px;
+  color: #64748b;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* =========================================================================
+   CASE REVIEW RESPONSIVE BREAKPOINTS (Mobile & Tablet)
+   ========================================================================= */
+
+@media (max-width: 1024px) {
+  .nivaran-docket-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .nivaran-docket-toolbar__search-wrap {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .nivaran-case-header {
+    padding: 18px 16px;
+    gap: 12px;
+  }
+
+  .nivaran-case-heading {
+    font-size: 19px;
+  }
+
+  .nivaran-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
+  }
+
+  .nivaran-card__header {
+    padding: 14px 16px 12px;
+  }
+
+  .nivaran-card__body {
+    padding: 14px 16px;
+  }
+
+  .nivaran-docket-cell {
+    padding: 10px 12px;
+  }
+
+  .nivaran-docket-table th {
+    padding: 10px 12px;
+  }
+
+  .nivaran-review-btn {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nivaran-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .nivaran-case-header__top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nivaran-docket-table-card {
+    border-radius: 4px;
+  }
+
+  .nivaran-docket-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+}
+
+

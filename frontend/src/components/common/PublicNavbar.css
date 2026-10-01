@@ -1,0 +1,429 @@
+/**
+ * VYASA Public Landing Page - Premium Navigation & Access UX Styling
+ * Deep Navy, Gold Accents, Translucent Backdrop Blur, Smooth Transitions
+ */
+
+.vyasa-public-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+}
+
+/* 1. Affiliation Bar */
+.vyasa-public-header .csjmu-top-bar {
+  background-color: #0a1d30;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(236, 223, 186, 0.18);
+  padding: 6px 0;
+  font-size: 12px;
+  transition: all 0.25s ease;
+}
+
+.vyasa-public-header.is-scrolled .csjmu-top-bar {
+  padding: 4px 0;
+  font-size: 11px;
+}
+
+/* 2. Primary Masthead */
+.vyasa-public-masthead {
+  background-color: var(--vyasa-primary, #0f2b48);
+  color: #ffffff;
+  border-bottom: 2px solid var(--vyasa-gold, #b2811a);
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.vyasa-public-header.is-scrolled .vyasa-public-masthead {
+  background-color: rgba(15, 43, 72, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  border-bottom: 2px solid var(--vyasa-gold, #d4a017);
+}
+
+.vyasa-public-masthead__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  transition: padding 0.25s ease;
+  gap: 16px;
+}
+
+.vyasa-public-header.is-scrolled .vyasa-public-masthead__inner {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* 3. VYASA Logo & Centered Tagline Identity Lockup */
+.vyasa-public-logo-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  text-decoration: none;
+  outline: none;
+}
+
+.vyasa-public-logo-lockup:focus-visible {
+  outline: 2px solid var(--vyasa-gold, #d4a017);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.vyasa-public-logo-tagline {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vyasa-gold-border, #ecdfba);
+  margin-top: 4px;
+  line-height: 1.25;
+  text-align: center;
+  display: block;
+}
+
+/* 4. Desktop Navigation List */
+.vyasa-public-nav-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vyasa-public-nav-item {
+  position: relative;
+}
+
+.vyasa-public-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.vyasa-public-nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vyasa-public-nav-link.is-active {
+  color: #ffffff;
+  font-weight: 600;
+  background: rgba(212, 160, 23, 0.16);
+}
+
+.vyasa-public-nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--vyasa-gold, #d4a017);
+  border-radius: 1px;
+  transition: all 0.2s ease;
+}
+
+/* Operational Service Indicator (NIVARAN-AI) */
+.vyasa-operational-indicator {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1.5px 5.5px;
+  background: rgba(13, 118, 110, 0.35);
+  border: 1px solid var(--vyasa-teal, #0d766e);
+  border-radius: 9999px;
+  color: #5eead4;
+  margin-left: 2px;
+}
+
+/* 5. Access Dropdown Controls (LOGIN & REGISTER) */
+.vyasa-public-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.vyasa-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.vyasa-access-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.vyasa-access-btn--login {
+  background: rgba(212, 160, 23, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(212, 160, 23, 0.5);
+}
+
+.vyasa-access-btn--login:hover,
+.vyasa-access-btn--login:focus-visible,
+.vyasa-access-btn--login.is-open {
+  background: rgba(212, 160, 23, 0.25);
+  border-color: var(--vyasa-gold, #d4a017);
+  outline: none;
+}
+
+.vyasa-access-btn--register {
+  background: var(--vyasa-saffron, #c85602);
+  color: #ffffff;
+  border: 1px solid var(--vyasa-saffron, #c85602);
+}
+
+.vyasa-access-btn--register:hover,
+.vyasa-access-btn--register:focus-visible,
+.vyasa-access-btn--register.is-open {
+  background: #b34c00;
+  border-color: #b34c00;
+  outline: none;
+}
+
+.vyasa-chevron {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  line-height: 1;
+}
+
+.vyasa-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* Contextual Dropdown Menus - Neutral Institutional University UI */
+.vyasa-access-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 260px;
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  animation: vyasaMenuFade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+/* Hover zone bridge between trigger button and menu to prevent flickering */
+.vyasa-access-menu::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+@keyframes vyasaMenuFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vyasa-access-menu-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vyasa-primary, #0f2b48);
+  padding: 8px 12px 6px;
+  background: #f8fafc;
+  border-bottom: 1px solid rgba(15, 43, 72, 0.08);
+  border-radius: 4px 4px 0 0;
+  margin-bottom: 4px;
+}
+
+.vyasa-access-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--vyasa-primary, #0f2b48);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.vyasa-access-menu-item:hover,
+.vyasa-access-menu-item:focus-visible {
+  background: #f8fafc;
+  border-left: 2px solid var(--vyasa-gold, #b2811a);
+  outline: none;
+}
+
+.vyasa-access-menu-icon {
+  font-size: 16px;
+  margin-top: 1px;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.vyasa-access-menu-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f2b48;
+  line-height: 1.3;
+}
+
+.vyasa-access-menu-desc {
+  font-size: 11.5px;
+  color: #5a6a7e;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+/* 6. Mobile Toggle & Drawer */
+.vyasa-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid rgba(236, 223, 186, 0.35);
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.vyasa-mobile-drawer {
+  display: none;
+  background: #081726;
+  border-bottom: 2px solid var(--vyasa-gold, #b2811a);
+  padding: 16px 20px 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: vyasaMenuFade 0.2s ease-out;
+}
+
+.vyasa-mobile-drawer.is-open {
+  display: block;
+}
+
+.vyasa-mobile-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vyasa-mobile-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vyasa-mobile-nav-link:hover,
+.vyasa-mobile-nav-link.is-active {
+  background: rgba(212, 160, 23, 0.16);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.vyasa-mobile-divider {
+  height: 1px;
+  background: rgba(236, 223, 186, 0.15);
+  margin: 16px 0;
+}
+
+.vyasa-mobile-access-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vyasa-mobile-access-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vyasa-gold, #d4a017);
+  margin-bottom: 4px;
+}
+
+.vyasa-mobile-access-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vyasa-mobile-access-btn--register {
+  background: var(--vyasa-saffron, #c85602);
+  border-color: var(--vyasa-saffron, #c85602);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1024px) {
+  .vyasa-public-nav-list {
+    display: none;
+  }
+  .vyasa-public-actions {
+    display: none;
+  }
+  .vyasa-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

@@ -3,8 +3,12 @@
   "private": true,
   "description": "VYASA Research & Governance Ecosystem",
   "workspaces": [
-    "apps/vyasa/*",
-    "apps/pillars/*/*",
+    "frontend",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "dev:frontend": "npm run --prefix frontend dev",
+    "build:frontend": "npm run --prefix frontend build",
+    "test:frontend": "npm run --prefix frontend test"
+  }
 }

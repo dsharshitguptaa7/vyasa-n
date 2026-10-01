@@ -1,0 +1,387 @@
+/**
+ * VYASA Vedic Knowledge Invocation Loading Experience - Visual Refinement V2
+ * Rig Veda 1.89.1: "आ नो भद्राः क्रतवो यन्तु विश्वतः॥"
+ *
+ * Architecture:
+ * - Upper circular arc / halo path ensures Sanskrit remains 100% upright, readable,
+ *   and naturally oriented (no upside-down, no sideways, no mirrored glyphs).
+ * - Sublime celestial orbital sway (±3° over 10s) maintains celestial living presence
+ *   without mechanical 360° spinning.
+ * - Central VYASA emblem remains stable and stationary.
+ * - Sequence holds for 6–8 seconds:
+ *   0.0–1.0s: VYASA logo appears.
+ *   1.0–2.0s: Sanskrit mantra manifests cleanly along the upper halo.
+ *   2.0–5.5s: Hold composition for reading and experiencing the mantra.
+ *   5.5–6.5s: VYASA wordmark and Hindi brand tagline become prominent.
+ *   6.5–7.5s: Smooth transition into the application.
+ */
+
+/* 1. Full-screen Isolated Overlay */
+.vyasa-invocation-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background-color: #091c30;
+  background: radial-gradient(circle at 50% 45%, #0f2b48 0%, #091c30 65%, #050e18 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  opacity: 1;
+  pointer-events: auto;
+  user-select: none;
+  animation: vyasaOverlayFadeIn 0.4s ease-out forwards;
+}
+
+/* Screen reader only utility (completely hidden visually) */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Exit State: Smooth, graceful, ceremonial transition into the application */
+.vyasa-invocation-container--exiting {
+  opacity: 0;
+  transform: scale(1.02);
+  pointer-events: none;
+  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 2. Invocation Visual Stage */
+.vyasa-invocation__stage {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 3. Subtle Restrained Radial Glow */
+.vyasa-invocation__glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(212, 160, 23, 0.16) 0%,
+    rgba(178, 129, 26, 0.08) 45%,
+    rgba(9, 28, 48, 0) 70%
+  );
+  animation: vyasaGlowFadeIn 1.0s ease-out 0.1s both, vyasaGlowBreathe 5s ease-in-out 1.2s infinite alternate;
+}
+
+/* 4. Central VYASA Logo (Stationary, Non-rotating) */
+.vyasa-invocation__logo-wrap {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: vyasaLogoEntry 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.vyasa-invocation__logo {
+  height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.4));
+}
+
+/* 5. Circular Sanskrit Orbit SVG Layer */
+.vyasa-invocation__orbit-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  animation: vyasaOrbitFadeIn 1.1s ease-out 1.0s both;
+}
+
+.vyasa-invocation__orbit-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Concentric Academic Halo Rings */
+.vyasa-invocation__halo-ring {
+  stroke: rgba(212, 160, 23, 0.22);
+  stroke-width: 1px;
+  stroke-dasharray: 4, 6;
+}
+
+.vyasa-invocation__halo-ring-inner {
+  stroke: rgba(250, 247, 242, 0.08);
+  stroke-width: 0.75px;
+}
+
+/* Subtle, gentle celestial orbital movement (keeps text predominantly upright & fully readable) */
+.vyasa-invocation__orbit-rotator {
+  transform-origin: 180px 180px;
+  animation: vyasaCelestialOrbit 10s ease-in-out 1.2s infinite;
+}
+
+.vyasa-invocation__orbit-text {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', 'Mukta', 'Kohinoor Devanagari', 'Mangal', 'Nirmala UI', sans-serif;
+  font-size: 14.5px;
+  font-weight: 500;
+  fill: #faf7f2; /* subtle warm ivory */
+  letter-spacing: 0.07em;
+  opacity: 0.96;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'blws' 1, 'abvs' 1, 'psts' 1, 'haln' 1;
+  filter: drop-shadow(0 0 3px rgba(212, 160, 23, 0.5));
+}
+
+.vyasa-invocation__orbit-star {
+  fill: var(--vyasa-gold, #d4a017);
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* 6. Typography: Brand Wordmark & Tagline (5.5s–6.5s) */
+.vyasa-invocation__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 14px;
+  z-index: 4;
+}
+
+.vyasa-invocation__wordmark {
+  font-family: var(--vyasa-font-scholarly), 'Cinzel', 'Noto Serif Devanagari', serif;
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #ffffff;
+  margin: 0;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  animation: vyasaWordmarkEntry 0.7s cubic-bezier(0.16, 1, 0.3, 1) 5.3s both;
+}
+
+.vyasa-invocation__tagline {
+  font-family: var(--vyasa-font-devanagari), 'Noto Sans Devanagari', 'Mukta', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--vyasa-gold-border, #ecdfba);
+  letter-spacing: 0.03em;
+  margin-top: 6px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  animation: vyasaTaglineEntry 0.7s cubic-bezier(0.16, 1, 0.3, 1) 5.7s both;
+}
+
+/* 7. Status Indicator Accent */
+.vyasa-invocation__heartbeat {
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--vyasa-gold, #b2811a) 50%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  margin-top: 16px;
+  opacity: 0.6;
+  animation: vyasaHeartbeatIn 0.6s ease-out 6.1s both, vyasaPulse 3s ease-in-out 6.7s infinite;
+}
+
+/* 8. Keyframe Animations */
+@keyframes vyasaOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vyasaGlowFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+}
+
+@keyframes vyasaGlowBreathe {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 0.92;
+  }
+}
+
+@keyframes vyasaLogoEntry {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vyasaOrbitFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Gentle celestial orbit: subtle ±3° drift ensures Sanskrit stays 100% upright */
+@keyframes vyasaCelestialOrbit {
+  0% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+  100% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes vyasaWordmarkEntry {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vyasaTaglineEntry {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vyasaHeartbeatIn {
+  from {
+    opacity: 0;
+    transform: scaleX(0.4);
+  }
+  to {
+    opacity: 0.6;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes vyasaPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scaleX(0.85);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scaleX(1.15);
+  }
+}
+
+/* 9. Accessibility: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .vyasa-invocation-container,
+  .vyasa-invocation__glow,
+  .vyasa-invocation__logo-wrap,
+  .vyasa-invocation__orbit-wrap,
+  .vyasa-invocation__orbit-rotator,
+  .vyasa-invocation__wordmark,
+  .vyasa-invocation__tagline,
+  .vyasa-invocation__heartbeat {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .vyasa-invocation__glow {
+    opacity: 0.8 !important;
+  }
+
+  .vyasa-invocation-container--exiting {
+    opacity: 0 !important;
+    transition: opacity 0.3s ease-out !important;
+  }
+}
+
+/* 10. Responsive Adaptations */
+@media (max-width: 640px) {
+  .vyasa-invocation__stage {
+    width: 290px;
+    height: 290px;
+  }
+
+  .vyasa-invocation__logo {
+    height: 48px;
+  }
+
+  .vyasa-invocation__glow {
+    width: 180px;
+    height: 180px;
+  }
+
+  .vyasa-invocation__wordmark {
+    font-size: 1.4rem;
+    letter-spacing: 0.16em;
+  }
+
+  .vyasa-invocation__tagline {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .vyasa-invocation__stage {
+    width: 260px;
+    height: 260px;
+  }
+
+  .vyasa-invocation__logo {
+    height: 42px;
+  }
+
+  .vyasa-invocation__wordmark {
+    font-size: 1.25rem;
+  }
+
+  .vyasa-invocation__tagline {
+    font-size: 0.8rem;
+  }
+}
