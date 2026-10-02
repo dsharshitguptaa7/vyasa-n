@@ -15,7 +15,7 @@ export const ResearchInnovationSection: React.FC = () => {
 
       <div className="vyasa-innovation-box">
         <p className="vyasa-innovation-text">
-          <strong>VYASA is not presented as a finished destination.</strong>
+          <strong>VYASAᴺ is not presented as a finished destination.</strong>
         </p>
         <p className="vyasa-innovation-text">
           It is an evolving institutional technology initiative&mdash;built incrementally through

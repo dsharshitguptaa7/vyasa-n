@@ -170,7 +170,7 @@ export const AuthorityLoginPage: React.FC = () => {
             Institutional Authority Console
           </h1>
           <p className="vyasa-auth-page-subtitle">
-            Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASA Ecosystem Gateway
+            Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASAᴺ Research Ecosystem Gateway
           </p>
         </div>
 
@@ -293,7 +293,7 @@ export const AuthorityLoginPage: React.FC = () => {
               </div>
               <p style={{ margin: 0 }}>
                 This console is strictly restricted to authorized university administrative officers,
-                deans, and academic governance personnel. Access is authenticated via the VYASA Core Identity Authority.
+                deans, and academic governance personnel. Access is authenticated via the VYASAᴺ Core Identity Authority.
               </p>
             </div>
           </form>

@@ -97,7 +97,7 @@ export const VyasaDashboardPage: React.FC = () => {
               <AppIcon name="building" size={13} color="var(--vyasa-gold, #d4a017)" />
             </div>
             <span className="vyasa-dashboard-banner__eyebrow-text">
-              VYASA Institutional Platform
+              VYASAᴺ Institutional Platform
             </span>
             <span className="vyasa-dashboard-banner__separator" aria-hidden="true">&bull;</span>
             <Badge variant={roleBadge.variant} size="sm" className="vyasa-dashboard-banner__role-badge">
@@ -387,7 +387,7 @@ export const VyasaDashboardPage: React.FC = () => {
               <div className="vyasa-field-group">
                 <div className="vyasa-field-label">Platform Identity Issuer</div>
                 <div data-testid="platform-issuer" className="vyasa-field-value" style={{ fontSize: '13px', color: 'var(--vyasa-text-secondary, #475569)', fontWeight: 500 }}>
-                  CSJMU VYASA Core &bull; JWT Signed Session
+                  CSJMU VYASAᴺ Core &bull; JWT Signed Session
                 </div>
               </div>
             </div>

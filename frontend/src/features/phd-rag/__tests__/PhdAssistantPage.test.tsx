@@ -56,7 +56,7 @@ describe('PhdAssistantPage UI Suite', () => {
   it('1. Renders canonical VYASA Assistant branding, institutional identity, and verified knowledge tags', async () => {
     render(<PhdAssistantPage />);
 
-    expect(screen.getByText('VYASA Assistant')).toBeInTheDocument();
+    expect(screen.getByText('VYASA AI Assistant')).toBeInTheDocument();
     expect(screen.getByText('Chhatrapati Shahu Ji Maharaj University, Kanpur')).toBeInTheDocument();
     expect(screen.getByText('Research & Development Assistant')).toBeInTheDocument();
     expect(screen.getAllByText(/Your AI guide to research, doctoral studies, and academic regulations at CSJMU/i).length).toBeGreaterThanOrEqual(1);
@@ -65,8 +65,8 @@ describe('PhdAssistantPage UI Suite', () => {
     expect(screen.getByText('Admissions (2026-27)')).toBeInTheDocument();
     expect(screen.getByText('Public • No Login')).toBeInTheDocument();
 
-    // Verify official VYASA Assistant logo is rendered in header and central welcome section
-    const logos = screen.getAllByAltText('VYASA Assistant Logo');
+    // Verify official VYASA AI Assistant logo is rendered in header and central welcome section
+    const logos = screen.getAllByAltText('VYASA AI Assistant Logo');
     expect(logos.length).toBe(2);
     logos.forEach((logo) => {
       expect(logo).toHaveStyle({ objectFit: 'contain' });

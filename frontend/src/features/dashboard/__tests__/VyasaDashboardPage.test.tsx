@@ -303,7 +303,7 @@ describe('VyasaDashboardPage - Personal & Institutional Profile Upgrade', () => 
     expect(screen.getByTestId('card-access-security')).toBeInTheDocument();
     expect(screen.getByTestId('account-status')).toHaveTextContent('Active');
     expect(screen.getByTestId('identity-verification-status')).toHaveTextContent('Verified Institutional Account');
-    expect(screen.getByTestId('platform-issuer')).toHaveTextContent('CSJMU VYASA Core');
+    expect(screen.getByTestId('platform-issuer')).toHaveTextContent(/CSJMU VYASA.*Core/);
   });
 
   it('10. Sensitive fields (passwords, tokens, secret keys) are NEVER rendered', () => {

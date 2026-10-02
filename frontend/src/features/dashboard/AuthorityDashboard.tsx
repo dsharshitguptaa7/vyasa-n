@@ -106,7 +106,7 @@ export const AuthorityDashboard: React.FC = () => {
       <div style={{ marginBottom: '40px' }}>
         <SectionHeading
           title="Institutional Governance Pillars"
-          description="Autonomous domain pillars registered with VYASA Core Identity Authority"
+          description="Autonomous domain pillars registered with VYASAᴺ Core Identity Authority"
         />
 
         <div
@@ -141,7 +141,7 @@ export const AuthorityDashboard: React.FC = () => {
                     lineHeight: 1.5,
                   }}
                 >
-                  <strong>Domain Integration:</strong> Identity verified via VYASA Core JWT. Domain role assignments and cluster authority are maintained within NIVARAN.
+                  <strong>Domain Integration:</strong> Identity verified via VYASAᴺ Core JWT. Domain role assignments and cluster authority are maintained within NIVARAN.
                 </div>
               </div>
 
@@ -164,7 +164,7 @@ export const AuthorityDashboard: React.FC = () => {
       <Card
         variant="scholarly"
         title="Institutional Identity Verification"
-        subtitle="VYASA Ecosystem Identity Authority"
+        subtitle="VYASAᴺ Research Ecosystem Identity Authority"
         headerAction={<Badge variant="teal">Verified Session</Badge>}
       >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', padding: '8px 0' }}>
@@ -197,7 +197,7 @@ export const AuthorityDashboard: React.FC = () => {
               Institutional Issuer
             </div>
             <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--vyasa-navy)', marginTop: '4px' }}>
-              CSJMU VYASA Core
+              CSJMU VYASAᴺ Core
             </div>
             <div style={{ fontSize: '12px', color: 'var(--vyasa-text-secondary)', marginTop: '2px' }}>
               JWT Identity Provider

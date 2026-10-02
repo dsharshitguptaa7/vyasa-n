@@ -14,6 +14,8 @@ export interface InstitutionDetails {
 
 export interface EcosystemBrandDetails {
   readonly productName: string;
+  readonly ecosystemName: string;
+  readonly assistantName: string;
   readonly taglineHindi: string;
   readonly taglineEnglish: string;
   readonly logoPath: string;
@@ -30,7 +32,9 @@ export const CSJMU_INSTITUTION: InstitutionDetails = {
 };
 
 export const VYASA_BRAND: EcosystemBrandDetails = {
-  productName: 'VYASA',
+  productName: 'VYASAᴺ',
+  ecosystemName: 'VYASAᴺ Research Ecosystem',
+  assistantName: 'VYASA AI Assistant',
   taglineHindi: 'ज्ञान से शोध तक, AI के साथ',
   taglineEnglish: 'From Knowledge to Research, with AI',
   logoPath: '/assets/branding/vyasa/vyasa-logo.png',

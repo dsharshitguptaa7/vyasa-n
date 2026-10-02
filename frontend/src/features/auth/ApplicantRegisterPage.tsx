@@ -186,7 +186,7 @@ export const ApplicantRegisterPage: React.FC = () => {
             lineHeight: 1.5,
           }}
         >
-          Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASA Ecosystem Identity
+          Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASAᴺ Research Ecosystem Identity
         </p>
       </div>
 
@@ -421,7 +421,7 @@ export const ApplicantRegisterPage: React.FC = () => {
               <strong>Institutional Single Sign-On (SSO) Foundation</strong>
             </p>
             <p style={{ margin: 0 }}>
-              Registering in VYASA Core provisions your unified university identity. Once registered,
+              Registering in VYASAᴺ Core provisions your unified university identity. Once registered,
               you will use these credentials across all affiliated university pillars including NIVARAN.
             </p>
           </div>

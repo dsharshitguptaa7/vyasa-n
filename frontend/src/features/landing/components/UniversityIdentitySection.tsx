@@ -9,7 +9,7 @@ export const UniversityIdentitySection: React.FC = () => {
         align="center"
         eyebrow="Institutional Authority"
         title="Anchored at CSJMU Kanpur"
-        description="VYASA is conceived, governed, and deployed under the auspices of Chhatrapati Shahu Ji Maharaj University, Kanpur."
+        description="VYASAᴺ is conceived, governed, and deployed under the auspices of Chhatrapati Shahu Ji Maharaj University, Kanpur."
       />
 
       <Card
@@ -75,7 +75,7 @@ export const UniversityIdentitySection: React.FC = () => {
               }}
             >
               Located in {CSJMU_INSTITUTION.location}, the university serves as the apex academic and
-              governing institution for the VYASA ecosystem. Through this digital platform, CSJMU
+              governing institution for the VYASAᴺ Research Ecosystem. Through this digital platform, CSJMU
               advances its institutional commitment to rigorous academic standards, accountable public
               governance, and state-of-the-art technological adoption for scholars and students.
             </p>

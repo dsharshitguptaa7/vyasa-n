@@ -18,7 +18,7 @@ export const VyasaWordmark: React.FC<VyasaWordmarkProps> = ({
 
   return (
     <div className={`vyasa-wordmark ${themeClass} ${sizeClass} ${className}`}>
-      <span className="vyasa-wordmark__title">VYASA</span>
+      <span className="vyasa-wordmark__title">VYASAᴺ</span>
       {showTagline && (
         <span className="vyasa-wordmark__tagline vyasa-devanagari" lang="hi">
           ज्ञान से शोध तक, AI के साथ

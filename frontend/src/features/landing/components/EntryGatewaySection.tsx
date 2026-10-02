@@ -84,7 +84,7 @@ export const EntryGatewaySection: React.FC = () => {
         <Card
           className="vyasa-gateway-card"
           variant="scholarly"
-          title="VYASA Assistant"
+          title="VYASA AI Assistant"
           subtitle="Research & Development Assistant • CSJMU, Kanpur"
           headerAction={<Badge variant="gold">Public • No Login</Badge>}
         >
@@ -98,7 +98,7 @@ export const EntryGatewaySection: React.FC = () => {
                 size="md"
                 onClick={() => navigate('/phd-admission')}
               >
-                Open VYASA Assistant &rarr;
+                Open VYASA AI Assistant &rarr;
               </Button>
             </div>
             <p style={{ margin: '16px 0 0', fontSize: '12px', color: 'var(--vyasa-text-muted)' }}>

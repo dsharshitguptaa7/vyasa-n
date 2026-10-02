@@ -31,7 +31,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     renderLandingPage();
 
     // Wordmark & Hindi Tagline
-    const title = screen.getByRole('heading', { level: 1, name: 'VYASA' });
+    const title = screen.getByRole('heading', { level: 1, name: 'VYASAᴺ' });
     expect(title).toBeInTheDocument();
     expect(screen.getAllByText('ज्ञान से शोध तक, AI के साथ').length).toBeGreaterThan(0);
 
@@ -46,11 +46,11 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     ).toBeInTheDocument();
 
     // Primary CTA
-    expect(screen.getAllByRole('button', { name: /Enter VYASA Ecosystem/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Enter VYASA.*Research Ecosystem/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Explore the Vision/i })).toBeInTheDocument();
 
-    // Clicking VYASA Assistant in Hero performs client-side routing to /phd-admission
-    const heroAssistantBtn = screen.getByRole('button', { name: 'VYASA Assistant' });
+    // Clicking VYASA AI Assistant in Hero performs client-side routing to /phd-admission
+    const heroAssistantBtn = screen.getByRole('button', { name: 'VYASA AI Assistant' });
     expect(heroAssistantBtn).toBeInTheDocument();
     fireEvent.click(heroAssistantBtn);
     expect(screen.getByTestId('phd-assistant-dest')).toBeInTheDocument();
@@ -86,12 +86,51 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     renderLandingPage();
 
     // Vision Heading
-    const visionHeading = screen.getByRole('heading', { name: 'The Vision Behind VYASA' });
+    const visionHeading = screen.getByRole('heading', { name: 'The Vision Behind VYASAᴺ' });
     expect(visionHeading).toBeInTheDocument();
 
-    // Vision narrative mentioning Prof. Namita Tiwari
-    expect(screen.getByText(/Prof\. Namita Tiwari/i)).toBeInTheDocument();
-    expect(screen.getByText(/Dean, Research & Development/i)).toBeInTheDocument();
+    // Vision narrative & cards mentioning Prof. Namita Tiwari
+    expect(screen.getAllByText(/Prof\. Namita Tiwari/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Dean, Research & Development/i).length).toBeGreaterThanOrEqual(1);
+
+    // Dignitary Vision Cards
+    const leadersGrid = screen.getByTestId('vision-leaders-grid');
+    expect(leadersGrid).toBeInTheDocument();
+    expect(screen.getByText('Smt. Anandiben Patel')).toBeInTheDocument();
+    expect(screen.getByText(/Hon['’]ble Governor of Uttar Pradesh & Chancellor/)).toBeInTheDocument();
+    expect(screen.getByText('Prof. Vinay Kumar Pathak')).toBeInTheDocument();
+    expect(screen.getByText(/Hon['’]ble Vice Chancellor/)).toBeInTheDocument();
+
+    // Dignitary Images & Alt text
+    const photos = leadersGrid.querySelectorAll('img');
+    expect(photos.length).toBe(3);
+    expect(photos[0]).toHaveAttribute('alt', 'Smt. Anandiben Patel, Hon’ble Governor of Uttar Pradesh and Chancellor of CSJMU');
+    expect(photos[1]).toHaveAttribute('alt', 'Prof. Vinay Kumar Pathak, Hon’ble Vice Chancellor of CSJMU');
+    expect(photos[2]).toHaveAttribute('alt', 'Prof. Namita Tiwari, Dean of Research & Development at CSJMU');
+
+    // New introductory paragraph explaining the inspiration behind the name VYASA
+    expect(
+      screen.getByText(/Named after the sage who organised the knowledge of an entire civilisation/i)
+    ).toBeInTheDocument();
+
+    // Main description of the research ecosystem
+    expect(
+      screen.getByText(/VYASA is the unified digital ecosystem for research at Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
+    ).toBeInTheDocument();
+
+    // Preserved leadership card descriptions
+    expect(
+      screen.getByText(/Her call at AI Manthan 2.0 for the responsible use of Artificial Intelligence/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/His leadership, directions and constant support turned the vision into a working ecosystem/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Conceived VYASA to make R&D processes smoother, more transparent, accountable and responsive/i)
+    ).toBeInTheDocument();
+
+    // Bottom tagline
+    expect(screen.getByText('Less paperwork. More discovery.')).toBeInTheDocument();
 
     // Vision container itself should not have the attribution block
     const visionSection = visionHeading.closest('section');
@@ -104,7 +143,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
   it('4. The Four Domains of VYASA render around central hub', () => {
     renderLandingPage();
 
-    expect(screen.getByRole('heading', { name: 'The Four Domains of VYASA' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'The Four Domains of VYASAᴺ' })).toBeInTheDocument();
     expect(
       screen.getByText(/The ecosystem has been conceptually organized around the four Vedas/i)
     ).toBeInTheDocument();
@@ -205,13 +244,13 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/VYASA is being envisioned and developed within Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
+      screen.getByText(/VYASA.*is being envisioned and developed within Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
     ).toBeInTheDocument();
 
     // Compact Understated Institutional Attribution
     const vyasaAttr = screen.getByTestId('vyasa-attribution');
     expect(vyasaAttr).toBeInTheDocument();
-    expect(vyasaAttr).toHaveTextContent(/VYASA — Design & Development/i);
+    expect(vyasaAttr).toHaveTextContent(/VYASA.*— Design & Development/i);
     expect(vyasaAttr).toHaveTextContent('Harshit Gupta');
     expect(vyasaAttr).toHaveTextContent('M.Sc. Mathematics with AI & Data Science');
     expect(vyasaAttr).toHaveTextContent(/Chhatrapati Shahu Ji Maharaj University, Kanpur/i);
@@ -225,7 +264,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
       screen.getByRole('heading', { name: 'One Step Toward Institutional Innovation' })
     ).toBeInTheDocument();
 
-    expect(screen.getByText(/VYASA is not presented as a finished destination/i)).toBeInTheDocument();
+    expect(screen.getByText(/VYASA.*is not presented as a finished destination/i)).toBeInTheDocument();
   });
 
   it('14. The Vision Continues minimal closing section renders equation and pledge', () => {

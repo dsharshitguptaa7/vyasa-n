@@ -221,7 +221,7 @@ export const PhdAssistantPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flex: '1 1 500px' }}>
             <img
               src={vyasaAssistantLogo}
-              alt="VYASA Assistant Logo"
+              alt="VYASA AI Assistant Logo"
               style={{
                 width: '48px',
                 height: '48px',
@@ -236,7 +236,7 @@ export const PhdAssistantPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                  VYASA Assistant
+                  VYASA AI Assistant
                 </h1>
                 <Badge variant="gold">Research & Development Assistant</Badge>
                 <Badge variant="neutral">Public &bull; No Login</Badge>
@@ -315,7 +315,7 @@ export const PhdAssistantPage: React.FC = () => {
             <div style={{ textAlign: 'center', padding: '36px 20px' }}>
               <img
                 src={vyasaAssistantLogo}
-                alt="VYASA Assistant Logo"
+                alt="VYASA AI Assistant Logo"
                 style={{
                   width: '76px',
                   height: '76px',
@@ -325,7 +325,7 @@ export const PhdAssistantPage: React.FC = () => {
                 }}
               />
               <h2 style={{ margin: '0 0 6px 0', fontSize: '1.45rem', fontWeight: 700, color: '#0f172a' }}>
-                Welcome to VYASA Assistant
+                Welcome to VYASA AI Assistant
               </h2>
               <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#92400e', marginBottom: '8px' }}>
                 Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; Research & Development Assistant
@@ -403,7 +403,7 @@ export const PhdAssistantPage: React.FC = () => {
               >
                 {/* Author Label & Time */}
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '4px' }}>
-                  {msg.role === 'user' ? 'You' : 'VYASA Assistant'} &bull; {msg.timestamp}
+                  {msg.role === 'user' ? 'You' : 'VYASA AI Assistant'} &bull; {msg.timestamp}
                 </div>
 
                 {/* Message Bubble */}

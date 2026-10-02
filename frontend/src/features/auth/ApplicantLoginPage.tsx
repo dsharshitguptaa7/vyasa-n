@@ -179,7 +179,7 @@ export const ApplicantLoginPage: React.FC = () => {
             Applicant Login
           </h1>
           <p className="vyasa-auth-page-subtitle">
-            Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASA Ecosystem Gateway
+            Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASAᴺ Research Ecosystem Gateway
           </p>
         </div>
 
@@ -312,7 +312,7 @@ export const ApplicantLoginPage: React.FC = () => {
                 <span>Doctoral Scholar Access Protocol</span>
               </div>
               <p style={{ margin: 0 }}>
-                This portal is designated for registered doctoral research scholars and applicants. Access is authenticated via the central VYASA Core Identity Authority.
+                This portal is designated for registered doctoral research scholars and applicants. Access is authenticated via the central VYASAᴺ Core Identity Authority.
               </p>
             </div>
           </form>

@@ -266,7 +266,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
   it('18. Tagline is horizontally centered beneath the VYASA emblem', () => {
     renderNavbar();
-    const logoLockup = screen.getByRole('button', { name: /VYASA - ज्ञान से शोध तक, AI के साथ/i });
+    const logoLockup = screen.getByRole('button', { name: /VYASA.*- ज्ञान से शोध तक, AI के साथ/i });
     expect(logoLockup).toBeInTheDocument();
     expect(logoLockup).toHaveClass('vyasa-public-logo-lockup');
 

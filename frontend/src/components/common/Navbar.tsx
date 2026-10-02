@@ -153,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
     if (isAdmin && !authorityRole) {
       return {
-        productTitle: 'VYASA PLATFORM',
+        productTitle: 'VYASAᴺ PLATFORM',
         authorityTitle: 'Central Administration Console',
         homeRoute: '/admin',
         badgeVariant: 'primary',
@@ -189,7 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
     // Generic Authority fallback
     return {
-      productTitle: 'VYASA PLATFORM',
+      productTitle: 'VYASAᴺ PLATFORM',
       authorityTitle: 'Institutional Governance',
       homeRoute: '/dashboard',
       badgeVariant: 'teal',
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           subBrand={
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'rgba(255, 255, 255, 0.75)' }}>
-                <span>VYASA</span>
+                <span>VYASAᴺ</span>
                 <span>/</span>
                 <span>Services</span>
                 <span>/</span>
@@ -308,7 +308,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               to="/dashboard"
               className="nivaran-nav-return-btn"
             >
-              &larr; VYASA Dashboard
+              &larr; VYASAᴺ Dashboard
             </NavLink>
 
             {workspace.items.map((item) => {
@@ -372,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="vyasa-auth-mobile-nav-item vyasa-auth-mobile-nav-item--return"
                 >
                   <AppIcon name="grid" size={16} color="var(--vyasa-gold, #d4a017)" />
-                  <span>Return to VYASA Dashboard</span>
+                  <span>Return to VYASAᴺ Dashboard</span>
                 </NavLink>
 
                 {workspace.items.map((item) => {
@@ -434,7 +434,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   textTransform: 'uppercase',
                 }}
               >
-                VYASA PLATFORM
+                VYASAᴺ PLATFORM
               </span>
               <span
                 style={{
@@ -578,7 +578,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="vyasa-auth-mobile-drawer"
               role="dialog"
               aria-modal="true"
-              aria-label="VYASA Platform Mobile Menu"
+              aria-label="VYASAᴺ Platform Mobile Menu"
             >
               <div className="vyasa-auth-mobile-drawer__user">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>

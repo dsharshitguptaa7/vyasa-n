@@ -265,7 +265,7 @@ describe('VYASA Professional Iconography & Brand Asset System Suite', () => {
       // Drawer dialog should be visible
       const drawer = screen.getByRole('dialog', { name: /NIVARAN Service Mobile Menu/i });
       expect(drawer).toBeInTheDocument();
-      expect(screen.getByText('Return to VYASA Dashboard')).toBeInTheDocument();
+      expect(screen.getByText(/Return to VYASA.*Dashboard/i)).toBeInTheDocument();
 
       // Press Escape to dismiss
       fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });

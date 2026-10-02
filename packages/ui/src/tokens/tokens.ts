@@ -21,7 +21,9 @@ export const vyasaColors = {
 } as const;
 
 export const vyasaBrand = {
-  name: 'VYASA',
+  name: 'VYASAᴺ',
+  ecosystemName: 'VYASAᴺ Research Ecosystem',
+  assistantName: 'VYASA AI Assistant',
   taglineHindi: 'ज्ञान से शोध तक, AI के साथ',
   taglineEnglish: 'From Knowledge to Research, with AI',
 } as const;

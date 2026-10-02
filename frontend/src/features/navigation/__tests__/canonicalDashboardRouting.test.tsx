@@ -318,9 +318,9 @@ describe('Single Canonical Authenticated Dashboard Architecture Suite', () => {
       </MemoryRouter>
     );
 
-    // In NIVARAN header, click "← VYASA Dashboard"
+    // In NIVARAN header, click "← VYASAᴺ Dashboard"
     await waitFor(() => {
-      const dashboardLink = screen.getByRole('link', { name: /← VYASA Dashboard/i });
+      const dashboardLink = screen.getByRole('link', { name: /← VYASA.*Dashboard/i });
       expect(dashboardLink).toBeInTheDocument();
       fireEvent.click(dashboardLink);
     });

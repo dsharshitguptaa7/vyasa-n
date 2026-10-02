@@ -56,7 +56,7 @@ export const FinalVisionSection: React.FC<FinalVisionSectionProps> = ({ onEnterE
       <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
         <Button variant="primary" size="lg" onClick={handleEnter}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <span>Enter VYASA Ecosystem</span>
+            <span>Enter VYASAᴺ Research Ecosystem</span>
             <AppIcon name="arrow-right" size={16} />
           </span>
         </Button>

@@ -71,7 +71,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       <div className="vyasa-landing-hero__actions">
         <Button variant="primary" size="lg" onClick={onEnterEcosystem}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <span>Enter VYASA Ecosystem</span>
+            <span>Enter VYASAᴺ Research Ecosystem</span>
             <AppIcon name="arrow-right" size={16} />
           </span>
         </Button>
@@ -83,7 +83,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           }}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <span>VYASA Assistant</span>
+            <span>VYASA AI Assistant</span>
             <AppIcon name="arrow-right" size={16} />
           </span>
         </Button>

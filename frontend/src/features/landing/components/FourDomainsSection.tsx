@@ -11,7 +11,7 @@ export const FourDomainsSection: React.FC = () => {
       <SectionHeading
         align="center"
         eyebrow="Ecosystem Architecture"
-        title="The Four Domains of VYASA"
+        title="The Four Domains of VYASAᴺ"
         description="The ecosystem has been conceptually organized around the four Vedas, with each domain carrying an independent institutional role."
       />
 
@@ -29,7 +29,7 @@ export const FourDomainsSection: React.FC = () => {
               </div>
               <div className="vyasa-domain-dimension">Research &amp; Knowledge Creation</div>
               <p className="vyasa-domain-role">
-                The research and knowledge creation dimension of the VYASA ecosystem.
+                The research and knowledge creation dimension of the VYASAᴺ Research Ecosystem.
               </p>
               <div style={{ fontSize: '11px', color: 'var(--vyasa-text-muted, #6b7280)', fontStyle: 'italic' }}>
                 Future Development &bull; Conceptual Domain

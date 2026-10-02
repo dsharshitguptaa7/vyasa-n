@@ -139,7 +139,7 @@ export const NivaranOperationalSection: React.FC = () => {
 
         {/* Narrative Description */}
         <p className="vyasa-nivaran-desc">
-          NIVARAN-AI is the operational Atharva Veda domain of VYASA, designed to support smart,
+          NIVARAN-AI is the operational Atharva Veda domain of VYASAᴺ, designed to support smart,
           AI-assisted grievance redressal, institutional review, workflow monitoring and transparent
           resolution processes within the Research &amp; Development ecosystem.
         </p>

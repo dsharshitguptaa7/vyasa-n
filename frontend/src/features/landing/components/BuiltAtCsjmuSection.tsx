@@ -30,7 +30,7 @@ export const BuiltAtCsjmuSection: React.FC = () => {
           </div>
 
           <p className="vyasa-csjmu-text">
-            VYASA is being envisioned and developed within {CSJMU_INSTITUTION.nameEnglish}, as an
+            VYASAᴺ is being envisioned and developed within {CSJMU_INSTITUTION.nameEnglish}, as an
             institutional research and innovation initiative.
           </p>
           <p className="vyasa-csjmu-text">
@@ -59,7 +59,7 @@ export const BuiltAtCsjmuSection: React.FC = () => {
                 marginBottom: '3px',
               }}
             >
-              VYASA &mdash; Design &amp; Development
+              VYASAᴺ &mdash; Design &amp; Development
             </div>
             <div
               className="vyasa-attribution-person"
