@@ -185,6 +185,8 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route path="/phd" element={<Navigate to="/phd-admission" replace />} />
+      <Route path="/vyasa-assistant" element={<Navigate to="/phd-admission" replace />} />
+      <Route path="/assistant" element={<Navigate to="/phd-admission" replace />} />
 
       {/* 2. Applicant Authentication */}
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Badge, VyasaLogo, AppIcon } from '@vyasa/ui';
 import { CsjmuLogo, CSJMU_INSTITUTION, VYASA_BRAND } from '@vyasa/ui/branding';
 
@@ -11,6 +12,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onEnterEcosystem,
   onExploreVision,
 }) => {
+  const navigate = useNavigate();
   const handleScrollToVision = onExploreVision || (() => {
     document.getElementById('vision')?.scrollIntoView({ behavior: 'smooth' });
   });
@@ -77,7 +79,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           variant="gold"
           size="lg"
           onClick={() => {
-            window.location.assign('/phd-admission');
+            navigate('/phd-admission');
           }}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>

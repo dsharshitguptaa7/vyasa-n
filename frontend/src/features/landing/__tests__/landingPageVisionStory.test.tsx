@@ -15,6 +15,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
             <Route path="/applicant/login" element={<div data-testid="applicant-login-dest">Applicant Login Page</div>} />
             <Route path="/authority/login" element={<div data-testid="authority-login-dest">Authority Login Page</div>} />
             <Route path="/modules/atharva-veda/nivaran" element={<div data-testid="nivaran-dest">NIVARAN Module</div>} />
+            <Route path="/phd-admission" element={<div data-testid="phd-assistant-dest">VYASA Assistant Page</div>} />
           </Routes>
         </AuthProvider>
       </MemoryRouter>
@@ -47,6 +48,12 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     // Primary CTA
     expect(screen.getAllByRole('button', { name: /Enter VYASA Ecosystem/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Explore the Vision/i })).toBeInTheDocument();
+
+    // Clicking VYASA Assistant in Hero performs client-side routing to /phd-admission
+    const heroAssistantBtn = screen.getByRole('button', { name: 'VYASA Assistant' });
+    expect(heroAssistantBtn).toBeInTheDocument();
+    fireEvent.click(heroAssistantBtn);
+    expect(screen.getByTestId('phd-assistant-dest')).toBeInTheDocument();
   });
 
   it('2b. Institutional logos (CSJMU and VYASA) are visually balanced with centered divider', () => {
