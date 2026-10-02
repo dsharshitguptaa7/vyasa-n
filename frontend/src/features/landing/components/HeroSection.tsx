@@ -55,15 +55,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {VYASA_BRAND.taglineHindi}
       </div>
 
-      {/* 5. Institutional Secondary Description */}
-      <p className="vyasa-landing-hero__secondary">
-        An AI-assisted Research, Innovation &amp; Institutional Governance Ecosystem of{' '}
-        {CSJMU_INSTITUTION.nameEnglish}
-      </p>
+      {/* 5. Main Heading */}
+      <h2 className="vyasa-landing-hero__secondary">
+        An AI-assisted Research, Innovation &amp; Institutional Governance Ecosystem
+      </h2>
 
       {/* 6. Supporting Statement */}
       <p className="vyasa-landing-hero__statement">
-        &ldquo;A step toward making Research &amp; Development more connected, transparent, intelligent and responsive.&rdquo;
+        &ldquo;A step toward making Research &amp; Development more connected, transparent, secure, intelligent and responsive.&rdquo;
       </p>
 
       {/* 7. Primary Actions */}
@@ -71,6 +70,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <Button variant="primary" size="lg" onClick={onEnterEcosystem}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
             <span>Enter VYASA Ecosystem</span>
+            <AppIcon name="arrow-right" size={16} />
+          </span>
+        </Button>
+        <Button
+          variant="gold"
+          size="lg"
+          onClick={() => {
+            window.location.assign('/phd-admission');
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <span>VYASA Assistant</span>
             <AppIcon name="arrow-right" size={16} />
           </span>
         </Button>
@@ -84,5 +95,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     </section>
   );
 };
+
 
 export default HeroSection;

@@ -31,21 +31,6 @@ export const VisionSection: React.FC = () => {
             smoother, more transparent, accountable and responsive.
           </p>
         </div>
-
-        {/* Subtle, Restrained Institutional Attribution */}
-        <div className="vyasa-attribution-block" data-testid="vyasa-attribution">
-          <div className="vyasa-attribution-divider" aria-hidden="true" />
-          <div className="vyasa-attribution-content">
-            <div className="vyasa-attribution-inst-note">
-              An institutional initiative, designed and developed at {CSJMU_INSTITUTION.nameEnglish}.
-            </div>
-            <div className="vyasa-attribution-label">VYASA &mdash; Design &amp; Development</div>
-            <div className="vyasa-attribution-person">Harshit Gupta</div>
-            <div className="vyasa-attribution-credential">
-              M.Sc. Mathematics with AI &amp; Data Science &bull; {CSJMU_INSTITUTION.nameEnglish}
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

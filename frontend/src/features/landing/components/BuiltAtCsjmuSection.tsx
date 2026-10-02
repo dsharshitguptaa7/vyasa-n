@@ -37,6 +37,51 @@ export const BuiltAtCsjmuSection: React.FC = () => {
             Rather than treating technology as an external layer, the ecosystem is being developed
             around the University&apos;s own research, governance and institutional requirements.
           </p>
+
+          {/* Compact, Understated Attribution */}
+          <div
+            className="vyasa-attribution-block"
+            data-testid="vyasa-attribution"
+            style={{
+              marginTop: '20px',
+              paddingTop: '16px',
+              borderTop: '1px solid var(--vyasa-gold-border, #ecdfba)',
+            }}
+          >
+            <div
+              className="vyasa-attribution-label"
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--vyasa-gold, #b2811a)',
+                marginBottom: '3px',
+              }}
+            >
+              VYASA &mdash; Design &amp; Development
+            </div>
+            <div
+              className="vyasa-attribution-person"
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: 'var(--vyasa-primary, #0f2b48)',
+                marginBottom: '2px',
+              }}
+            >
+              Harshit Gupta
+            </div>
+            <div
+              className="vyasa-attribution-credential"
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--vyasa-text-secondary, #4b5565)',
+              }}
+            >
+              M.Sc. Mathematics with AI &amp; Data Science &middot; {CSJMU_INSTITUTION.nameEnglish}
+            </div>
+          </div>
         </div>
       </div>
     </section>

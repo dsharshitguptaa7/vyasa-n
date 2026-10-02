@@ -48,7 +48,9 @@ import {
   GrievanceCategoriesPage,
   AuditLogsPage,
 } from './admin';
+import { PhdAssistantPage } from './features/phd-rag';
 import { Card, Badge, Button, PageContainer } from '@vyasa/ui';
+
 
 
 const EcosystemHome: React.FC = () => {
@@ -136,6 +138,9 @@ const EcosystemHome: React.FC = () => {
           </PageContainer>
         );
 
+      case 'phd-admission':
+        return <PhdAssistantPage />;
+
       case 'vision':
       case 'domains':
       case 'nivaran':
@@ -166,7 +171,23 @@ export const AppRoutes: React.FC = () => {
       {/* 1. Public Ecosystem Home */}
       <Route path="/" element={<EcosystemHome />} />
 
+      {/* Public Ph.D. Admission Assistant (Accessible without authentication) */}
+      <Route
+        path="/phd-admission"
+        element={
+          <MainLayout
+            currentTab="phd-admission"
+            onSelectTab={() => navigate('/')}
+            onSignInClick={() => navigate('/applicant/login')}
+          >
+            <PhdAssistantPage />
+          </MainLayout>
+        }
+      />
+      <Route path="/phd" element={<Navigate to="/phd-admission" replace />} />
+
       {/* 2. Applicant Authentication */}
+
       <Route
         path="/applicant/login"
         element={

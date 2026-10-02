@@ -79,7 +79,35 @@ export const EntryGatewaySection: React.FC = () => {
             </p>
           </div>
         </Card>
+
+        {/* 3. PUBLIC VYASA ASSISTANT GATEWAY */}
+        <Card
+          className="vyasa-gateway-card"
+          variant="scholarly"
+          title="VYASA Assistant"
+          subtitle="Research & Development Assistant • CSJMU, Kanpur"
+          headerAction={<Badge variant="gold">Public • No Login</Badge>}
+        >
+          <div style={{ padding: '8px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
+            <p style={{ margin: '0 0 20px', fontSize: '14px' }}>
+              Your AI guide to research, doctoral studies, and academic regulations at CSJMU. Explore authoritative doctoral guidelines, course work credits, ordinance provisions, and admission criteria with source-grounded answers.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => navigate('/phd-admission')}
+              >
+                Open VYASA Assistant &rarr;
+              </Button>
+            </div>
+            <p style={{ margin: '16px 0 0', fontSize: '12px', color: 'var(--vyasa-text-muted)' }}>
+              Accessible publicly without login or user registration. Sourced directly from official university documents.
+            </p>
+          </div>
+        </Card>
       </div>
     </section>
   );
 };
+

@@ -4,7 +4,12 @@ from app.modules import modules_router
 from app.admin import router as admin_router
 from app.watchdog import router as watchdog_router
 
+from app.modules.phd_rag import phd_rag_router
+
 api_router = APIRouter()
+
+# Public Ph.D. Admission RAG Assistant (No login required)
+api_router.include_router(phd_rag_router)
 
 # Core API routes
 api_router.include_router(health.router)
@@ -24,3 +29,4 @@ api_router.include_router(admin_router)
 
 # Operational Watchdog
 api_router.include_router(watchdog_router)
+

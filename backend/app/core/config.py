@@ -55,6 +55,24 @@ class Settings(BaseSettings):
         description="Gemini model identifier for institutional OCR extraction",
     )
 
+    # Ph.D. RAG Public Rate Limiting
+    PHD_RAG_RATE_LIMIT_ENABLED: bool = Field(
+        default=True,
+        description="Enable application-level rate limiting on public Ph.D. chat endpoint",
+    )
+    PHD_RAG_RATE_LIMIT_PER_MINUTE: int = Field(
+        default=20,
+        description="Maximum requests permitted per minute per client IP",
+    )
+    PHD_RAG_RATE_LIMIT_WINDOW_SECONDS: int = Field(
+        default=60,
+        description="Rate limit sliding window duration in seconds",
+    )
+    TRUSTED_PROXIES: str = Field(
+        default="127.0.0.1,::1",
+        description="Comma-separated list of trusted upstream proxy IP addresses",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """

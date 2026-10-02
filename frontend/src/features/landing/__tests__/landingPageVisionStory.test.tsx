@@ -39,9 +39,9 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
       screen.getByText(/An AI-assisted Research, Innovation & Institutional Governance Ecosystem/i)
     ).toBeInTheDocument();
 
-    // Supporting statement
+    // Supporting statement with secure
     expect(
-      screen.getByText(/A step toward making Research & Development more connected, transparent, intelligent and responsive/i)
+      screen.getByText(/A step toward making Research & Development more connected, transparent, secure, intelligent and responsive/i)
     ).toBeInTheDocument();
 
     // Primary CTA
@@ -75,26 +75,20 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     expect(divider).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('3. Vision section renders with Prof. Namita Tiwari and subtle Harshit Gupta attribution', () => {
+  it('3. Vision section renders institutional narrative with Prof. Namita Tiwari without standalone attribution', () => {
     renderLandingPage();
 
     // Vision Heading
-    expect(screen.getByRole('heading', { name: 'The Vision Behind VYASA' })).toBeInTheDocument();
+    const visionHeading = screen.getByRole('heading', { name: 'The Vision Behind VYASA' });
+    expect(visionHeading).toBeInTheDocument();
 
     // Vision narrative mentioning Prof. Namita Tiwari
     expect(screen.getByText(/Prof\. Namita Tiwari/i)).toBeInTheDocument();
     expect(screen.getByText(/Dean, Research & Development/i)).toBeInTheDocument();
 
-    // Subtle Restrained Institutional Attribution (no oversized card)
-    const vyasaAttr = screen.getByTestId('vyasa-attribution');
-    expect(vyasaAttr).toBeInTheDocument();
-    expect(vyasaAttr).toHaveTextContent(/VYASA — Design & Development/i);
-    expect(vyasaAttr).toHaveTextContent('Harshit Gupta');
-    expect(vyasaAttr).toHaveTextContent('M.Sc. Mathematics with AI & Data Science');
-    expect(vyasaAttr).toHaveTextContent(/Chhatrapati Shahu Ji Maharaj University, Kanpur/i);
-
-    // VYASA attribution must NOT incorrectly list Manali Yadav
-    expect(vyasaAttr).not.toHaveTextContent('Manali Yadav');
+    // Vision container itself should not have the attribution block
+    const visionSection = visionHeading.closest('section');
+    expect(visionSection?.querySelector('[data-testid="vyasa-attribution"]')).toBeNull();
 
     // No oversized legacy card text remains
     expect(screen.queryByText('A Small Step Toward This Vision')).toBeNull();
@@ -192,7 +186,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     expect(screen.getByText('INTELLIGENCE')).toBeInTheDocument();
   });
 
-  it('12. Designed, Developed & Evolved at CSJMU Kanpur section renders institutional context', () => {
+  it('12. Designed, Developed & Evolved at CSJMU Kanpur section renders institutional context and relocated subtle attribution', () => {
     renderLandingPage();
 
     expect(
@@ -200,8 +194,21 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     ).toBeInTheDocument();
 
     expect(
+      screen.getByText(/Conceived and nurtured within the University's own research and governance fabric/i)
+    ).toBeInTheDocument();
+
+    expect(
       screen.getByText(/VYASA is being envisioned and developed within Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
     ).toBeInTheDocument();
+
+    // Compact Understated Institutional Attribution
+    const vyasaAttr = screen.getByTestId('vyasa-attribution');
+    expect(vyasaAttr).toBeInTheDocument();
+    expect(vyasaAttr).toHaveTextContent(/VYASA — Design & Development/i);
+    expect(vyasaAttr).toHaveTextContent('Harshit Gupta');
+    expect(vyasaAttr).toHaveTextContent('M.Sc. Mathematics with AI & Data Science');
+    expect(vyasaAttr).toHaveTextContent(/Chhatrapati Shahu Ji Maharaj University, Kanpur/i);
+    expect(vyasaAttr).not.toHaveTextContent('Manali Yadav');
   });
 
   it('13. One Step Toward Institutional Innovation section renders evolution philosophy', () => {

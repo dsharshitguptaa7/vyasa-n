@@ -1,0 +1,1 @@
+export { PhdAssistantPage } from './PhdAssistantPage';
