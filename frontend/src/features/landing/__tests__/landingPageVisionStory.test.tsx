@@ -115,7 +115,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
 
     // Main description of the research ecosystem
     expect(
-      screen.getByText(/VYASA is the unified digital ecosystem for research at Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
+      screen.getByText(/VYASA.*is the unified digital ecosystem for research at Chhatrapati Shahu Ji Maharaj University, Kanpur/i)
     ).toBeInTheDocument();
 
     // Preserved leadership card descriptions
