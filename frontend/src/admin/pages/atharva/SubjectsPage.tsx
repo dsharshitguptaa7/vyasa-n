@@ -1,35 +1,61 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { PageContainer, LoadingState, Button, Badge, Modal, Input, Select } from '@vyasa/ui';
-import { AdminNav } from '../../components/AdminNav';
+import { LoadingState, Button, Badge, Modal, Input, Select, AppIcon } from '@vyasa/ui';
+import { AdminLayout } from '../../components/AdminLayout';
 import { atharvaAdminService } from '../../services/atharvaAdminService';
-import { Subject, SubjectCluster } from '../../types/atharva';
+import { Subject, SubjectCluster, CreateSubjectPayload, UpdateSubjectPayload } from '../../types/atharva';
 
 export const SubjectsPage: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [clusters, setClusters] = useState<SubjectCluster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [clusterFilter, setClusterFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Remap cluster modal state
+  // Pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15);
+
+  // Re-map modal state
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-  const [targetClusterId, setTargetClusterId] = useState('');
+  const [targetClusterId, setTargetClusterId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Add Subject modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addForm, setAddForm] = useState<CreateSubjectPayload>({
+    name: '',
+    code: '',
+    subject_cluster_id: '',
+    is_active: true,
+  });
+
+  // Edit Subject modal state
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editForm, setEditForm] = useState<UpdateSubjectPayload>({});
+
+  // Delete Subject modal state
+  const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setErrorMsg(null);
-      const [subs, cls] = await Promise.all([
+      const [subjectsData, clustersData] = await Promise.all([
         atharvaAdminService.getSubjects(),
         atharvaAdminService.getSubjectClusters(),
       ]);
-      setSubjects(subs);
-      setClusters(cls);
+      setSubjects(subjectsData);
+      setClusters(clustersData);
+      if (clustersData.length > 0) {
+        setAddForm((prev) => ({ ...prev, subject_cluster_id: clustersData[0].id }));
+      }
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to load academic subjects');
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load subjects catalog');
     } finally {
       setLoading(false);
     }
@@ -39,6 +65,10 @@ export const SubjectsPage: React.FC = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, clusterFilter, statusFilter]);
+
   const filteredSubjects = useMemo(() => {
     return subjects.filter((s) => {
       if (clusterFilter && s.subject_cluster_id !== clusterFilter) return false;
@@ -47,19 +77,36 @@ export const SubjectsPage: React.FC = () => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = s.name.toLowerCase().includes(q);
-        const matchesCode = s.code.toLowerCase().includes(q);
-        if (!matchesName && !matchesCode) return false;
+        const matchesCode = s.code?.toLowerCase().includes(q) ?? false;
+        const matchesCluster = s.cluster_name?.toLowerCase().includes(q) ?? false;
+        if (!matchesName && !matchesCode && !matchesCluster) return false;
       }
       return true;
     });
   }, [subjects, clusterFilter, statusFilter, searchQuery]);
 
+  const paginatedSubjects = useMemo(() => {
+    if (pageSize === 0) return filteredSubjects;
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredSubjects.slice(startIndex, startIndex + pageSize);
+  }, [filteredSubjects, currentPage, pageSize]);
+
+  const totalPages = useMemo(() => {
+    if (pageSize === 0) return 1;
+    return Math.max(1, Math.ceil(filteredSubjects.length / pageSize));
+  }, [filteredSubjects.length, pageSize]);
+
+  const stats = useMemo(() => {
+    const total = subjects.length;
+    const active = subjects.filter((s) => s.is_active).length;
+    const mappedClusters = new Set(subjects.map((s) => s.subject_cluster_id)).size;
+    return { total, active, mappedClusters };
+  }, [subjects]);
+
   const handleToggleStatus = async (subject: Subject) => {
     try {
       const updated = await atharvaAdminService.updateSubjectStatus(subject.id, !subject.is_active);
-      setSubjects((prev) =>
-        prev.map((s) => (s.id === subject.id ? { ...s, is_active: updated.is_active } : s))
-      );
+      setSubjects((prev) => prev.map((s) => (s.id === subject.id ? { ...s, is_active: updated.is_active } : s)));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to update subject status');
     }
@@ -73,41 +120,228 @@ export const SubjectsPage: React.FC = () => {
       const targetCluster = clusters.find((c) => c.id === targetClusterId);
       setSubjects((prev) =>
         prev.map((s) =>
-          s.id === selectedSubject.id
+          s.id === updated.id
             ? {
                 ...s,
                 subject_cluster_id: updated.subject_cluster_id,
-                cluster_name: targetCluster?.name || null,
-                cluster_number: targetCluster?.cluster_number || null,
+                cluster_name: targetCluster?.name || s.cluster_name,
+                cluster_number: targetCluster?.cluster_number || s.cluster_number,
               }
             : s
         )
       );
       setSelectedSubject(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to update subject cluster mapping');
+      alert(err instanceof Error ? err.message : 'Failed to re-map subject cluster');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCreateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.name.trim() || !addForm.subject_cluster_id) {
+      alert('Subject Name and Faculty Cluster are required.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const created = await atharvaAdminService.createSubject(addForm);
+      setSubjects((prev) => [...prev, created]);
+      setIsAddModalOpen(false);
+      setAddForm({
+        name: '',
+        code: '',
+        subject_cluster_id: clusters.length > 0 ? clusters[0].id : '',
+        is_active: true,
+      });
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to create subject');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditModal = (subject: Subject) => {
+    setEditingSubject(subject);
+    setEditForm({
+      name: subject.name,
+      code: subject.code || '',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSubject) return;
+    try {
+      setIsSaving(true);
+      const updated = await atharvaAdminService.updateSubject(editingSubject.id, editForm);
+      setSubjects((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setEditingSubject(null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update subject');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteSubject = async () => {
+    if (!deletingSubject) return;
+    try {
+      setIsSaving(true);
+      setDeleteError(null);
+      await atharvaAdminService.deleteSubject(deletingSubject.id);
+      setSubjects((prev) => prev.filter((s) => s.id !== deletingSubject.id));
+      setDeletingSubject(null);
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete subject');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <PageContainer style={{ padding: '40px 0' }}>
-      <AdminNav />
+    <AdminLayout activeTab="subjects">
 
-      {/* Header Info */}
-      <div style={{ marginBottom: '24px', backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: '18px', color: '#0f172a' }}>
-          Academic Disciplines &amp; Subject Catalog
-        </h2>
-        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: 1.5 }}>
-          Academic subjects define the doctoral scholar&apos;s department discipline.
-          Every subject maps to a faculty Subject Cluster. Managing cluster assignments dynamically redirects
-          future scholar submissions to the cluster&apos;s designated Assistant Dean.
-        </p>
+      {/* Official Subject Catalog Banner */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px',
+          padding: '20px 24px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid var(--vyasa-border, #e3dcd1)',
+          boxShadow: 'var(--vyasa-shadow-sm)',
+        }}
+      >
+        <div style={{ maxWidth: '800px' }}>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--vyasa-gold, #b2811a)',
+              marginBottom: '3px',
+            }}
+          >
+            Academic Catalog • Doctoral &amp; Post-Graduate Disciplines
+          </div>
+          <h2
+            style={{
+              margin: '0 0 6px',
+              fontSize: '20px',
+              fontWeight: 700,
+              color: 'var(--vyasa-primary, #0f2b48)',
+              fontFamily: 'var(--vyasa-font-scholarly, serif)',
+            }}
+          >
+            Academic Disciplines &amp; Subject Mappings
+          </h2>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.55 }}>
+            Manage university academic subjects, disciplinary codes, and faculty cluster mappings.
+            All registration taxonomies are driven dynamically from the database.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<AppIcon name="book-open" size={14} />}
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            + Add Subject
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<AppIcon name="settings" size={14} />}
+            onClick={fetchData}
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* Metrics Strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '14px',
+          marginBottom: '24px',
+        }}
+      >
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundColor: 'var(--vyasa-primary, #0f2b48)' }} />
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary, #64748b)' }}>
+            Total Subjects
+          </span>
+          <h3 style={{ margin: '6px 0 2px', fontSize: '26px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)' }}>
+            {stats.total}
+          </h3>
+          <span style={{ fontSize: '11px', color: 'var(--vyasa-text-muted, #64748b)' }}>Doctoral disciplines cataloged</span>
+        </div>
+
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundColor: '#059669' }} />
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary, #64748b)' }}>
+            Active Subjects
+          </span>
+          <h3 style={{ margin: '6px 0 2px', fontSize: '26px', fontWeight: 700, color: '#059669' }}>
+            {stats.active}
+          </h3>
+          <span style={{ fontSize: '11px', color: 'var(--vyasa-text-muted, #64748b)' }}>Available for intake</span>
+        </div>
+
+        <div
+          style={{
+            padding: '16px',
+            borderRadius: '8px',
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundColor: 'var(--vyasa-gold, #b2811a)' }} />
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary, #64748b)' }}>
+            Mapped Clusters
+          </span>
+          <h3 style={{ margin: '6px 0 2px', fontSize: '26px', fontWeight: 700, color: 'var(--vyasa-gold, #b2811a)' }}>
+            {stats.mappedClusters}
+          </h3>
+          <span style={{ fontSize: '11px', color: 'var(--vyasa-text-muted, #64748b)' }}>Faculty discipline groups</span>
+        </div>
+      </div>
+
+      {/* Filter and Actions Bar */}
       <div
         style={{
           display: 'flex',
@@ -115,26 +349,27 @@ export const SubjectsPage: React.FC = () => {
           alignItems: 'center',
           flexWrap: 'wrap',
           marginBottom: '20px',
-          backgroundColor: '#fff',
-          padding: '16px',
+          backgroundColor: '#ffffff',
+          padding: '16px 20px',
           borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--vyasa-border, #e3dcd1)',
+          boxShadow: 'var(--vyasa-shadow-sm)',
         }}
       >
         <div style={{ flex: '1 1 240px' }}>
           <Input
-            placeholder="Search by subject code or name..."
+            placeholder="Search subject by name or code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div style={{ width: '240px' }}>
+        <div style={{ width: '220px' }}>
           <Select
             options={[
-              { value: '', label: 'All Subject Clusters' },
+              { value: '', label: 'All Faculty Clusters' },
               ...clusters.map((c) => ({
                 value: c.id,
-                label: `#${c.cluster_number} - ${c.name}`,
+                label: `Cluster #${c.cluster_number}: ${c.name}`,
               })),
             ]}
             value={clusterFilter}
@@ -152,146 +387,470 @@ export const SubjectsPage: React.FC = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData}>
-          Refresh
-        </Button>
       </div>
 
       {/* Table */}
       {loading ? (
-        <LoadingState message="Loading academic subjects..." />
+        <LoadingState message="Loading academic disciplines..." />
       ) : errorMsg ? (
         <div style={{ padding: '24px', backgroundColor: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px', color: '#991b1b' }}>
           {errorMsg}
         </div>
       ) : (
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
-                <th style={{ padding: '12px 16px', fontWeight: 600, width: '120px' }}>Code</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600 }}>Subject Name</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600 }}>Subject Cluster</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600, width: '100px' }}>Status</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right', width: '220px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSubjects.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
-                    No academic subjects found matching criteria.
-                  </td>
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+              <thead>
+                <tr
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    borderBottom: '1.5px solid var(--vyasa-border, #e3dcd1)',
+                    color: 'var(--vyasa-text-secondary, #475569)',
+                    fontSize: '11.5px',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Subject Name &amp; Code</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Mapped Subject Cluster</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Status</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, textAlign: 'right' }}>Actions</th>
                 </tr>
-              ) : (
-                filteredSubjects.map((sub) => (
-                  <tr key={sub.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <Badge variant="neutral">{sub.code}</Badge>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 500, color: '#0f172a' }}>
-                      {sub.name}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {sub.cluster_name ? (
-                        <div style={{ color: '#334155' }}>
-                          <span style={{ fontWeight: 600, color: '#0369a1' }}>#{sub.cluster_number}</span>{' '}
-                          {sub.cluster_name}
-                        </div>
-                      ) : (
-                        <span style={{ color: '#dc2626' }}>Unmapped</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          color: sub.is_active ? '#059669' : '#dc2626',
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            backgroundColor: sub.is_active ? '#10b981' : '#ef4444',
-                          }}
-                        />
-                        {sub.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSubject(sub);
-                            setTargetClusterId(sub.subject_cluster_id);
-                          }}
-                        >
-                          Change Cluster
-                        </Button>
-                        <Button
-                          variant={sub.is_active ? 'outline' : 'primary'}
-                          size="sm"
-                          onClick={() => handleToggleStatus(sub)}
-                        >
-                          {sub.is_active ? 'Disable' : 'Enable'}
-                        </Button>
-                      </div>
+              </thead>
+              <tbody>
+                {filteredSubjects.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                      No subjects matched the specified filters.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginatedSubjects.map((s) => (
+                    <tr
+                      key={s.id}
+                      style={{
+                        borderBottom: '1px solid var(--vyasa-border-subtle, #f1f5f9)',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fafafa')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                    >
+                      <td style={{ padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {s.code && (
+                            <code
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: 'var(--vyasa-primary, #0f2b48)',
+                                backgroundColor: 'var(--vyasa-primary-surface, #eff5fa)',
+                                border: '1px solid var(--vyasa-primary-border, #cadbef)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              {s.code}
+                            </code>
+                          )}
+                          <strong style={{ color: 'var(--vyasa-primary, #0f2b48)', fontSize: '14px' }}>
+                            {s.name}
+                          </strong>
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '14px 18px' }}>
+                        {s.cluster_name ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: 'var(--vyasa-gold, #b2811a)',
+                                backgroundColor: 'var(--vyasa-gold-light, #fcf7eb)',
+                                border: '1px solid var(--vyasa-gold-border, #ecdfba)',
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                              }}
+                            >
+                              #{s.cluster_number}
+                            </span>
+                            <span style={{ color: '#1e293b', fontWeight: 500 }}>
+                              {s.cluster_name}
+                            </span>
+                          </div>
+                        ) : (
+                          <Badge variant="neutral">Unassigned</Badge>
+                        )}
+                      </td>
+
+                      <td style={{ padding: '14px 18px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: s.is_active ? '#ecfdf5' : '#fef2f2',
+                            color: s.is_active ? '#059669' : '#dc2626',
+                            border: s.is_active ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              backgroundColor: s.is_active ? '#10b981' : '#ef4444',
+                              display: 'inline-block',
+                            }}
+                          />
+                          {s.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                            onClick={() => openEditModal(s)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                            onClick={() => {
+                              setSelectedSubject(s);
+                              setTargetClusterId(s.subject_cluster_id);
+                            }}
+                          >
+                            Re-map
+                          </Button>
+                          <Button
+                            variant={s.is_active ? 'outline' : 'primary'}
+                            size="sm"
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                            onClick={() => handleToggleStatus(s)}
+                          >
+                            {s.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            style={{ padding: '4px 10px', fontSize: '12px', color: '#dc2626', borderColor: '#fca5a5' }}
+                            onClick={() => { setDeletingSubject(s); setDeleteError(null); }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div
+            style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--vyasa-border-subtle, #f1f5f9)',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              fontSize: '12.5px',
+              color: 'var(--vyasa-text-secondary, #64748b)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>
+                Showing{' '}
+                <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>
+                  {filteredSubjects.length === 0
+                    ? 0
+                    : pageSize === 0
+                    ? 1
+                    : (currentPage - 1) * pageSize + 1}
+                </strong>
+                –
+                <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>
+                  {pageSize === 0
+                    ? filteredSubjects.length
+                    : Math.min(currentPage * pageSize, filteredSubjects.length)}
+                </strong>{' '}
+                of{' '}
+                <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>
+                  {filteredSubjects.length}
+                </strong>{' '}
+                disciplines
+              </span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--vyasa-border, #cbd5e1)',
+                    backgroundColor: '#ffffff',
+                    fontSize: '12px',
+                    color: 'var(--vyasa-primary, #0f2b48)',
+                  }}
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={0}>All</option>
+                </select>
+              </div>
+            </div>
+
+            {pageSize > 0 && totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ padding: '3px 10px', fontSize: '12px' }}
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+
+                <span style={{ padding: '0 8px', fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>
+                  {currentPage} / {totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ padding: '3px 10px', fontSize: '12px' }}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Change Cluster Modal */}
+      {/* Add Subject Modal */}
+      {isAddModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Academic Subject"
+          footer={
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <Button variant="outline" size="sm" onClick={() => setIsAddModalOpen(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleCreateSubject} disabled={isSaving}>
+                {isSaving ? 'Adding...' : 'Add Subject'}
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Subject Name *
+              </label>
+              <Input
+                placeholder="e.g. Molecular Biology & Genetics"
+                value={addForm.name}
+                onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Subject Code
+              </label>
+              <Input
+                placeholder="e.g. BIO-102"
+                value={addForm.code || ''}
+                onChange={(e) => setAddForm({ ...addForm, code: e.target.value })}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Faculty Subject Cluster *
+              </label>
+              <Select
+                options={clusters.map((c) => ({
+                  value: c.id,
+                  label: `Cluster #${c.cluster_number}: ${c.name}`,
+                }))}
+                value={addForm.subject_cluster_id}
+                onChange={(e) => setAddForm({ ...addForm, subject_cluster_id: e.target.value })}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Re-map Cluster Modal */}
       {selectedSubject && (
         <Modal
           isOpen={true}
           onClose={() => setSelectedSubject(null)}
-          title={`Re-map Subject: ${selectedSubject.name}`}
+          title={`Re-map Faculty Cluster: ${selectedSubject.name}`}
           footer={
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <Button variant="outline" size="sm" onClick={() => setSelectedSubject(null)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={handleSaveRemap} disabled={isSaving || !targetClusterId}>
-                {isSaving ? 'Re-mapping...' : 'Save Re-mapping'}
+              <Button variant="primary" size="sm" onClick={handleSaveRemap} disabled={isSaving}>
+                {isSaving ? 'Re-mapping...' : 'Save Mapping'}
               </Button>
             </div>
           }
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <p style={{ margin: 0, fontSize: '14px', color: '#334155' }}>
-              Select target Subject Cluster for <strong>{selectedSubject.name}</strong> ({selectedSubject.code}):
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <p style={{ margin: 0, color: '#334155', lineHeight: 1.5, fontSize: '13.5px' }}>
+              Select the new academic faculty cluster for <strong>{selectedSubject.name}</strong>.
+              All applicants in this discipline will subsequently route to the assigned Assistant Dean of the selected cluster.
             </p>
             <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Target Subject Cluster *
+              </label>
               <Select
-                options={clusters
-                  .filter((c) => c.is_active)
-                  .map((c) => ({
-                    value: c.id,
-                    label: `#${c.cluster_number} - ${c.name} (${c.assistant_dean?.name_snapshot || 'No Dean Assigned'})`,
-                  }))}
+                options={clusters.map((c) => ({
+                  value: c.id,
+                  label: `Cluster #${c.cluster_number}: ${c.name} (${c.assistant_dean ? c.assistant_dean.name_snapshot : 'No Dean'})`,
+                }))}
                 value={targetClusterId}
                 onChange={(e) => setTargetClusterId(e.target.value)}
               />
             </div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>
-              Future academic grievances for applicants under this subject will route through the newly assigned cluster.
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Subject Modal */}
+      {editingSubject && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingSubject(null)}
+          title={`Edit Subject: ${editingSubject.name}`}
+          footer={
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <Button variant="outline" size="sm" onClick={() => setEditingSubject(null)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Subject Name
+              </label>
+              <Input
+                value={editForm.name || ''}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Subject Code
+              </label>
+              <Input
+                value={editForm.code || ''}
+                onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+              />
             </div>
           </div>
         </Modal>
       )}
-    </PageContainer>
+
+      {/* Delete Subject Modal */}
+      {deletingSubject && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDeletingSubject(null)}
+          title={`Delete Subject: ${deletingSubject.name}`}
+          footer={
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <Button variant="outline" size="sm" onClick={() => setDeletingSubject(null)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                style={{ backgroundColor: '#dc2626', borderColor: '#b91c1c' }}
+                onClick={handleDeleteSubject}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
+              Are you sure you want to delete academic subject <strong>{deletingSubject.name}</strong> ({deletingSubject.code || 'No Code'})?
+            </p>
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                color: '#991b1b',
+                fontSize: '13px',
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Constraint:</strong> Subjects referenced by active grievances cannot be deleted. Deactivate the subject instead if intake should be closed.
+            </div>
+            {deleteError && (
+              <div
+                style={{
+                  padding: '12px',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #ef4444',
+                  borderRadius: '6px',
+                  color: '#7f1d1d',
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+    </AdminLayout>
   );
 };

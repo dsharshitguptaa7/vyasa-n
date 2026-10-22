@@ -36,8 +36,6 @@ from app.modules.atharva_veda.nivaran.models.taxonomy import (
     SubjectCluster,
 )
 
-client = TestClient(app)
-
 
 # ==========================================
 # Helpers & Fixtures
@@ -162,7 +160,7 @@ def create_and_resolve_grievance(db: Session, setup: dict, prefix: str = "sch_re
 # Phase 6D Tests
 # ==========================================
 
-def test_applicant_feedback_flow_and_guards(db_session: Session):
+def test_applicant_feedback_flow_and_guards(client: TestClient, db_session: Session):
     setup = setup_phase6d_environment(db_session)
     grv_id, applicant, app_token = create_and_resolve_grievance(db_session, setup, "sch_fb1")
     other_app, other_token = create_test_applicant(db_session, setup, "sch_other")
@@ -227,7 +225,7 @@ def test_applicant_feedback_flow_and_guards(db_session: Session):
     assert audit is not None
 
 
-def test_public_feedback_summary(db_session: Session):
+def test_public_feedback_summary(client: TestClient, db_session: Session):
     res = client.get("/api/modules/atharva-veda/nivaran/public/feedback-summary")
     assert res.status_code == 200
     data = res.json()["data"]
@@ -235,7 +233,7 @@ def test_public_feedback_summary(db_session: Session):
     assert "total_feedback" in data
 
 
-def test_manager_closure_queue_and_detail(db_session: Session):
+def test_manager_closure_queue_and_detail(client: TestClient, db_session: Session):
     setup = setup_phase6d_environment(db_session)
     grv_id, applicant, app_token = create_and_resolve_grievance(db_session, setup, "sch_cq")
 
@@ -274,7 +272,7 @@ def test_manager_closure_queue_and_detail(db_session: Session):
     assert det["feedback"]["rating"] == 4
 
 
-def test_manager_final_closure_and_automatic_efile(db_session: Session):
+def test_manager_final_closure_and_automatic_efile(client: TestClient, db_session: Session):
     setup = setup_phase6d_environment(db_session)
     grv_id, applicant, app_token = create_and_resolve_grievance(db_session, setup, "sch_close")
 
@@ -336,7 +334,7 @@ def test_manager_final_closure_and_automatic_efile(db_session: Session):
     assert smr.student_vyasa_user_id == applicant.id
 
 
-def test_efile_api_and_cryptographic_verification(db_session: Session):
+def test_efile_api_and_cryptographic_verification(client: TestClient, db_session: Session):
     setup = setup_phase6d_environment(db_session)
     grv_id, applicant, app_token = create_and_resolve_grievance(db_session, setup, "sch_efile_api")
     other_app, other_token = create_test_applicant(db_session, setup, "sch_other_ef")
@@ -388,7 +386,7 @@ def test_efile_api_and_cryptographic_verification(db_session: Session):
     assert ver_data["calculated_hash"] == ver_data["stored_hash"]
 
 
-def test_student_master_record_access_and_search(db_session: Session):
+def test_student_master_record_access_and_search(client: TestClient, db_session: Session):
     setup = setup_phase6d_environment(db_session)
     applicant, app_token = create_test_applicant(db_session, setup, "sch_smr")
     other_app, other_token = create_test_applicant(db_session, setup, "sch_smr_other")

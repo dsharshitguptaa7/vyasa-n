@@ -54,8 +54,6 @@ from app.modules.atharva_veda.nivaran.models.grievance import (
 from app.modules.atharva_veda.nivaran.models.document import Document
 from app.modules.atharva_veda.nivaran.models.ai_processing import AIProcessingRecord
 
-client = TestClient(app)
-
 
 # ==========================================
 # Helpers & Fixtures
@@ -123,7 +121,7 @@ def create_test_applicant(db: Session, fixtures: dict, prefix: str = "scholar") 
 # Category A: Authentication & Role Boundary
 # ==========================================
 
-def test_applicant_can_submit_grievance(db_session: Session):
+def test_applicant_can_submit_grievance(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "app_sub")
 
@@ -143,7 +141,7 @@ def test_applicant_can_submit_grievance(db_session: Session):
     assert data["title"] == payload["title"]
 
 
-def test_non_applicants_cannot_submit_grievance(db_session: Session):
+def test_non_applicants_cannot_submit_grievance(client: TestClient, db_session: Session):
     # 1. Unauthenticated caller
     payload = {
         "title": "Anonymous Grievance Submission Attempt",
@@ -178,7 +176,7 @@ def test_non_applicants_cannot_submit_grievance(db_session: Session):
 # Category B: Identity & IDOR Resistance
 # ==========================================
 
-def test_applicant_cannot_impersonate_or_access_other_grievance(db_session: Session):
+def test_applicant_cannot_impersonate_or_access_other_grievance(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant_a, token_a = create_test_applicant(db_session, fixtures, "user_a")
     applicant_b, token_b = create_test_applicant(db_session, fixtures, "user_b")
@@ -218,7 +216,7 @@ def test_applicant_cannot_impersonate_or_access_other_grievance(db_session: Sess
 # Category C: Input & Taxonomy Validation
 # ==========================================
 
-def test_title_and_description_validation(db_session: Session):
+def test_title_and_description_validation(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "val_user")
 
@@ -239,7 +237,7 @@ def test_title_and_description_validation(db_session: Session):
     assert res_short_desc.status_code == 422 or res_short_desc.status_code == 400
 
 
-def test_explicit_subject_and_category_validation(db_session: Session):
+def test_explicit_subject_and_category_validation(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "taxon_val")
 
@@ -291,7 +289,7 @@ def test_explicit_subject_and_category_validation(db_session: Session):
 # Category D: Attachment Handling & Download
 # ==========================================
 
-def test_attachment_validation_and_multipart_upload(db_session: Session):
+def test_attachment_validation_and_multipart_upload(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "attach_user")
 
@@ -364,7 +362,7 @@ def test_attachment_validation_and_multipart_upload(db_session: Session):
 # Category E: Daily Submission Limits
 # ==========================================
 
-def test_daily_submission_limit_quota(db_session: Session):
+def test_daily_submission_limit_quota(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "quota_limit_user")
 
@@ -412,7 +410,7 @@ def test_daily_submission_limit_quota(db_session: Session):
 # Category F: Duplicate Detection
 # ==========================================
 
-def test_duplicate_active_grievance_detection(db_session: Session):
+def test_duplicate_active_grievance_detection(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "dupl_user")
 
@@ -449,7 +447,7 @@ def test_duplicate_active_grievance_detection(db_session: Session):
 # Category G: OCR Intake Assistance
 # ==========================================
 
-def test_ocr_intake_extraction_constraints(db_session: Session):
+def test_ocr_intake_extraction_constraints(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "ocr_test_user")
 
@@ -476,7 +474,7 @@ def test_ocr_intake_extraction_constraints(db_session: Session):
 # Category H: Lifecycle, Notifications & SMR
 # ==========================================
 
-def test_grievance_lifecycle_notification_and_smr_snapshot(db_session: Session):
+def test_grievance_lifecycle_notification_and_smr_snapshot(client: TestClient, db_session: Session):
     fixtures = setup_taxonomy_fixtures(db_session)
     applicant, token = create_test_applicant(db_session, fixtures, "life_user")
 

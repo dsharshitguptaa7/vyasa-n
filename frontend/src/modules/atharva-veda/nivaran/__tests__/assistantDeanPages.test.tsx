@@ -533,6 +533,56 @@ describe('Assistant Dean Workflow Frontend Components & Pages', () => {
         ]);
       });
     });
+
+    it('populates document name when clicking a quick preset chip and supports staging items', async () => {
+      const mockSubmit = vi.fn().mockResolvedValue(undefined);
+      const mockClose = vi.fn();
+
+      render(
+        <RequestDocumentModal
+          isOpen={true}
+          onClose={mockClose}
+          onSubmit={mockSubmit}
+          grievanceId="CSJMU-2026-00042"
+        />
+      );
+
+      // Verify header renders grievanceId badge without unescaped &bull;
+      expect(screen.getByText('Request Evidentiary Documents')).toBeInTheDocument();
+      expect(screen.getByText('CSJMU-2026-00042')).toBeInTheDocument();
+      expect(screen.queryByText(/&bull;/i)).not.toBeInTheDocument();
+
+      // Click a quick preset
+      const presetBtn = screen.getByRole('button', { name: /\+ RAC Evaluation Report/i });
+      fireEvent.click(presetBtn);
+
+      const textInputs = screen.getAllByRole('textbox');
+      expect((textInputs[0] as HTMLInputElement).value).toBe('RAC Evaluation Report');
+
+      // Click +7d deadline shortcut
+      const plus7Btn = screen.getByRole('button', { name: /\+7d/i });
+      fireEvent.click(plus7Btn);
+
+      // Click + Add to List
+      const addToListBtn = screen.getByRole('button', { name: /\+ Add to List/i });
+      fireEvent.click(addToListBtn);
+
+      // Staged item appears
+      expect(screen.getByText(/Staged Requests \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText('RAC Evaluation Report')).toBeInTheDocument();
+
+      // Submit staged request
+      const issueBtn = screen.getByRole('button', { name: /Issue Document Request/i });
+      fireEvent.click(issueBtn);
+
+      await waitFor(() => {
+        expect(mockSubmit).toHaveBeenCalledWith([
+          expect.objectContaining({
+            document_name: 'RAC Evaluation Report',
+          }),
+        ]);
+      });
+    });
   });
 
   describe('RequestCommitteeModal', () => {

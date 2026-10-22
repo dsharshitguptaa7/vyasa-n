@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.api.dependencies import require_super_admin_user
+from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.watchdog.telemetry import WatchdogTelemetry
 
@@ -6,7 +8,9 @@ router = APIRouter(prefix="/watchdog", tags=["Operational Watchdog & Health Tele
 
 
 @router.get("/metrics", response_model=ApiResponse)
-def get_watchdog_metrics():
+def get_watchdog_metrics(
+    current_user: User = Depends(require_super_admin_user),
+):
     """
     Reserved operational telemetry endpoint.
     Exposes database pool health and system vitality without leaking credentials.

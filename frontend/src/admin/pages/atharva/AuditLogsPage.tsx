@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { PageContainer, LoadingState, Button, Badge, Modal, Input, Select } from '@vyasa/ui';
-import { AdminNav } from '../../components/AdminNav';
+import { LoadingState, Button, Badge, Modal, Input, Select, AppIcon } from '@vyasa/ui';
+import { AdminLayout } from '../../components/AdminLayout';
 import { atharvaAdminService } from '../../services/atharvaAdminService';
 import { AuditLog } from '../../types/atharva';
 
@@ -41,26 +41,59 @@ export const AuditLogsPage: React.FC = () => {
     fetchLogs();
   }, [fetchLogs]);
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <PageContainer style={{ padding: '40px 0' }}>
-      <AdminNav />
+    <AdminLayout activeTab="audit-logs">
 
-      {/* Header Info */}
-      <div style={{ marginBottom: '24px', backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ margin: '0 0 8px', fontSize: '18px', color: '#0f172a' }}>
-              Institutional Governance Audit Log Explorer
-            </h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#64748b', lineHeight: 1.5 }}>
-              Immutable record of administrative actions, authority status toggles, cluster re-assignments,
-              and category routing changes. Every modification is captured with the acting officer&apos;s identity,
-              IP address, and precise state diff.
-            </p>
+      {/* Official Audit Banner */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '24px',
+          padding: '20px 24px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid var(--vyasa-border, #e3dcd1)',
+          boxShadow: 'var(--vyasa-shadow-sm)',
+        }}
+      >
+        <div style={{ maxWidth: '820px' }}>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--vyasa-gold, #b2811a)',
+              marginBottom: '3px',
+            }}
+          >
+            Activity Log &bull; System History
           </div>
+          <h2
+            style={{
+              margin: '0 0 6px',
+              fontSize: '20px',
+              fontWeight: 700,
+              color: 'var(--vyasa-primary, #0f2b48)',
+              fontFamily: 'var(--vyasa-font-scholarly, serif)',
+            }}
+          >
+            System Activity Logs
+          </h2>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.55 }}>
+            Record of administrative actions, authority status changes, cluster assignments, and category routing updates.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <Badge variant="teal">Total Records: {total}</Badge>
+          <Badge variant="neutral">History: Preserved</Badge>
         </div>
       </div>
 
@@ -72,13 +105,14 @@ export const AuditLogsPage: React.FC = () => {
           alignItems: 'center',
           flexWrap: 'wrap',
           marginBottom: '20px',
-          backgroundColor: '#fff',
-          padding: '16px',
+          backgroundColor: '#ffffff',
+          padding: '16px 20px',
           borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--vyasa-border, #e3dcd1)',
+          boxShadow: 'var(--vyasa-shadow-sm)',
         }}
       >
-        <div style={{ width: '200px' }}>
+        <div style={{ width: '220px' }}>
           <Select
             options={[
               { value: 'atharva_veda', label: 'Atharva Veda (NIVARAN)' },
@@ -92,7 +126,7 @@ export const AuditLogsPage: React.FC = () => {
             }}
           />
         </div>
-        <div style={{ flex: '1 1 240px' }}>
+        <div style={{ flex: '1 1 260px' }}>
           <Input
             placeholder="Search by action name (e.g. update_routing, status)..."
             value={actionSearch}
@@ -102,7 +136,12 @@ export const AuditLogsPage: React.FC = () => {
             }}
           />
         </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs}>
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<AppIcon name="settings" size={14} />}
+          onClick={fetchLogs}
+        >
           Refresh
         </Button>
       </div>
@@ -115,67 +154,114 @@ export const AuditLogsPage: React.FC = () => {
           {errorMsg}
         </div>
       ) : (
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
-                <th style={{ padding: '12px 16px', fontWeight: 600, width: '180px' }}>Timestamp</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600, width: '130px' }}>Module</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600 }}>Action</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600 }}>Target Entity</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600 }}>Actor</th>
-                <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right', width: '120px' }}>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
-                    No audit records match the current filters.
-                  </td>
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    borderBottom: '1.5px solid var(--vyasa-border, #e3dcd1)',
+                    color: 'var(--vyasa-text-secondary, #475569)',
+                    fontSize: '11.5px',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <th style={{ padding: '14px 18px', fontWeight: 700, width: '180px' }}>Timestamp</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, width: '130px' }}>Module</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Action</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Target Entity</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700 }}>Actor</th>
+                  <th style={{ padding: '14px 18px', fontWeight: 700, textAlign: 'right', width: '120px' }}>Details</th>
                 </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px 16px', color: '#475569', whiteSpace: 'nowrap' }}>
-                      {new Date(log.created_at).toLocaleString()}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <Badge variant={log.module === 'atharva_veda' ? 'saffron' : 'primary'}>
-                        {log.module}
-                      </Badge>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 500, color: '#0f172a' }}>
-                      <code>{log.action}</code>
-                    </td>
-                    <td style={{ padding: '12px 16px', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{log.entity_name}</span>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                        {log.entity_id}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px', color: '#334155' }}>
-                      {log.user_email ? (
-                        <div>
-                          <div>{log.user_email}</div>
-                          {log.ip_address && (
-                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>IP: {log.ip_address}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>System / Anonymous</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <Button variant="outline" size="sm" onClick={() => setSelectedLog(log)}>
-                        View Diff
-                      </Button>
+              </thead>
+              <tbody>
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                      No audit records match the current filters.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  logs.map((log) => (
+                    <tr
+                      key={log.id}
+                      style={{
+                        borderBottom: '1px solid var(--vyasa-border-subtle, #f1f5f9)',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fafafa')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
+                    >
+                      <td style={{ padding: '14px 18px', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+
+                      <td style={{ padding: '14px 18px' }}>
+                        <Badge variant={log.module === 'atharva_veda' ? 'saffron' : 'primary'}>
+                          {log.module}
+                        </Badge>
+                      </td>
+
+                      <td style={{ padding: '14px 18px', fontWeight: 500, color: '#0f172a' }}>
+                        <code
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--vyasa-primary, #0f2b48)',
+                            backgroundColor: 'rgba(15, 43, 72, 0.05)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          {log.action}
+                        </code>
+                      </td>
+
+                      <td style={{ padding: '14px 18px', color: '#334155' }}>
+                        <span style={{ fontWeight: 600 }}>{log.entity_name}</span>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
+                          {log.entity_id}
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '14px 18px', color: '#334155' }}>
+                        {log.user_email ? (
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{log.user_email}</div>
+                            {log.ip_address && (
+                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>IP: {log.ip_address}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>System / Anonymous</span>
+                        )}
+                      </td>
+
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          style={{ padding: '4px 10px', fontSize: '12px' }}
+                          onClick={() => setSelectedLog(log)}
+                        >
+                          View Diff
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Pagination Controls */}
           <div
@@ -183,87 +269,109 @@ export const AuditLogsPage: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '12px 16px',
-              backgroundColor: '#f8fafc',
-              borderTop: '1px solid #e2e8f0',
+              padding: '12px 20px',
+              backgroundColor: '#ffffff',
+              borderTop: '1px solid var(--vyasa-border-subtle, #f1f5f9)',
+              fontSize: '12.5px',
+              color: 'var(--vyasa-text-secondary, #64748b)',
             }}
           >
-            <span style={{ fontSize: '13px', color: '#64748b' }}>
-              Showing {logs.length > 0 ? page * limit + 1 : 0} to{' '}
-              {Math.min((page + 1) * limit, total)} of {total} events
+            <span>
+              Showing{' '}
+              <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>
+                {logs.length > 0 ? page * limit + 1 : 0}
+              </strong>{' '}
+              to{' '}
+              <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>
+                {Math.min((page + 1) * limit, total)}
+              </strong>{' '}
+              of <strong style={{ color: 'var(--vyasa-primary, #0f2b48)' }}>{total}</strong> events (Page {page + 1} of {totalPages})
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
               <Button
                 variant="outline"
                 size="sm"
+                style={{ padding: '3px 10px', fontSize: '12px' }}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
               >
-                &larr; Previous
+                Previous
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                style={{ padding: '3px 10px', fontSize: '12px' }}
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page + 1 >= totalPages}
+                disabled={(page + 1) * limit >= total}
               >
-                Next &rarr;
+                Next
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Details Modal */}
+      {/* Details Diff Modal */}
       {selectedLog && (
         <Modal
           isOpen={true}
           onClose={() => setSelectedLog(null)}
-          title={`Audit Log Event: ${selectedLog.action}`}
+          title="Event Payload &amp; Mutation Diff"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedLog(null)}>
-              Close
-            </Button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="primary" size="sm" onClick={() => setSelectedLog(null)}>
+                Close
+              </Button>
+            </div>
           }
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '14px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px',
+                padding: '12px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '12.5px',
+              }}
+            >
               <div>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Entity</span>
-                <div style={{ fontWeight: 600, color: '#0f172a' }}>{selectedLog.entity_name}</div>
+                <span style={{ color: '#64748b' }}>Timestamp:</span>{' '}
+                <strong>{new Date(selectedLog.created_at).toLocaleString()}</strong>
               </div>
               <div>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Entity ID</span>
-                <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#0f172a' }}>
-                  {selectedLog.entity_id}
-                </div>
+                <span style={{ color: '#64748b' }}>Action:</span> <code>{selectedLog.action}</code>
               </div>
               <div>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Acting Officer</span>
-                <div style={{ color: '#0f172a' }}>{selectedLog.user_email || 'System'}</div>
+                <span style={{ color: '#64748b' }}>Entity:</span>{' '}
+                <strong>
+                  {selectedLog.entity_name} ({selectedLog.entity_id})
+                </strong>
               </div>
               <div>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Timestamp &amp; IP</span>
-                <div style={{ color: '#0f172a' }}>
-                  {new Date(selectedLog.created_at).toISOString()} ({selectedLog.ip_address || 'local'})
-                </div>
+                <span style={{ color: '#64748b' }}>Actor:</span>{' '}
+                <strong>{selectedLog.user_email || 'System'}</strong>
               </div>
             </div>
 
             <div>
-              <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '6px' }}>
-                Event Payload &amp; Mutation Diff
-              </span>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                Event Payload &amp; State Mutation:
+              </div>
               <pre
                 style={{
-                  backgroundColor: '#0f172a',
-                  color: '#38bdf8',
+                  margin: 0,
                   padding: '12px',
+                  backgroundColor: '#0f172a',
+                  color: '#f8fafc',
                   borderRadius: '6px',
                   fontSize: '12px',
+                  fontFamily: 'monospace',
                   overflowX: 'auto',
-                  margin: 0,
-                  lineHeight: 1.4,
+                  maxHeight: '280px',
                 }}
               >
                 {JSON.stringify(selectedLog.details, null, 2)}
@@ -272,6 +380,6 @@ export const AuditLogsPage: React.FC = () => {
           </div>
         </Modal>
       )}
-    </PageContainer>
+    </AdminLayout>
   );
 };

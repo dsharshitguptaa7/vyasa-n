@@ -386,4 +386,104 @@ describe('Dean Executive Command Center Frontend Suite', () => {
       expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
     });
   });
+
+  it('9. Renders interactive Time-Series velocity chart with toggles and summary', async () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Intake Velocity & Resolution Trends (Last 14 Days)')).toBeInTheDocument();
+      expect(screen.getByText('10 Submitted')).toBeInTheDocument();
+      expect(screen.getByText('5 Resolved')).toBeInTheDocument();
+      expect(screen.getByText('1 Escalated')).toBeInTheDocument();
+    });
+
+    // Toggle series
+    const submittedBtn = screen.getByRole('button', { name: /Submitted \(10\)/i });
+    fireEvent.click(submittedBtn);
+    expect(submittedBtn).toBeInTheDocument();
+  });
+
+  it('10. Renders interactive Ranked Category bars and supports drill-down filter', async () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Category Distribution & Turnaround')).toBeInTheDocument();
+      expect(screen.getAllByText('Coursework & Evaluation').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Institutional Fellowship').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Click category bar to drill down
+    const catBar = screen.getByTestId('category-bar-cat-1');
+    fireEvent.click(catBar);
+
+    await waitFor(() => {
+      expect(grievanceService.getDeanExecutiveDashboard).toHaveBeenCalledWith(
+        expect.objectContaining({ category_id: 'cat-1' })
+      );
+    });
+  });
+
+  it('11. Renders interactive Priority Donut chart with legend and segment selection', async () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Institutional Risk & Priority Breakdown')).toBeInTheDocument();
+      expect(screen.getAllByText('CRITICAL').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('HIGH').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Click priority item
+    const critItem = screen.getByTestId('priority-donut-CRITICAL');
+    fireEvent.click(critItem);
+
+    await waitFor(() => {
+      expect(grievanceService.getDeanExecutiveDashboard).toHaveBeenCalledWith(
+        expect.objectContaining({ priority: 'CRITICAL' })
+      );
+    });
+  });
+
+  it('12. Supports ledger column sorting and CSV export trigger', async () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Sort by Tracking ID')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Export CSV/i })).toBeInTheDocument();
+    });
+
+    // Click Priority column header to sort
+    const priorityHeader = screen.getByTitle('Sort by Priority');
+    fireEvent.click(priorityHeader);
+
+    await waitFor(() => {
+      expect(grievanceService.getDeanDashboardCases).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: 'priority', sort_dir: 'asc' })
+      );
+    });
+  });
 });
+

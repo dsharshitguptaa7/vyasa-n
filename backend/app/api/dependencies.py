@@ -130,17 +130,29 @@ def require_applicant_user(
     return current_user
 
 
-def require_admin_user(
+def require_super_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
     """
-    Ensure the authenticated caller possesses the institutional 'administrator' platform role.
+    Ensure the authenticated caller possesses the central 'super_admin' platform role.
+    Strictly accepts only 'super_admin'. Legacy 'administrator' or 'admin' roles are NOT accepted.
     """
     roles = [r.name.lower() for r in current_user.roles]
-    if "administrator" not in roles and "admin" not in roles:
+    if "super_admin" not in roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access restricted to institutional administrators only.",
+            detail="Access restricted to Super Admin only.",
         )
     return current_user
+
+
+def require_admin_user(
+    current_user: User = Depends(require_super_admin_user),
+) -> User:
+    """
+    Ensure the authenticated caller possesses administrative platform privileges.
+    Strictly delegates to require_super_admin_user.
+    """
+    return current_user
+
 

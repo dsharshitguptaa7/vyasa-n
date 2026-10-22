@@ -60,4 +60,21 @@ __all__ = [
     "StudentMasterRecordSummaryItem",
     "StudentMasterRecordDetailResponse",
     "PaginatedStudentRecordsResponse",
+    "CommitteeRequestReviewAction",
+    "CommitteeRequestReviewPayload",
+    "CommitteeMemberCreateItem",
+    "CommitteeDirectCreatePayload",
+    "CommitteeMemberResponseItem",
+    "CommitteeResponseItem",
+    "CommitteeRequestDetailedResponseItem",
 ]
+
+from app.modules.atharva_veda.nivaran.schemas.committee import (
+    CommitteeRequestReviewAction,
+    CommitteeRequestReviewPayload,
+    CommitteeMemberCreateItem,
+    CommitteeDirectCreatePayload,
+    CommitteeMemberResponseItem,
+    CommitteeResponseItem,
+    CommitteeRequestDetailedResponseItem,
+)

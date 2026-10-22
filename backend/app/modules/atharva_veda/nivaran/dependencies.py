@@ -139,3 +139,87 @@ def require_atharva_dean(
         )
     return current_user
 
+
+def require_can_form_committee(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Enforces that only Associate Deans and Deans can form committees directly.
+    Assistant Deans receive a clear 403 Forbidden explaining they can only request formation.
+    """
+    authority = db.scalar(
+        select(NivaranAuthority).where(
+            NivaranAuthority.vyasa_user_id == current_user.id,
+            NivaranAuthority.is_active.is_(True),
+        )
+    )
+    if not authority:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional authority profile required.",
+        )
+    if authority.role == NivaranRole.ASSISTANT_DEAN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assistant Deans cannot directly form committees; please submit a Committee Formation Request.",
+        )
+    if authority.role not in (NivaranRole.ASSOCIATE_DEAN, NivaranRole.DEAN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Associate Deans and Deans are authorized to form committees.",
+        )
+    return current_user
+
+
+def require_can_review_committee_request(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Enforces that only Associate Deans and Deans can review committee requests.
+    """
+    authority = db.scalar(
+        select(NivaranAuthority).where(
+            NivaranAuthority.vyasa_user_id == current_user.id,
+            NivaranAuthority.is_active.is_(True),
+        )
+    )
+    if not authority:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional authority profile required.",
+        )
+    if authority.role == NivaranRole.ASSISTANT_DEAN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assistant Deans are not authorized to review committee formation requests.",
+        )
+    if authority.role not in (NivaranRole.ASSOCIATE_DEAN, NivaranRole.DEAN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Associate Deans and Deans are authorized to review committee formation requests.",
+        )
+    return current_user
+
+
+def require_atharva_authority(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Validates that the caller is an appointed active Nivaran authority.
+    """
+    authority = db.scalar(
+        select(NivaranAuthority).where(
+            NivaranAuthority.vyasa_user_id == current_user.id,
+            NivaranAuthority.is_active.is_(True),
+        )
+    )
+    if not authority:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional authority profile required.",
+        )
+    return current_user
+

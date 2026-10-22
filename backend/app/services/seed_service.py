@@ -36,6 +36,11 @@ INITIAL_PERMISSIONS: List[Dict[str, str]] = [
 
 INITIAL_ROLES: List[Dict[str, str]] = [
     {
+        "name": "super_admin",
+        "description": "Supreme central platform administrator with full governance and configuration rights",
+        "is_system": True,
+    },
+    {
         "name": "administrator",
         "description": "Ecosystem administrator with full platform governance and configuration rights",
         "is_system": True,
@@ -53,6 +58,7 @@ INITIAL_ROLES: List[Dict[str, str]] = [
 ]
 
 ROLE_PERMISSION_MAP: Dict[str, List[str]] = {
+    "super_admin": [p["name"] for p in INITIAL_PERMISSIONS],
     "administrator": [p["name"] for p in INITIAL_PERMISSIONS],
     "authority": [
         "pillars:read",

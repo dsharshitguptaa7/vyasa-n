@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_db, get_pagination
+from app.api.dependencies import get_db, get_pagination, get_current_user, require_super_admin_user
 from app.core.security import hash_password
 from app.models.user import User
 from app.models.role import Role
@@ -18,9 +18,10 @@ router = APIRouter(prefix="/users", tags=["Users & Identity"])
 def list_users(
     pagination: PaginationQuery = Depends(get_pagination),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
 ) -> ApiResponse[UserListResponse]:
     """
-    List platform users with associated roles (paginated).
+    List platform users with associated roles (paginated). Restricted to Super Admin.
     """
     stmt = (
         select(User)
@@ -46,10 +47,18 @@ def list_users(
 def get_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ApiResponse[UserRead]:
     """
-    Retrieve user by UUID identifier.
+    Retrieve user by UUID identifier. Caller must be the requested user or possess Super Admin role.
     """
+    roles = [r.name.lower() for r in current_user.roles]
+    if current_user.id != user_id and "super_admin" not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You may only view your own user profile unless Super Admin.",
+        )
+
     stmt = (
         select(User)
         .options(joinedload(User.roles))
@@ -74,6 +83,7 @@ def get_user(
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
 ) -> ApiResponse[UserRead]:
     """
     Create a new platform user profile with hashed password and assigned roles.

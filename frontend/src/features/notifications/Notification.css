@@ -1,0 +1,538 @@
+/* VYASAᴺ Unified Notification Centre Styles */
+
+.vyasa-notif-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+/* Header & Banner */
+.vyasa-notif-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--vyasa-border-color, #e2e8f0);
+}
+
+.vyasa-notif-header__title-group h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vyasa-notif-header__subtitle {
+  color: var(--vyasa-text-secondary, #64748b);
+  font-size: 14px;
+  margin: 0;
+}
+
+.vyasa-notif-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Metric KPI Strip */
+.vyasa-notif-kpi-strip {
+  display: grid;
+  grid-templateColumns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.vyasa-notif-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.vyasa-notif-kpi-card__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--vyasa-text-secondary, #64748b);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.vyasa-notif-kpi-card__val {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+}
+
+.vyasa-notif-kpi-card--unread .vyasa-notif-kpi-card__val {
+  color: var(--vyasa-saffron, #c85602);
+}
+
+.vyasa-notif-kpi-card--action .vyasa-notif-kpi-card__val {
+  color: #dc2626;
+}
+
+/* Multi-Filter Bar */
+.vyasa-notif-filter-bar {
+  background: #f8fafc;
+  border: 1px solid var(--vyasa-border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vyasa-notif-tabs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vyasa-notif-tabs {
+  display: flex;
+  gap: 6px;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.vyasa-notif-tab {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vyasa-notif-tab.is-active {
+  background: #ffffff;
+  color: var(--vyasa-navy, #1b2a4a);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.vyasa-notif-tab__badge {
+  background: #cbd5e1;
+  color: #1e293b;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.vyasa-notif-tab.is-active .vyasa-notif-tab__badge {
+  background: var(--vyasa-navy, #1b2a4a);
+  color: #ffffff;
+}
+
+.vyasa-notif-tab--action.is-active .vyasa-notif-tab__badge {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Secondary Filters (Pillars & Priority) */
+.vyasa-notif-subfilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vyasa-notif-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--vyasa-text-secondary, #64748b);
+}
+
+.vyasa-notif-filter-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--vyasa-border-color, #cbd5e1);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--vyasa-navy, #1b2a4a);
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+}
+
+.vyasa-notif-filter-select:focus {
+  border-color: var(--vyasa-teal, #0d9488);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+}
+
+.vyasa-notif-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--vyasa-border-color, #cbd5e1);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--vyasa-navy, #1b2a4a);
+}
+
+/* Notification List Items */
+.vyasa-notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vyasa-notif-item {
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.vyasa-notif-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.vyasa-notif-item--unread {
+  background: #fcfbf9;
+  border-left: 4px solid var(--vyasa-gold, #d4a017);
+}
+
+.vyasa-notif-item--action {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+
+.vyasa-notif-item__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vyasa-notif-item__chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vyasa-notif-pillar-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.vyasa-notif-pillar-tag--nivaran {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.vyasa-notif-pillar-tag--vyasa-ai {
+  background: #ede9fe;
+  color: #6b21a8;
+  border-color: #ddd6fe;
+}
+
+.vyasa-notif-priority-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.vyasa-notif-priority--CRITICAL {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.vyasa-notif-priority--HIGH {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.vyasa-notif-priority--MEDIUM {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.vyasa-notif-priority--LOW {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.vyasa-notif-action-req-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: #ef4444;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vyasa-notif-item__time {
+  font-size: 12px;
+  color: var(--vyasa-text-secondary, #64748b);
+}
+
+.vyasa-notif-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vyasa-notif-item__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin: 0;
+}
+
+.vyasa-notif-item__message {
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.vyasa-notif-item__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.vyasa-notif-item__route-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--vyasa-teal, #0d9488);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.vyasa-notif-item__route-btn:hover {
+  color: #0f766e;
+}
+
+.vyasa-notif-item__toggle-btn {
+  font-size: 12px;
+  color: var(--vyasa-text-secondary, #64748b);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.vyasa-notif-item__toggle-btn:hover {
+  background: #f1f5f9;
+  color: var(--vyasa-navy, #1b2a4a);
+}
+
+/* Dropdown Menu from Bell */
+.vyasa-bell-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.vyasa-bell-trigger {
+  position: relative;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.vyasa-bell-trigger:hover,
+.vyasa-bell-trigger.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.vyasa-bell-badge-pill {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  background: var(--vyasa-saffron, #c85602);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1.5px #061524;
+}
+
+.vyasa-bell-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 360px;
+  max-width: 90vw;
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border-color, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vyasa-bell-popover__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vyasa-border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+}
+
+.vyasa-bell-popover__header-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+}
+
+.vyasa-bell-popover__list {
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.vyasa-bell-popover__item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vyasa-bell-popover__item:hover {
+  background: #f8fafc;
+}
+
+.vyasa-bell-popover__item--unread {
+  background: #fffdfa;
+}
+
+.vyasa-bell-popover__footer {
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid var(--vyasa-border-color, #e2e8f0);
+  text-align: center;
+}
+
+.vyasa-bell-popover__view-all-btn {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--vyasa-teal, #0d9488);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.vyasa-bell-popover__view-all-btn:hover {
+  text-decoration: underline;
+}
+
+/* Preferences Modal */
+.vyasa-pref-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.vyasa-pref-modal {
+  background: #ffffff;
+  border-radius: 8px;
+  width: 520px;
+  max-width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.vyasa-pref-modal__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vyasa-border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vyasa-pref-modal__body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}

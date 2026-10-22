@@ -284,12 +284,19 @@ class EFileService:
         notif = Notification(
             id=uuid.uuid4(),
             user_id=grievance.applicant_vyasa_user_id,
+            source_pillar="NIVARAN",
+            event_type="grievance.efile_generated",
             title="Official E-File Generated",
             message=(
                 f"Official E-File {efile.e_file_number} has been generated and sealed for grievance "
                 f"{grievance.grievance_id}. You can now view and download your sealed dossier."
             ),
             type="workflow",
+            priority="MEDIUM",
+            action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+            action_required=False,
+            entity_type="efile",
+            entity_id=str(efile.id),
             metadata_json={
                 "module": "atharva_veda",
                 "event": "EFILE_GENERATED",

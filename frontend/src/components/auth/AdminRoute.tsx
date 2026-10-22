@@ -8,13 +8,13 @@ interface AdminRouteProps {
 }
 
 export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, isAdmin, user, logout } = useAuth();
+  const { isAuthenticated, isLoading, isSuperAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
 
   if (isLoading) {
     return (
       <PageContainer narrow style={{ padding: '100px 0', textAlign: 'center' }}>
-        <LoadingState message="Verifying institutional administrator credentials..." />
+        <LoadingState message="Verifying Super Admin credentials..." />
       </PageContainer>
     );
   }
@@ -24,24 +24,26 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     return <Navigate to="/authority/login" replace />;
   }
 
-  // If logged in but lacks 'administrator' role, show access denied
-  if (!isAdmin) {
+  // Strictly check super_admin role
+  const isAuthorized = isSuperAdmin || (user?.roles?.some((r) => r.toLowerCase() === 'super_admin') ?? false);
+
+  if (!isAuthorized) {
     return (
       <PageContainer narrow style={{ padding: '80px 0' }}>
         <Card
           variant="scholarly"
           title="Administrative Control Plane Restricted"
-          subtitle="Administrator Role Required"
+          subtitle="Super Admin Role Required • Administrator Role Required"
           headerAction={<Badge variant="saffron">Access Denied</Badge>}
         >
           <div style={{ padding: '16px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
             <p style={{ marginBottom: '16px' }}>
-              The authenticated account (<strong>{user?.email}</strong>) does not possess the institutional{' '}
-              <strong>administrator</strong> platform role required to access the VYASA Admin Control Plane.
+              The authenticated account (<strong>{user?.email}</strong>) does not possess the central{' '}
+              <strong>super_admin</strong> platform role required to access the VYASA Super Admin Control Plane.
             </p>
             <p style={{ fontSize: '13px', color: 'var(--vyasa-text-muted)', marginBottom: '24px' }}>
               Active roles on your profile: {user?.roles && user.roles.length > 0 ? user.roles.join(', ') : 'None'}.<br />
-              Administrative functions are restricted to authorized platform controllers.
+              Administrative functions are restricted exclusively to authorized central system administrators.
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <Button

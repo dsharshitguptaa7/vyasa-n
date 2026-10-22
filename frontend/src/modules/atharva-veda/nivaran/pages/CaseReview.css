@@ -7,14 +7,15 @@
 .nivaran-case-header {
   background-color: var(--vyasa-surface, #ffffff);
   border: 1px solid var(--vyasa-border, #e2e8f0);
-  border-radius: var(--vyasa-radius-lg, 8px);
-  padding: 22px 28px;
-  margin-bottom: 24px;
-  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04), 0 1px 2px -1px rgba(27, 42, 74, 0.02);
+  border-radius: var(--vyasa-radius-lg, 10px);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px 0 rgba(15, 43, 72, 0.03);
   display: flex;
   flex-direction: column;
   gap: 16px;
   position: relative;
+  overflow: hidden;
 }
 
 .nivaran-case-header::before {
@@ -24,32 +25,35 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--vyasa-primary, #1b2a4a) 0%, var(--vyasa-gold, #d4a017) 50%, var(--vyasa-teal, #0d9488) 100%);
-  border-top-left-radius: var(--vyasa-radius-lg, 8px);
-  border-top-right-radius: var(--vyasa-radius-lg, 8px);
+  background: var(--vyasa-gold, #d4a017);
+  border-top-left-radius: var(--vyasa-radius-lg, 10px);
+  border-top-right-radius: var(--vyasa-radius-lg, 10px);
 }
 
 .nivaran-case-header__top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .nivaran-case-header__title-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .nivaran-case-icon-chip {
-  width: 38px;
-  height: 38px;
-  border-radius: 6px;
-  background-color: rgba(27, 42, 74, 0.06);
-  border: 1px solid rgba(27, 42, 74, 0.12);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 1.5px solid var(--vyasa-gold-border, #ecdfba);
+  box-shadow: 0 2px 6px rgba(178, 129, 26, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,12 +61,13 @@
 }
 
 .nivaran-case-heading {
-  font-family: var(--vyasa-font-scholarly, Georgia, serif);
-  font-size: 22px;
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 20px;
   font-weight: 700;
-  color: var(--vyasa-navy, #1b2a4a);
+  color: var(--vyasa-primary, #0f2b48);
   margin: 0;
   letter-spacing: -0.01em;
+  line-height: 1.25;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -73,9 +78,9 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 13.5px;
-  color: var(--vyasa-text-secondary, #475569);
-  margin: 0;
+  font-size: 13px;
+  color: var(--vyasa-text-secondary, #64748b);
+  margin: 4px 0 0;
   line-height: 1.5;
 }
 
@@ -372,19 +377,20 @@
 .nivaran-docket-kpi {
   background: #ffffff;
   border: 1px solid var(--vyasa-border, #e2e8f0);
-  border-radius: var(--vyasa-radius-md, 6px);
+  border-radius: var(--vyasa-radius-lg, 8px);
   padding: 18px 20px;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px 0 rgba(15, 43, 72, 0.04);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
 }
 
 .nivaran-docket-kpi:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px 0 rgba(27, 42, 74, 0.08);
+  border-color: rgba(15, 43, 72, 0.22);
+  box-shadow: 0 4px 14px 0 rgba(15, 43, 72, 0.08);
 }
 
 .nivaran-docket-kpi::before {
@@ -394,10 +400,10 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--kpi-accent, var(--vyasa-primary, #1b2a4a));
+  background: var(--kpi-accent, var(--vyasa-primary, #0f2b48));
 }
 
-.nivaran-docket-kpi--navy { --kpi-accent: var(--vyasa-primary, #1b2a4a); }
+.nivaran-docket-kpi--navy { --kpi-accent: var(--vyasa-primary, #0f2b48); }
 .nivaran-docket-kpi--amber { --kpi-accent: #d97706; }
 .nivaran-docket-kpi--sky { --kpi-accent: #0284c7; }
 .nivaran-docket-kpi--emerald { --kpi-accent: #059669; }
@@ -406,47 +412,47 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .nivaran-docket-kpi__label {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--vyasa-text-muted, #64748b);
+  color: #64748b;
 }
 
 .nivaran-docket-kpi__icon-bubble {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(27, 42, 74, 0.04);
-  color: var(--kpi-accent, #1b2a4a);
+  background: rgba(15, 43, 72, 0.04);
+  color: var(--kpi-accent, #0f2b48);
 }
 
 .nivaran-docket-kpi__value {
-  font-family: var(--vyasa-font-scholarly, Georgia, serif);
-  font-size: 30px;
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.1;
-  color: var(--vyasa-navy, #1b2a4a);
+  line-height: 1.2;
+  color: var(--vyasa-navy, #0f2b48);
   margin-bottom: 4px;
 }
 
 .nivaran-docket-kpi__subtext {
   font-size: 12px;
-  color: var(--vyasa-text-secondary, #64748b);
+  color: #64748b;
 }
 
 /* Docket Control Toolbar */
 .nivaran-docket-toolbar {
   background: #ffffff;
   border: 1px solid var(--vyasa-border, #e2e8f0);
-  border-radius: var(--vyasa-radius-md, 6px);
+  border-radius: var(--vyasa-radius-lg, 8px);
   padding: 14px 18px;
   margin-bottom: 20px;
   display: flex;
@@ -454,42 +460,43 @@
   gap: 16px;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.03);
+  box-shadow: 0 1px 3px 0 rgba(15, 43, 72, 0.03);
 }
 
 .nivaran-docket-tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  background: rgba(27, 42, 74, 0.03);
+  background: #f1f5f9;
   padding: 4px;
-  border-radius: 6px;
-  border: 1px solid rgba(27, 42, 74, 0.06);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .nivaran-docket-tab-btn {
-  padding: 6px 14px;
-  border-radius: 4px;
+  padding: 7px 14px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--vyasa-text-secondary, #475569);
-  font-size: 12px;
-  font-weight: 600;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .nivaran-docket-tab-btn:hover {
-  color: var(--vyasa-navy, #1b2a4a);
-  background: rgba(255, 255, 255, 0.6);
+  color: var(--vyasa-navy, #0f2b48);
+  background: #e2e8f0;
 }
 
 .nivaran-docket-tab-btn--active {
   background: #ffffff !important;
-  color: var(--vyasa-navy, #1b2a4a) !important;
-  border-color: rgba(27, 42, 74, 0.12) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  color: var(--vyasa-navy, #0f2b48) !important;
+  font-weight: 700 !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
 .nivaran-docket-controls {
@@ -500,21 +507,22 @@
 }
 
 .nivaran-docket-select {
-  padding: 7px 12px;
-  border-radius: 5px;
+  padding: 8px 12px;
+  height: 38px;
+  border-radius: 6px;
   border: 1px solid #cbd5e1;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--vyasa-navy, #1b2a4a);
+  color: var(--vyasa-navy, #0f2b48);
   background-color: #ffffff;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nivaran-docket-select:focus {
-  border-color: var(--vyasa-navy, #1b2a4a);
-  box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1);
+  border-color: var(--vyasa-navy, #0f2b48);
+  box-shadow: 0 0 0 2px rgba(15, 43, 72, 0.1);
 }
 
 .nivaran-docket-search-wrap {
@@ -524,21 +532,22 @@
 }
 
 .nivaran-docket-search-input {
-  padding: 7px 12px 7px 32px;
-  border-radius: 5px;
+  padding: 8px 12px 8px 34px;
+  height: 38px;
+  border-radius: 6px;
   border: 1px solid #cbd5e1;
-  font-size: 12.5px;
-  width: 230px;
-  color: var(--vyasa-navy, #1b2a4a);
+  font-size: 13px;
+  width: 250px;
+  color: var(--vyasa-navy, #0f2b48);
   background-color: #ffffff;
   transition: all 0.15s ease;
   outline: none;
 }
 
 .nivaran-docket-search-input:focus {
-  border-color: var(--vyasa-navy, #1b2a4a);
-  width: 270px;
-  box-shadow: 0 0 0 2px rgba(27, 42, 74, 0.1);
+  border-color: var(--vyasa-navy, #0f2b48);
+  width: 280px;
+  box-shadow: 0 0 0 2px rgba(15, 43, 72, 0.1);
 }
 
 .nivaran-docket-search-icon {
@@ -555,8 +564,8 @@
 .nivaran-docket-table-card {
   background: #ffffff;
   border: 1px solid var(--vyasa-border, #e2e8f0);
-  border-radius: var(--vyasa-radius-md, 6px);
-  box-shadow: 0 1px 3px 0 rgba(27, 42, 74, 0.04);
+  border-radius: var(--vyasa-radius-lg, 8px);
+  box-shadow: 0 1px 3px 0 rgba(15, 43, 72, 0.04);
   overflow: hidden;
 }
 
@@ -573,10 +582,10 @@
 }
 
 .nivaran-docket-table th {
-  padding: 13px 18px;
+  padding: 14px 18px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #475569;
   white-space: nowrap;
@@ -588,7 +597,7 @@
 }
 
 .nivaran-docket-row:hover {
-  background-color: rgba(27, 42, 74, 0.018);
+  background-color: #f8fafc;
 }
 
 .nivaran-docket-row:last-child {
@@ -596,7 +605,7 @@
 }
 
 .nivaran-docket-cell {
-  padding: 14px 18px;
+  padding: 15px 18px;
   vertical-align: middle;
 }
 
@@ -606,9 +615,9 @@
   font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   font-size: 12px;
   font-weight: 600;
-  color: var(--vyasa-navy, #1b2a4a);
-  background-color: rgba(27, 42, 74, 0.05);
-  border: 1px solid rgba(27, 42, 74, 0.1);
+  color: #1e40af;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
   padding: 3px 8px;
   border-radius: 4px;
   letter-spacing: 0.3px;
@@ -634,23 +643,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--vyasa-navy, #1b2a4a);
+  color: var(--vyasa-navy, #0f2b48);
   background-color: #ffffff;
-  border: 1px solid rgba(27, 42, 74, 0.25);
-  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .nivaran-review-btn:hover {
-  background-color: var(--vyasa-navy, #1b2a4a);
+  background-color: var(--vyasa-navy, #0f2b48);
   color: #ffffff;
-  border-color: var(--vyasa-navy, #1b2a4a);
-  box-shadow: 0 2px 6px rgba(27, 42, 74, 0.15);
+  border-color: var(--vyasa-navy, #0f2b48);
+  box-shadow: 0 2px 6px rgba(15, 43, 72, 0.15);
 }
 
 .nivaran-review-btn svg {
@@ -665,7 +674,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 13px 20px;
+  padding: 14px 20px;
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
   font-size: 12.5px;

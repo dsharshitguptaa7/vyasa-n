@@ -12,19 +12,9 @@ from app.modules.phd_rag.services.llm_service import PhdLLMService
 from app.modules.phd_rag.models import PhdDocument, PhdChunk
 
 
-@pytest.fixture(scope="module")
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture(scope="module")
-def api_client():
-    with TestClient(app) as c:
-        yield c
+@pytest.fixture(scope="function")
+def api_client(client: TestClient):
+    return client
 
 
 # ==============================================================================

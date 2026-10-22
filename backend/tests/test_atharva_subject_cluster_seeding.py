@@ -20,19 +20,7 @@ from app.modules.atharva_veda.nivaran.services.subject_seed_service import (
     AUTHORITATIVE_SUBJECTS,
 )
 
-client = TestClient(app)
-
-
-@pytest.fixture(scope="module")
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def admin_token(db_session: Session):
     admin_role = db_session.execute(select(Role).where(Role.name == "administrator")).scalar_one_or_none()
     if not admin_role:
@@ -207,7 +195,7 @@ def test_assistant_dean_mappings_safe_unresolved(db_session: Session):
 # ----------------------------------------------------------------------
 # Requirement 10: Admin panel subject & cluster configuration functionality
 # ----------------------------------------------------------------------
-def test_admin_subject_and_cluster_endpoints(admin_token: str, db_session: Session):
+def test_admin_subject_and_cluster_endpoints(client: TestClient, admin_token: str, db_session: Session):
     headers = {"Authorization": f"Bearer {admin_token}"}
 
     # 1. GET /api/admin/atharva/subject-clusters

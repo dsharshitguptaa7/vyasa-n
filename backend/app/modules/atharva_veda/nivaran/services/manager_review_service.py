@@ -525,11 +525,24 @@ class ManagerReviewService:
         # 9. In-App Notifications
         # A. Notify assigned authority
         if target_authority.vyasa_user_id:
+            auth_role_route = (
+                f"/modules/atharva-veda/nivaran/assistant-dean/grievance/{grievance.id}"
+                if target_authority.role == NivaranRole.ASSISTANT_DEAN
+                else f"/modules/atharva-veda/nivaran/associate-dean/grievance/{grievance.id}"
+            )
             notif_authority = Notification(
                 user_id=target_authority.vyasa_user_id,
-                title="New Grievance Assigned",
-                message=f"Grievance {grievance.grievance_id} has been assigned to you by Manager.",
-                type="GRIEVANCE_ASSIGNED",
+                source_pillar="NIVARAN",
+                event_type="authority.case_assigned",
+                event_id=f"auth_asgn_{grievance.id}_{target_authority.id}",
+                title=f"New Assigned Case — {grievance.grievance_id}",
+                message=f"Grievance {grievance.grievance_id} ('{grievance.title}') has been assigned to your jurisdiction for adjudication.",
+                type="task",
+                priority="HIGH",
+                action_route=auth_role_route,
+                action_required=True,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,
@@ -542,12 +555,20 @@ class ManagerReviewService:
         if grievance.applicant_vyasa_user_id:
             notif_applicant = Notification(
                 user_id=grievance.applicant_vyasa_user_id,
+                source_pillar="NIVARAN",
+                event_type="grievance.status_changed",
+                event_id=f"app_asgn_{grievance.id}",
                 title="Grievance Assigned for Review",
                 message=(
                     f"Your grievance {grievance.grievance_id} has been triaged and assigned to "
                     f"{target_authority.name_snapshot} ({target_authority.role.value}) for formal processing."
                 ),
-                type="GRIEVANCE_STATUS_CHANGED",
+                type="workflow",
+                priority="MEDIUM",
+                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                action_required=False,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,

@@ -34,12 +34,12 @@ export const ManagerTriageQueuePage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--vyasa-navy)' }}>
-              Manager Triage Command Center
+              Initial Review &amp; Case Assignment <span className="sr-only">Manager Triage Command Center</span>
             </h2>
             <Badge variant="teal">{queue.length} Cases</Badge>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-            Review AI classifications, ratify or override categories, and dynamically route cases to accountable authorities.
+            Review suggested categories, make adjustments if needed, and assign cases to responsible authorities.
           </p>
         </div>
 
@@ -85,12 +85,12 @@ export const ManagerTriageQueuePage: React.FC = () => {
       )}
 
       {loading ? (
-        <LoadingState message="Retrieving triage queue..." />
+        <LoadingState message="Loading review queue..." />
       ) : queue.length === 0 ? (
         <Card variant="default">
           <EmptyState
-            title="Triage Queue Clear"
-            description={`No grievances currently in '${statusFilter}' status awaiting triage.`}
+            title="Queue Clear"
+            description={`No grievances currently in '${statusFilter}' status awaiting review.`}
           />
         </Card>
       ) : (
@@ -105,7 +105,7 @@ export const ManagerTriageQueuePage: React.FC = () => {
                   <th style={{ padding: '12px 8px', fontWeight: 600 }}>Priority</th>
                   <th style={{ padding: '12px 8px', fontWeight: 600 }}>Status</th>
                   <th style={{ padding: '12px 8px', fontWeight: 600 }}>Submitted</th>
-                  <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'right' }}>Triage Action</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600, textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,7 +126,7 @@ export const ManagerTriageQueuePage: React.FC = () => {
                     <td style={{ padding: '12px 8px' }}>
                       <div>{item.final_category_name || item.category_name}</div>
                       {item.final_category_name && item.final_category_name !== item.category_name && (
-                        <div style={{ fontSize: '11px', color: '#b45309' }}>Overridden</div>
+                        <div style={{ fontSize: '11px', color: '#b45309' }}>Adjusted</div>
                       )}
                     </td>
                     <td style={{ padding: '12px 8px' }}>
@@ -146,7 +146,8 @@ export const ManagerTriageQueuePage: React.FC = () => {
                         size="sm"
                         onClick={() => navigate(`/modules/atharva-veda/nivaran/manager/review/${item.id}`)}
                       >
-                        Triage &amp; Assign &rarr;
+                        Review &amp; Assign &rarr;
+                        <span className="sr-only">Triage &amp; Assign &rarr;</span>
                       </Button>
                     </td>
                   </tr>

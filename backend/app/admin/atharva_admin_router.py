@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_db, require_admin_user
+from app.api.dependencies import get_db, require_super_admin_user
 from app.models.user import User
 from app.models.audit import AuditLog
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
@@ -14,6 +14,9 @@ from app.modules.atharva_veda.nivaran.services.admin_config_service import Admin
 from app.schemas.response import ApiResponse
 from app.admin.schemas.atharva_config import (
     AuthorityOut,
+    AuthorityCreate,
+    AuthorityUpdate,
+    AuthorityTransfer,
     AuthorityStatusUpdate,
     SubjectClusterOut,
     SubjectClusterCreate,
@@ -26,11 +29,17 @@ from app.admin.schemas.atharva_config import (
     SubjectStatusUpdate,
     SubjectMappingUpdate,
     GrievanceClusterOut,
+    GrievanceClusterCreate,
+    GrievanceClusterUpdate,
     GrievanceClusterAssociateDeanUpdate,
     GrievanceClusterStatusUpdate,
     CategoryOut,
+    CategoryCreate,
+    CategoryUpdate,
     CategoryRoutingUpdate,
     CategoryStatusUpdate,
+    RoutingSimulationRequest,
+    RoutingSimulationResult,
     AtharvaConfigSummary,
     AuditLogOut,
     PaginatedAuditLogs,
@@ -45,7 +54,7 @@ atharva_admin_router = APIRouter(prefix="/atharva", tags=["Atharva Veda Admin Co
 @atharva_admin_router.get("/summary", response_model=ApiResponse)
 def get_atharva_config_summary(
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     """
     Returns platform-wide live summary metrics for Atharva Veda institutional taxonomy & routing.
@@ -113,7 +122,7 @@ def list_authorities(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     search: Optional[str] = Query(None, description="Search by name, email, designation, or department"),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = select(NivaranAuthority)
     if role:
@@ -141,12 +150,112 @@ def list_authorities(
     )
 
 
+@atharva_admin_router.post("/authorities", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_authority(
+    payload: AuthorityCreate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        created = AdminConfigService.create_authority(
+            db=db,
+            name=payload.name,
+            email=payload.email,
+            role=payload.role,
+            designation=payload.designation,
+            department=payload.department,
+            phone=payload.phone,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Authority '{created.name_snapshot}' provisioned successfully.",
+            data=AuthorityOut.model_validate(created).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.patch("/authorities/{authority_id}", response_model=ApiResponse)
+def update_authority(
+    authority_id: uuid.UUID,
+    payload: AuthorityUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.update_authority(
+            db=db,
+            authority_id=authority_id,
+            name=payload.name,
+            email=payload.email,
+            role=payload.role,
+            designation=payload.designation,
+            department=payload.department,
+            phone=payload.phone,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Authority '{updated.name_snapshot}' updated successfully.",
+            data=AuthorityOut.model_validate(updated).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.post("/authorities/{authority_id}/transfer", response_model=ApiResponse)
+def transfer_authority_assignments(
+    authority_id: uuid.UUID,
+    payload: AuthorityTransfer,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        summary = AdminConfigService.transfer_authority_assignments(
+            db=db,
+            source_authority_id=authority_id,
+            target_authority_id=payload.replacement_authority_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Authority assignments transferred successfully.",
+            data=summary,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.delete("/authorities/{authority_id}", response_model=ApiResponse)
+def delete_authority(
+    authority_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        AdminConfigService.delete_authority(
+            db=db,
+            authority_id=authority_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Authority record permanently deleted.",
+            data={"id": str(authority_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
 @atharva_admin_router.patch("/authorities/{authority_id}/status", response_model=ApiResponse)
 def update_authority_status(
     authority_id: uuid.UUID,
     payload: AuthorityStatusUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.set_authority_active_status(
@@ -171,7 +280,7 @@ def update_authority_status(
 def list_subject_clusters(
     is_active: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = select(SubjectCluster).options(joinedload(SubjectCluster.assistant_dean)).order_by(SubjectCluster.cluster_number.asc())
     if is_active is not None:
@@ -210,69 +319,11 @@ def list_subject_clusters(
     )
 
 
-@atharva_admin_router.patch("/subject-clusters/{cluster_id}/assistant-dean", response_model=ApiResponse)
-def update_subject_cluster_assistant_dean(
-    cluster_id: uuid.UUID,
-    payload: SubjectClusterAssistantDeanUpdate,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
-):
-    try:
-        updated = AdminConfigService.update_subject_cluster_assistant_dean(
-            db=db,
-            cluster_id=cluster_id,
-            new_assistant_dean_id=payload.assistant_dean_id,
-            actor_user_id=admin_user.id,
-        )
-        asst_dean_out = AuthorityOut.model_validate(updated.assistant_dean) if updated.assistant_dean else None
-        return ApiResponse(
-            success=True,
-            message=f"Subject Cluster '{updated.name}' Assistant Dean mapping reconfigured.",
-            data=SubjectClusterOut(
-                id=updated.id,
-                cluster_number=updated.cluster_number,
-                name=updated.name,
-                description=updated.description,
-                is_active=updated.is_active,
-                assistant_dean_id=updated.assistant_dean_id,
-                assistant_dean=asst_dean_out,
-                subject_count=0,
-                created_at=updated.created_at,
-                updated_at=updated.updated_at,
-            ).model_dump(),
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
-@atharva_admin_router.patch("/subject-clusters/{cluster_id}/status", response_model=ApiResponse)
-def update_subject_cluster_status(
-    cluster_id: uuid.UUID,
-    payload: SubjectClusterStatusUpdate,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
-):
-    try:
-        updated = AdminConfigService.set_subject_cluster_active_status(
-            db=db,
-            cluster_id=cluster_id,
-            is_active=payload.is_active,
-            actor_user_id=admin_user.id,
-        )
-        return ApiResponse(
-            success=True,
-            message=f"Subject Cluster '{updated.name}' active status set to {updated.is_active}.",
-            data={"id": str(updated.id), "is_active": updated.is_active},
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
 @atharva_admin_router.post("/subject-clusters", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
 def create_subject_cluster(
     payload: SubjectClusterCreate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         created = AdminConfigService.create_subject_cluster(
@@ -310,7 +361,7 @@ def update_subject_cluster(
     cluster_id: uuid.UUID,
     payload: SubjectClusterUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.update_subject_cluster(
@@ -342,6 +393,85 @@ def update_subject_cluster(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@atharva_admin_router.delete("/subject-clusters/{cluster_id}", response_model=ApiResponse)
+def delete_subject_cluster(
+    cluster_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        AdminConfigService.delete_subject_cluster(
+            db=db,
+            cluster_id=cluster_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Subject Cluster deleted successfully.",
+            data={"id": str(cluster_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@atharva_admin_router.patch("/subject-clusters/{cluster_id}/assistant-dean", response_model=ApiResponse)
+def update_subject_cluster_assistant_dean(
+    cluster_id: uuid.UUID,
+    payload: SubjectClusterAssistantDeanUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.update_subject_cluster_assistant_dean(
+            db=db,
+            cluster_id=cluster_id,
+            new_assistant_dean_id=payload.assistant_dean_id,
+            actor_user_id=admin_user.id,
+        )
+        asst_dean_out = AuthorityOut.model_validate(updated.assistant_dean) if updated.assistant_dean else None
+        return ApiResponse(
+            success=True,
+            message=f"Subject Cluster '{updated.name}' Assistant Dean mapping reconfigured.",
+            data=SubjectClusterOut(
+                id=updated.id,
+                cluster_number=updated.cluster_number,
+                name=updated.name,
+                description=updated.description,
+                is_active=updated.is_active,
+                assistant_dean_id=updated.assistant_dean_id,
+                assistant_dean=asst_dean_out,
+                subject_count=0,
+                created_at=updated.created_at,
+                updated_at=updated.updated_at,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.patch("/subject-clusters/{cluster_id}/status", response_model=ApiResponse)
+def update_subject_cluster_status(
+    cluster_id: uuid.UUID,
+    payload: SubjectClusterStatusUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.set_subject_cluster_active_status(
+            db=db,
+            cluster_id=cluster_id,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Subject Cluster '{updated.name}' active status set to {updated.is_active}.",
+            data={"id": str(updated.id), "is_active": updated.is_active},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 # ==========================================
 # 4. SUBJECTS
 # ==========================================
@@ -351,7 +481,7 @@ def list_subjects(
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = select(Subject).options(joinedload(Subject.cluster)).order_by(Subject.name.asc())
     if subject_cluster_id:
@@ -391,57 +521,11 @@ def list_subjects(
     )
 
 
-@atharva_admin_router.patch("/subjects/{subject_id}/status", response_model=ApiResponse)
-def update_subject_status(
-    subject_id: uuid.UUID,
-    payload: SubjectStatusUpdate,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
-):
-    try:
-        updated = AdminConfigService.set_subject_active_status(
-            db=db,
-            subject_id=subject_id,
-            is_active=payload.is_active,
-            actor_user_id=admin_user.id,
-        )
-        return ApiResponse(
-            success=True,
-            message=f"Subject '{updated.name}' active status set to {updated.is_active}.",
-            data={"id": str(updated.id), "is_active": updated.is_active},
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
-@atharva_admin_router.patch("/subjects/{subject_id}/cluster", response_model=ApiResponse)
-def update_subject_cluster_mapping(
-    subject_id: uuid.UUID,
-    payload: SubjectMappingUpdate,
-    db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
-):
-    try:
-        updated = AdminConfigService.update_subject_mapping(
-            db=db,
-            subject_id=subject_id,
-            new_cluster_id=payload.subject_cluster_id,
-            actor_user_id=admin_user.id,
-        )
-        return ApiResponse(
-            success=True,
-            message=f"Subject '{updated.name}' re-mapped to cluster successfully.",
-            data={"id": str(updated.id), "subject_cluster_id": str(updated.subject_cluster_id)},
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-
 @atharva_admin_router.post("/subjects", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
 def create_subject(
     payload: SubjectCreate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         created = AdminConfigService.create_subject(
@@ -476,7 +560,7 @@ def update_subject(
     subject_id: uuid.UUID,
     payload: SubjectUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.update_subject(
@@ -506,6 +590,73 @@ def update_subject(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@atharva_admin_router.delete("/subjects/{subject_id}", response_model=ApiResponse)
+def delete_subject(
+    subject_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        AdminConfigService.delete_subject(
+            db=db,
+            subject_id=subject_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Subject deleted successfully.",
+            data={"id": str(subject_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@atharva_admin_router.patch("/subjects/{subject_id}/status", response_model=ApiResponse)
+def update_subject_status(
+    subject_id: uuid.UUID,
+    payload: SubjectStatusUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.set_subject_active_status(
+            db=db,
+            subject_id=subject_id,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Subject '{updated.name}' active status set to {updated.is_active}.",
+            data={"id": str(updated.id), "is_active": updated.is_active},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@atharva_admin_router.patch("/subjects/{subject_id}/cluster", response_model=ApiResponse)
+def update_subject_cluster_mapping(
+    subject_id: uuid.UUID,
+    payload: SubjectMappingUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.update_subject_mapping(
+            db=db,
+            subject_id=subject_id,
+            new_cluster_id=payload.subject_cluster_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Subject '{updated.name}' re-mapped to cluster successfully.",
+            data={"id": str(updated.id), "subject_cluster_id": str(updated.subject_cluster_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 # ==========================================
 # 5. GRIEVANCE CLUSTERS
 # ==========================================
@@ -513,7 +664,7 @@ def update_subject(
 def list_grievance_clusters(
     is_active: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = select(GrievanceCluster).options(joinedload(GrievanceCluster.associate_dean)).order_by(GrievanceCluster.cluster_number.asc())
     if is_active is not None:
@@ -553,12 +704,107 @@ def list_grievance_clusters(
     )
 
 
+@atharva_admin_router.post("/grievance-clusters", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_grievance_cluster(
+    payload: GrievanceClusterCreate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        created = AdminConfigService.create_grievance_cluster(
+            db=db,
+            cluster_number=payload.cluster_number,
+            name=payload.name,
+            description=payload.description,
+            associate_dean_id=payload.associate_dean_id,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        assoc_dean_out = AuthorityOut.model_validate(created.associate_dean) if created.associate_dean else None
+        return ApiResponse(
+            success=True,
+            message=f"Grievance Cluster '{created.name}' created successfully.",
+            data=GrievanceClusterOut(
+                id=created.id,
+                cluster_number=created.cluster_number,
+                name=created.name,
+                description=created.description,
+                is_active=created.is_active,
+                associate_dean_id=created.associate_dean_id,
+                associate_dean=assoc_dean_out,
+                category_count=0,
+                created_at=created.created_at,
+                updated_at=created.updated_at,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.patch("/grievance-clusters/{cluster_id}", response_model=ApiResponse)
+def update_grievance_cluster(
+    cluster_id: uuid.UUID,
+    payload: GrievanceClusterUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.update_grievance_cluster(
+            db=db,
+            cluster_id=cluster_id,
+            name=payload.name,
+            description=payload.description,
+            cluster_number=payload.cluster_number,
+            actor_user_id=admin_user.id,
+        )
+        assoc_dean_out = AuthorityOut.model_validate(updated.associate_dean) if updated.associate_dean else None
+        return ApiResponse(
+            success=True,
+            message=f"Grievance Cluster '{updated.name}' updated successfully.",
+            data=GrievanceClusterOut(
+                id=updated.id,
+                cluster_number=updated.cluster_number,
+                name=updated.name,
+                description=updated.description,
+                is_active=updated.is_active,
+                associate_dean_id=updated.associate_dean_id,
+                associate_dean=assoc_dean_out,
+                category_count=0,
+                created_at=updated.created_at,
+                updated_at=updated.updated_at,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.delete("/grievance-clusters/{cluster_id}", response_model=ApiResponse)
+def delete_grievance_cluster(
+    cluster_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        AdminConfigService.delete_grievance_cluster(
+            db=db,
+            cluster_id=cluster_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Grievance Cluster deleted successfully.",
+            data={"id": str(cluster_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
 @atharva_admin_router.patch("/grievance-clusters/{cluster_id}/associate-dean", response_model=ApiResponse)
 def update_grievance_cluster_associate_dean(
     cluster_id: uuid.UUID,
     payload: GrievanceClusterAssociateDeanUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.update_grievance_cluster_associate_dean(
@@ -593,7 +839,7 @@ def update_grievance_cluster_status(
     cluster_id: uuid.UUID,
     payload: GrievanceClusterStatusUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.set_grievance_cluster_active_status(
@@ -612,7 +858,7 @@ def update_grievance_cluster_status(
 
 
 # ==========================================
-# 6. CATEGORIES
+# 6. CATEGORIES & ROUTING
 # ==========================================
 @atharva_admin_router.get("/categories", response_model=ApiResponse)
 def list_categories(
@@ -620,7 +866,7 @@ def list_categories(
     is_active: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = (
         select(Category)
@@ -646,6 +892,7 @@ def list_categories(
             CategoryOut(
                 id=c.id,
                 name=c.name,
+                description=c.description,
                 routing_type=c.routing_type,
                 grievance_cluster_id=c.grievance_cluster_id,
                 cluster_name=c.grievance_cluster.name if c.grievance_cluster else None,
@@ -666,12 +913,103 @@ def list_categories(
     )
 
 
+@atharva_admin_router.post("/categories", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_category(
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        created = AdminConfigService.create_category(
+            db=db,
+            name=payload.name,
+            description=payload.description,
+            routing_type=payload.routing_type,
+            grievance_cluster_id=payload.grievance_cluster_id,
+            fixed_authority_id=payload.fixed_authority_id,
+            is_active=payload.is_active,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Category '{created.name}' created successfully.",
+            data=CategoryOut(
+                id=created.id,
+                name=created.name,
+                description=created.description,
+                routing_type=created.routing_type,
+                grievance_cluster_id=created.grievance_cluster_id,
+                fixed_authority_id=created.fixed_authority_id,
+                is_active=created.is_active,
+                created_at=created.created_at,
+                updated_at=created.updated_at,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.patch("/categories/{category_id}", response_model=ApiResponse)
+def update_category(
+    category_id: uuid.UUID,
+    payload: CategoryUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        updated = AdminConfigService.update_category(
+            db=db,
+            category_id=category_id,
+            name=payload.name,
+            description=payload.description,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message=f"Category '{updated.name}' updated successfully.",
+            data=CategoryOut(
+                id=updated.id,
+                name=updated.name,
+                description=updated.description,
+                routing_type=updated.routing_type,
+                grievance_cluster_id=updated.grievance_cluster_id,
+                fixed_authority_id=updated.fixed_authority_id,
+                is_active=updated.is_active,
+                created_at=updated.created_at,
+                updated_at=updated.updated_at,
+            ).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@atharva_admin_router.delete("/categories/{category_id}", response_model=ApiResponse)
+def delete_category(
+    category_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        AdminConfigService.delete_category(
+            db=db,
+            category_id=category_id,
+            actor_user_id=admin_user.id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Category deleted successfully.",
+            data={"id": str(category_id)},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
 @atharva_admin_router.patch("/categories/{category_id}/routing", response_model=ApiResponse)
 def update_category_routing(
     category_id: uuid.UUID,
     payload: CategoryRoutingUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.update_category_routing(
@@ -688,6 +1026,7 @@ def update_category_routing(
             data=CategoryOut(
                 id=updated.id,
                 name=updated.name,
+                description=updated.description,
                 routing_type=updated.routing_type,
                 grievance_cluster_id=updated.grievance_cluster_id,
                 cluster_name=updated.grievance_cluster.name if updated.grievance_cluster else None,
@@ -709,7 +1048,7 @@ def update_category_status(
     category_id: uuid.UUID,
     payload: CategoryStatusUpdate,
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     try:
         updated = AdminConfigService.set_category_active_status(
@@ -727,6 +1066,27 @@ def update_category_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+@atharva_admin_router.post("/routing/simulate", response_model=ApiResponse)
+def simulate_routing(
+    payload: RoutingSimulationRequest,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    try:
+        result = AdminConfigService.simulate_routing(
+            db=db,
+            category_id=payload.category_id,
+            subject_id=payload.subject_id,
+        )
+        return ApiResponse(
+            success=True,
+            message="Routing simulation completed.",
+            data=RoutingSimulationResult(**result).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 # ==========================================
 # 7. AUDIT LOGS
 # ==========================================
@@ -738,7 +1098,7 @@ def list_audit_logs(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    admin_user: User = Depends(require_admin_user),
+    admin_user: User = Depends(require_super_admin_user),
 ):
     stmt = select(AuditLog).options(joinedload(AuditLog.user))
     count_stmt = select(func.count(AuditLog.id))

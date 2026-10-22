@@ -26,6 +26,26 @@ export interface Authority {
   updated_at: string;
 }
 
+export interface CreateAuthorityPayload {
+  name: string;
+  email: string;
+  role: NivaranRole;
+  designation?: string | null;
+  department?: string | null;
+  phone?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateAuthorityPayload {
+  name?: string | null;
+  email?: string | null;
+  role?: NivaranRole | null;
+  designation?: string | null;
+  department?: string | null;
+  phone?: string | null;
+  is_active?: boolean | null;
+}
+
 export interface SubjectCluster {
   id: string;
   cluster_number: number;
@@ -39,9 +59,23 @@ export interface SubjectCluster {
   updated_at: string;
 }
 
+export interface CreateSubjectClusterPayload {
+  cluster_number: number;
+  name: string;
+  description?: string | null;
+  assistant_dean_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateSubjectClusterPayload {
+  name?: string | null;
+  description?: string | null;
+  cluster_number?: number | null;
+}
+
 export interface Subject {
   id: string;
-  code: string;
+  code: string | null;
   name: string;
   subject_cluster_id: string;
   cluster_name: string | null;
@@ -49,6 +83,19 @@ export interface Subject {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateSubjectPayload {
+  name: string;
+  subject_cluster_id: string;
+  code?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateSubjectPayload {
+  name?: string | null;
+  code?: string | null;
+  subject_cluster_id?: string | null;
 }
 
 export interface GrievanceCluster {
@@ -64,9 +111,24 @@ export interface GrievanceCluster {
   updated_at: string;
 }
 
+export interface CreateGrievanceClusterPayload {
+  cluster_number: number;
+  name: string;
+  description?: string | null;
+  associate_dean_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateGrievanceClusterPayload {
+  name?: string | null;
+  description?: string | null;
+  cluster_number?: number | null;
+}
+
 export interface Category {
   id: string;
   name: string;
+  description?: string | null;
   routing_type: CategoryRoutingType;
   grievance_cluster_id: string | null;
   cluster_name: string | null;
@@ -77,6 +139,39 @@ export interface Category {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  description?: string | null;
+  routing_type: CategoryRoutingType;
+  grievance_cluster_id?: string | null;
+  fixed_authority_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateCategoryPayload {
+  name?: string | null;
+  description?: string | null;
+}
+
+export interface RoutingSimulationRequest {
+  category_id: string;
+  subject_id?: string | null;
+}
+
+export interface RoutingSimulationResult {
+  status: 'ROUTED' | 'AMBIGUOUS' | 'UNRESOLVED' | 'FALLBACK';
+  routing_type: CategoryRoutingType;
+  category_name: string;
+  target_authority_id: string | null;
+  target_authority_name: string | null;
+  target_authority_role: string | null;
+  cluster_name: string | null;
+  cluster_number: number | null;
+  path_taken: string[];
+  warnings: string[];
+  fallback_used: boolean;
 }
 
 export interface AtharvaConfigSummary {

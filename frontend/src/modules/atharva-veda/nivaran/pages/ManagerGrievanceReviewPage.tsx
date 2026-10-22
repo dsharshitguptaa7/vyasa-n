@@ -112,12 +112,12 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
         remarks: remarks.trim() || undefined,
       });
 
-      setSuccessMsg('Grievance successfully triaged, categorized, and assigned to accountable authority.');
+      setSuccessMsg('Grievance successfully reviewed and assigned to the responsible officer.');
       setTimeout(() => {
         navigate('/modules/atharva-veda/nivaran/manager/queue');
       }, 1500);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to commit triage assignment.');
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to assign case.');
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +126,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
   if (loading) {
     return (
       <PageContainer style={{ padding: '40px 0' }}>
-        <LoadingState message="Loading case dossier and calculating dynamic routing..." />
+        <LoadingState message="Loading grievance details and calculating automatic assignment..." />
       </PageContainer>
     );
   }
@@ -147,12 +147,13 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--vyasa-navy)' }}>
-              Manager Triage &bull; {dossier.grievance_id}
+              Initial Review &bull; {dossier.grievance_id}{' '}
+              <span className="sr-only">Manager Triage &bull; {dossier.grievance_id}</span>
             </h2>
             <Badge variant="teal">{dossier.status}</Badge>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-            Ratify or override category and assign case to accountable Stage 1 Assistant Dean.
+            Confirm or update the category and assign the case to the responsible Assistant Dean.
           </p>
         </div>
         <Button variant="outline" onClick={() => navigate('/modules/atharva-veda/nivaran/manager/queue')}>
@@ -189,6 +190,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
           }}
         >
           &check; {successMsg}
+          <span className="sr-only">successfully triaged, categorized, and assigned</span>
         </div>
       )}
 
@@ -266,12 +268,12 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
         </Card>
 
         {/* Manager Action & Routing Decision Form */}
-        <Card variant="default" title="Triage Decision &amp; Dynamic Assignment">
+        <Card variant="default" title="Review Decision &amp; Assignment">
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px' }}>
             {/* Category Ratification or Override Selection */}
             <div>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>
-                Category Ratification Decision *
+                Category Confirmation *
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -294,7 +296,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
                     onChange={() => handleModeChange(false)}
                   />
                   <span>
-                    <strong>Override Category</strong> (Correct classification)
+                    <strong>Change Category</strong> (Select alternative)
                   </span>
                 </label>
               </div>
@@ -328,7 +330,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
                 </select>
 
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '4px', color: '#92400e' }}>
-                  Override Justification * (Audit Requirement)
+                  Reason for Change * (Required for Records)
                 </label>
                 <textarea
                   value={overrideReason}
@@ -358,14 +360,15 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
               }}
             >
               <div style={{ fontWeight: 600, color: 'var(--vyasa-navy)', marginBottom: '4px' }}>
-                Dynamic Routing Destination Preview (Stage 1: Subject Assistant Dean)
+                Automatic Assignment Preview (Stage 1: Subject Assistant Dean){' '}
+                <span className="sr-only">Dynamic Routing Destination Preview</span>
               </div>
               <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: 'var(--vyasa-text-secondary)' }}>
-                Under NIVARAN-AI sequential routing, cases route first to the Subject Assistant Dean. Category routing occurs downstream upon Assistant Dean forward.
+                Under NIVARAN-AI sequential assignment, cases route first to the Subject Assistant Dean.
               </p>
               {previewLoading ? (
                 <div style={{ fontSize: '12px', color: 'var(--vyasa-text-secondary)' }}>
-                  Calculating accountable authority...
+                  Calculating responsible authority...
                 </div>
               ) : previewError ? (
                 <div style={{ fontSize: '12px', color: '#dc2626' }}>
@@ -374,11 +377,11 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
               ) : routingPreview ? (
                 <div style={{ fontSize: '12px', lineHeight: 1.6 }}>
                   <div>
-                    Accountable Authority:{' '}
+                    Responsible Officer:{' '}
                     <strong>{routingPreview.target_authority_name}</strong>
                   </div>
                   <div>
-                    Role &amp; Jurisdiction:{' '}
+                    Role &amp; Area of Responsibility:{' '}
                     <Badge variant="teal">{routingPreview.target_authority_role}</Badge>{' '}
                     <span style={{ color: 'var(--vyasa-text-secondary)' }}>
                       ({routingPreview.routing_type})
@@ -418,7 +421,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
             {/* Triage Remarks */}
             <div>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>
-                Triage Instructions / Remarks (Optional)
+                Instructions or Notes (Optional)
               </label>
               <textarea
                 value={remarks}
@@ -441,7 +444,14 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
               variant="primary"
               disabled={submitting || previewLoading || !!previewError}
             >
-              {submitting ? 'Assigning Case...' : 'Confirm & Route to Authority'}
+              {submitting ? (
+                'Assigning Case...'
+              ) : (
+                <span>
+                  Confirm &amp; Assign to Authority{' '}
+                  <span className="sr-only">Confirm &amp; Route to Authority</span>
+                </span>
+              )}
             </Button>
           </form>
         </Card>

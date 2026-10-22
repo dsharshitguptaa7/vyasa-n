@@ -13,6 +13,11 @@ import {
   AssociateDeanGrievanceDetailResponse,
   CommitteeRequestPayload,
   CommitteeRequestResponseItem,
+  CommitteeDirectCreatePayload,
+  EligibleAuthorityItem,
+  CommitteeResponseItem,
+  CommitteeRequestReviewPayload,
+  CommitteeRequestDetailedItem,
   DocumentRequestItem,
   GrievanceDetailResponse,
   GrievanceOCRExtractResponse,
@@ -511,6 +516,85 @@ export const grievanceService = {
     const qStr = query.toString() ? `?${query.toString()}` : '';
     const res = await apiClient.get<ExecutiveLedgerResponse>(`${BASE_PREFIX}/dean/dashboard/cases${qStr}`);
     return res.data!;
+  },
+
+  /**
+   * Retrieves active authorities eligible to receive requests or be appointed to committees.
+   */
+  async getEligibleAuthorities(): Promise<EligibleAuthorityItem[]> {
+    const res = await apiClient.get<EligibleAuthorityItem[]>(
+      `${BASE_PREFIX}/authorities/eligible-committee-members`
+    );
+    return res.data || [];
+  },
+
+  /**
+   * Directly forms an inquiry committee (Associate Dean & Dean only).
+   */
+  async formCommitteeDirect(payload: CommitteeDirectCreatePayload): Promise<CommitteeResponseItem> {
+    const res = await apiClient.post<CommitteeResponseItem>(
+      `${BASE_PREFIX}/committees/direct`,
+      payload
+    );
+    return res.data!;
+  },
+
+  /**
+   * Reviews a committee creation request (APPROVE, REJECT, REQUEST_CLARIFICATION).
+   */
+  async reviewCommitteeRequest(
+    requestId: string,
+    payload: CommitteeRequestReviewPayload
+  ): Promise<CommitteeRequestDetailedItem> {
+    const res = await apiClient.post<CommitteeRequestDetailedItem>(
+      `${BASE_PREFIX}/committees/requests/${encodeURIComponent(requestId)}/review`,
+      payload
+    );
+    return res.data!;
+  },
+
+  /**
+   * Lists committee creation requests.
+   */
+  async getCommitteeRequests(params?: {
+    grievance_id?: string;
+    status?: string;
+  }): Promise<CommitteeRequestDetailedItem[]> {
+    const query = new URLSearchParams();
+    if (params?.grievance_id) query.append('grievance_id', params.grievance_id);
+    if (params?.status) query.append('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await apiClient.get<CommitteeRequestDetailedItem[]>(
+      `${BASE_PREFIX}/committees/requests${qs}`
+    );
+    return res.data || [];
+  },
+
+  /**
+   * Retrieves detail of a single committee creation request.
+   */
+  async getCommitteeRequestDetail(requestId: string): Promise<CommitteeRequestDetailedItem> {
+    const res = await apiClient.get<CommitteeRequestDetailedItem>(
+      `${BASE_PREFIX}/committees/requests/${encodeURIComponent(requestId)}`
+    );
+    return res.data!;
+  },
+
+  /**
+   * Lists inquiry committees.
+   */
+  async getCommittees(params?: {
+    grievance_id?: string;
+    status?: string;
+  }): Promise<CommitteeResponseItem[]> {
+    const query = new URLSearchParams();
+    if (params?.grievance_id) query.append('grievance_id', params.grievance_id);
+    if (params?.status) query.append('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await apiClient.get<CommitteeResponseItem[]>(
+      `${BASE_PREFIX}/committees${qs}`
+    );
+    return res.data || [];
   },
 };
 

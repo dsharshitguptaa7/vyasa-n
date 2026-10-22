@@ -396,12 +396,20 @@ class GrievanceService:
         )
         db.add(ai_history)
 
-        # 11. Dispatch Notification to applicant
+        # 11. Dispatch Notification to applicant and triage managers via Unified Notification Engine
         notification = Notification(
             user_id=applicant.id,
-            title="Grievance Submitted",
-            message=f"Your grievance {tracking_id} has been successfully submitted and is under review.",
-            type="GRIEVANCE_SUBMITTED",
+            source_pillar="NIVARAN",
+            event_type="grievance.submitted",
+            event_id=f"grv_sub_{grievance.id}",
+            title=f"Grievance Submitted — {tracking_id}",
+            message=f"Your grievance '{grievance.title}' has been successfully lodged and assigned tracking reference {tracking_id}.",
+            type="workflow",
+            priority="MEDIUM",
+            action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+            action_required=False,
+            entity_type="grievance",
+            entity_id=str(grievance.id),
             metadata_json={
                 "grievance_id": str(grievance.id),
                 "tracking_id": tracking_id,
@@ -409,6 +417,31 @@ class GrievanceService:
             },
         )
         db.add(notification)
+
+        # Notify triage managers of new incoming case
+        try:
+            from app.services.notifications.engine import engine as notification_engine
+            from app.schemas.notification import NotificationEventPayload
+            notification_engine.process_event(
+                db=db,
+                event=NotificationEventPayload(
+                    event_id=f"mgr_new_{grievance.id}",
+                    source_pillar="NIVARAN",
+                    event_type="manager.new_grievance",
+                    priority="MEDIUM",
+                    action_route="/modules/atharva-veda/nivaran/manager/queue",
+                    action_required=True,
+                    entity_type="grievance",
+                    entity_id=str(grievance.id),
+                    metadata={
+                        "grievance_id": tracking_id,
+                        "category": category.name,
+                        "title": grievance.title,
+                    },
+                ),
+            )
+        except Exception as notif_err:
+            logger.warning(f"[Notification] Manager dispatch non-fatal note: {notif_err}")
 
         # 12. Audit Log
         audit_entry = AuditLog(
@@ -469,7 +502,7 @@ class GrievanceService:
 
         # Ownership check: applicant can only upload to own grievance
         roles = [r.name.lower() for r in current_user.roles]
-        is_admin = "administrator" in roles or "admin" in roles
+        is_admin = "super_admin" in roles or "administrator" in roles or "admin" in roles
         if "applicant" in roles and grievance.applicant_vyasa_user_id != current_user.id and not is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -567,7 +600,7 @@ class GrievanceService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated grievance not found.")
 
         roles = [r.name.lower() for r in current_user.roles]
-        is_admin = "administrator" in roles or "admin" in roles
+        is_admin = "super_admin" in roles or "administrator" in roles or "admin" in roles
         if "applicant" in roles and grievance.applicant_vyasa_user_id != current_user.id and not is_admin:
             authority = db.scalar(
                 select(NivaranAuthority).where(

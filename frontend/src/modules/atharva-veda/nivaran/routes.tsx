@@ -11,6 +11,8 @@ import {
   ManagerClosureQueuePage,
   MyStudentRecordPage,
   StudentRecordSearchPage,
+  CommitteesListPage,
+  CommitteeWorkspacePage,
 } from './pages';
 
 export const atharvaVedaRoutes = (
@@ -22,6 +24,10 @@ export const atharvaVedaRoutes = (
     <Route path="atharva-veda/nivaran/manager/queue" element={<ManagerTriageQueuePage />} />
     <Route path="atharva-veda/nivaran/manager/closure-queue" element={<ManagerClosureQueuePage />} />
     <Route path="atharva-veda/nivaran/manager/review/:id" element={<ManagerGrievanceReviewPage />} />
+
+    {/* Committee Management Routes */}
+    <Route path="atharva-veda/nivaran/committees" element={<CommitteesListPage />} />
+    <Route path="atharva-veda/nivaran/committees/:id" element={<CommitteeWorkspacePage />} />
 
     {/* Student Master Record Routes */}
     <Route path="atharva-veda/nivaran/student-records/me" element={<MyStudentRecordPage />} />
@@ -41,6 +47,8 @@ export const atharvaVedaRoutes = (
     <Route path="nivaran/manager/queue" element={<ManagerTriageQueuePage />} />
     <Route path="nivaran/manager/closure-queue" element={<ManagerClosureQueuePage />} />
     <Route path="nivaran/manager/review/:id" element={<ManagerGrievanceReviewPage />} />
+    <Route path="nivaran/committees" element={<CommitteesListPage />} />
+    <Route path="nivaran/committees/:id" element={<CommitteeWorkspacePage />} />
     <Route path="nivaran/student-records/me" element={<MyStudentRecordPage />} />
     <Route path="nivaran/student-records/search" element={<StudentRecordSearchPage />} />
     <Route path="nivaran/assistant-dean/dashboard" element={<AssistantDeanDashboardPage />} />

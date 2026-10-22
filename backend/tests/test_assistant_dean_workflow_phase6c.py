@@ -76,8 +76,6 @@ from app.modules.atharva_veda.nivaran.models.routing import (
 from app.modules.atharva_veda.nivaran.models.document import DocumentRequest
 from app.modules.atharva_veda.nivaran.models.committee import CommitteeCreationRequest
 
-client = TestClient(app)
-
 NIVARAN_BASE = "/api/modules/atharva-veda/nivaran"
 
 
@@ -360,7 +358,7 @@ def create_assigned_grievance(
 # Category A: Authorization Boundaries
 # ==========================================
 
-def test_assistant_dean_authorization_boundaries(db_session: Session):
+def test_assistant_dean_authorization_boundaries(client: TestClient, db_session: Session):
     """
     Verifies that ONLY an active appointed ASSISTANT_DEAN authority can access Assistant Dean endpoints.
     - Assistant Dean: 200 OK
@@ -408,7 +406,7 @@ def test_assistant_dean_authorization_boundaries(db_session: Session):
 # Category B: Queue Scoping & Filtering
 # ==========================================
 
-def test_assistant_dean_queue_scoping_and_filters(db_session: Session):
+def test_assistant_dean_queue_scoping_and_filters(client: TestClient, db_session: Session):
     """
     Verifies that the Assistant Dean queue returns ONLY grievances actively assigned to this Assistant Dean.
     Tests status filtering, search term matching, priority filtering, and pagination.
@@ -493,7 +491,7 @@ def test_assistant_dean_queue_scoping_and_filters(db_session: Session):
 # Category C: Grievance Detail & Stage 2 Preview
 # ==========================================
 
-def test_assistant_dean_grievance_detail_and_preview(db_session: Session):
+def test_assistant_dean_grievance_detail_and_preview(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can retrieve the case dossier with Stage 2 routing destination preview:
     - Case with GRIEVANCE_CLUSTER category previews Associate Dean
@@ -568,7 +566,7 @@ def test_assistant_dean_grievance_detail_and_preview(db_session: Session):
 # Category D: Direct Grievance Resolution
 # ==========================================
 
-def test_assistant_dean_direct_resolution(db_session: Session):
+def test_assistant_dean_direct_resolution(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can directly resolve a grievance:
     - Status transitions to RESOLVED
@@ -658,7 +656,7 @@ def test_assistant_dean_direct_resolution(db_session: Session):
 # Category E: Stage 2 Category-Based Forwarding
 # ==========================================
 
-def test_assistant_dean_forwarding_to_associate_dean(db_session: Session):
+def test_assistant_dean_forwarding_to_associate_dean(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can forward a case with a GRIEVANCE_CLUSTER category to Associate Dean:
     - 6-checkbox acknowledgment validated (all mandatory True)
@@ -795,7 +793,7 @@ def test_assistant_dean_forwarding_to_associate_dean(db_session: Session):
     assert audit is not None
 
 
-def test_assistant_dean_forwarding_to_fixed_authority(db_session: Session):
+def test_assistant_dean_forwarding_to_fixed_authority(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can forward a case with a FIXED_AUTHORITY category to Fixed Authority:
     - Resolves Fixed Authority (Fellowship Officer)
@@ -837,7 +835,7 @@ def test_assistant_dean_forwarding_to_fixed_authority(db_session: Session):
     assert res_data["assigned_to"]["id"] == str(fixed_auth.id)
 
 
-def test_assistant_dean_terminal_routing_cannot_forward(db_session: Session):
+def test_assistant_dean_terminal_routing_cannot_forward(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean CANNOT forward a grievance whose category has
     routing_type = SUBJECT_ASSISTANT_DEAN (terminal category).
@@ -880,7 +878,7 @@ def test_assistant_dean_terminal_routing_cannot_forward(db_session: Session):
 # Category F: Evidentiary Document Requests
 # ==========================================
 
-def test_assistant_dean_document_requests(db_session: Session):
+def test_assistant_dean_document_requests(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can request additional evidentiary documents:
     - Status transitions to AWAITING_INFORMATION
@@ -950,7 +948,7 @@ def test_assistant_dean_document_requests(db_session: Session):
 # Category G: Committee Creation Requests
 # ==========================================
 
-def test_assistant_dean_committee_creation_request(db_session: Session):
+def test_assistant_dean_committee_creation_request(client: TestClient, db_session: Session):
     """
     Verifies that Assistant Dean can request formal committee creation:
     - CommitteeCreationRequest record created with status PENDING

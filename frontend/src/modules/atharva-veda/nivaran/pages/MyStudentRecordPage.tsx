@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { PageContainer, Card, Badge, Button, LoadingState } from '@vyasa/ui';
+import { Card, Badge, Button, LoadingState } from '@vyasa/ui';
 import { useNavigate } from 'react-router-dom';
+import { ApplicantLayout } from '../../../../features/applicant';
 import { phase6dService } from '../services/phase6dService';
 import { StudentMasterRecordDetailResponse } from '../types/phase6d';
 
@@ -28,32 +29,45 @@ export const MyStudentRecordPage: React.FC = () => {
 
   if (loading) {
     return (
-      <PageContainer style={{ padding: '40px 0' }}>
-        <LoadingState message="Retrieving institutional Student Master Record..." />
-      </PageContainer>
+      <ApplicantLayout activeTab="my-student-record">
+        <LoadingState message="Loading official student record..." />
+      </ApplicantLayout>
     );
   }
 
   if (errorMsg || !record) {
     return (
-      <PageContainer style={{ padding: '40px 0' }}>
+      <ApplicantLayout activeTab="my-student-record">
         <Card variant="default">
           <div style={{ padding: '24px', textAlign: 'center' }}>
-            <h3 style={{ color: '#b91c1c', margin: '0 0 12px' }}>Master Record Unavailable</h3>
+            <h3 style={{ color: '#b91c1c', margin: '0 0 12px' }}>Student Record Unavailable</h3>
             <p style={{ color: 'var(--vyasa-text-secondary)', marginBottom: '20px' }}>
-              {errorMsg || 'No Student Master Record found. A master record is provisioned when a student grievance is closed and archived.'}
+              {errorMsg || 'No official record found yet. A permanent student record is created once your first grievance is formally resolved and archived.'}
             </p>
             <Button variant="outline" onClick={() => navigate('/modules/atharva-veda/nivaran/my-grievances')}>
               &larr; Back to My Grievances
             </Button>
           </div>
         </Card>
-      </PageContainer>
+      </ApplicantLayout>
     );
   }
 
   return (
-    <PageContainer style={{ padding: '40px 0' }}>
+    <ApplicantLayout activeTab="my-student-record">
+      {/* Breadcrumb Navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+        <button
+          type="button"
+          onClick={() => navigate('/modules/atharva-veda/nivaran/my-grievances')}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#0f2b48', fontWeight: 600, cursor: 'pointer' }}
+        >
+          NIVARAN-AI Dashboard
+        </button>
+        <span>&rsaquo;</span>
+        <span style={{ color: '#0f2b48', fontWeight: 600 }}>Student Record</span>
+      </div>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -65,7 +79,7 @@ export const MyStudentRecordPage: React.FC = () => {
             <Badge variant="neutral">{record.status}</Badge>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--vyasa-text-secondary, #64748b)' }}>
-            Official academic institutional dossier: unified longitudinal grievance ledger and sealed cryptographic E-Files.
+            Your permanent academic record and verified resolution history.
           </p>
         </div>
 
@@ -75,7 +89,7 @@ export const MyStudentRecordPage: React.FC = () => {
       </div>
 
       {/* Profile Particulars */}
-      <Card variant="gold-accent" title="Scholar Identity Snapshot" style={{ marginBottom: '24px' }}>
+      <Card variant="gold-accent" title="Student Profile Summary" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', fontSize: '13px' }}>
           <div>
             <span style={{ color: 'var(--vyasa-text-secondary)' }}>Full Name:</span>{' '}
@@ -207,6 +221,6 @@ export const MyStudentRecordPage: React.FC = () => {
           </div>
         )}
       </Card>
-    </PageContainer>
+    </ApplicantLayout>
   );
 };

@@ -5,11 +5,14 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+@pytest.fixture
+def unauthenticated_client():
+    with TestClient(app) as tc:
+        yield tc
 
 
-def test_rig_veda_status_endpoint():
-    res = client.get("/api/modules/rig-veda/status")
+def test_rig_veda_status_endpoint(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/modules/rig-veda/status")
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
@@ -17,8 +20,8 @@ def test_rig_veda_status_endpoint():
     assert data["data"]["status"] == "planned"
 
 
-def test_yajur_veda_status_endpoint():
-    res = client.get("/api/modules/yajur-veda/status")
+def test_yajur_veda_status_endpoint(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/modules/yajur-veda/status")
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
@@ -26,8 +29,8 @@ def test_yajur_veda_status_endpoint():
     assert data["data"]["status"] == "planned"
 
 
-def test_sama_veda_status_endpoint():
-    res = client.get("/api/modules/sama-veda/status")
+def test_sama_veda_status_endpoint(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/modules/sama-veda/status")
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
@@ -35,8 +38,8 @@ def test_sama_veda_status_endpoint():
     assert data["data"]["status"] == "planned"
 
 
-def test_atharva_veda_nivaran_status_endpoint():
-    res = client.get("/api/modules/atharva-veda/nivaran/status")
+def test_atharva_veda_nivaran_status_endpoint(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/modules/atharva-veda/nivaran/status")
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
@@ -45,15 +48,11 @@ def test_atharva_veda_nivaran_status_endpoint():
     assert data["data"]["is_enabled"] is True
 
 
-def test_watchdog_metrics_endpoint():
-    res = client.get("/api/watchdog/metrics")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["success"] is True
-    assert "pool_size" in data["data"]
-    assert "db_healthy" in data["data"]
+def test_watchdog_metrics_requires_super_admin(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/watchdog/metrics")
+    assert res.status_code == 401
 
 
-def test_admin_modules_requires_auth():
-    res = client.get("/api/admin/modules")
+def test_admin_modules_requires_auth(unauthenticated_client: TestClient):
+    res = unauthenticated_client.get("/api/admin/modules")
     assert res.status_code == 401

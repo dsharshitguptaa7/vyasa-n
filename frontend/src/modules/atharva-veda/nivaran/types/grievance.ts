@@ -186,16 +186,99 @@ export interface AssistantDeanDocumentRequestPayload {
 }
 
 export interface CommitteeRequestPayload {
-  reason: string;
+  reason?: string;
+  justification?: string;
   proposed_member_roles?: string[];
+  target_authority_id?: string;
+  proposed_scope?: string;
+  supporting_remarks?: string;
+}
+
+export interface EligibleAuthorityItem {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  designation?: string;
+  department?: string;
+}
+
+export interface CommitteeMemberCreateItem {
+  authority_id: string;
+  member_role: 'CHAIRPERSON' | 'MEMBER' | 'OBSERVER';
+}
+
+export interface CommitteeDirectCreatePayload {
+  grievance_id: string;
+  committee_name: string;
+  terms_of_reference?: string;
+  chairperson_id: string;
+  members: CommitteeMemberCreateItem[];
+  creation_request_id?: string;
+}
+
+export interface CommitteeRequestReviewPayload {
+  action: 'APPROVE' | 'REJECT' | 'REQUEST_CLARIFICATION';
+  remarks?: string;
+}
+
+export interface CommitteeMemberResponseItem {
+  id: string;
+  authority_id: string;
+  authority_name: string;
+  authority_role: string;
+  member_role: string;
+  appointed_at: string;
+  is_active: boolean;
+}
+
+export interface CommitteeResponseItem {
+  id: string;
+  grievance_id: string;
+  grievance_tracking_id?: string;
+  committee_name: string;
+  terms_of_reference?: string;
+  chairperson_id: string;
+  chairperson_name: string;
+  status: string;
+  creation_request_id?: string;
+  chartered_at: string;
+  disbanded_at?: string;
+  members: CommitteeMemberResponseItem[];
+}
+
+export interface CommitteeRequestDetailedItem {
+  id: string;
+  grievance_id: string;
+  grievance_tracking_id?: string;
+  requested_by_id: string;
+  requested_by_name: string;
+  requested_by_role: string;
+  target_authority_id?: string;
+  target_authority_name?: string;
+  target_authority_role?: string;
+  request_status: string;
+  justification: string;
+  proposed_members_snapshot?: any;
+  reviewed_by_id?: string;
+  reviewed_by_name?: string;
+  reviewed_at?: string;
+  review_remarks?: string;
+  created_at: string;
+  committee_id?: string;
 }
 
 export interface CommitteeRequestResponseItem {
   id: string;
   grievance_id: string;
-  requested_by_authority_id: string;
-  reason: string;
-  status: string;
+  requested_by_authority_id?: string;
+  requested_by_id?: string;
+  requested_by_name?: string;
+  requested_by_role?: string;
+  reason?: string;
+  justification?: string;
+  status?: string;
+  request_status?: string;
   proposed_member_roles?: string[];
   created_at: string;
 }

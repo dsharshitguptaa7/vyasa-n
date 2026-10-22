@@ -56,8 +56,6 @@ from app.modules.atharva_veda.nivaran.models.routing import Assignment
 from app.modules.atharva_veda.nivaran.models.ai_processing import AIProcessingRecord
 from app.modules.atharva_veda.nivaran.services.routing_service import DynamicRoutingEngine
 
-client = TestClient(app)
-
 NIVARAN_BASE = "/api/modules/atharva-veda/nivaran"
 
 
@@ -209,7 +207,7 @@ def create_test_grievance_in_pending_review(
 # Category A: Manager Authorization Boundaries
 # ==========================================
 
-def test_manager_authorization_boundaries(db_session: Session):
+def test_manager_authorization_boundaries(client: TestClient, db_session: Session):
     """
     Verifies that ONLY an active appointed MANAGER authority can access triage endpoints:
     - Manager: 200 OK
@@ -256,7 +254,7 @@ def test_manager_authorization_boundaries(db_session: Session):
 # Category B: Queue Filtering & Search
 # ==========================================
 
-def test_manager_queue_filtering_and_search(db_session: Session):
+def test_manager_queue_filtering_and_search(client: TestClient, db_session: Session):
     """
     Verifies that the Manager triage queue correctly filters by queue name,
     search term, and excludes closed/irrelevant cases.
@@ -318,7 +316,7 @@ def test_manager_queue_filtering_and_search(db_session: Session):
 # Category C: Reference Parity Direct AI Review (PATCH)
 # ==========================================
 
-def test_direct_ai_review_patch_endpoint(db_session: Session):
+def test_direct_ai_review_patch_endpoint(client: TestClient, db_session: Session):
     """
     Verifies reference parity for PATCH /grievances/{id}/ai-review:
     - CONFIRMED decision preserves AI prediction, sets category_overridden=False, records AI_CATEGORY_CONFIRMED
@@ -377,7 +375,7 @@ def test_direct_ai_review_patch_endpoint(db_session: Session):
 # Category D: Manager Ratification & Assignment
 # ==========================================
 
-def test_manager_ratify_and_assign_lifecycle(db_session: Session):
+def test_manager_ratify_and_assign_lifecycle(client: TestClient, db_session: Session):
     """
     Verifies Manager atomic ratification and assignment:
     1. Case transitions PENDING_REVIEW -> ASSIGNED
@@ -468,7 +466,7 @@ def test_manager_ratify_and_assign_lifecycle(db_session: Session):
 # Category E & F: Category Override & Routing Parity
 # ==========================================
 
-def test_manager_override_and_final_category_routing(db_session: Session):
+def test_manager_override_and_final_category_routing(client: TestClient, db_session: Session):
     """
     CRITICAL: Verifies sequential routing in NIVARAN-AI:
     - Manager reviews AI suggested category and overrides to a cluster-based category.
@@ -562,7 +560,7 @@ def test_manager_override_and_final_category_routing(db_session: Session):
     assert audit_override is not None
 
 
-def test_manager_triage_fixed_authority_routes_to_assistant_dean_in_stage1(db_session: Session):
+def test_manager_triage_fixed_authority_routes_to_assistant_dean_in_stage1(client: TestClient, db_session: Session):
     """
     CRITICAL: Verifies that even when a grievance category uses FIXED_AUTHORITY
     (e.g., Fellowship or RTI_IIGRS), Manager triage does NOT bypass the Assistant Dean.
@@ -618,7 +616,7 @@ def test_manager_triage_fixed_authority_routes_to_assistant_dean_in_stage1(db_se
 # Category G: Idempotency & Double Submission Prevention
 # ==========================================
 
-def test_manager_triage_idempotency(db_session: Session):
+def test_manager_triage_idempotency(client: TestClient, db_session: Session):
     """
     Verifies that calling triage review on an already ASSIGNED grievance is rejected
     with HTTP 400 Bad Request, preventing double assignment or state corruption.

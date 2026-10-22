@@ -311,6 +311,160 @@ html, body {
 }
 
 /* =========================================================================
+   VYASAᴺ TIER 3 CONTEXTUAL NAVIGATION BAR STYLES
+   ========================================================================= */
+
+.vyasa-context-nav-bar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--vyasa-border, #e2e8f0);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  position: relative;
+  z-index: 40;
+}
+
+/* Institutional Admin: Suppress secondary horizontal bar in favor of left sidebar */
+.vyasa-admin-context-nav-hidden {
+  display: none !important;
+}
+
+/* Institutional Applicant Workspace: Suppress secondary horizontal bar in favor of dedicated applicant left sidebar */
+.vyasa-applicant-context-nav-hidden {
+  display: none !important;
+}
+
+/* Institutional Portal Dashboard: Suppress secondary horizontal bar in favor of portal sidebar */
+.vyasa-portal-context-nav-hidden {
+  display: none !important;
+}
+
+/* VYASA Portal Dashboard Layout: Responsive Sidebar */
+@media (max-width: 1024px) {
+  .vyasa-portal-workspace-layout {
+    flex-direction: column !important;
+  }
+  .vyasa-portal-desktop-sidebar {
+    display: none !important;
+  }
+  .vyasa-portal-mobile-bar {
+    display: flex !important;
+  }
+}
+
+/* Institutional Admin Layout: Responsive Left Sidebar */
+@media (max-width: 1024px) {
+  .vyasa-admin-layout {
+    flex-direction: column !important;
+  }
+  .vyasa-admin-desktop-sidebar-container {
+    display: none !important;
+  }
+  .vyasa-admin-mobile-bar {
+    display: flex !important;
+  }
+  .vyasa-admin-main-canvas {
+    padding: 16px 14px 40px 14px !important;
+  }
+}
+
+/* Institutional Applicant Workspace Layout: Responsive Left Sidebar */
+@media (max-width: 1024px) {
+  .vyasa-applicant-workspace-layout {
+    flex-direction: column !important;
+  }
+  .vyasa-applicant-desktop-sidebar {
+    display: none !important;
+  }
+  .vyasa-applicant-mobile-bar {
+    display: flex !important;
+  }
+  .vyasa-applicant-main-canvas {
+    padding: 16px 14px 40px 14px !important;
+  }
+}
+
+.vyasa-context-nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  gap: 16px;
+}
+
+.vyasa-context-pillar-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vyasa-context-authority-title {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.vyasa-context-nav-bar .nivaran-nav-return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #855800;
+  background-color: rgba(178, 129, 26, 0.09);
+  border: 1px solid rgba(178, 129, 26, 0.3);
+  margin-right: 8px;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vyasa-context-nav-bar .nivaran-nav-return-btn:hover {
+  background-color: rgba(178, 129, 26, 0.18);
+  border-color: var(--vyasa-gold, #b2811a);
+  color: #5c3c00;
+}
+
+.vyasa-context-nav-bar .nivaran-nav-link {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  color: #475569;
+  border-radius: 6px;
+  background-color: transparent;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.vyasa-context-nav-bar .nivaran-nav-link:hover {
+  color: var(--vyasa-navy, #0f2b48);
+  background-color: #f1f5f9;
+}
+
+.vyasa-context-nav-bar .nivaran-nav-link.is-active {
+  color: var(--vyasa-navy, #0f2b48);
+  font-weight: 600;
+  background-color: rgba(15, 43, 72, 0.05);
+}
+
+.vyasa-context-nav-bar .nivaran-nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: 12px;
+  right: 12px;
+  height: 2.5px;
+  background-color: var(--vyasa-gold, #b2811a);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 -1px 3px rgba(178, 129, 26, 0.4);
+}
+
+/* =========================================================================
    VYASA & NIVARAN RESPONSIVE NAVIGATION & MOBILE FIRST DRAWER
    ========================================================================= */
 
@@ -483,9 +637,17 @@ html, body {
   .vyasa-header-profile-badge {
     display: none !important;
   }
+
+  .vyasa-context-authority-title {
+    display: none !important;
+  }
 }
 
 @media (max-width: 768px) {
+  .vyasa-context-pillar-tag {
+    display: none !important;
+  }
+
   .vyasa-page-container {
     padding-left: clamp(12px, 3.5vw, 18px);
     padding-right: clamp(12px, 3.5vw, 18px);

@@ -218,10 +218,27 @@ describe('Single Canonical Authenticated Dashboard Architecture Suite', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('dashboard-welcome-banner')).toBeInTheDocument();
+      expect(screen.getByTestId('compact-identity-summary')).toBeInTheDocument();
+      expect(screen.getByTestId('service-card-nivaran')).toBeInTheDocument();
+    });
+  });
+
+  it('6b. /profile renders the official academic dossier cards', async () => {
+    vi.spyOn(authService, 'getToken').mockReturnValue('applicant-token-xyz');
+    vi.spyOn(authService, 'getCurrentUser').mockResolvedValue(mockApplicantUser);
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
       expect(screen.getByTestId('card-personal-info')).toBeInTheDocument();
       expect(screen.getByTestId('card-academic-profile')).toBeInTheDocument();
       expect(screen.getByTestId('card-access-security')).toBeInTheDocument();
-      expect(screen.getByTestId('service-card-nivaran')).toBeInTheDocument();
     });
   });
 

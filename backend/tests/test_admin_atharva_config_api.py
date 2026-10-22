@@ -14,8 +14,6 @@ from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.taxonomy import SubjectCluster, Subject, GrievanceCluster, Category
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryRoutingType
 
-client = TestClient(app)
-
 
 def get_or_create_admin_user(db: Session) -> User:
     admin_role = db.execute(select(Role).where(Role.name == "administrator")).scalar_one_or_none()
@@ -71,7 +69,7 @@ def get_or_create_applicant_user(db: Session) -> User:
     return user
 
 
-def test_atharva_admin_unauthenticated_rejected():
+def test_atharva_admin_unauthenticated_rejected(client: TestClient):
     res = client.get("/api/admin/atharva/summary")
     assert res.status_code == 401
 
@@ -79,7 +77,7 @@ def test_atharva_admin_unauthenticated_rejected():
     assert res.status_code == 401
 
 
-def test_atharva_admin_non_admin_forbidden(db_session: Session):
+def test_atharva_admin_non_admin_forbidden(client: TestClient, db_session: Session):
     applicant = get_or_create_applicant_user(db_session)
     token = create_access_token({"sub": str(applicant.id)})
     headers = {"Authorization": f"Bearer {token}"}
@@ -89,7 +87,7 @@ def test_atharva_admin_non_admin_forbidden(db_session: Session):
     assert "Access restricted to institutional administrators" in res.json()["message"]
 
 
-def test_atharva_admin_summary(db_session: Session):
+def test_atharva_admin_summary(client: TestClient, db_session: Session):
     admin = get_or_create_admin_user(db_session)
     token = create_access_token({"sub": str(admin.id)})
     headers = {"Authorization": f"Bearer {token}"}
@@ -107,7 +105,7 @@ def test_atharva_admin_summary(db_session: Session):
     assert "categories_by_routing_type" in data
 
 
-def test_atharva_admin_authorities_crud_and_status(db_session: Session):
+def test_atharva_admin_authorities_crud_and_status(client: TestClient, db_session: Session):
     admin = get_or_create_admin_user(db_session)
     token = create_access_token({"sub": str(admin.id)})
     headers = {"Authorization": f"Bearer {token}"}
@@ -162,7 +160,7 @@ def test_atharva_admin_authorities_crud_and_status(db_session: Session):
 
 
 
-def test_atharva_admin_subject_clusters_and_remapping(db_session: Session):
+def test_atharva_admin_subject_clusters_and_remapping(client: TestClient, db_session: Session):
     admin = get_or_create_admin_user(db_session)
     token = create_access_token({"sub": str(admin.id)})
     headers = {"Authorization": f"Bearer {token}"}
@@ -229,7 +227,7 @@ def test_atharva_admin_subject_clusters_and_remapping(db_session: Session):
     db_session.commit()
 
 
-def test_atharva_admin_grievance_clusters_and_categories_routing(db_session: Session):
+def test_atharva_admin_grievance_clusters_and_categories_routing(client: TestClient, db_session: Session):
     admin = get_or_create_admin_user(db_session)
     token = create_access_token({"sub": str(admin.id)})
     headers = {"Authorization": f"Bearer {token}"}
@@ -316,7 +314,7 @@ def test_atharva_admin_grievance_clusters_and_categories_routing(db_session: Ses
     db_session.commit()
 
 
-def test_atharva_admin_audit_logs_explorer(db_session: Session):
+def test_atharva_admin_audit_logs_explorer(client: TestClient, db_session: Session):
     admin = get_or_create_admin_user(db_session)
     token = create_access_token({"sub": str(admin.id)})
     headers = {"Authorization": f"Bearer {token}"}

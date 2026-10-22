@@ -47,6 +47,11 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
   const loginBtnRef = useRef<HTMLButtonElement>(null);
   const registerBtnRef = useRef<HTMLButtonElement>(null);
 
+  const isAuthPage =
+    location.pathname.startsWith('/applicant/login') ||
+    location.pathname.startsWith('/applicant/register') ||
+    location.pathname.startsWith('/authority/login');
+
   // 1. Sticky Navigation & Compact Header on Scroll
   useEffect(() => {
     const handleScroll = () => {
@@ -225,35 +230,21 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
     >
       {/* 1. CSJMU Institutional Affiliation Bar */}
       <div className="csjmu-top-bar">
-        <div
-          className="vyasa-page-container"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
-          <UniversityBrand size="sm" showAccreditation={true} theme="dark" />
-          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)' }}>
-            {CSJMU_INSTITUTION.location}
+        <div className="vyasa-page-container csjmu-top-bar__inner">
+          <UniversityBrand size="md" showAccreditation={true} theme="dark" />
+          <div className="csjmu-top-bar__meta">
+            <span className="csjmu-top-bar__location">{CSJMU_INSTITUTION.location}</span>
           </div>
         </div>
       </div>
 
-      {/* 2. Primary Ecosystem Masthead */}
-      <div className="vyasa-public-masthead">
-        <div
-          aria-hidden="true"
-          style={{
-            height: '2px',
-            background: 'linear-gradient(90deg, transparent, var(--vyasa-gold, #d4a017), transparent)',
-          }}
-        />
+      {/* 2. Solid Antique Gold Accent Divider Line */}
+      <div className="vyasa-masthead-divider" aria-hidden="true" />
 
+      {/* 3. Primary Ecosystem Masthead */}
+      <div className="vyasa-public-masthead">
         <div className="vyasa-page-container vyasa-public-masthead__inner">
-          {/* VYASA Logo & Perfectly Centered Tagline Identity Lockup */}
+          {/* VYASA Logo & Horizontal Brand Lockup */}
           <div
             className="vyasa-public-logo-lockup"
             onClick={handleLogoClick}
@@ -261,37 +252,56 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             tabIndex={0}
             aria-label={`${VYASA_BRAND.productName} - ${VYASA_BRAND.taglineHindi}`}
           >
-            <VyasaLogo size={isScrolled ? 42 : 46} />
-            <span className="vyasa-public-logo-tagline" lang="hi">
-              {VYASA_BRAND.taglineHindi}
-            </span>
+            <VyasaLogo size={isScrolled ? 36 : 42} />
+            <div className="vyasa-public-logo-text">
+              <span className="vyasa-public-logo-title">VYASAᴺ ECOSYSTEM</span>
+              <span className="vyasa-public-logo-tagline" lang="hi">
+                {VYASA_BRAND.taglineHindi}
+              </span>
+            </div>
           </div>
 
-          {/* Desktop Section Navigation Links */}
-          <nav aria-label="Ecosystem section navigation">
-            <ul className="vyasa-public-nav-list">
-              {PUBLIC_SECTIONS.map((sec) => {
-                const isActive = activeSection === sec.id;
-                return (
-                  <li key={sec.id} className="vyasa-public-nav-item">
-                    <button
-                      type="button"
-                      className={`vyasa-public-nav-link ${isActive ? 'is-active' : ''}`}
-                      onClick={(e) => handleSectionClick(sec, e)}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <span>{sec.label}</span>
-                      {sec.isOperational && (
-                        <span className="vyasa-operational-indicator" title="Operational Domain">
-                          Live
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          {/* Desktop Navigation Links */}
+          {isAuthPage ? (
+            <nav aria-label="Authentication navigation" className="vyasa-public-nav-container">
+              <button
+                type="button"
+                className="vyasa-auth-return-link"
+                onClick={() => navigate('/')}
+              >
+                <AppIcon name="arrow-left" size={13} color="var(--vyasa-gold, #d4a017)" />
+                <span>Return to Ecosystem Portal</span>
+              </button>
+            </nav>
+          ) : (
+            <nav aria-label="Ecosystem section navigation" className="vyasa-public-nav-container">
+              <ul className="vyasa-public-nav-list">
+                {PUBLIC_SECTIONS.map((sec) => {
+                  const isActive = activeSection === sec.id;
+                  return (
+                    <li key={sec.id} className="vyasa-public-nav-item">
+                      <button
+                        type="button"
+                        className={`vyasa-public-nav-link ${isActive ? 'is-active' : ''}`}
+                        onClick={(e) => handleSectionClick(sec, e)}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        <span>{sec.label}</span>
+                        {sec.isOperational && (
+                          <span className="vyasa-operational-indicator" title="Operational Domain">
+                            Live
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          )}
+
+          {/* Divider between Navigation and Action Buttons */}
+          <div className="vyasa-nav-vertical-divider" aria-hidden="true" />
 
           {/* Contextual Access Dropdowns (LOGIN ▾ & REGISTER ▾) */}
           <div className="vyasa-public-actions">
@@ -310,8 +320,9 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 aria-expanded={isLoginOpen}
                 onClick={() => setIsLoginOpen((prev) => !prev)}
               >
+                <AppIcon name="user" size={13} color="#ffffff" />
                 <span>LOGIN</span>
-                <DropdownChevron isOpen={isLoginOpen} size={12} color="#ffffff" />
+                <DropdownChevron isOpen={isLoginOpen} size={11} color="#ffffff" />
               </button>
 
               {isLoginOpen && (
@@ -333,7 +344,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                     }}
                   >
                     <span className="vyasa-access-menu-icon" aria-hidden="true">
-                      <AppIcon name="graduation-cap" size={17} color="var(--vyasa-primary, #0f2b48)" />
+                      <AppIcon name="graduation-cap" size={16} color="var(--vyasa-gold, #b2811a)" />
                     </span>
                     <div>
                       <div className="vyasa-access-menu-title">Applicant / Scholar</div>
@@ -351,7 +362,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                     }}
                   >
                     <span className="vyasa-access-menu-icon" aria-hidden="true">
-                      <AppIcon name="building" size={17} color="var(--vyasa-primary, #0f2b48)" />
+                      <AppIcon name="building" size={16} color="var(--vyasa-primary, #0f2b48)" />
                     </span>
                     <div>
                       <div className="vyasa-access-menu-title">Authority</div>
@@ -378,7 +389,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 onClick={() => setIsRegisterOpen((prev) => !prev)}
               >
                 <span>REGISTER</span>
-                <DropdownChevron isOpen={isRegisterOpen} size={12} color="#ffffff" />
+                <DropdownChevron isOpen={isRegisterOpen} size={11} color="#ffffff" />
               </button>
 
               {isRegisterOpen && (
@@ -400,7 +411,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                     }}
                   >
                     <span className="vyasa-access-menu-icon" aria-hidden="true">
-                      <AppIcon name="graduation-cap" size={17} color="var(--vyasa-primary, #0f2b48)" />
+                      <AppIcon name="graduation-cap" size={16} color="var(--vyasa-gold, #b2811a)" />
                     </span>
                     <div>
                       <div className="vyasa-access-menu-title">Applicant / Scholar</div>
@@ -431,22 +442,41 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           className={`vyasa-mobile-drawer ${isMobileMenuOpen ? 'is-open' : ''}`}
           data-testid="mobile-nav-drawer"
         >
-          <ul className="vyasa-mobile-nav-list">
-            {PUBLIC_SECTIONS.map((sec) => (
-              <li key={sec.id}>
+          {isAuthPage ? (
+            <ul className="vyasa-mobile-nav-list">
+              <li>
                 <button
                   type="button"
-                  className={`vyasa-mobile-nav-link ${activeSection === sec.id ? 'is-active' : ''}`}
-                  onClick={(e) => handleSectionClick(sec, e)}
+                  className="vyasa-mobile-nav-link is-active"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    navigate('/');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <span>{sec.label}</span>
-                  {sec.isOperational && (
-                    <span className="vyasa-operational-indicator">Live</span>
-                  )}
+                  <AppIcon name="arrow-left" size={15} color="var(--vyasa-gold, #d4a017)" />
+                  <span>Return to Ecosystem Portal</span>
                 </button>
               </li>
-            ))}
-          </ul>
+            </ul>
+          ) : (
+            <ul className="vyasa-mobile-nav-list">
+              {PUBLIC_SECTIONS.map((sec) => (
+                <li key={sec.id}>
+                  <button
+                    type="button"
+                    className={`vyasa-mobile-nav-link ${activeSection === sec.id ? 'is-active' : ''}`}
+                    onClick={(e) => handleSectionClick(sec, e)}
+                  >
+                    <span>{sec.label}</span>
+                    {sec.isOperational && (
+                      <span className="vyasa-operational-indicator">Live</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="vyasa-mobile-divider" />
 

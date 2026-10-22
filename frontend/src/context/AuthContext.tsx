@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { AuthenticatedUser } from '../types/auth';
+import { AuthenticatedUser, TokenResponse } from '../types/auth';
 import { authService } from '../services/authService';
 
 export interface AuthContextValue {
@@ -15,6 +15,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isAuthority: boolean;
   isApplicant: boolean;
   isManager: boolean;
@@ -26,7 +27,8 @@ export interface AuthContextValue {
   authorityDesignation: string | null;
   persona: 'applicant' | 'admin' | 'manager' | 'assistant_dean' | 'associate_dean' | 'dean' | 'authority' | 'guest';
   displayName: string;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<TokenResponse>;
+  completeTwoFactorAuth: (tokenResponse: TokenResponse) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -38,10 +40,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => authService.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(authService.getToken()));
 
-  const isAdmin = useMemo(() => {
+  // Super Admin: strictly role 'super_admin'
+  const isSuperAdmin = useMemo(() => {
     if (!user || !user.roles) return false;
-    return user.roles.some((r) => ['administrator', 'admin'].includes(r.toLowerCase()));
+    return user.roles.some((r) => r.toLowerCase() === 'super_admin');
   }, [user]);
+
+  // isAdmin is strictly unified to recognize only 'super_admin'
+  const isAdmin = useMemo(() => {
+    return isSuperAdmin;
+  }, [isSuperAdmin]);
 
   // Requirement 4: ONLY check generic VYASA role 'authority'.
   const isAuthority = useMemo(() => {
@@ -153,14 +161,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<TokenResponse> => {
     setIsLoading(true);
     try {
       const res = await authService.login(email, password);
-      setToken(res.access_token);
-      // Immediately resolve user profile via GET /api/auth/me per Requirement 3
-      const profile = await authService.getCurrentUser();
-      setUser(profile);
+      if (res.requires_two_factor) {
+        return res;
+      }
+      if (res.access_token) {
+        setToken(res.access_token);
+        const profile = await authService.getCurrentUser();
+        setUser(profile);
+      }
+      return res;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeTwoFactorAuth = async (tokenResponse: TokenResponse) => {
+    setIsLoading(true);
+    try {
+      if (tokenResponse.access_token) {
+        authService.setToken(tokenResponse.access_token);
+        setToken(tokenResponse.access_token);
+        const profile = await authService.getCurrentUser();
+        setUser(profile);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -179,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated: !!user && !!token,
       isLoading,
       isAdmin,
+      isSuperAdmin,
       isAuthority,
       isApplicant,
       isManager,
@@ -191,6 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       persona,
       displayName,
       login,
+      completeTwoFactorAuth,
       logout,
       refreshUser,
     }),
@@ -199,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       token,
       isLoading,
       isAdmin,
+      isSuperAdmin,
       isAuthority,
       isApplicant,
       isManager,
