@@ -34,8 +34,6 @@ from app.modules.atharva_veda.nivaran.models.grievance import (
 from app.modules.atharva_veda.nivaran.models.routing import Assignment
 from app.modules.atharva_veda.nivaran.services.ai_classification_pipeline import ai_pipeline
 
-client = TestClient(app)
-
 
 # ==========================================
 # Test Fixtures & Helpers
@@ -123,7 +121,7 @@ def setup_taxonomy_and_authorities(db: Session):
 # Tests
 # ==========================================
 
-def test_taxonomy_endpoints(db_session: Session):
+def test_taxonomy_endpoints(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
 
     res = client.get("/api/modules/atharva-veda/nivaran/taxonomy/subjects")
@@ -137,7 +135,7 @@ def test_taxonomy_endpoints(db_session: Session):
     assert any(c["id"] == str(setup["cat_subject_route"].id) for c in categories)
 
 
-def test_grievance_submission_lifecycle(db_session: Session):
+def test_grievance_submission_lifecycle(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "scholar_life")
     headers = {"Authorization": f"Bearer {token}"}
@@ -200,7 +198,7 @@ def test_grievance_submission_lifecycle(db_session: Session):
     assert audit.module == "atharva_veda"
 
 
-def test_grievance_submission_daily_quota_limit(db_session: Session):
+def test_grievance_submission_daily_quota_limit(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "quota_user")
     headers = {"Authorization": f"Bearer {token}"}
@@ -249,7 +247,7 @@ def test_grievance_submission_daily_quota_limit(db_session: Session):
     assert "Daily grievance submission limit reached" in res_6.json()["message"]
 
 
-def test_grievance_submission_deduplication(db_session: Session):
+def test_grievance_submission_deduplication(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "dedup_user")
     headers = {"Authorization": f"Bearer {token}"}
@@ -272,7 +270,7 @@ def test_grievance_submission_deduplication(db_session: Session):
     assert "already have an active grievance" in res_2.json()["message"]
 
 
-def test_grievance_isolation_and_detail(db_session: Session):
+def test_grievance_isolation_and_detail(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant_a, token_a = create_test_applicant(db_session, setup, "scholar_a")
     applicant_b, token_b = create_test_applicant(db_session, setup, "scholar_b")
@@ -301,7 +299,7 @@ def test_grievance_isolation_and_detail(db_session: Session):
     assert res_b.status_code == 403
 
 
-def test_manager_triage_queue_and_preview(db_session: Session):
+def test_manager_triage_queue_and_preview(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, app_token = create_test_applicant(db_session, setup, "scholar_c")
     mgr_token = create_access_token({"sub": str(setup["mgr_user"].id)})
@@ -336,7 +334,7 @@ def test_manager_triage_queue_and_preview(db_session: Session):
     assert prev_data["target_authority_role"] == "ASSISTANT_DEAN"
 
 
-def test_manager_review_confirm_category_and_assignment(db_session: Session):
+def test_manager_review_confirm_category_and_assignment(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, app_token = create_test_applicant(db_session, setup, "scholar_d")
     mgr_token = create_access_token({"sub": str(setup["mgr_user"].id)})
@@ -398,7 +396,7 @@ def test_manager_review_confirm_category_and_assignment(db_session: Session):
     assert audit is not None
 
 
-def test_manager_review_override_category_and_historical_assignment(db_session: Session):
+def test_manager_review_override_category_and_historical_assignment(client: TestClient, db_session: Session):
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, app_token = create_test_applicant(db_session, setup, "scholar_e")
     mgr_token = create_access_token({"sub": str(setup["mgr_user"].id)})
@@ -471,7 +469,7 @@ def test_manager_review_override_category_and_historical_assignment(db_session: 
 # OCR & AI Parity Tests
 # ==========================================
 
-def test_ocr_extract_unauthenticated():
+def test_ocr_extract_unauthenticated(client: TestClient):
     """Unauthenticated requests to OCR extract must be rejected with 401."""
     res = client.post(
         "/api/modules/atharva-veda/nivaran/grievances/ocr/extract",
@@ -480,7 +478,7 @@ def test_ocr_extract_unauthenticated():
     assert res.status_code == 401
 
 
-def test_ocr_extract_invalid_mimetype(db_session: Session):
+def test_ocr_extract_invalid_mimetype(client: TestClient, db_session: Session):
     """Unsupported MIME types (e.g. .exe, .zip) must be rejected with 400."""
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "ocr_mime_user")
@@ -495,7 +493,7 @@ def test_ocr_extract_invalid_mimetype(db_session: Session):
     assert "Unsupported file format" in msg
 
 
-def test_ocr_extract_empty_file(db_session: Session):
+def test_ocr_extract_empty_file(client: TestClient, db_session: Session):
     """Empty files must be rejected with 400."""
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "ocr_empty_user")
@@ -510,7 +508,7 @@ def test_ocr_extract_empty_file(db_session: Session):
     assert "empty" in msg.lower()
 
 
-def test_ocr_extract_oversized_file(db_session: Session):
+def test_ocr_extract_oversized_file(client: TestClient, db_session: Session):
     """Files exceeding 10MB must be rejected with 400."""
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "ocr_size_user")
@@ -526,7 +524,7 @@ def test_ocr_extract_oversized_file(db_session: Session):
     assert "10MB" in msg
 
 
-def test_ocr_extract_success_mocked(db_session: Session):
+def test_ocr_extract_success_mocked(client: TestClient, db_session: Session):
     """Successful OCR extraction returns structured title and description without modifying DB."""
     setup = setup_taxonomy_and_authorities(db_session)
     applicant, token = create_test_applicant(db_session, setup, "ocr_success_user")

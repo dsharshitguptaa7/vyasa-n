@@ -316,12 +316,20 @@ class ManagerClosureService:
         notif = Notification(
             id=uuid.uuid4(),
             user_id=grievance.applicant_vyasa_user_id,
+            source_pillar="NIVARAN",
+            event_type="grievance.closed",
+            event_id=f"grv_close_{grievance.id}",
             title="Grievance Formally Closed",
             message=(
                 f"Your grievance {grievance.grievance_id} has been formally closed by institutional management. "
                 f"The official sealed E-File dossier is now available."
             ),
             type="workflow",
+            priority="MEDIUM",
+            action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+            action_required=False,
+            entity_type="grievance",
+            entity_id=str(grievance.id),
             metadata_json={
                 "module": "atharva_veda",
                 "event": "GRIEVANCE_CLOSED",

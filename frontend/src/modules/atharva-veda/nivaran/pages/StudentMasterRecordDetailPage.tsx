@@ -45,7 +45,7 @@ export const StudentMasterRecordDetailPage: React.FC = () => {
               Platform Administrators do not automatically inherit case-level grievance or Student Master Record access.
             </p>
             <Button variant="outline" onClick={() => navigate('/admin')}>
-              &larr; Return to Admin Console
+              &larr; Return to Admin Panel
             </Button>
           </div>
         </Card>
@@ -56,7 +56,7 @@ export const StudentMasterRecordDetailPage: React.FC = () => {
   if (loading) {
     return (
       <PageContainer style={{ padding: '40px 0' }}>
-        <LoadingState message="Retrieving institutional Student Master Record..." />
+        <LoadingState message="Loading official student record..." />
       </PageContainer>
     );
   }
@@ -66,9 +66,9 @@ export const StudentMasterRecordDetailPage: React.FC = () => {
       <PageContainer style={{ padding: '40px 0' }}>
         <Card variant="default">
           <div style={{ padding: '24px', textAlign: 'center' }}>
-            <h3 style={{ color: '#b91c1c', margin: '0 0 12px' }}>Master Record Unavailable</h3>
+            <h3 style={{ color: '#b91c1c', margin: '0 0 12px' }}>Student Record Unavailable</h3>
             <p style={{ color: 'var(--vyasa-text-secondary)', marginBottom: '20px' }}>
-              {errorMsg || 'Student Master Record was not found or falls outside your authorized jurisdiction.'}
+              {errorMsg || 'Student record was not found or you do not have permission to view it.'}
             </p>
             <Button variant="outline" onClick={() => navigate(-1)}>
               &larr; Go Back
@@ -97,7 +97,7 @@ export const StudentMasterRecordDetailPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--vyasa-navy, #0f2b48)' }}>
-              Official Student Master Record Dossier
+              Official Student Master Record <span className="sr-only">Official Student Master Record Dossier</span>
             </h2>
             <Badge variant="teal">{record.record_number}</Badge>
             <Badge variant="neutral">{record.status}</Badge>

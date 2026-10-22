@@ -1,5 +1,6 @@
 export { ApplicantDashboardPage } from './pages/ApplicantDashboardPage';
 export { ApplicantSidebar } from './components/ApplicantSidebar';
+export { ApplicantLayout } from './components/ApplicantLayout';
 export { ApplicantIdentityCard } from './components/ApplicantIdentityCard';
 export { ApplicantAcademicProfile } from './components/ApplicantAcademicProfile';
 export { ApplicantPillarsSection } from './components/ApplicantPillarsSection';

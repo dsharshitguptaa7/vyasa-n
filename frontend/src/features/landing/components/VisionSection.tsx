@@ -56,41 +56,51 @@ export const VisionSection: React.FC = () => {
       <div className="vyasa-story-divider" aria-hidden="true" />
 
       <div className="vyasa-vision-container">
-        {/* Main Institutional Narrative */}
-        <div className="vyasa-vision-narrative">
-          <p className="vyasa-vision-inspiration">
-            Named after the sage who organised the knowledge of an entire civilisation, VYASA brings
-            the same spirit of order, clarity and purpose to research at Chhatrapati Shahu Ji
-            Maharaj University, Kanpur.
-          </p>
-          <p className="vyasa-vision-description">
-            VYASAᴺ is the unified digital ecosystem for research at Chhatrapati Shahu Ji Maharaj
-            University, Kanpur. It brings research administration, institutional governance, scholar
-            services and AI-assisted systems onto one platform.
-          </p>
-        </div>
+        <div className="vyasa-vision-main-layout">
+          {/* Left Column: Institutional Narrative & Quote */}
+          <div className="vyasa-vision-narrative">
+            <p className="vyasa-vision-inspiration">
+              Named after the sage who organised the knowledge of an entire civilisation, VYASA brings
+              the same spirit of order, clarity and purpose to research at Chhatrapati Shahu Ji
+              Maharaj University, Kanpur.
+            </p>
+            <p className="vyasa-vision-description">
+              VYASAᴺ is the unified digital ecosystem for research at Chhatrapati Shahu Ji Maharaj
+              University, Kanpur. It brings research administration, institutional governance, scholar
+              services and AI-assisted systems onto one platform.
+            </p>
 
-        {/* Three-Card Dignitary Vision Layout */}
-        <div className="vyasa-vision-grid" data-testid="vision-leaders-grid">
-          {VISION_LEADERS.map((leader) => (
-            <div key={leader.role} className="vyasa-vision-card">
-              <div className="vyasa-vision-card__image-container">
-                <img
-                  src={leader.image}
-                  alt={leader.alt}
-                  className="vyasa-vision-card__photo"
-                  loading="lazy"
-                />
-              </div>
-
-              <div className="vyasa-vision-card__content">
-                <div className="vyasa-vision-card__role">{leader.role}</div>
-                <h3 className="vyasa-vision-card__name">{leader.name}</h3>
-                <div className="vyasa-vision-card__designation">{leader.designation}</div>
-                <p className="vyasa-vision-card__desc">{leader.description}</p>
-              </div>
+            {/* Scholarly Vision Quote Callout */}
+            <div className="vyasa-vision-quote-box">
+              <span className="vyasa-vision-quote-icon" aria-hidden="true">“</span>
+              <p className="vyasa-vision-quote-text">
+                Our vision is to empower every student, researcher and faculty member through technology-enabled opportunities for knowledge creation and societal impact.
+              </p>
             </div>
-          ))}
+          </div>
+
+          {/* Right Column: Three-Card Dignitary Vision Layout */}
+          <div className="vyasa-vision-grid" data-testid="vision-leaders-grid">
+            {VISION_LEADERS.map((leader) => (
+              <div key={leader.role} className="vyasa-vision-card">
+                <div className="vyasa-vision-card__image-container">
+                  <img
+                    src={leader.image}
+                    alt={leader.alt}
+                    className="vyasa-vision-card__photo"
+                    loading="lazy"
+                  />
+                </div>
+
+                <div className="vyasa-vision-card__content">
+                  <div className="vyasa-vision-card__role">{leader.role}</div>
+                  <h3 className="vyasa-vision-card__name">{leader.name}</h3>
+                  <div className="vyasa-vision-card__designation">{leader.designation}</div>
+                  <p className="vyasa-vision-card__desc">{leader.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Bottom Tagline */}

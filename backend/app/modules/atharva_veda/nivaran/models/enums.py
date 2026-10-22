@@ -60,6 +60,7 @@ class DocumentRequestStatus(str, enum.Enum):
 
 class CommitteeRequestStatus(str, enum.Enum):
     PENDING = "PENDING"
+    CLARIFICATION_REQUESTED = "CLARIFICATION_REQUESTED"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     CANCELLED = "CANCELLED"

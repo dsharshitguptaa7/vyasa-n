@@ -277,8 +277,8 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   <AppIcon name="user" size={16} color="var(--vyasa-gold-hover, #a16207)" />
                 </div>
                 <div>
-                  <h3 className="nivaran-card__title">Scholar &amp; Grievance Particulars</h3>
-                  <p className="nivaran-card__subtitle">Verified applicant profile and primary grievance dossier</p>
+                  <h3 className="nivaran-card__title">Applicant &amp; Grievance Details</h3>
+                  <p className="nivaran-card__subtitle">Verified applicant profile and grievance details</p>
                 </div>
               </div>
               <Badge
@@ -323,7 +323,7 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   {dossier.category_reviewed && (
                     <div style={{ fontSize: '12px', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                       <AppIcon name="check-circle" size={12} color="#059669" />
-                      <span>Ratified during Manager Triage</span>
+                      <span>Verified during Initial Review</span>
                     </div>
                   )}
                 </div>
@@ -399,8 +399,8 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   <AppIcon name="clipboard" size={16} color="var(--vyasa-navy, #1b2a4a)" />
                 </div>
                 <div>
-                  <h3 className="nivaran-card__title">Attached Evidentiary Records ({dossier.documents.length})</h3>
-                  <p className="nivaran-card__subtitle">Authenticated documentation submitted by scholar</p>
+                  <h3 className="nivaran-card__title">Attached Documents ({dossier.documents.length})</h3>
+                  <p className="nivaran-card__subtitle">Supporting documents submitted by applicant</p>
                 </div>
               </div>
             </div>
@@ -457,8 +457,8 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   <AppIcon name="file-text" size={16} color="var(--vyasa-navy, #1b2a4a)" />
                 </div>
                 <div>
-                  <h3 className="nivaran-card__title">Evidentiary Document Requests ({docRequests.length})</h3>
-                  <p className="nivaran-card__subtitle">Formal records requested from scholar or department</p>
+                  <h3 className="nivaran-card__title">Document Requests ({docRequests.length})</h3>
+                  <p className="nivaran-card__subtitle">Additional documents requested from applicant or department</p>
                 </div>
               </div>
             </div>
@@ -517,8 +517,8 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   <AppIcon name="clock" size={16} color="var(--vyasa-navy, #1b2a4a)" />
                 </div>
                 <div>
-                  <h3 className="nivaran-card__title">Audit Ledger &amp; Status Timeline</h3>
-                  <p className="nivaran-card__subtitle">Immutable jurisdictional history and state transitions</p>
+                  <h3 className="nivaran-card__title">Status History &amp; Activity Log</h3>
+                  <p className="nivaran-card__subtitle">History of updates and actions taken</p>
                 </div>
               </div>
             </div>
@@ -650,8 +650,8 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
                   <AppIcon name="scale" size={16} color="var(--vyasa-navy, #1b2a4a)" />
                 </div>
                 <div>
-                  <h3 className="nivaran-card__title">Jurisdictional Determinations</h3>
-                  <p className="nivaran-card__subtitle">Official statutory actions and disposition powers</p>
+                  <h3 className="nivaran-card__title">Available Actions</h3>
+                  <p className="nivaran-card__subtitle">Official actions to resolve or forward this grievance</p>
                 </div>
               </div>
             </div>
@@ -768,6 +768,7 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
         onClose={() => setIsRequestCommitteeOpen(false)}
         onSubmit={handleCommitteeSubmit}
         grievanceId={dossier.grievance_id}
+        callerRole="ASSISTANT_DEAN"
         loading={actionLoading}
       />
     </PageContainer>

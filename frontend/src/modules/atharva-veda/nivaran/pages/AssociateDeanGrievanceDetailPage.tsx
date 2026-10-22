@@ -5,12 +5,16 @@ import { ResolveGrievanceModal } from '../components/ResolveGrievanceModal';
 import { ForwardToDeanModal } from '../components/ForwardToDeanModal';
 import { RequestDocumentModal } from '../components/RequestDocumentModal';
 import { RequestCommitteeModal } from '../components/RequestCommitteeModal';
+import { FormCommitteeModal } from '../components/FormCommitteeModal';
 import { ClosedCaseEFileCard } from '../components/ClosedCaseEFileCard';
 import { grievanceService } from '../services/grievanceService';
 import {
   AssociateDeanForwardRequest,
   AssociateDeanGrievanceDetailResponse,
   AssociateDeanResolveRequest,
+  CommitteeDirectCreatePayload,
+  CommitteeRequestDetailedItem,
+  CommitteeResponseItem,
   DocumentRequestItem,
 } from '../types/grievance';
 
@@ -29,6 +33,10 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [isCommitteeModalOpen, setIsCommitteeModalOpen] = useState(false);
+  const [isDirectCommitteeModalOpen, setIsDirectCommitteeModalOpen] = useState(false);
+  const [selectedApprovedRequestId, setSelectedApprovedRequestId] = useState<string | undefined>(undefined);
+  const [commRequests, setCommRequests] = useState<CommitteeRequestDetailedItem[]>([]);
+  const [committees, setCommittees] = useState<CommitteeResponseItem[]>([]);
 
   // Inline escalation form state
   const [inlineRemarks, setInlineRemarks] = useState('');
@@ -39,12 +47,20 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
     try {
       setLoading(true);
       setErrorMsg(null);
-      const [caseData, docReqs] = await Promise.all([
+      const [caseData, docReqs, cReqs, comms] = await Promise.all([
         grievanceService.getAssociateDeanGrievanceDetail(id),
         grievanceService.getGrievanceDocumentRequests(id).catch(() => []),
+        typeof grievanceService.getCommitteeRequests === 'function'
+          ? grievanceService.getCommitteeRequests({ grievance_id: id }).catch(() => [])
+          : Promise.resolve([]),
+        typeof grievanceService.getCommittees === 'function'
+          ? grievanceService.getCommittees({ grievance_id: id }).catch(() => [])
+          : Promise.resolve([]),
       ]);
       setDossier(caseData);
       setDocRequests(docReqs);
+      setCommRequests(cReqs);
+      setCommittees(comms);
     } catch (err: unknown) {
       setErrorMsg(
         err instanceof Error
@@ -133,6 +149,36 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
       setActionSuccessMsg('Inquiry committee request submitted for executive sanction.');
       setIsCommitteeModalOpen(false);
       await loadCase();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDirectCommitteeSubmit = async (payload: CommitteeDirectCreatePayload) => {
+    try {
+      setActionLoading(true);
+      await grievanceService.formCommitteeDirect(payload);
+      setActionSuccessMsg('Inquiry committee constituted successfully.');
+      setIsDirectCommitteeModalOpen(false);
+      setSelectedApprovedRequestId(undefined);
+      await loadCase();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReviewRequest = async (
+    requestId: string,
+    action: 'APPROVE' | 'REJECT' | 'REQUEST_CLARIFICATION',
+    remarks?: string
+  ) => {
+    try {
+      setActionLoading(true);
+      await grievanceService.reviewCommitteeRequest(requestId, { action, remarks });
+      setActionSuccessMsg(`Committee request ${action.toLowerCase().replace('_', ' ')} successfully.`);
+      await loadCase();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to review committee request.');
     } finally {
       setActionLoading(false);
     }
@@ -302,12 +348,12 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
           {/* Particulars Card */}
           <Card style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1e293b', marginBottom: '16px' }}>
-              Grievance Particulars & Classification
+              Grievance Details
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '14px' }}>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>
-                  Full Grievance Statement
+                  Grievance Description
                 </span>
                 <p style={{ color: '#334155', marginTop: '6px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                   {dossier.description}
@@ -323,7 +369,7 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <span style={{ color: '#64748b', display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>
-                    Final Grievance Category
+                    Grievance Category
                   </span>
                   <strong style={{ color: '#1e293b' }}>
                     {dossier.final_category_name || dossier.category_name || 'General Category'}
@@ -335,7 +381,7 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                 <div style={{ padding: '12px', borderRadius: '6px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', marginTop: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
-                      AI Triage Prediction
+                      Suggested Category
                     </span>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: '#2563eb' }}>
                       {(((dossier as any).ai_classification.confidence_score || 0) * 100).toFixed(0)}% Match
@@ -352,7 +398,7 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
           {/* Applicant Info Card */}
           <Card style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1e293b', marginBottom: '16px' }}>
-              Applicant & Academic Profile
+              Applicant Profile
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', fontSize: '14px' }}>
               <div>
@@ -387,7 +433,7 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
           {/* Supporting Evidence Card */}
           <Card style={{ padding: '24px' }}>
             <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1e293b', marginBottom: '16px' }}>
-              Evidentiary Attachments ({dossier.documents?.length || 0})
+              Attached Documents ({dossier.documents?.length || 0})
             </h2>
             {dossier.documents && dossier.documents.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -466,20 +512,20 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
           {canAct && (
             <Card style={{ padding: '24px' }}>
               <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>
-                Jurisdictional Determinations
+                Available Actions
               </h2>
               <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0' }}>
-                Execute decisive redressal or escalate with institutional justification to Dean R&D.
+                Resolve this grievance or send it to the Dean for higher review.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Direct Resolution Button */}
                 <div style={{ padding: '14px', borderRadius: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: '#166534', marginBottom: '4px' }}>
-                    Direct Redressal Resolution
+                    Direct Resolution
                   </div>
                   <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '10px' }}>
-                    Commit formal resolution summary and directives directly within Associate Dean authority.
+                    Provide a resolution summary and mark this grievance resolved.
                   </div>
                   <Button
                     variant="primary"
@@ -540,10 +586,10 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                 )}
 
                 {/* Document & Committee Auxiliaries */}
-                <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
                   <Button
                     variant="ghost"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: '180px' }}
                     onClick={() => setIsDocModalOpen(true)}
                     disabled={actionLoading}
                   >
@@ -551,11 +597,22 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                   </Button>
                   <Button
                     variant="ghost"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: '180px' }}
                     onClick={() => setIsCommitteeModalOpen(true)}
                     disabled={actionLoading}
                   >
-                    Request Inquiry Committee
+                    Request Committee Formation
+                  </Button>
+                  <Button
+                    variant="outline"
+                    style={{ flex: 1, minWidth: '180px' }}
+                    onClick={() => {
+                      setSelectedApprovedRequestId(undefined);
+                      setIsDirectCommitteeModalOpen(true);
+                    }}
+                    disabled={actionLoading}
+                  >
+                    Form Committee Directly
                   </Button>
                 </div>
               </div>
@@ -616,6 +673,155 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                     {req.description && (
                       <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                         {req.description}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Inquiry Committees Card */}
+          {committees.length > 0 && (
+            <Card style={{ padding: '24px', borderColor: '#38bdf8', backgroundColor: '#f0f9ff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#0369a1', margin: 0 }}>
+                  Constituted Inquiry Committees ({committees.length})
+                </h2>
+                <Badge variant="teal">Active Panels</Badge>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {committees.map((comm) => (
+                  <div
+                    key={comm.id}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid #bae6fd',
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '14px', color: '#0f172a' }}>{comm.committee_name}</strong>
+                      <Badge variant="teal">{comm.status}</Badge>
+                    </div>
+                    {comm.terms_of_reference && (
+                      <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px', fontStyle: 'italic' }}>
+                        &ldquo;{comm.terms_of_reference}&rdquo;
+                      </div>
+                    )}
+                    <div style={{ fontSize: '12px', color: '#0369a1', marginTop: '6px' }}>
+                      <strong>Chairperson:</strong> {comm.chairperson_name}
+                    </div>
+                    {comm.members.length > 0 && (
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                        <strong>Members:</strong> {comm.members.map((m) => `${m.authority_name} (${m.member_role})`).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Committee Formation Requests Queue / Review */}
+          {commRequests.length > 0 && (
+            <Card style={{ padding: '24px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b', marginBottom: '14px' }}>
+                Committee Formation Requests ({commRequests.length})
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {commRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: '#f8fafc',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>
+                        <strong>Requested by:</strong> {req.requested_by_name} ({req.requested_by_role})
+                        {req.target_authority_name && (
+                          <span style={{ color: '#64748b' }}> &rarr; Target: {req.target_authority_name} ({req.target_authority_role})</span>
+                        )}
+                      </span>
+                      <Badge
+                        variant={
+                          req.request_status === 'APPROVED'
+                            ? 'teal'
+                            : req.request_status === 'REJECTED'
+                            ? 'saffron'
+                            : 'neutral'
+                        }
+                      >
+                        {req.request_status}
+                      </Badge>
+                    </div>
+
+                    <div style={{ marginTop: '6px', color: '#334155', lineHeight: 1.5 }}>
+                      <strong>Justification:</strong> {req.justification}
+                    </div>
+
+                    {req.review_remarks && (
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#b91c1c' }}>
+                        <strong>Review Remarks:</strong> {req.review_remarks}
+                      </div>
+                    )}
+
+                    {/* Review Actions if Pending or Clarification Requested */}
+                    {(req.request_status === 'PENDING' || req.request_status === 'CLARIFICATION_REQUESTED') && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <Button
+                          variant="primary"
+                          disabled={actionLoading}
+                          onClick={() => handleReviewRequest(req.id, 'APPROVE')}
+                          style={{ padding: '4px 10px', fontSize: '12px' }}
+                        >
+                          Approve Request
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          disabled={actionLoading}
+                          onClick={() => {
+                            const rem = window.prompt('Specify clarification needed from requester:');
+                            if (rem) handleReviewRequest(req.id, 'REQUEST_CLARIFICATION', rem);
+                          }}
+                          style={{ padding: '4px 10px', fontSize: '12px' }}
+                        >
+                          Request Clarification
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          disabled={actionLoading}
+                          onClick={() => {
+                            const rem = window.prompt('Specify reason for rejecting request:');
+                            if (rem) handleReviewRequest(req.id, 'REJECT', rem);
+                          }}
+                          style={{ padding: '4px 10px', fontSize: '12px', color: '#dc2626' }}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Form Committee Action if Approved but not yet formed */}
+                    {req.request_status === 'APPROVED' && !req.committee_id && (
+                      <div style={{ marginTop: '10px' }}>
+                        <Button
+                          variant="primary"
+                          disabled={actionLoading}
+                          onClick={() => {
+                            setSelectedApprovedRequestId(req.id);
+                            setIsDirectCommitteeModalOpen(true);
+                          }}
+                          style={{ padding: '4px 12px', fontSize: '12px' }}
+                        >
+                          Form Committee Under Sanction &rarr;
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -702,6 +908,17 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
         onClose={() => setIsCommitteeModalOpen(false)}
         onSubmit={handleCommitteeRequestSubmit}
         grievanceId={dossier.grievance_id}
+        callerRole="ASSOCIATE_DEAN"
+        loading={actionLoading}
+      />
+
+      <FormCommitteeModal
+        isOpen={isDirectCommitteeModalOpen}
+        onClose={() => setIsDirectCommitteeModalOpen(false)}
+        onSubmit={handleDirectCommitteeSubmit}
+        grievanceId={dossier.grievance_id}
+        grievanceUuid={dossier.id}
+        approvedRequestId={selectedApprovedRequestId}
         loading={actionLoading}
       />
     </PageContainer>

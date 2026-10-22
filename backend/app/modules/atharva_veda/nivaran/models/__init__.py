@@ -71,6 +71,7 @@ from app.modules.atharva_veda.nivaran.models.committee import (
     CommitteeDecisionRecord,
     CommitteeMeeting,
     CommitteeMeetingParticipant,
+    CommitteeFormalDecision,
 )
 from app.modules.atharva_veda.nivaran.models.dean_reopen import DeanReopenReview
 from app.modules.atharva_veda.nivaran.models.signature import (
@@ -151,6 +152,7 @@ __all__ = [
     "CommitteeDecisionRecord",
     "CommitteeMeeting",
     "CommitteeMeetingParticipant",
+    "CommitteeFormalDecision",
     "DeanReopenReview",
     "SigningKeyVersion",
     "SigningAuthorizationChallenge",

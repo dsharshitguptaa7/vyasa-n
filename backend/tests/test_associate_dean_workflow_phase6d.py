@@ -72,8 +72,6 @@ from app.modules.atharva_veda.nivaran.models.routing import (
 from app.modules.atharva_veda.nivaran.models.document import DocumentRequest
 from app.modules.atharva_veda.nivaran.models.committee import CommitteeCreationRequest
 
-client = TestClient(app)
-
 NIVARAN_BASE = "/api/modules/atharva-veda/nivaran"
 
 
@@ -273,11 +271,11 @@ def create_test_grievance_for_assoc_dean(
 class TestAssociateDeanAuthorizationBoundaries:
     """Verifies strict Associate Dean role boundary controls."""
 
-    def test_unauthenticated_request_rejected(self, db_session: Session):
+    def test_unauthenticated_request_rejected(self, client: TestClient, db_session: Session):
         resp = client.get(f"{NIVARAN_BASE}/associate-dean/dashboard")
         assert resp.status_code == 401
 
-    def test_applicant_role_rejected(self, db_session: Session):
+    def test_applicant_role_rejected(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         resp = client.get(
             f"{NIVARAN_BASE}/associate-dean/dashboard",
@@ -285,7 +283,7 @@ class TestAssociateDeanAuthorizationBoundaries:
         )
         assert resp.status_code == 403
 
-    def test_manager_role_rejected(self, db_session: Session):
+    def test_manager_role_rejected(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         resp = client.get(
             f"{NIVARAN_BASE}/associate-dean/dashboard",
@@ -293,7 +291,7 @@ class TestAssociateDeanAuthorizationBoundaries:
         )
         assert resp.status_code == 403
 
-    def test_assistant_dean_role_rejected(self, db_session: Session):
+    def test_assistant_dean_role_rejected(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         resp = client.get(
             f"{NIVARAN_BASE}/associate-dean/dashboard",
@@ -301,7 +299,7 @@ class TestAssociateDeanAuthorizationBoundaries:
         )
         assert resp.status_code == 403
 
-    def test_dean_role_rejected_for_associate_dean_endpoint(self, db_session: Session):
+    def test_dean_role_rejected_for_associate_dean_endpoint(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         resp = client.get(
             f"{NIVARAN_BASE}/associate-dean/dashboard",
@@ -309,7 +307,7 @@ class TestAssociateDeanAuthorizationBoundaries:
         )
         assert resp.status_code == 403
 
-    def test_authorized_associate_dean_allowed(self, db_session: Session):
+    def test_authorized_associate_dean_allowed(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         resp = client.get(
             f"{NIVARAN_BASE}/associate-dean/dashboard",
@@ -329,7 +327,7 @@ class TestAssociateDeanAuthorizationBoundaries:
 class TestAssociateDeanQueueScopingAndFiltering:
     """Verifies that Associate Deans only see their own active assignments with correct filtering."""
 
-    def test_queue_scoped_to_active_associate_dean(self, db_session: Session):
+    def test_queue_scoped_to_active_associate_dean(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv1 = create_test_grievance_for_assoc_dean(db_session, env, title="Assoc 1 Case", assoc_auth=env["assoc1"])
         grv2 = create_test_grievance_for_assoc_dean(db_session, env, title="Assoc 2 Case", assoc_auth=env["assoc2"])
@@ -356,7 +354,7 @@ class TestAssociateDeanQueueScopingAndFiltering:
         assert str(grv2.id) in item_ids2
         assert str(grv1.id) not in item_ids2
 
-    def test_queue_backwards_compatible_alias(self, db_session: Session):
+    def test_queue_backwards_compatible_alias(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, title="Alias Case", assoc_auth=env["assoc1"])
 
@@ -368,7 +366,7 @@ class TestAssociateDeanQueueScopingAndFiltering:
         items = data["items"] if isinstance(data, dict) else data
         assert any(item["id"] == str(grv.id) for item in items)
 
-    def test_queue_filters_by_status_and_priority(self, db_session: Session):
+    def test_queue_filters_by_status_and_priority(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv_urgent = create_test_grievance_for_assoc_dean(
             db_session, env,
@@ -419,7 +417,7 @@ class TestAssociateDeanQueueScopingAndFiltering:
 class TestAssociateDeanGrievanceDetail:
     """Verifies grievance dossier retrieval, Stage 3 Dean preview, and jurisdiction enforcement."""
 
-    def test_detail_includes_stage3_dean_preview(self, db_session: Session):
+    def test_detail_includes_stage3_dean_preview(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -441,7 +439,7 @@ class TestAssociateDeanGrievanceDetail:
         assert "@" in preview["target_authority_email"]
         assert preview["is_active"] is True
 
-    def test_idor_protection_assoc_dean_cannot_view_unassigned_grievance(self, db_session: Session):
+    def test_idor_protection_assoc_dean_cannot_view_unassigned_grievance(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv2 = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc2"])
 
@@ -456,7 +454,7 @@ class TestAssociateDeanGrievanceDetail:
 class TestAssociateDeanDirectResolution:
     """Verifies direct resolution by Associate Dean."""
 
-    def test_resolve_validation_requires_minimum_notes(self, db_session: Session):
+    def test_resolve_validation_requires_minimum_notes(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -467,7 +465,7 @@ class TestAssociateDeanDirectResolution:
         )
         assert resp.status_code == 422
 
-    def test_resolve_success_updates_status_audit_and_notifications(self, db_session: Session):
+    def test_resolve_success_updates_status_audit_and_notifications(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -506,7 +504,7 @@ class TestAssociateDeanDirectResolution:
         )
         assert notif is not None
 
-    def test_cannot_resolve_already_resolved_grievance(self, db_session: Session):
+    def test_cannot_resolve_already_resolved_grievance(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(
             db_session, env, status=GrievanceStatus.RESOLVED, assoc_auth=env["assoc1"]
@@ -519,7 +517,7 @@ class TestAssociateDeanDirectResolution:
         )
         assert resp.status_code == 400
 
-    def test_canonical_alias_resolve_endpoint(self, db_session: Session):
+    def test_canonical_alias_resolve_endpoint(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -535,7 +533,7 @@ class TestAssociateDeanDirectResolution:
 class TestAssociateDeanForwardingToDean:
     """Verifies Stage 3 forwarding / escalation to Dean."""
 
-    def test_forward_validation_requires_justification(self, db_session: Session):
+    def test_forward_validation_requires_justification(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -546,7 +544,7 @@ class TestAssociateDeanForwardingToDean:
         )
         assert resp.status_code in [400, 422]
 
-    def test_forward_success_escalates_to_dean(self, db_session: Session):
+    def test_forward_success_escalates_to_dean(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -616,7 +614,7 @@ class TestAssociateDeanForwardingToDean:
         )
         assert dean_notif is not None
 
-    def test_canonical_alias_escalate_endpoint(self, db_session: Session):
+    def test_canonical_alias_escalate_endpoint(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -628,7 +626,7 @@ class TestAssociateDeanForwardingToDean:
         assert resp.status_code == 200
         assert resp.json()["data"]["status"] == "ESCALATED"
 
-    def test_cannot_forward_already_escalated_grievance(self, db_session: Session):
+    def test_cannot_forward_already_escalated_grievance(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(
             db_session, env, status=GrievanceStatus.ESCALATED, assoc_auth=env["assoc1"]
@@ -645,7 +643,7 @@ class TestAssociateDeanForwardingToDean:
 class TestAssociateDeanAncillaryActions:
     """Verifies evidentiary document requests and committee creation requests by Associate Dean."""
 
-    def test_request_documents_transitions_status_to_awaiting_information(self, db_session: Session):
+    def test_request_documents_transitions_status_to_awaiting_information(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 
@@ -692,7 +690,7 @@ class TestAssociateDeanAncillaryActions:
         )
         assert notif is not None
 
-    def test_request_committee_creation(self, db_session: Session):
+    def test_request_committee_creation(self, client: TestClient, db_session: Session):
         env = setup_associate_dean_environment(db_session)
         grv = create_test_grievance_for_assoc_dean(db_session, env, assoc_auth=env["assoc1"])
 

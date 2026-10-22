@@ -18,19 +18,7 @@ from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.enums import CategoryRoutingType, NivaranRole
 from app.modules.atharva_veda.nivaran.models.taxonomy import Category, GrievanceCluster, SubjectCluster, Subject
 
-client = TestClient(app)
-
-
-@pytest.fixture(scope="module")
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def admin_token(db_session: Session):
     admin = db_session.execute(select(User).where(User.email == "admin@csjmu.ac.in")).scalar_one_or_none()
     assert admin is not None, "Admin user admin@csjmu.ac.in must exist"
@@ -205,7 +193,7 @@ def test_06_zero_residue_and_orphan_fks(db_session: Session):
     assert subj_count == 56
 
 
-def test_07_admin_summary_api_matches_canonical_state(admin_token: str):
+def test_07_admin_summary_api_matches_canonical_state(client: TestClient, admin_token: str):
     """Verify Admin Summary API endpoint returns exact canonical metrics."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     res = client.get("/api/admin/atharva/summary", headers=headers)

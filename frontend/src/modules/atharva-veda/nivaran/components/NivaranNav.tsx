@@ -13,15 +13,15 @@ export const NivaranNav: React.FC = () => {
   } = useAuth();
 
   const navItemStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    padding: '8px 16px',
+    padding: '8px 14px',
     borderRadius: '6px',
     fontSize: '13px',
-    fontWeight: 600,
+    fontWeight: isActive ? 600 : 500,
     textDecoration: 'none',
     transition: 'all 0.15s ease',
-    color: isActive ? 'var(--vyasa-navy)' : 'var(--vyasa-text-secondary)',
-    backgroundColor: isActive ? '#e8edf5' : 'transparent',
-    borderBottom: isActive ? '2px solid var(--vyasa-navy)' : '2px solid transparent',
+    color: isActive ? 'var(--vyasa-primary, #0f2b48)' : 'var(--vyasa-text-secondary, #475569)',
+    backgroundColor: isActive ? 'rgba(15, 43, 72, 0.05)' : 'transparent',
+    borderBottom: isActive ? '2.5px solid var(--vyasa-gold, #b2811a)' : '2.5px solid transparent',
   });
 
   return (
@@ -29,18 +29,26 @@ export const NivaranNav: React.FC = () => {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '8px 16px',
+        gap: '6px',
+        padding: '10px 16px',
         backgroundColor: '#ffffff',
-        borderBottom: '1px solid var(--vyasa-border)',
-        marginBottom: '24px',
+        border: '1px solid var(--vyasa-border, #e2e8f0)',
+        marginBottom: '20px',
         borderRadius: '8px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        boxShadow: '0 1px 3px rgba(15, 43, 72, 0.03)',
         flexWrap: 'wrap',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '16px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--vyasa-navy)', letterSpacing: '0.5px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '14px' }}>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            color: 'var(--vyasa-gold, #b2811a)',
+            letterSpacing: '0.8px',
+            textTransform: 'uppercase',
+          }}
+        >
           ATHARVA VEDA &bull; NIVARAN-AI
         </span>
       </div>
@@ -89,6 +97,9 @@ export const NivaranNav: React.FC = () => {
           <NavLink to="/modules/atharva-veda/nivaran/assistant-dean/cases" style={navItemStyle}>
             Assigned Cases
           </NavLink>
+          <NavLink to="/modules/atharva-veda/nivaran/committees" style={navItemStyle}>
+            Committees
+          </NavLink>
           <NavLink to="/modules/atharva-veda/nivaran/e-files" style={navItemStyle}>
             E-Files
           </NavLink>
@@ -106,6 +117,9 @@ export const NivaranNav: React.FC = () => {
           <NavLink to="/modules/atharva-veda/nivaran/associate-dean/cases" style={navItemStyle}>
             Cluster Cases
           </NavLink>
+          <NavLink to="/modules/atharva-veda/nivaran/committees" style={navItemStyle}>
+            Committees
+          </NavLink>
           <NavLink to="/modules/atharva-veda/nivaran/e-files" style={navItemStyle}>
             E-Files
           </NavLink>
@@ -122,6 +136,9 @@ export const NivaranNav: React.FC = () => {
           </NavLink>
           <NavLink to="/modules/atharva-veda/nivaran/dean/cases" style={navItemStyle}>
             Executive Queue
+          </NavLink>
+          <NavLink to="/modules/atharva-veda/nivaran/committees" style={navItemStyle}>
+            Committees
           </NavLink>
           <NavLink to="/modules/atharva-veda/nivaran/e-files" style={navItemStyle}>
             E-Files

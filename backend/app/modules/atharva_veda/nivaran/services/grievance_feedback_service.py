@@ -160,12 +160,20 @@ class GrievanceFeedbackService:
             notif = Notification(
                 id=uuid.uuid4(),
                 user_id=mgr.vyasa_user_id,
+                source_pillar="NIVARAN",
+                event_type="manager.feedback_received",
+                event_id=f"mgr_fb_{grievance.id}_{mgr.id}",
                 title="Applicant Feedback Received",
                 message=(
                     f"Applicant feedback has been submitted for grievance {grievance.grievance_id}. "
                     f"The case is now queued for Manager Final Closure."
                 ),
-                type="workflow",
+                type="task",
+                priority="MEDIUM",
+                action_route="/modules/atharva-veda/nivaran/manager/closure-queue",
+                action_required=True,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "module": "atharva_veda",
                     "event": "CLOSURE_REVIEW_REQUIRED",

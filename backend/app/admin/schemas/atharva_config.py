@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryRoutingType
 
 
@@ -19,6 +19,30 @@ class AuthorityOut(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class AuthorityCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=150)
+    email: str = Field(..., min_length=5, max_length=255)
+    role: NivaranRole
+    designation: Optional[str] = Field(None, max_length=150)
+    department: Optional[str] = Field(None, max_length=150)
+    phone: Optional[str] = Field(None, max_length=20)
+    is_active: bool = True
+
+
+class AuthorityUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=150)
+    email: Optional[str] = Field(None, min_length=5, max_length=255)
+    role: Optional[NivaranRole] = None
+    designation: Optional[str] = Field(None, max_length=150)
+    department: Optional[str] = Field(None, max_length=150)
+    phone: Optional[str] = Field(None, max_length=20)
+    is_active: Optional[bool] = None
+
+
+class AuthorityTransfer(BaseModel):
+    replacement_authority_id: uuid.UUID
 
 
 class AuthorityStatusUpdate(BaseModel):
@@ -41,17 +65,17 @@ class SubjectClusterOut(BaseModel):
 
 
 class SubjectClusterCreate(BaseModel):
-    cluster_number: int
-    name: str
+    cluster_number: int = Field(..., gt=0)
+    name: str = Field(..., min_length=2, max_length=150)
     description: Optional[str] = None
     assistant_dean_id: Optional[uuid.UUID] = None
     is_active: bool = True
 
 
 class SubjectClusterUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=2, max_length=150)
     description: Optional[str] = None
-    cluster_number: Optional[int] = None
+    cluster_number: Optional[int] = Field(None, gt=0)
 
 
 class SubjectClusterAssistantDeanUpdate(BaseModel):
@@ -63,15 +87,15 @@ class SubjectClusterStatusUpdate(BaseModel):
 
 
 class SubjectCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=2, max_length=150)
     subject_cluster_id: uuid.UUID
-    code: Optional[str] = None
+    code: Optional[str] = Field(None, max_length=50)
     is_active: bool = True
 
 
 class SubjectUpdate(BaseModel):
-    name: Optional[str] = None
-    code: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=2, max_length=150)
+    code: Optional[str] = Field(None, max_length=50)
     subject_cluster_id: Optional[uuid.UUID] = None
 
 
@@ -112,6 +136,20 @@ class GrievanceClusterOut(BaseModel):
     updated_at: datetime
 
 
+class GrievanceClusterCreate(BaseModel):
+    cluster_number: int = Field(..., gt=0)
+    name: str = Field(..., min_length=2, max_length=150)
+    description: Optional[str] = None
+    associate_dean_id: Optional[uuid.UUID] = None
+    is_active: bool = True
+
+
+class GrievanceClusterUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=150)
+    description: Optional[str] = None
+    cluster_number: Optional[int] = Field(None, gt=0)
+
+
 class GrievanceClusterAssociateDeanUpdate(BaseModel):
     associate_dean_id: Optional[uuid.UUID] = None
 
@@ -125,6 +163,7 @@ class CategoryOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    description: Optional[str] = None
     routing_type: CategoryRoutingType
     grievance_cluster_id: Optional[uuid.UUID] = None
     cluster_name: Optional[str] = None
@@ -137,6 +176,20 @@ class CategoryOut(BaseModel):
     updated_at: datetime
 
 
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    description: Optional[str] = None
+    routing_type: CategoryRoutingType
+    grievance_cluster_id: Optional[uuid.UUID] = None
+    fixed_authority_id: Optional[uuid.UUID] = None
+    is_active: bool = True
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = None
+
+
 class CategoryRoutingUpdate(BaseModel):
     routing_type: CategoryRoutingType
     grievance_cluster_id: Optional[uuid.UUID] = None
@@ -145,6 +198,25 @@ class CategoryRoutingUpdate(BaseModel):
 
 class CategoryStatusUpdate(BaseModel):
     is_active: bool
+
+
+class RoutingSimulationRequest(BaseModel):
+    category_id: uuid.UUID
+    subject_id: Optional[uuid.UUID] = None
+
+
+class RoutingSimulationResult(BaseModel):
+    status: str  # ROUTED, AMBIGUOUS, UNRESOLVED, FALLBACK
+    routing_type: CategoryRoutingType
+    category_name: str
+    target_authority_id: Optional[uuid.UUID] = None
+    target_authority_name: Optional[str] = None
+    target_authority_role: Optional[str] = None
+    cluster_name: Optional[str] = None
+    cluster_number: Optional[int] = None
+    path_taken: List[str] = []
+    warnings: List[str] = []
+    fallback_used: bool = False
 
 
 class AtharvaConfigSummary(BaseModel):

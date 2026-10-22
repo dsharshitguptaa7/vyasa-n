@@ -144,15 +144,15 @@ export const ApplicantLoginPage: React.FC = () => {
       };
 
       if (errorObj?.status === 401 || errorObj?.code === 'UNAUTHORIZED' || errorObj?.code === 'INVALID_CREDENTIALS') {
-        setLoginError('Invalid institutional credentials. Please verify your email and password.');
+        setLoginError("We couldn't sign you in. Please check your email and password.");
       } else if (errorObj?.status === 403) {
-        setLoginError('Your account does not possess scholar authorization for this workspace.');
+        setLoginError('Your account does not have permission for this portal.');
       } else if (errorObj?.message?.toLowerCase().includes('network') || errorObj?.code === 'NETWORK_ERROR') {
-        setLoginError('Unable to reach the institutional authentication gateway. Please check network connectivity.');
+        setLoginError('Unable to connect to the server. Please check your internet connection.');
       } else if (errorObj?.message) {
         setLoginError(errorObj.message);
       } else {
-        setLoginError('An unexpected error occurred during institutional verification. Please try again.');
+        setLoginError('An unexpected error occurred while signing in. Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -187,7 +187,7 @@ export const ApplicantLoginPage: React.FC = () => {
           className="vyasa-auth-card vyasa-auth-card--applicant"
           title="Applicant Sign In"
           subtitle="Authenticate with your verified doctoral scholar credentials"
-          headerAction={<Badge variant="saffron">Applicant</Badge>}
+          headerAction={<Badge variant="gold">Applicant</Badge>}
         >
           <form onSubmit={handleSubmit} noValidate>
             {successBanner && (

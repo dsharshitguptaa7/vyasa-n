@@ -1,6 +1,7 @@
 import os
+import base64
 from typing import List, Union, Optional
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +36,75 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60, description="Token TTL in minutes")
 
+    # TOTP Two-Factor Authentication Settings
+    TOTP_ENCRYPTION_KEY: str = Field(
+        default="",
+        description="Dedicated Fernet key (32 url-safe base64-encoded bytes) for encrypting TOTP secrets at rest; strictly required in production",
+    )
+    TOTP_ISSUER: str = Field(
+        default="VYASA-N",
+        description="Institutional issuer name for authenticator apps",
+    )
+    TWO_FACTOR_CHALLENGE_EXPIRE_MINUTES: int = Field(
+        default=5,
+        description="Time-to-live for pre-auth 2FA challenges in minutes",
+    )
+    MAX_FAILED_LOGIN_ATTEMPTS: int = Field(
+        default=5,
+        description="Maximum consecutive failed 2FA / login attempts before temporary lockout",
+    )
+    FAILED_LOGIN_LOCKOUT_MINUTES: int = Field(
+        default=15,
+        description="Lockout window duration in minutes when failed attempts threshold is exceeded",
+    )
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """
+        Enforce strict cryptographic configuration in production mode.
+        Fails closed if TOTP_ENCRYPTION_KEY or SECRET_KEY are missing, default, or malformed.
+        """
+        env = (self.NODE_ENV or "development").strip().lower()
+        if env in ("production", "prod"):
+            # 1. Validate SECRET_KEY is not default
+            if (
+                not self.SECRET_KEY
+                or self.SECRET_KEY == "vyasa-core-development-secret-key-csjmu-governance"
+                or "development" in self.SECRET_KEY.lower()
+            ):
+                raise ValueError(
+                    "Production configuration error: SECRET_KEY must be set to a secure, non-default value in production."
+                )
+
+            # 2. Validate TOTP_ENCRYPTION_KEY
+            key = (self.TOTP_ENCRYPTION_KEY or "").strip()
+            if not key:
+                raise ValueError(
+                    "Production configuration error: TOTP_ENCRYPTION_KEY is strictly required in production mode."
+                )
+            if (
+                key == "vyasa-core-development-secret-key-csjmu-governance"
+                or "development" in key.lower()
+                or "default" in key.lower()
+            ):
+                raise ValueError(
+                    "Production configuration error: TOTP_ENCRYPTION_KEY must not use a known development secret."
+                )
+
+            # Validate valid Fernet key format (32 url-safe base64-encoded bytes, 44 chars)
+            try:
+                from cryptography.fernet import Fernet
+                raw_bytes = base64.urlsafe_b64decode(key.encode("utf-8"))
+                if len(raw_bytes) != 32:
+                    raise ValueError("Key decoded length must be 32 bytes")
+                Fernet(key.encode("utf-8"))
+            except Exception:
+                raise ValueError(
+                    "Production configuration error: TOTP_ENCRYPTION_KEY is not a valid 32-byte URL-safe base64 Fernet key."
+                )
+
+        return self
+
     # Institutional Authority Seed Configuration
     AUTHORITIES_MANIFEST_PATH: Optional[str] = Field(
         default=None,
@@ -53,6 +123,24 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = Field(
         default="gemini-2.0-flash-lite",
         description="Gemini model identifier for institutional OCR extraction",
+    )
+
+    # Google Workspace / Google Meet Integration Settings
+    GOOGLE_MEET_CLIENT_ID: Optional[str] = Field(
+        default=None,
+        description="Google OAuth2 Client ID for Meet/Calendar integration",
+    )
+    GOOGLE_MEET_CLIENT_SECRET: Optional[str] = Field(
+        default=None,
+        description="Google OAuth2 Client Secret for Meet/Calendar integration",
+    )
+    GOOGLE_MEET_REFRESH_TOKEN: Optional[str] = Field(
+        default=None,
+        description="Google OAuth2 Refresh Token for Meet/Calendar integration",
+    )
+    GOOGLE_SERVICE_ACCOUNT_JSON: Optional[str] = Field(
+        default=None,
+        description="Google Service Account JSON credentials for Workspace Meet integration",
     )
 
     # Ph.D. RAG Public Rate Limiting

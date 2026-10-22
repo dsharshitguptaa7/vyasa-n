@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, require_super_admin_user
 from app.models.permission import Permission
+from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.role import PermissionRead, PermissionListResponse
 
@@ -13,9 +14,10 @@ router = APIRouter(prefix="/permissions", tags=["Permissions"])
 @router.get("", response_model=ApiResponse[PermissionListResponse])
 def list_permissions(
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
 ) -> ApiResponse[PermissionListResponse]:
     """
-    List all platform permission capabilities and resources.
+    List all platform permission capabilities and resources. Restricted to Super Admin.
     """
     stmt = select(Permission).order_by(Permission.resource.asc(), Permission.action.asc())
     permissions = db.execute(stmt).scalars().all()

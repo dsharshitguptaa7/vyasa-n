@@ -3,10 +3,21 @@ from app.models.permission import Permission, role_permissions
 from app.models.role import Role, user_roles
 from app.models.user import User
 from app.models.module import ModuleRegistry, PillarRegistry
-from app.models.notification import Notification
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationTemplate,
+    NotificationDelivery,
+)
 from app.models.applicant_profile import ApplicantProfile
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
+from app.models.two_factor import (
+    UserTwoFactorAuth,
+    TwoFactorRecoveryCode,
+    AuthenticationChallenge,
+    TwoFactorAttempt,
+)
 
 # Atharva Veda (NIVARAN) Domain Models
 from app.modules.atharva_veda.nivaran.models import (
@@ -67,6 +78,7 @@ from app.modules.atharva_veda.nivaran.models import (
     CommitteeDecisionRecord,
     CommitteeMeeting,
     CommitteeMeetingParticipant,
+    CommitteeFormalDecision,
     DeanReopenReview,
     SigningKeyVersion,
     SigningAuthorizationChallenge,
@@ -88,10 +100,17 @@ __all__ = [
     "role_permissions",
     "ApplicantProfile",
     "Notification",
+    "NotificationPreference",
+    "NotificationTemplate",
+    "NotificationDelivery",
     "ModuleRegistry",
     "PillarRegistry",
     "AuditLog",
     "SystemSetting",
+    "UserTwoFactorAuth",
+    "TwoFactorRecoveryCode",
+    "AuthenticationChallenge",
+    "TwoFactorAttempt",
     # Atharva Veda (NIVARAN)
     "NivaranAuthority",
     "SubjectCluster",
@@ -121,6 +140,7 @@ __all__ = [
     "CommitteeDecisionRecord",
     "CommitteeMeeting",
     "CommitteeMeetingParticipant",
+    "CommitteeFormalDecision",
     "DeanReopenReview",
     "SigningKeyVersion",
     "SigningAuthorizationChallenge",

@@ -5,3 +5,7 @@
 export const DASHBOARD_FEATURE_NAME = 'dashboard';
 export { AuthorityDashboard } from './AuthorityDashboard';
 export { VyasaDashboardPage } from './VyasaDashboardPage';
+export { VyasaProfilePage } from './VyasaProfilePage';
+export { VyasaProfileDossier } from './components/VyasaProfileDossier';
+export { VyasaPortalSidebar } from './components/VyasaPortalSidebar';
+export { VyasaPortalLayout } from './components/VyasaPortalLayout';

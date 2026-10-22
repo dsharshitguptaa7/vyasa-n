@@ -28,10 +28,38 @@ export interface AuthenticatedUser {
 
 
 export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  user: AuthenticatedUser;
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  user?: AuthenticatedUser;
+  requires_two_factor?: boolean;
+  two_factor_setup_required?: boolean;
+  challenge_id?: string;
+  message?: string;
+  recovery_codes?: string[];
+}
+
+export interface TwoFactorChallenge {
+  challenge_id: string;
+  requires_two_factor: boolean;
+  two_factor_setup_required: boolean;
+  message?: string;
+}
+
+export interface TwoFactorSetupDetails {
+  challenge_id: string;
+  requires_2fa_setup: boolean;
+  issuer: string;
+  account_name: string;
+  qr_code: string;
+  manual_setup_key: string;
+}
+
+export interface TwoFactorStatus {
+  is_enabled: boolean;
+  enabled_at: string | null;
+  last_verified_at: string | null;
+  remaining_recovery_codes: number;
 }
 
 export interface AuthState {

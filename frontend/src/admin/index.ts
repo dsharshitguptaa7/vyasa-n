@@ -6,6 +6,8 @@ export { GrievanceClustersPage } from './pages/atharva/GrievanceClustersPage';
 export { GrievanceCategoriesPage } from './pages/atharva/GrievanceCategoriesPage';
 export { AuditLogsPage } from './pages/atharva/AuditLogsPage';
 export { AdminNav } from './components/AdminNav';
+export { AdminSidebar } from './components/AdminSidebar';
+export { AdminLayout } from './components/AdminLayout';
 export { AdminModuleToggleCard } from './components/AdminModuleToggleCard';
 export { adminRoutes } from './routes';
 export { adminService } from './services/adminService';

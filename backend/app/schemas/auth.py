@@ -39,11 +39,16 @@ class AuthenticatedUserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """OAuth2/JWT bearer token response."""
-    access_token: str
+    """OAuth2/JWT bearer token or 2FA challenge response."""
+    access_token: Optional[str] = None
     token_type: str = "bearer"
-    expires_in: int
-    user: AuthenticatedUserResponse
+    expires_in: Optional[int] = None
+    user: Optional[AuthenticatedUserResponse] = None
+    requires_two_factor: bool = False
+    two_factor_setup_required: bool = False
+    challenge_id: Optional[uuid.UUID] = None
+    message: Optional[str] = None
+    recovery_codes: Optional[List[str]] = None
 
 
 class TokenVerifyRequest(BaseModel):

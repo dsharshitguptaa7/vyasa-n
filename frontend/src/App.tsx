@@ -12,7 +12,7 @@ import { MainLayout } from './components/layout';
 import { VedicInvocationWrapper } from './components/common/VedicInvocationWrapper';
 import { LandingPage } from './features/landing';
 import { AuthorityLoginPage, ApplicantLoginPage, ApplicantRegisterPage } from './features/auth';
-import { VyasaDashboardPage } from './features/dashboard';
+import { VyasaDashboardPage, VyasaProfilePage } from './features/dashboard';
 import { SystemBoundaryView } from './features/system';
 import { RigVedaDashboardPage } from './modules/rig-veda';
 import { YajurVedaDashboardPage } from './modules/yajur-veda';
@@ -36,6 +36,8 @@ import {
   StudentMasterRecordDetailPage,
   MyStudentRecordPage,
   StudentRecordSearchPage,
+  CommitteesListPage,
+  CommitteeWorkspacePage,
 } from './modules/atharva-veda/nivaran';
 
 import {
@@ -49,6 +51,7 @@ import {
   AuditLogsPage,
 } from './admin';
 import { PhdAssistantPage } from './features/phd-rag';
+import { NotificationCenterPage } from './features/notifications';
 import { Card, Badge, Button, PageContainer } from '@vyasa/ui';
 
 
@@ -242,8 +245,40 @@ export const AppRoutes: React.FC = () => {
               currentTab="governance"
               onSelectTab={() => navigate('/')}
               onSignInClick={() => navigate('/authority/login')}
+              hideFooter
             >
               <VyasaDashboardPage />
+            </MainLayout>
+          </AuthenticatedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <AuthenticatedRoute>
+            <MainLayout
+              currentTab="governance"
+              onSelectTab={() => navigate('/')}
+              onSignInClick={() => navigate('/authority/login')}
+              hideFooter
+            >
+              <VyasaProfilePage />
+            </MainLayout>
+          </AuthenticatedRoute>
+        }
+      />
+
+      {/* Unified Notification Centre */}
+      <Route
+        path="/notifications"
+        element={
+          <AuthenticatedRoute>
+            <MainLayout
+              currentTab="notifications"
+              onSelectTab={() => navigate('/')}
+              onSignInClick={() => navigate('/applicant/login')}
+            >
+              <NotificationCenterPage />
             </MainLayout>
           </AuthenticatedRoute>
         }
@@ -302,7 +337,7 @@ export const AppRoutes: React.FC = () => {
         path="/modules/atharva-veda/nivaran/my-grievances"
         element={
           <ApplicantRoute>
-            <MainLayout currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
+            <MainLayout currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')} hideFooter>
               <ApplicantGrievanceListPage />
             </MainLayout>
           </ApplicantRoute>
@@ -352,7 +387,7 @@ export const AppRoutes: React.FC = () => {
         path="/modules/atharva-veda/nivaran/assistant-dean/cases"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
-            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')} hideFooter>
               <AssistantDeanDashboardPage />
             </MainLayout>
           </AuthorityScopedRoute>
@@ -362,7 +397,7 @@ export const AppRoutes: React.FC = () => {
         path="/modules/atharva-veda/nivaran/assistant-dean/dashboard"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
-            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')} hideFooter>
               <AssistantDeanDashboardPage />
             </MainLayout>
           </AuthorityScopedRoute>
@@ -392,7 +427,7 @@ export const AppRoutes: React.FC = () => {
         path="/modules/atharva-veda/nivaran/associate-dean/cases"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
-            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')} hideFooter>
               <AssociateDeanDashboardPage />
             </MainLayout>
           </AuthorityScopedRoute>
@@ -402,7 +437,7 @@ export const AppRoutes: React.FC = () => {
         path="/modules/atharva-veda/nivaran/associate-dean/dashboard"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
-            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')} hideFooter>
               <AssociateDeanDashboardPage />
             </MainLayout>
           </AuthorityScopedRoute>
@@ -501,7 +536,40 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
+      {/* Atharva Veda: Committee Management Workspace */}
+      <Route
+        path="/modules/atharva-veda/nivaran/committees"
+        element={
+          <AuthorityScopedRoute
+            allowedRoles={['MANAGER', 'ASSISTANT_DEAN', 'ASSOCIATE_DEAN', 'DEAN']}
+            roleTitle="Committees Governance Directory"
+          >
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+              <CommitteesListPage />
+            </MainLayout>
+          </AuthorityScopedRoute>
+        }
+      />
+      <Route
+        path="/modules/atharva-veda/nivaran/committees/:id"
+        element={
+          <AuthorityScopedRoute
+            allowedRoles={['MANAGER', 'ASSISTANT_DEAN', 'ASSOCIATE_DEAN', 'DEAN']}
+            roleTitle="Committee Dedicated Workspace"
+          >
+            <MainLayout currentTab="governance" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+              <CommitteeWorkspacePage />
+            </MainLayout>
+          </AuthorityScopedRoute>
+        }
+      />
+
       {/* Direct Atharva Veda aliases (without /modules prefix) */}
+      <Route path="/atharva-veda/nivaran/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
+      <Route path="/atharva-veda/nivaran/committees/:id" element={<Navigate to="/modules/atharva-veda/nivaran/committees/:id" replace />} />
+      <Route path="/nivaran/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
+      <Route path="/nivaran/committees/:id" element={<Navigate to="/modules/atharva-veda/nivaran/committees/:id" replace />} />
+      <Route path="/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
       <Route path="/atharva-veda/nivaran" element={<Navigate to="/modules/atharva-veda/nivaran" replace />} />
       <Route path="/atharva-veda/nivaran/submit" element={<Navigate to="/modules/atharva-veda/nivaran/submit" replace />} />
       <Route path="/atharva-veda/nivaran/my-grievances" element={<Navigate to="/modules/atharva-veda/nivaran/my-grievances" replace />} />

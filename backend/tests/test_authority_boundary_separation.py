@@ -23,8 +23,6 @@ from app.modules.atharva_veda.nivaran.models.enums import (
 )
 from app.modules.atharva_veda.nivaran.models.grievance import Grievance, StudentMasterRecord
 
-client = TestClient(app)
-
 NIVARAN_BASE = "/api/modules/atharva-veda/nivaran"
 ADMIN_BASE = "/api/admin/atharva"
 
@@ -108,7 +106,7 @@ def create_test_grievance(
 # Test Suite
 # ==========================================
 
-def test_applicant_boundary_access(db_session: Session):
+def test_applicant_boundary_access(client: TestClient, db_session: Session):
     db = db_session
     """
     Applicant must be able to submit and view own grievances,
@@ -163,7 +161,7 @@ def test_applicant_boundary_access(db_session: Session):
     assert res_admin.status_code == 403
 
 
-def test_manager_boundary_access(db_session: Session):
+def test_manager_boundary_access(client: TestClient, db_session: Session):
     db = db_session
     """
     Manager must be able to view triage queue,
@@ -208,7 +206,7 @@ def test_manager_boundary_access(db_session: Session):
     assert res_admin.status_code == 403
 
 
-def test_assistant_dean_boundary_and_cluster_scope(db_session: Session):
+def test_assistant_dean_boundary_and_cluster_scope(client: TestClient, db_session: Session):
     db = db_session
     """
     Assistant Dean can access /assistant-dean/cases and view cases within their appointed SubjectCluster.
@@ -254,7 +252,7 @@ def test_assistant_dean_boundary_and_cluster_scope(db_session: Session):
     assert res_out.status_code == 403
 
 
-def test_associate_dean_boundary_and_category_cluster_scope(db_session: Session):
+def test_associate_dean_boundary_and_category_cluster_scope(client: TestClient, db_session: Session):
     db = db_session
     """
     Associate Dean can access /associate-dean/cases and view cases within their appointed GrievanceCluster.
@@ -298,7 +296,7 @@ def test_associate_dean_boundary_and_category_cluster_scope(db_session: Session)
     assert res_out.status_code == 403
 
 
-def test_dean_boundary_access(db_session: Session):
+def test_dean_boundary_access(client: TestClient, db_session: Session):
     db = db_session
     """
     Dean of Academic Affairs can access /dean/cases and has university-wide scope for case dossiers.
@@ -330,7 +328,7 @@ def test_dean_boundary_access(db_session: Session):
     assert client.get(f"{ADMIN_BASE}/authorities", headers=headers).status_code == 403
 
 
-def test_admin_csjmu_boundary_separation(db_session: Session):
+def test_admin_csjmu_boundary_separation(client: TestClient, db_session: Session):
     db = db_session
     """
     admin@csjmu.ac.in possesses administrator + authority roles for platform maintenance,
@@ -376,7 +374,7 @@ def test_admin_csjmu_boundary_separation(db_session: Session):
     assert client.get(f"{NIVARAN_BASE}/grievances/{g.id}", headers=headers).status_code == 403
 
 
-def test_workspace_persona_resolution(db_session: Session):
+def test_workspace_persona_resolution(client: TestClient, db_session: Session):
     db = db_session
     """
     GET /modules/atharva-veda/nivaran/workspace resolves the correct authoritative persona.

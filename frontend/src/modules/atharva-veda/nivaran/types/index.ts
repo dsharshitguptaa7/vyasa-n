@@ -9,3 +9,4 @@ export interface NivaranModuleState {
 }
 
 export * from './grievance';
+export * from './committee';

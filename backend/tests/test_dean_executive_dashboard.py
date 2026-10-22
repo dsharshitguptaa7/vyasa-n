@@ -41,8 +41,6 @@ from app.modules.atharva_veda.nivaran.models.routing import (
     ForwardingConfirmation,
 )
 
-client = TestClient(app)
-
 DASHBOARD_URL = "/api/modules/atharva-veda/nivaran/dean/dashboard"
 CASES_URL = "/api/modules/atharva-veda/nivaran/dean/dashboard/cases"
 
@@ -59,6 +57,11 @@ def get_or_create_user(db: Session, email: str, role_names: list[str]) -> tuple[
             is_verified=True,
         )
         db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.is_active = True
+        user.is_verified = True
         db.commit()
         db.refresh(user)
 
@@ -110,13 +113,6 @@ def get_or_create_authority(
     return user, auth, token
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    db = next(get_db())
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @pytest.fixture(scope="function")
@@ -323,7 +319,7 @@ def dashboard_env(db_session: Session):
 # 1. Dean Authorization & Role Boundary Separation
 # ==============================================================================
 
-def test_dean_dashboard_authorization_dean_passes(dashboard_env):
+def test_dean_dashboard_authorization_dean_passes(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -335,7 +331,7 @@ def test_dean_dashboard_authorization_dean_passes(dashboard_env):
     assert "bottlenecks" in res_data["data"]
 
 
-def test_dean_dashboard_authorization_non_dean_rejected(dashboard_env):
+def test_dean_dashboard_authorization_non_dean_rejected(client: TestClient, dashboard_env):
     """
     Guarantees strict 403 Forbidden for Applicant, Manager, Assistant Dean, Associate Dean.
     """
@@ -359,7 +355,7 @@ def test_dean_dashboard_authorization_non_dean_rejected(dashboard_env):
 # 2. Executive KPIs & Real Data Calculation
 # ==============================================================================
 
-def test_dean_dashboard_kpis_and_resolution_rate(dashboard_env):
+def test_dean_dashboard_kpis_and_resolution_rate(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -379,7 +375,7 @@ def test_dean_dashboard_kpis_and_resolution_rate(dashboard_env):
 # 3. Workflow Pipeline / Funnel
 # ==============================================================================
 
-def test_dean_dashboard_workflow_pipeline_distribution(dashboard_env):
+def test_dean_dashboard_workflow_pipeline_distribution(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -413,7 +409,7 @@ def test_dean_dashboard_workflow_pipeline_distribution(dashboard_env):
 # 4. Bottleneck Analysis ("Where are cases stuck?")
 # ==============================================================================
 
-def test_dean_dashboard_bottlenecks(dashboard_env):
+def test_dean_dashboard_bottlenecks(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -438,7 +434,7 @@ def test_dean_dashboard_bottlenecks(dashboard_env):
 # 5. Aging Distribution Buckets
 # ==============================================================================
 
-def test_dean_dashboard_aging_distribution(dashboard_env):
+def test_dean_dashboard_aging_distribution(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -462,7 +458,7 @@ def test_dean_dashboard_aging_distribution(dashboard_env):
 # 6. Authority Workload Matrix & Specialized Panels
 # ==============================================================================
 
-def test_dean_dashboard_authority_workloads(dashboard_env):
+def test_dean_dashboard_authority_workloads(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -495,7 +491,7 @@ def test_dean_dashboard_authority_workloads(dashboard_env):
 # 7. Category, Cluster & Subject Analytics
 # ==============================================================================
 
-def test_dean_dashboard_category_and_cluster_analytics(dashboard_env):
+def test_dean_dashboard_category_and_cluster_analytics(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -525,7 +521,7 @@ def test_dean_dashboard_category_and_cluster_analytics(dashboard_env):
 # 8. Oldest Cases & Attention Required Panels
 # ==============================================================================
 
-def test_dean_dashboard_oldest_cases_and_attention(dashboard_env):
+def test_dean_dashboard_oldest_cases_and_attention(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -550,7 +546,7 @@ def test_dean_dashboard_oldest_cases_and_attention(dashboard_env):
 # 9. Time Trend, Routing Analytics & Routing Health
 # ==============================================================================
 
-def test_dean_dashboard_trends_routing_and_health(dashboard_env):
+def test_dean_dashboard_trends_routing_and_health(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
     response = client.get(DASHBOARD_URL, headers=headers)
@@ -578,7 +574,7 @@ def test_dean_dashboard_trends_routing_and_health(dashboard_env):
 # 10. Global Filters & Cross-Filtering
 # ==============================================================================
 
-def test_dean_dashboard_filtering_by_status_and_priority(dashboard_env):
+def test_dean_dashboard_filtering_by_status_and_priority(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
 
@@ -600,7 +596,7 @@ def test_dean_dashboard_filtering_by_status_and_priority(dashboard_env):
 # 11. Executive Grievance Ledger Endpoint (/dean/dashboard/cases)
 # ==============================================================================
 
-def test_dean_dashboard_cases_ledger_pagination_and_search(dashboard_env):
+def test_dean_dashboard_cases_ledger_pagination_and_search(client: TestClient, dashboard_env):
     _, _, token_dean = dashboard_env["dean"]
     headers = {"Authorization": f"Bearer {token_dean}"}
 

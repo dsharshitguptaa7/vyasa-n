@@ -332,9 +332,17 @@ class AssistantDeanService:
         if grievance.applicant_vyasa_user_id:
             notif_app = Notification(
                 user_id=grievance.applicant_vyasa_user_id,
+                source_pillar="NIVARAN",
+                event_type="grievance.resolved",
+                event_id=f"grv_res_{grievance.id}",
                 title="Grievance Resolved — Feedback Required",
-                message=f"Your grievance {grievance.grievance_id} has been resolved. Please review and submit your feedback.",
-                type="GRIEVANCE_RESOLVED",
+                message=f"Your grievance {grievance.grievance_id} has been resolved by {authority.name_snapshot}. Please review and submit your feedback.",
+                type="workflow",
+                priority="HIGH",
+                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                action_required=True,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,
@@ -354,12 +362,20 @@ class AssistantDeanService:
             if mgr.vyasa_user_id:
                 notif_mgr = Notification(
                     user_id=mgr.vyasa_user_id,
-                    title="Grievance Resolved - Awaiting Closure Review",
+                    source_pillar="NIVARAN",
+                    event_type="manager.action_required",
+                    event_id=f"mgr_res_{grievance.id}_{mgr.id}",
+                    title="Grievance Resolved — Awaiting Closure Review",
                     message=(
                         f"Grievance {grievance.grievance_id} was resolved by "
                         f"{authority.name_snapshot} ({authority.role.value}). Please review and perform final closure."
                     ),
-                    type="GRIEVANCE_RESOLVED",
+                    type="task",
+                    priority="HIGH",
+                    action_route="/modules/atharva-veda/nivaran/manager/closure-queue",
+                    action_required=True,
+                    entity_type="grievance",
+                    entity_id=str(grievance.id),
                     metadata_json={
                         "grievance_id": str(grievance.id),
                         "tracking_id": grievance.grievance_id,
@@ -578,12 +594,19 @@ class AssistantDeanService:
         if target_authority.vyasa_user_id:
             notif_target = Notification(
                 user_id=target_authority.vyasa_user_id,
+                source_pillar="NIVARAN",
+                event_type="authority.case_forwarded",
                 title="Grievance Forwarded to You",
                 message=(
                     f"Grievance {grievance.grievance_id} has been forwarded to you by "
                     f"{authority.name_snapshot} ({authority.role.value})."
                 ),
                 type="GRIEVANCE_FORWARDED",
+                priority="HIGH",
+                action_route=f"/modules/atharva-veda/nivaran/assistant-dean/grievance/{grievance.id}",
+                action_required=True,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,
@@ -596,12 +619,19 @@ class AssistantDeanService:
         if grievance.applicant_vyasa_user_id:
             notif_app = Notification(
                 user_id=grievance.applicant_vyasa_user_id,
+                source_pillar="NIVARAN",
+                event_type="grievance.status_changed",
                 title="Grievance Forwarded",
                 message=(
                     f"Your grievance {grievance.grievance_id} has been forwarded to "
                     f"{target_authority.name_snapshot} ({target_authority.role.value}) for further review."
                 ),
                 type="GRIEVANCE_STATUS_CHANGED",
+                priority="MEDIUM",
+                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                action_required=False,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,
@@ -719,17 +749,26 @@ class AssistantDeanService:
         if grievance.applicant_vyasa_user_id:
             notif_app = Notification(
                 user_id=grievance.applicant_vyasa_user_id,
-                title="Additional Document(s) Required",
+                source_pillar="NIVARAN",
+                event_type="grievance.document_requested",
+                event_id=f"doc_req_{group_id}",
+                title="Action Required: Additional Information Requested",
                 message=(
                     f"Additional document(s) requested for grievance {grievance.grievance_id} by "
                     f"{authority.name_snapshot} ({authority.role.value}): {', '.join(doc_names)}. "
                     "Please upload the requested document(s) to proceed."
                 ),
-                type="DOCUMENT_REQUESTED",
+                type="task",
+                priority="HIGH",
+                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                action_required=True,
+                entity_type="grievance",
+                entity_id=str(grievance.id),
                 metadata_json={
                     "grievance_id": str(grievance.id),
                     "tracking_id": grievance.grievance_id,
                     "status": grievance.status.value,
+                    "request_group_id": str(group_id),
                 },
             )
             db.add(notif_app)
@@ -750,133 +789,17 @@ class AssistantDeanService:
     ) -> CommitteeCreationRequest:
         """
         Initiates a formal CommitteeCreationRequest:
-        1. Validates active assignment jurisdiction.
-        2. Prevents duplicate active requests.
-        3. Identifies target higher authority (Associate Dean, Fixed Authority, or Dean).
-        4. Inserts CommitteeCreationRequest.
-        5. Records AuditLog.
-        6. Dispatches notification to target authority.
+        Delegates to CommitteeService ensuring authoritative permission matrix:
+        Assistant Dean can request from Associate Dean or Dean.
         """
-        authority = cls.get_assistant_dean_authority(db, asst_dean_user)
+        from app.modules.atharva_veda.nivaran.services.committee_service import CommitteeService
 
-        grievance = db.scalar(
-            select(Grievance).where(Grievance.id == grievance_id).with_for_update()
+        return CommitteeService.submit_request(
+            db=db,
+            grievance_id=grievance_id,
+            requester_user=asst_dean_user,
+            justification=payload.justification,
+            target_authority_id=payload.target_authority_id,
+            proposed_scope=payload.proposed_scope,
+            supporting_remarks=payload.supporting_remarks,
         )
-        if not grievance:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Grievance '{grievance_id}' was not found.",
-            )
-
-        active_assignment = db.scalar(
-            select(Assignment).where(
-                Assignment.grievance_id == grievance.id,
-                Assignment.is_active.is_(True),
-            )
-        )
-        if (active_assignment and active_assignment.authority_id != authority.id) or (
-            not active_assignment and grievance.assigned_authority_id != authority.id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only request committee creation for grievances currently assigned to your jurisdiction.",
-            )
-
-        if grievance.status in {GrievanceStatus.RESOLVED, GrievanceStatus.CLOSED}:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot request committee creation for a {grievance.status.value} grievance.",
-            )
-
-        # Check existing active pending request
-        existing_req = db.scalar(
-            select(CommitteeCreationRequest).where(
-                CommitteeCreationRequest.grievance_id == grievance.id,
-                CommitteeCreationRequest.request_status == CommitteeRequestStatus.PENDING,
-            )
-        )
-        if existing_req:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="An active committee creation request is already pending for this grievance.",
-            )
-
-        # Resolve target authority
-        target_authority = None
-        if payload.target_authority_id:
-            target_authority = db.scalar(
-                select(NivaranAuthority).where(
-                    NivaranAuthority.id == payload.target_authority_id,
-                    NivaranAuthority.is_active.is_(True),
-                )
-            )
-        else:
-            # Fallback to category Associate Dean or Dean
-            effective_cat_id = grievance.final_category_id or grievance.category_id
-            cat = db.scalar(select(Category).where(Category.id == effective_cat_id))
-            if cat and cat.routing_type in {CategoryRoutingType.CLUSTER, CategoryRoutingType.GRIEVANCE_CLUSTER, CategoryRoutingType.FIXED_AUTHORITY}:
-                try:
-                    target_authority = DynamicRoutingEngine.resolve_category_route(db, cat.id, grievance.subject_id)
-                except Exception:
-                    pass
-
-            if not target_authority:
-                # Default to Dean
-                target_authority = db.scalar(
-                    select(NivaranAuthority).where(
-                        NivaranAuthority.role == NivaranRole.DEAN,
-                        NivaranAuthority.is_active.is_(True),
-                    )
-                )
-
-        now_utc = datetime.now(timezone.utc)
-        req = CommitteeCreationRequest(
-            grievance_id=grievance.id,
-            requested_by_id=authority.id,
-            request_status=CommitteeRequestStatus.PENDING,
-            justification=payload.justification.strip(),
-            proposed_members_snapshot={
-                "proposed_scope": payload.proposed_scope,
-                "supporting_remarks": payload.supporting_remarks,
-                "target_authority_id": str(target_authority.id) if target_authority else None,
-                "target_authority_name": target_authority.name_snapshot if target_authority else None,
-            },
-            created_at=now_utc,
-        )
-        db.add(req)
-
-        audit = AuditLog(
-            user_id=asst_dean_user.id,
-            module="atharva_veda",
-            action="COMMITTEE_CREATION_REQUESTED",
-            entity_name="Grievance",
-            entity_id=str(grievance.id),
-            details={
-                "grievance_id": grievance.grievance_id,
-                "requested_by": authority.name_snapshot,
-                "justification": payload.justification.strip(),
-                "target_authority": target_authority.name_snapshot if target_authority else "Dean",
-            },
-        )
-        db.add(audit)
-
-        if target_authority and target_authority.vyasa_user_id:
-            notif_target = Notification(
-                user_id=target_authority.vyasa_user_id,
-                title="Committee Creation Requested",
-                message=(
-                    f"Assistant Dean {authority.name_snapshot} requested committee formation for "
-                    f"grievance {grievance.grievance_id}."
-                ),
-                type="COMMITTEE_REQUEST_RECEIVED",
-                metadata_json={
-                    "grievance_id": str(grievance.id),
-                    "tracking_id": grievance.grievance_id,
-                },
-            )
-            db.add(notif_target)
-
-        db.commit()
-        db.refresh(req)
-
-        return req

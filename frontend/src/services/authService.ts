@@ -77,6 +77,10 @@ export const authService = {
         );
       }
 
+      if (data?.requires_two_factor) {
+        return data as TokenResponse;
+      }
+
       if (!data?.access_token) {
         throw new AuthError('Invalid response received from identity service.', 500);
       }

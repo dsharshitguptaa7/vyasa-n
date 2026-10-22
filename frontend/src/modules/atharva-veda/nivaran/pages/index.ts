@@ -16,5 +16,5 @@ export * from './StudentRecordSearchPage';
 export * from './NivaranEFilesPage';
 export * from './StudentMasterRecordsPage';
 export * from './StudentMasterRecordDetailPage';
-
-
+export * from './CommitteesListPage';
+export * from './CommitteeWorkspacePage';

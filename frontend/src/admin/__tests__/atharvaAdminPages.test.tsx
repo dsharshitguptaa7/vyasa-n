@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthoritiesPage } from '../pages/atharva/AuthoritiesPage';
 import { SubjectClustersPage } from '../pages/atharva/SubjectClustersPage';
+import { SubjectsPage } from '../pages/atharva/SubjectsPage';
 import { GrievanceClustersPage } from '../pages/atharva/GrievanceClustersPage';
 import { GrievanceCategoriesPage } from '../pages/atharva/GrievanceCategoriesPage';
 import { AuditLogsPage } from '../pages/atharva/AuditLogsPage';
@@ -11,9 +12,11 @@ import { atharvaAdminService } from '../services/atharvaAdminService';
 import {
   Authority,
   SubjectCluster,
+  Subject,
   GrievanceCluster,
   Category,
   PaginatedAuditLogs,
+  RoutingSimulationResult,
 } from '../types/atharva';
 
 const mockAuthorities: Authority[] = [
@@ -55,6 +58,20 @@ const mockSubjectClusters: SubjectCluster[] = [
     assistant_dean_id: 'auth-1',
     assistant_dean: mockAuthorities[0],
     subject_count: 5,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+const mockSubjects: Subject[] = [
+  {
+    id: 'sub-1',
+    name: 'Computer Science & Engineering',
+    code: 'CSE-01',
+    subject_cluster_id: 'sc-1',
+    cluster_name: 'Computer Science & IT',
+    cluster_number: 101,
+    is_active: true,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
   },
@@ -114,12 +131,30 @@ const mockAuditLogs: PaginatedAuditLogs = {
   ],
 };
 
+const mockSimResult: RoutingSimulationResult = {
+  status: 'ROUTED',
+  routing_type: 'CLUSTER',
+  category_name: 'Delayed Fellowship Disbursal',
+  target_authority_id: 'auth-2',
+  target_authority_name: 'Dr. Sunita Patel',
+  target_authority_role: 'ASSOCIATE_DEAN',
+  cluster_name: 'Fellowship & Scholarship Affairs',
+  cluster_number: 201,
+  path_taken: [
+    'Category: Delayed Fellowship Disbursal -> routing_type: CLUSTER',
+    'Cluster #201: Fellowship & Scholarship Affairs -> Associate Dean: Dr. Sunita Patel (ASSOCIATE_DEAN)',
+    'Active check passed -> Destination Authority assigned.',
+  ],
+  warnings: [],
+  fallback_used: false,
+};
+
 describe('Atharva Veda Admin Configuration UI Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('1. AuthoritiesPage: renders authorities, filters, and opens toggle confirmation modal', async () => {
+  it('1. AuthoritiesPage: renders authorities, filters, toggle confirmation, and opens Add Authority modal', async () => {
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
 
     render(
@@ -145,9 +180,22 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
       expect(screen.getByText(/Are you sure you want to deactivate/i)).toBeInTheDocument();
       expect(screen.getByText(/Warning:/i)).toBeInTheDocument();
     });
+
+    // Cancel deactivate modal
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+    fireEvent.click(cancelBtn);
+
+    // Click + Add Authority button
+    const addBtn = screen.getByRole('button', { name: /\+ Add Authority/i });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Provision Institutional Authority')).toBeInTheDocument();
+      expect(screen.getByText(/Officer Name \*/i)).toBeInTheDocument();
+    });
   });
 
-  it('2. SubjectClustersPage: renders clusters and opens reassign modal with routing impact notice', async () => {
+  it('2. SubjectClustersPage: renders clusters, opens reassign modal and opens Add Cluster modal', async () => {
     vi.spyOn(atharvaAdminService, 'getSubjectClusters').mockResolvedValue(mockSubjectClusters);
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
 
@@ -158,8 +206,8 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Computer Science & IT')).toBeInTheDocument();
-      expect(screen.getByText('#101')).toBeInTheDocument();
+      expect(screen.getAllByText(/Computer Science & IT/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/101/).length).toBeGreaterThanOrEqual(1);
     });
 
     // Click Reassign Dean button
@@ -168,12 +216,25 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
 
     // Modal appears with prompt warning
     await waitFor(() => {
-      expect(screen.getByText(/Administrative Notice:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Changing this mapping will immediately affect future subject-based routing/i)).toBeInTheDocument();
+      expect(screen.getByText(/Reconfigure Assistant Dean: Computer Science & IT/i)).toBeInTheDocument();
+      expect(screen.getByText(/Future coursework and disciplinary grievances mapped to this cluster/i)).toBeInTheDocument();
+    });
+
+    // Cancel reassign modal
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+    fireEvent.click(cancelBtn);
+
+    // Click + Add Cluster button
+    const addBtn = screen.getByRole('button', { name: /\+ Add Cluster/i });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Create Academic Subject Cluster')).toBeInTheDocument();
+      expect(screen.getByText(/Cluster Name \*/i)).toBeInTheDocument();
     });
   });
 
-  it('3. GrievanceClustersPage: renders grievance clusters and opens reassign modal with notice', async () => {
+  it('3. GrievanceClustersPage: renders grievance clusters, opens reassign modal and Add Cluster modal', async () => {
     vi.spyOn(atharvaAdminService, 'getGrievanceClusters').mockResolvedValue(mockGrievanceClusters);
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
 
@@ -184,8 +245,8 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Fellowship & Scholarship Affairs')).toBeInTheDocument();
-      expect(screen.getByText('#201')).toBeInTheDocument();
+      expect(screen.getAllByText(/Fellowship & Scholarship Affairs/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/201/).length).toBeGreaterThanOrEqual(1);
     });
 
     // Click Reassign Dean button
@@ -194,15 +255,68 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
 
     // Modal appears with prompt warning
     await waitFor(() => {
-      expect(screen.getByText(/Administrative Warning:/i)).toBeInTheDocument();
-      expect(screen.getByText(/Changing this mapping will affect future category-based routing/i)).toBeInTheDocument();
+      expect(screen.getByText(/Reconfigure Associate Dean: Fellowship & Scholarship Affairs/i)).toBeInTheDocument();
+      expect(screen.getByText(/Future grievances categorized under this cluster will route directly to this officer/i)).toBeInTheDocument();
+    });
+
+    // Cancel reassign modal
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+    fireEvent.click(cancelBtn);
+
+    // Click + Add Cluster button
+    const addBtn = screen.getByRole('button', { name: /\+ Add Cluster/i });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Create Grievance Functional Cluster')).toBeInTheDocument();
+      expect(screen.getByText(/Cluster Domain Name \*/i)).toBeInTheDocument();
     });
   });
 
-  it('4. GrievanceCategoriesPage: renders categories and opens configure routing modal', async () => {
+  it('4. SubjectsPage: renders subjects and opens Add Subject and Re-map modals', async () => {
+    vi.spyOn(atharvaAdminService, 'getSubjects').mockResolvedValue(mockSubjects);
+    vi.spyOn(atharvaAdminService, 'getSubjectClusters').mockResolvedValue(mockSubjectClusters);
+
+    render(
+      <MemoryRouter>
+        <SubjectsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Computer Science & Engineering')).toBeInTheDocument();
+      expect(screen.getByText(/CSE-01/)).toBeInTheDocument();
+    });
+
+    // Click Re-map button
+    const remapBtn = screen.getByRole('button', { name: /Re-map/i });
+    fireEvent.click(remapBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Re-map Faculty Cluster: Computer Science & Engineering/i)).toBeInTheDocument();
+      expect(screen.getByText(/Target Subject Cluster \*/i)).toBeInTheDocument();
+    });
+
+    // Cancel remap
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+    fireEvent.click(cancelBtn);
+
+    // Click + Add Subject button
+    const addBtn = screen.getByRole('button', { name: /\+ Add Subject/i });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Add New Academic Subject')).toBeInTheDocument();
+      expect(screen.getByText(/Subject Name \*/i)).toBeInTheDocument();
+    });
+  });
+
+  it('5. GrievanceCategoriesPage: renders categories, opens Add modal, and tests dynamic routing simulation', async () => {
     vi.spyOn(atharvaAdminService, 'getCategories').mockResolvedValue(mockCategories);
     vi.spyOn(atharvaAdminService, 'getGrievanceClusters').mockResolvedValue(mockGrievanceClusters);
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
+    vi.spyOn(atharvaAdminService, 'getSubjects').mockResolvedValue(mockSubjects);
+    const simSpy = vi.spyOn(atharvaAdminService, 'simulateRouting').mockResolvedValue(mockSimResult);
 
     render(
       <MemoryRouter>
@@ -214,17 +328,44 @@ describe('Atharva Veda Admin Configuration UI Suite', () => {
       expect(screen.getByText('Delayed Fellowship Disbursal')).toBeInTheDocument();
     });
 
-    // Click Configure Routing button
-    const configBtn = screen.getByRole('button', { name: /Configure Routing/i });
-    fireEvent.click(configBtn);
+    // Click Route button
+    const routeBtn = screen.getByRole('button', { name: /^Route$/i });
+    fireEvent.click(routeBtn);
 
     await waitFor(() => {
       expect(screen.getByText(/Configure Routing: Delayed Fellowship Disbursal/i)).toBeInTheDocument();
       expect(screen.getByText(/Routing Strategy/i)).toBeInTheDocument();
     });
+
+    // Cancel route modal
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+    fireEvent.click(cancelBtn);
+
+    // Click Simulate Routing Engine button
+    const simBtn = screen.getByRole('button', { name: /🔍 Simulate Routing Engine/i });
+    fireEvent.click(simBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Dynamic Routing Simulation & Decision Path Inspector/i)).toBeInTheDocument();
+    });
+
+    // Run Simulation
+    const runSimBtn = screen.getByRole('button', { name: /Run Simulation/i });
+    fireEvent.click(runSimBtn);
+
+    await waitFor(() => {
+      expect(simSpy).toHaveBeenCalledWith({
+        category_id: 'cat-1',
+        subject_id: null,
+      });
+      expect(screen.getByText('Simulation Result:')).toBeInTheDocument();
+      expect(screen.getByText('ROUTED')).toBeInTheDocument();
+      expect(screen.getAllByText(/Dr\. Sunita Patel/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/Decision Path Traced:/)).toBeInTheDocument();
+    });
   });
 
-  it('5. AuditLogsPage: renders audit logs and displays details modal with json diff', async () => {
+  it('6. AuditLogsPage: renders audit logs and displays details modal with json diff', async () => {
     vi.spyOn(atharvaAdminService, 'getAuditLogs').mockResolvedValue(mockAuditLogs);
 
     render(

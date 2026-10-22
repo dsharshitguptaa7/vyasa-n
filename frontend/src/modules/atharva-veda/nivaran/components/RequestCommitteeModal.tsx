@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button } from '@vyasa/ui';
-import { CommitteeRequestPayload } from '../types/grievance';
+import { CommitteeRequestPayload, EligibleAuthorityItem } from '../types/grievance';
+import { grievanceService } from '../services/grievanceService';
 
 interface RequestCommitteeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (payload: CommitteeRequestPayload) => Promise<void>;
   grievanceId?: string;
+  callerRole?: 'ASSISTANT_DEAN' | 'ASSOCIATE_DEAN' | 'DEAN';
   loading?: boolean;
 }
 
@@ -15,11 +17,54 @@ export const RequestCommitteeModal: React.FC<RequestCommitteeModalProps> = ({
   onClose,
   onSubmit,
   grievanceId,
+  callerRole = 'ASSISTANT_DEAN',
   loading = false,
 }) => {
   const [reason, setReason] = useState('');
+  const [scope, setScope] = useState('');
   const [rolesInput, setRolesInput] = useState('Department Head, External Subject Expert, Faculty Observer');
+  const [targetAuthorityId, setTargetAuthorityId] = useState<string>('');
+  const [authorities, setAuthorities] = useState<EligibleAuthorityItem[]>([]);
+  const [loadingAuthorities, setLoadingAuthorities] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let mounted = true;
+    const fetchAuthorities = async () => {
+      try {
+        setLoadingAuthorities(true);
+        if (typeof grievanceService.getEligibleAuthorities !== 'function') {
+          return;
+        }
+        const auths = await grievanceService.getEligibleAuthorities();
+        if (!mounted) return;
+        setAuthorities(auths);
+
+        if (callerRole === 'ASSOCIATE_DEAN') {
+          // Associate Dean must request from Dean ONLY
+          const dean = auths.find((a) => a.role === 'DEAN');
+          if (dean) setTargetAuthorityId(dean.id);
+        } else if (callerRole === 'ASSISTANT_DEAN') {
+          // Assistant Dean can select Associate Dean or Dean
+          const eligible = auths.filter((a) => a.role === 'ASSOCIATE_DEAN' || a.role === 'DEAN');
+          if (eligible.length > 0 && !targetAuthorityId) {
+            setTargetAuthorityId(eligible[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load eligible authorities for committee request', err);
+      } finally {
+        if (mounted) setLoadingAuthorities(false);
+      }
+    };
+
+    fetchAuthorities();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, callerRole]);
 
   const isValid = reason.trim().length >= 5;
 
@@ -39,12 +84,20 @@ export const RequestCommitteeModal: React.FC<RequestCommitteeModalProps> = ({
     try {
       await onSubmit({
         reason: reason.trim(),
+        justification: reason.trim(),
+        target_authority_id: targetAuthorityId || undefined,
+        proposed_scope: scope.trim() || undefined,
         proposed_member_roles: proposedRoles.length > 0 ? proposedRoles : undefined,
       });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to request committee formation.');
     }
   };
+
+  const eligibleRecipients =
+    callerRole === 'ASSOCIATE_DEAN'
+      ? authorities.filter((a) => a.role === 'DEAN')
+      : authorities.filter((a) => a.role === 'ASSOCIATE_DEAN' || a.role === 'DEAN');
 
   return (
     <Modal
@@ -69,8 +122,9 @@ export const RequestCommitteeModal: React.FC<RequestCommitteeModalProps> = ({
     >
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-          Requesting an inquiry committee creates a formal recommendation for higher university leadership
-          (Associate Dean / Dean) to constitute an ad-hoc committee for investigation.
+          {callerRole === 'ASSOCIATE_DEAN'
+            ? 'Associate Deans can request formal committee constitution from the Dean. Approval allows authorised committee creation.'
+            : 'Assistant Deans can request formal committee constitution from an Associate Dean or Dean.'}
         </p>
 
         {errorMsg && (
@@ -88,11 +142,60 @@ export const RequestCommitteeModal: React.FC<RequestCommitteeModalProps> = ({
           </div>
         )}
 
+        {/* Intended Recipient Selection */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-            Justification &amp; Scope of Inquiry *
+          <label htmlFor="target-authority-select" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+            Intended Recipient Authority *
+          </label>
+          {loadingAuthorities ? (
+            <div style={{ fontSize: '13px', color: '#64748b' }}>Loading eligible authorities...</div>
+          ) : callerRole === 'ASSOCIATE_DEAN' ? (
+            <div
+              id="target-authority-select"
+              style={{
+                padding: '10px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                fontSize: '13px',
+                color: '#334155',
+              }}
+            >
+              <strong>Dean (Executive Academic Authority)</strong> &mdash; Dean R&amp;D / Academic Affairs
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                Note: Under the institutional permission matrix, Associate Deans must request committee formation directly from the Dean.
+              </div>
+            </div>
+          ) : (
+            <select
+              id="target-authority-select"
+              value={targetAuthorityId}
+              onChange={(e) => setTargetAuthorityId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: '4px',
+                border: '1px solid #d1d5db',
+                fontSize: '13px',
+                backgroundColor: '#fff',
+              }}
+            >
+              <option value="">-- Select Associate Dean or Dean --</option>
+              {eligibleRecipients.map((auth) => (
+                <option key={auth.id} value={auth.id}>
+                  {auth.name} ({auth.role.replace('_', ' ')} — {auth.department || auth.designation || 'Academic Authority'})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="request-committee-reason" style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+            Justification &amp; Terms of Inquiry *
           </label>
           <textarea
+            id="request-committee-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Explain why an ad-hoc fact-finding inquiry committee is required to resolve this dispute..."
@@ -112,6 +215,26 @@ export const RequestCommitteeModal: React.FC<RequestCommitteeModalProps> = ({
             </span>
             <span style={{ color: 'var(--vyasa-text-muted)' }}>{reason.trim().length} chars</span>
           </div>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+            Proposed Inquiry Scope / Terms of Reference (Optional)
+          </label>
+          <textarea
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            placeholder="Outline specific terms of reference, key witnesses to hear, and targeted outcomes..."
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: '4px',
+              border: '1px solid #d1d5db',
+              fontSize: '13px',
+              fontFamily: 'inherit',
+            }}
+          />
         </div>
 
         <div>

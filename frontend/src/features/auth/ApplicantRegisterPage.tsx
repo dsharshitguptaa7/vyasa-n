@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService, AuthError } from '../../services/authService';
 import { SubjectItem } from '../../types/auth';
-import { Card, Badge, Button, Input, Select, PageContainer } from '@vyasa/ui';
+import { Card, Badge, Button, Input, Select, PageContainer, AppIcon } from '@vyasa/ui';
 import { CsjmuLogo } from '@vyasa/ui/branding';
+
+import './Auth.css';
 
 export const ApplicantRegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -149,7 +151,7 @@ export const ApplicantRegisterPage: React.FC = () => {
       if (err instanceof AuthError) {
         setSubmitError(err.message);
       } else {
-        setSubmitError('An unexpected error occurred during registration. Please try again.');
+        setSubmitError("We couldn't create your account. Please check your information and try again.");
       }
     } finally {
       setSubmitting(false);
@@ -162,58 +164,33 @@ export const ApplicantRegisterPage: React.FC = () => {
   }));
 
   return (
-    <PageContainer narrow style={{ padding: '40px 0 80px' }}>
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{ display: 'inline-flex', justifyContent: 'center', marginBottom: '16px' }}>
-          <CsjmuLogo size={60} />
+    <PageContainer className="vyasa-auth-page-container vyasa-auth-page-container--register">
+      {/* Institutional Branding Masthead */}
+      <div className="vyasa-auth-masthead">
+        <div className="vyasa-auth-seal-wrap">
+          <CsjmuLogo size={68} />
         </div>
-        <h1
-          style={{
-            fontFamily: 'var(--vyasa-font-display, Georgia, serif)',
-            fontSize: '26px',
-            color: 'var(--vyasa-navy)',
-            margin: '0 0 6px',
-            fontWeight: 700,
-          }}
-        >
+        <h1 className="vyasa-auth-page-title">
           Applicant Registration
         </h1>
-        <p
-          style={{
-            fontSize: '14px',
-            color: 'var(--vyasa-text-secondary)',
-            margin: 0,
-            lineHeight: 1.5,
-          }}
-        >
-          Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASAᴺ Research Ecosystem Identity
+        <p className="vyasa-auth-page-subtitle">
+          Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; VYASAᴺ Research Ecosystem Gateway
         </p>
       </div>
 
       <Card
-        variant="scholarly"
+        className="vyasa-auth-card vyasa-auth-card--applicant"
         title="Register as Applicant"
         subtitle="Establish your unified institutional scholar identity"
-        headerAction={<Badge variant="saffron">Applicant</Badge>}
+        headerAction={<Badge variant="gold">Applicant</Badge>}
       >
-        <form onSubmit={handleSubmit} noValidate style={{ padding: '12px 0 8px' }}>
+        <form onSubmit={handleSubmit} noValidate>
           {submitError && (
             <div
               role="alert"
-              style={{
-                backgroundColor: 'rgba(217, 83, 79, 0.08)',
-                border: '1px solid rgba(217, 83, 79, 0.3)',
-                borderRadius: '6px',
-                padding: '12px 16px',
-                marginBottom: '20px',
-                color: '#c9302c',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
-              }}
+              className="vyasa-auth-alert vyasa-auth-alert--error"
             >
-              <span style={{ fontWeight: 600 }}>&bull;</span>
+              <AppIcon name="alert-circle" size={16} color="#c9302c" />
               <span style={{ flex: 1 }}>{submitError}</span>
             </div>
           )}
@@ -221,22 +198,17 @@ export const ApplicantRegisterPage: React.FC = () => {
           {subjectsError && (
             <div
               role="alert"
-              style={{
-                backgroundColor: 'rgba(240, 173, 78, 0.1)',
-                border: '1px solid rgba(240, 173, 78, 0.4)',
-                borderRadius: '6px',
-                padding: '10px 14px',
-                marginBottom: '16px',
-                color: '#b26a00',
-                fontSize: '13px',
-              }}
+              className="vyasa-auth-alert vyasa-auth-alert--warning"
             >
-              Notice: Unable to load subject catalog. Please verify backend service connection.
+              <AppIcon name="alert-circle" size={16} color="#b26a00" />
+              <span style={{ flex: 1 }}>
+                Notice: Unable to load subject catalog. Please verify backend service connection.
+              </span>
             </div>
           )}
 
-          {/* Full Name */}
-          <div style={{ marginBottom: '16px' }}>
+          {/* 1. Full Name (Required, Full-width) */}
+          <div className="vyasa-form-row">
             <Input
               id="applicant-name"
               label="Full Name"
@@ -254,8 +226,8 @@ export const ApplicantRegisterPage: React.FC = () => {
             />
           </div>
 
-          {/* Email */}
-          <div style={{ marginBottom: '16px' }}>
+          {/* 2. Email Address (Required, Full-width) */}
+          <div className="vyasa-form-row">
             <Input
               id="applicant-email"
               label="Email Address"
@@ -274,8 +246,8 @@ export const ApplicantRegisterPage: React.FC = () => {
             />
           </div>
 
-          {/* Subject Catalog Dropdown */}
-          <div style={{ marginBottom: '16px' }}>
+          {/* 3. Academic Subject / Discipline Dropdown (Required, Full-width) */}
+          <div className="vyasa-form-row">
             <Select
               id="applicant-subject"
               label="Academic Subject / Discipline"
@@ -293,8 +265,8 @@ export const ApplicantRegisterPage: React.FC = () => {
             />
           </div>
 
-          {/* Password & Confirm Password */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          {/* 4. Password & Confirm Password (2 Columns Side by Side on Desktop) */}
+          <div className="vyasa-form-grid-2">
             <div>
               <Input
                 id="applicant-password"
@@ -334,8 +306,8 @@ export const ApplicantRegisterPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Optional PhD Registration Number & Department */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          {/* 5. PhD Registration Number & Academic Department (2 Columns Side by Side on Desktop) */}
+          <div className="vyasa-form-grid-2">
             <div>
               <Input
                 id="applicant-phd-reg"
@@ -364,8 +336,8 @@ export const ApplicantRegisterPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Optional Contact Phone */}
-          <div style={{ marginBottom: '24px' }}>
+          {/* 6. Contact Phone (Optional, Full-width) */}
+          <div className="vyasa-form-row" style={{ marginBottom: '28px' }}>
             <Input
               id="applicant-phone"
               label="Contact Phone"
@@ -388,6 +360,7 @@ export const ApplicantRegisterPage: React.FC = () => {
               variant="primary"
               size="md"
               disabled={submitting}
+              className="vyasa-btn--primary"
               style={{ width: '100%', justifyContent: 'center' }}
             >
               {submitting ? 'Registering Account...' : 'Complete Scholar Registration'}
@@ -399,27 +372,19 @@ export const ApplicantRegisterPage: React.FC = () => {
               size="sm"
               onClick={() => navigate('/applicant/login')}
               disabled={submitting}
+              className="vyasa-btn--outline"
               style={{ width: '100%', justifyContent: 'center' }}
             >
               Already Registered? Sign In &rarr;
             </Button>
           </div>
 
-          {/* Information Notice */}
-          <div
-            style={{
-              marginTop: '28px',
-              paddingTop: '20px',
-              borderTop: '1px solid var(--vyasa-border)',
-              textAlign: 'center',
-              fontSize: '12px',
-              color: 'var(--vyasa-text-muted)',
-              lineHeight: 1.6,
-            }}
-          >
-            <p style={{ margin: '0 0 4px' }}>
-              <strong>Institutional Single Sign-On (SSO) Foundation</strong>
-            </p>
+          {/* Institutional Single Sign-On (SSO) Notice */}
+          <div className="vyasa-auth-protocol">
+            <div className="vyasa-auth-protocol-title">
+              <AppIcon name="shield" size={14} color="var(--vyasa-primary, #0f2b48)" />
+              <span>Institutional Single Sign-On (SSO) Foundation</span>
+            </div>
             <p style={{ margin: 0 }}>
               Registering in VYASAᴺ Core provisions your unified university identity. Once registered,
               you will use these credentials across all affiliated university pillars including NIVARAN.
@@ -430,3 +395,5 @@ export const ApplicantRegisterPage: React.FC = () => {
     </PageContainer>
   );
 };
+
+export default ApplicantRegisterPage;
