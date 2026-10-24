@@ -312,33 +312,41 @@ class ManagerClosureService:
         )
         db.add(audit_entry)
 
-        # 8. Dispatch notification to applicant
-        notif = Notification(
-            id=uuid.uuid4(),
-            user_id=grievance.applicant_vyasa_user_id,
-            source_pillar="NIVARAN",
-            event_type="grievance.closed",
-            event_id=f"grv_close_{grievance.id}",
-            title="Grievance Formally Closed",
-            message=(
-                f"Your grievance {grievance.grievance_id} has been formally closed by institutional management. "
-                f"The official sealed E-File dossier is now available."
-            ),
-            type="workflow",
-            priority="MEDIUM",
-            action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
-            action_required=False,
-            entity_type="grievance",
-            entity_id=str(grievance.id),
-            metadata_json={
-                "module": "atharva_veda",
-                "event": "GRIEVANCE_CLOSED",
-                "grievance_id": str(grievance.id),
-                "grievance_ref": grievance.grievance_id,
-            },
-            created_at=now,
-        )
-        db.add(notif)
+        # 8. Dispatch notification to applicant via Central Notification Engine
+        if grievance.applicant_vyasa_user_id:
+            try:
+                from app.services.notifications.engine import engine as notification_engine
+                from app.schemas.notification import NotificationEventPayload
+                notification_engine.process_event(
+                    db=db,
+                    event=NotificationEventPayload(
+                        source_pillar="NIVARAN",
+                        event_type="grievance.closed",
+                        event_id=f"grv_close_{grievance.id}",
+                        title=f"Grievance Formally Closed — {grievance.grievance_id}",
+                        message=(
+                            f"Your grievance {grievance.grievance_id} has been formally closed by institutional management. "
+                            "The official sealed E-File dossier is now available."
+                        ),
+                        priority="MEDIUM",
+                        action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                        action_required=False,
+                        entity_type="grievance",
+                        entity_id=str(grievance.id),
+                        recipient_user_ids=[grievance.applicant_vyasa_user_id],
+                        channel_override=["IN_APP", "EMAIL"],
+                        metadata={
+                            "grievance_id": str(grievance.id),
+                            "tracking_id": grievance.grievance_id,
+                            "closure_summary": remarks_text,
+                            "closure_date": now.strftime("%d %b %Y, %I:%M %p UTC"),
+                            "closed_at_str": now.strftime("%d %b %Y, %I:%M %p UTC"),
+                            "status": GrievanceStatus.CLOSED.value,
+                        },
+                    ),
+                )
+            except Exception as _e:
+                logger.error(f"[Manager Closure] Error processing closure notification: {_e}")
 
         # 9. Trigger E-File generation
         try:

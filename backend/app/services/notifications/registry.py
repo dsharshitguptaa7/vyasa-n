@@ -144,7 +144,7 @@ class NotificationPillarRegistry:
                 return "NIVARAN"
             if any(evt.startswith(prefix) for prefix in ["inquiry.", "guideline.", "knowledge.", "ai."]):
                 return "VYASA_AI"
-            if evt.startswith("platform."):
+            if evt.startswith("platform.") or evt.startswith("auth."):
                 return "VYASA_CORE"
 
         if entity_type and entity_type.strip().lower() in {"grievance", "efile", "dossier", "inquiry_case"}:
@@ -234,6 +234,32 @@ class NotificationPillarRegistry:
                     is_action_required=False,
                 ),
                 allowed_roles=["applicant", "authority", "administrator"],
+            ),
+            "auth.login_confirmation": EventDefinition(
+                event_type="auth.login_confirmation",
+                description="Security confirmation after successful authority dashboard login",
+                category="alert",
+                template=TemplateDefinition(
+                    title_template="VYASAᴺ Security Notice: Successful Authority Dashboard Login",
+                    body_template="Authority login confirmed for {account_identifier} on {login_time}.",
+                    action_route_template="/governance",
+                    default_priority=NotificationPriority.MEDIUM,
+                    is_action_required=False,
+                ),
+                allowed_roles=["authority", "administrator"],
+            ),
+            "auth.unusual_login_alert": EventDefinition(
+                event_type="auth.unusual_login_alert",
+                description="Security alert for unusual login or new device detection",
+                category="alert",
+                template=TemplateDefinition(
+                    title_template="VYASAᴺ Security Alert: Unusual Login Detected on Authority Account",
+                    body_template="Security alert: {reason} for authority account {account_identifier}.",
+                    action_route_template="/governance",
+                    default_priority=NotificationPriority.CRITICAL,
+                    is_action_required=True,
+                ),
+                allowed_roles=["authority", "administrator"],
             ),
         }
         self.register_pillar(

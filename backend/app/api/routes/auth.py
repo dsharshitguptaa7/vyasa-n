@@ -1,4 +1,6 @@
 import uuid
+import logging
+logger = logging.getLogger("vyasa.auth")
 from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -40,6 +42,7 @@ from app.schemas.two_factor import (
     TwoFactorRecoveryCodesResponse,
 )
 from app.services.two_factor_service import TwoFactorService
+from app.services.notifications.security_email_service import AuthoritySecurityEmailService
 
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole
@@ -348,6 +351,18 @@ def login(
         )
     )
     db.commit()
+
+    # Trigger authority security emails if authority user logged in
+    try:
+        AuthoritySecurityEmailService.handle_successful_authority_login(
+            db=db,
+            user=user,
+            client_ip=client_ip,
+            user_agent=user_agent,
+        )
+    except Exception as _sec_err:
+        logger.error(f"[Auth Security] Hook failed: {_sec_err}")
+
     return token_resp
 
 
@@ -521,6 +536,18 @@ def confirm_2fa_setup(
         )
     )
     db.commit()
+
+    # Trigger authority security emails if authority user logged in
+    try:
+        AuthoritySecurityEmailService.handle_successful_authority_login(
+            db=db,
+            user=user,
+            client_ip=client_ip,
+            user_agent=user_agent,
+        )
+    except Exception as _sec_err:
+        logger.error(f"[Auth Security] Hook failed: {_sec_err}")
+
     return token_resp
 
 
@@ -644,6 +671,19 @@ def verify_2fa_login(
         )
     )
     db.commit()
+
+    # Trigger authority security emails if authority user logged in
+    try:
+        AuthoritySecurityEmailService.handle_successful_authority_login(
+            db=db,
+            user=user,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            used_recovery_code=False,
+        )
+    except Exception as _sec_err:
+        logger.error(f"[Auth Security] Hook failed: {_sec_err}")
+
     return token_resp
 
 
@@ -731,6 +771,19 @@ def verify_2fa_recovery(
         )
     )
     db.commit()
+
+    # Trigger authority security emails if authority user logged in
+    try:
+        AuthoritySecurityEmailService.handle_successful_authority_login(
+            db=db,
+            user=user,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            used_recovery_code=True,
+        )
+    except Exception as _sec_err:
+        logger.error(f"[Auth Security] Hook failed: {_sec_err}")
+
     return token_resp
 
 
