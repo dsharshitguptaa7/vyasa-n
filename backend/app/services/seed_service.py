@@ -32,6 +32,15 @@ INITIAL_PERMISSIONS: List[Dict[str, str]] = [
     # Notifications domain
     {"name": "notifications:read", "resource": "notifications", "action": "read", "description": "View platform notifications"},
     {"name": "notifications:manage", "resource": "notifications", "action": "manage", "description": "Dispatch or manage notifications"},
+
+    # Sama Veda (Research Recognition & Communication CMS) domain
+    {"name": "sama:read", "resource": "sama_veda", "action": "read", "description": "Read all Sama Veda research records, drafts, and archives"},
+    {"name": "sama:content:edit", "resource": "sama_veda", "action": "edit", "description": "Create and edit publications, bulletins, CAM-AI projects, and spotlights"},
+    {"name": "sama:content:publish", "resource": "sama_veda", "action": "publish", "description": "Publish, unpublish, and archive research bulletins and publications"},
+    {"name": "sama:author:verify", "resource": "sama_veda", "action": "verify", "description": "Verify and reconcile researcher and author Scopus identities"},
+    {"name": "sama:certificate:manage", "resource": "sama_veda", "action": "manage", "description": "Upload, generate, and issue research felicitation certificates"},
+    {"name": "sama:certificate:revoke", "resource": "sama_veda", "action": "revoke", "description": "Revoke issued felicitation certificates with audited justification"},
+    {"name": "sama:content:import", "resource": "sama_veda", "action": "import", "description": "Import and reconcile historical research records via batch CMS"},
 ]
 
 INITIAL_ROLES: List[Dict[str, str]] = [
@@ -51,6 +60,16 @@ INITIAL_ROLES: List[Dict[str, str]] = [
         "is_system": True,
     },
     {
+        "name": "sama_content_admin",
+        "description": "Delegated Sama Veda administrator with publication, bulletin, author verification, and certificate issuance rights",
+        "is_system": True,
+    },
+    {
+        "name": "sama_content_editor",
+        "description": "Delegated Sama Veda content editor with draft creation and editing rights",
+        "is_system": True,
+    },
+    {
         "name": "applicant",
         "description": "Student, scholar, or applicant accessing ecosystem services and tracking submissions",
         "is_system": True,
@@ -59,7 +78,26 @@ INITIAL_ROLES: List[Dict[str, str]] = [
 
 ROLE_PERMISSION_MAP: Dict[str, List[str]] = {
     "super_admin": [p["name"] for p in INITIAL_PERMISSIONS],
-    "administrator": [p["name"] for p in INITIAL_PERMISSIONS],
+    "administrator": [
+        p["name"] for p in INITIAL_PERMISSIONS
+        if p["name"] != "sama:certificate:revoke"
+    ],
+    "sama_content_admin": [
+        "sama:read",
+        "sama:content:edit",
+        "sama:content:publish",
+        "sama:author:verify",
+        "sama:certificate:manage",
+        "sama:content:import",
+        "pillars:read",
+        "notifications:read",
+    ],
+    "sama_content_editor": [
+        "sama:read",
+        "sama:content:edit",
+        "pillars:read",
+        "notifications:read",
+    ],
     "authority": [
         "pillars:read",
         "governance:access",

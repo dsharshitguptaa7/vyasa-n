@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Badge, Button, PageContainer } from '@vyasa/ui';
+import { Card, Badge, Button, AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../../context/AuthContext';
 import { committeeService } from '../services/committeeService';
 import './CaseReview.css';
@@ -545,20 +545,20 @@ export const CommitteeWorkspacePage: React.FC = () => {
 
   if (loading) {
     return (
-      <PageContainer style={{ padding: '32px 0 60px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 48px 20px', boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--vyasa-text-secondary)' }}>
           <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
             Loading Committee Workspace...
           </div>
           <div style={{ fontSize: '13px' }}>Verifying institutional credentials and permissions...</div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   if (errorMsg || !workspace) {
     return (
-      <PageContainer style={{ padding: '32px 0 60px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 48px 20px', boxSizing: 'border-box' }}>
         <Card variant="scholarly" style={{ padding: '32px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', marginBottom: '12px', color: '#c53030' }}>&bull; Access Restricted</div>
           <p style={{ color: 'var(--vyasa-text-secondary)', marginBottom: '24px' }}>
@@ -568,59 +568,78 @@ export const CommitteeWorkspacePage: React.FC = () => {
             &larr; Return to Committees Directory
           </Button>
         </Card>
-      </PageContainer>
+      </div>
     );
   }
 
   const { committee } = workspace;
 
   return (
-    <PageContainer style={{ padding: '32px 0 60px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 48px 20px', boxSizing: 'border-box' }}>
 
-      {/* Breadcrumb & Navigation Back */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-          <span
-            style={{ cursor: 'pointer', textDecoration: 'underline' }}
-            onClick={() => navigate('/modules/atharva-veda/nivaran/committees')}
-          >
-            Committees
-          </span>
-          <span>&rsaquo;</span>
-          <span style={{ fontWeight: 600, color: 'var(--vyasa-navy)' }}>{committee.committee_name}</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {committee.grievance_id && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (isAssistantDean) {
-                  navigate(`/modules/atharva-veda/nivaran/assistant-dean/grievance/${committee.grievance_id}`);
-                } else if (isAssociateDean) {
-                  navigate(`/modules/atharva-veda/nivaran/associate-dean/grievance/${committee.grievance_id}`);
-                } else {
-                  navigate(`/modules/atharva-veda/nivaran/manager/review/${committee.grievance_id}`);
-                }
-              }}
-            >
-              Related Grievance {committee.grievance_tracking_id ? `(#${committee.grievance_tracking_id})` : ''} &rarr;
-            </Button>
-          )}
-
-          {canManage && (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ borderColor: '#e53e3e', color: '#c53030' }}
-              onClick={() => setIsDissolveModalOpen(true)}
-            >
-              Dissolve Committee
-            </Button>
-          )}
-        </div>
-      </div>
+      {/* 0. Clean Institutional Breadcrumb */}
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '16px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
+        >
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>VYASA Dashboard</span>
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          NIVARAN
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/modules/atharva-veda/nivaran/committees')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Committees Workspace
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>{committee.committee_name}</span>
+      </nav>
 
       {/* Prominent Dissolved Banner */}
       {isDissolved && (
@@ -655,59 +674,215 @@ export const CommitteeWorkspacePage: React.FC = () => {
         </div>
       )}
 
-      {/* Committee Hero Header */}
-      <Card variant="scholarly" style={{ marginBottom: '24px', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--vyasa-navy)' }}>
-                {committee.committee_name}
-              </h1>
-              <Badge variant={committee.status === 'ACTIVE' ? 'teal' : 'saffron'}>
-                {committee.status}
-              </Badge>
-              {workspace.user_role_in_committee && (
-                <Badge variant="saffron">
-                  Your Role: {workspace.user_role_in_committee}
-                </Badge>
-              )}
-            </div>
+      {/* 1. Canonical Committee Header with Watermark */}
+      <div className="nivaran-case-header">
+        {/* Architectural building watermark */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: '160px',
+            top: 0,
+            bottom: 0,
+            width: '260px',
+            opacity: 0.04,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 0,
+          }}
+        >
+          <AppIcon name="building" size={200} color="#0f2b48" />
+        </div>
 
-            <p style={{ margin: 0, fontSize: '14px', color: 'var(--vyasa-text-secondary)', lineHeight: 1.5, maxWidth: '850px' }}>
-              {committee.terms_of_reference || 'Ad-hoc grievance inquiry and governance review committee.'}
-            </p>
+        <div className="nivaran-case-header__top-bar">
+          <div className="nivaran-case-header__title-row">
+            <div className="nivaran-case-icon-chip" aria-hidden="true">
+              <AppIcon name="users" size={20} color="var(--vyasa-navy, #1b2a4a)" />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--vyasa-gold, #b2811a)',
+                  marginBottom: '2px',
+                }}
+              >
+                Chhatrapati Shahu Ji Maharaj University, Kanpur
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h1 className="nivaran-case-heading">
+                  {committee.committee_name}
+                </h1>
+                <Badge variant={committee.status === 'ACTIVE' ? 'teal' : 'saffron'}>
+                  {committee.status}
+                </Badge>
+                {workspace.user_role_in_committee && (
+                  <Badge variant="saffron">
+                    Your Role: {workspace.user_role_in_committee}
+                  </Badge>
+                )}
+                {/* Academic Session Indicator */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 9px',
+                    borderRadius: '999px',
+                    backgroundColor: 'rgba(27, 42, 74, 0.06)',
+                    border: '1px solid rgba(27, 42, 74, 0.12)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: 'var(--vyasa-navy, #1b2a4a)',
+                  }}
+                  title="Current Academic Governance Session"
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: '#10b981',
+                      display: 'inline-block',
+                    }}
+                  />
+                  <span>Session 2026–27</span>
+                </div>
+              </div>
+
+              <p className="nivaran-case-meta">
+                <span className="nivaran-case-meta__item">
+                  <strong>Chairperson:</strong> {committee.chairperson_name}
+                </span>
+                <span className="nivaran-case-meta__sep">&bull;</span>
+                <span className="nivaran-case-meta__item">
+                  <strong>Chartered:</strong> {committee.chartered_at ? new Date(committee.chartered_at).toLocaleDateString() : 'N/A'}
+                </span>
+                <span className="nivaran-case-meta__sep">&bull;</span>
+                <span className="nivaran-case-meta__item">
+                  <strong>Appointed Members:</strong> {committee.members?.length || committee.members_count || 0}
+                </span>
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px' }}>
-            <div style={{ backgroundColor: '#f8fafc', padding: '8px 16px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary)', fontWeight: 600 }}>
-                Chairperson
-              </div>
-              <div style={{ fontWeight: 600, color: 'var(--vyasa-navy)', marginTop: '2px' }}>
-                {committee.chairperson_name}
-              </div>
-            </div>
+          <div className="nivaran-case-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {committee.grievance_id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (isAssistantDean) {
+                    navigate(`/modules/atharva-veda/nivaran/assistant-dean/grievance/${committee.grievance_id}`);
+                  } else if (isAssociateDean) {
+                    navigate(`/modules/atharva-veda/nivaran/associate-dean/grievance/${committee.grievance_id}`);
+                  } else {
+                    navigate(`/modules/atharva-veda/nivaran/manager/review/${committee.grievance_id}`);
+                  }
+                }}
+              >
+                Related Grievance {committee.grievance_tracking_id ? `(#${committee.grievance_tracking_id})` : ''} &rarr;
+              </Button>
+            )}
 
-            <div style={{ backgroundColor: '#f8fafc', padding: '8px 16px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary)', fontWeight: 600 }}>
-                Chartered Date
-              </div>
-              <div style={{ fontWeight: 600, color: 'var(--vyasa-navy)', marginTop: '2px' }}>
-                {committee.chartered_at ? new Date(committee.chartered_at).toLocaleDateString() : 'N/A'}
-              </div>
-            </div>
+            {canManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ borderColor: '#e53e3e', color: '#c53030' }}
+                onClick={() => setIsDissolveModalOpen(true)}
+              >
+                Dissolve Committee
+              </Button>
+            )}
+          </div>
+        </div>
 
-            <div style={{ backgroundColor: '#f8fafc', padding: '8px 16px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--vyasa-text-secondary)', fontWeight: 600 }}>
-                Members
-              </div>
-              <div style={{ fontWeight: 600, color: 'var(--vyasa-navy)', marginTop: '2px' }}>
-                {committee.members?.length || committee.members_count || 0} Appointed
-              </div>
+        {committee.terms_of_reference && (
+          <div
+            style={{
+              marginTop: '14px',
+              paddingTop: '12px',
+              borderTop: '1px solid rgba(27, 42, 74, 0.08)',
+              fontSize: '13px',
+              color: 'var(--vyasa-text-secondary, #475569)',
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Terms of Reference:</strong> {committee.terms_of_reference}
+          </div>
+        )}
+      </div>
+
+      {/* 2. Authority Identity & Committee Jurisdiction Summary Strip */}
+      <div
+        data-testid="authority-identity-summary"
+        className="nivaran-authority-identity-strip"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          padding: '12px 18px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          borderLeft: '4px solid var(--vyasa-gold, #b2811a)',
+          marginBottom: '20px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(178, 129, 26, 0.12)',
+              color: 'var(--vyasa-gold, #b2811a)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              fontSize: '14px',
+            }}
+          >
+            {user?.fullName?.charAt(0) || 'U'}
+          </div>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--vyasa-navy, #0f2b48)' }}>
+              {user?.fullName || displayName || 'Authorized Authority'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Your Role in Committee:{' '}
+              <span style={{ fontWeight: 600, color: 'var(--vyasa-navy, #0f2b48)' }}>
+                {workspace.user_role_in_committee || 'Authorized Viewer'}
+              </span>
+              {' '}&bull; Deliberation Status:{' '}
+              <span style={{ fontWeight: 600, color: committee.status === 'ACTIVE' ? '#166534' : '#991b1b' }}>
+                {committee.status}
+              </span>
             </div>
           </div>
         </div>
-      </Card>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', color: '#64748b' }}>
+          <div>
+            <strong>Quorum Rule:</strong> Simple Majority
+          </div>
+          <span style={{ color: '#cbd5e1' }}>&bull;</span>
+          <div>
+            <strong>Compliance:</strong> UGC (Grievance Redressal) Regulations
+          </div>
+        </div>
+      </div>
 
       {/* 8-Section Dedicated Workspace Tabs */}
       <div
@@ -2202,6 +2377,6 @@ export const CommitteeWorkspacePage: React.FC = () => {
           </Card>
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 };

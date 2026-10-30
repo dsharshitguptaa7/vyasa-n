@@ -66,7 +66,7 @@ export const FinalVisionSection: React.FC<FinalVisionSectionProps> = ({ onEnterE
           onClick={() => navigate('/modules/atharva-veda/nivaran')}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <span>Explore NIVARAN-AI</span>
+            <span>Explore NIVARAN</span>
             <AppIcon name="arrow-right" size={16} />
           </span>
         </Button>

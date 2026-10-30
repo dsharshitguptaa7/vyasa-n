@@ -14,7 +14,7 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({ className = '', onSign
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
-  const { displayName, user, logout } = useAuth();
+  const { displayName, user, logout, isApplicant } = useAuth();
 
   // Handle outside click & escape key
   useEffect(() => {
@@ -47,14 +47,15 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({ className = '', onSign
     if (onSignOut) {
       onSignOut();
     } else {
+      const wasApplicant = isApplicant;
       logout();
-      navigate('/');
+      navigate(wasApplicant ? '/applicant/login' : '/authority/login');
     }
   };
 
   const handleProfileClick = () => {
     setIsOpen(false);
-    navigate('/dashboard');
+    navigate('/profile');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {

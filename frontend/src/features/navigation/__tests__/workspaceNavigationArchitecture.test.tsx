@@ -135,7 +135,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
 
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
@@ -144,20 +144,20 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     expect(trigger).toHaveTextContent('Services');
   });
 
-  // 2. Active NIVARAN-AI service exists
-  it('2. Active NIVARAN-AI service exists in service registry', () => {
+  // 2. Active NIVARAN service exists
+  it('2. Active NIVARAN service exists in service registry', () => {
     const active = getActiveServices();
     const nivaran = active.find((s) => s.id === 'nivaran');
 
     expect(nivaran).toBeDefined();
-    expect(nivaran?.name).toBe('NIVARAN-AI');
+    expect(nivaran?.name).toBe('NIVARAN');
     expect(nivaran?.isActive).toBe(true);
     expect(nivaran?.moduleKey).toBe('atharva_veda_nivaran');
     expect(nivaran?.route).toBe('/modules/atharva-veda/nivaran');
   });
 
-  // 3. NIVARAN-AI is visible in Services dropdown
-  it('3. NIVARAN-AI is visible in Services dropdown upon opening', () => {
+  // 3. NIVARAN is visible in Services dropdown
+  it('3. NIVARAN is visible in Services dropdown upon opening', () => {
     mockAuthHelper({
       isAuthenticated: true,
       isDean: true,
@@ -169,17 +169,17 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
 
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
     const trigger = screen.getByRole('button', { name: /VYASA Services Menu/i });
     fireEvent.click(trigger);
 
-    expect(screen.getByText('NIVARAN-AI')).toBeInTheDocument();
+    expect(screen.getByText('NIVARAN')).toBeInTheDocument();
     expect(screen.getByText('AI-Assisted Grievance Redressal')).toBeInTheDocument();
     expect(screen.getByText('Grievance Redressal Ecosystem')).toBeInTheDocument();
-    expect(screen.getByText('Active Service')).toBeInTheDocument();
+    expect(screen.getAllByText('Active Service').length).toBeGreaterThanOrEqual(1);
   });
 
   // 4. Inactive Rig Veda is not visible
@@ -190,7 +190,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     mockAuthHelper({ isAuthenticated: true, isDean: true, displayName: 'Prof. Namita Tiwari' });
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
@@ -207,7 +207,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     mockAuthHelper({ isAuthenticated: true, isDean: true, displayName: 'Prof. Namita Tiwari' });
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
@@ -216,21 +216,20 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     expect(screen.queryByText('ANUDAN')).not.toBeInTheDocument();
   });
 
-  // 6. Inactive Sama Veda is not visible
-  it('6. Inactive Sama Veda is not visible in active services or dropdown', () => {
+  // 6. Active Sama Veda is visible in active services and dropdown
+  it('6. Active Sama Veda is visible in active services and dropdown', () => {
     const active = getActiveServices();
-    expect(active.find((s) => s.id === 'sama-veda')).toBeUndefined();
+    expect(active.find((s) => s.id === 'sama-veda')).toBeDefined();
 
     mockAuthHelper({ isAuthenticated: true, isDean: true, displayName: 'Prof. Namita Tiwari' });
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    expect(screen.queryByText('Sama Veda')).not.toBeInTheDocument();
-    expect(screen.queryByText('SAMIKSHA')).not.toBeInTheDocument();
+    expect(screen.getByText('Sama Veda')).toBeInTheDocument();
   });
 
   // 7. Mouse enter opens Services
@@ -255,7 +254,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     fireEvent.mouseEnter(trigger);
 
     expect(screen.getByRole('menu')).toBeInTheDocument();
-    expect(screen.getByText('NIVARAN-AI')).toBeInTheDocument();
+    expect(screen.getByText('NIVARAN')).toBeInTheDocument();
   });
 
   // 8. Mouse remains inside dropdown without closing
@@ -309,8 +308,8 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     });
   });
 
-  // 10. Clicking NIVARAN-AI navigates correctly
-  it('10. Clicking NIVARAN-AI navigates directly and closes dropdown', () => {
+  // 10. Clicking NIVARAN navigates correctly
+  it('10. Clicking NIVARAN navigates directly and closes dropdown', () => {
     mockAuthHelper({
       isAuthenticated: true,
       isDean: true,
@@ -323,14 +322,14 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
-          <Route path="/dashboard" element={<Navbar />} />
+          <Route path="/dashboard" element={<ServicesMenu />} />
           <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div>Target Dean Dashboard</div>} />
         </Routes>
       </MemoryRouter>
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    const nivaranItem = screen.getByRole('menuitem');
+    const nivaranItem = screen.getAllByRole('menuitem')[0];
     fireEvent.click(nivaranItem);
 
     expect(screen.getByText('Target Dean Dashboard')).toBeInTheDocument();
@@ -355,7 +354,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    fireEvent.click(screen.getByRole('menuitem'));
+    fireEvent.click(screen.getAllByRole('menuitem')[0]);
 
     expect(screen.getByText('Target Scholar Grievances')).toBeInTheDocument();
   });
@@ -381,7 +380,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    fireEvent.click(screen.getByRole('menuitem'));
+    fireEvent.click(screen.getAllByRole('menuitem')[0]);
 
     expect(screen.getByText('Target Manager Queue')).toBeInTheDocument();
   });
@@ -407,7 +406,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    fireEvent.click(screen.getByRole('menuitem'));
+    fireEvent.click(screen.getAllByRole('menuitem')[0]);
 
     expect(screen.getByText('Target Assistant Dean Docket')).toBeInTheDocument();
   });
@@ -433,7 +432,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    fireEvent.click(screen.getByRole('menuitem'));
+    fireEvent.click(screen.getAllByRole('menuitem')[0]);
 
     expect(screen.getByText('Target Associate Dean Docket')).toBeInTheDocument();
   });
@@ -459,7 +458,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
-    fireEvent.click(screen.getByRole('menuitem'));
+    fireEvent.click(screen.getAllByRole('menuitem')[0]);
 
     expect(screen.getByText('Target Dean Command Center')).toBeInTheDocument();
   });
@@ -571,21 +570,14 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
 
     const { container } = render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ServicesMenu />
       </MemoryRouter>
     );
 
-    const nav = container.querySelector('nav[aria-label="Platform navigation"]');
-    expect(nav).toBeInTheDocument();
-
-    // Nav must have overflow: visible and position: relative to prevent horizontal scrollbars
-    expect(nav).toHaveStyle({ overflow: 'visible' });
-
-    // Open menu
-    fireEvent.click(screen.getByRole('button', { name: /VYASA Services Menu/i }));
+    const trigger = screen.getByRole('button', { name: /VYASA Services Menu/i });
+    expect(trigger).toBeInTheDocument();
+    fireEvent.click(trigger);
     const menu = screen.getByRole('menu');
-
-    // Menu must be an overlay with absolute positioning
     expect(menu).toHaveStyle({ position: 'absolute' });
   });
 });

@@ -49,7 +49,7 @@ export const NivaranNav: React.FC = () => {
             textTransform: 'uppercase',
           }}
         >
-          ATHARVA VEDA &bull; NIVARAN-AI
+          ATHARVA VEDA &bull; NIVARAN
         </span>
       </div>
 

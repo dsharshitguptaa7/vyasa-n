@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     CORS_ORIGIN: str = Field(default="http://localhost:5173", description="Allowed CORS origins")
     APPLICATION_TIMEZONE: str = Field(default="Asia/Kolkata", description="Application institutional business timezone")
 
+    # Storage Foundation
+    STORAGE_BASE_DIR: str = Field(
+        default="storage",
+        description="Base filesystem directory for secure document, certificate, and media storage",
+    )
+
     # Neon PostgreSQL database URL
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
 
@@ -161,6 +167,24 @@ class Settings(BaseSettings):
         description="Comma-separated list of trusted upstream proxy IP addresses",
     )
 
+    # Institutional Email & SMTP Settings (VYASA Centralized Email Service)
+    EMAIL_PROVIDER: str = Field(default="brevo", description="Active email provider: brevo, smtp, or simulation")
+    BREVO_API_KEY: Optional[str] = Field(default=None, description="Brevo API key for transactional email delivery")
+    BREVO_API_URL: str = Field(default="https://api.brevo.com/v3/smtp/email", description="Brevo v3 transactional email API endpoint")
+    BREVO_TIMEOUT_SECONDS: int = Field(default=10, description="HTTP timeout for Brevo API calls in seconds")
+    SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
+    SMTP_USERNAME: Optional[str] = Field(default=None, description="SMTP authentication username")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP authentication password")
+    SMTP_USE_TLS: bool = Field(default=True, description="Enable STARTTLS encryption")
+    SMTP_USE_SSL: bool = Field(default=False, description="Enable direct SSL encryption")
+    SMTP_TIMEOUT_SECONDS: int = Field(default=10, description="SMTP connection timeout in seconds")
+    EMAIL_ENABLED: bool = Field(default=False, description="Enable live email delivery; when False, emails are safely simulated/logged")
+    EMAIL_FROM_ADDRESS: str = Field(default="noreply@csjmu.ac.in", description="Institutional sender email address")
+    EMAIL_FROM_NAME: str = Field(default="VYASAᴺ — CSJMU Kanpur", description="Institutional sender display name")
+    PORTAL_BASE_URL: str = Field(default="https://vyasa.csjmu.ac.in", description="Institutional portal base URL for secure deep links")
+    SUPPORT_CONTACT_EMAIL: str = Field(default="grievance.support@csjmu.ac.in", description="Institutional support contact email")
+
     @property
     def sync_database_url(self) -> str:
         """
@@ -177,8 +201,16 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> List[str]:
         if not self.CORS_ORIGIN:
-            return ["http://localhost:5173"]
-        return [origin.strip() for origin in self.CORS_ORIGIN.split(",") if origin.strip()]
+            base = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        else:
+            base = [origin.strip() for origin in self.CORS_ORIGIN.split(",") if origin.strip()]
+        resolved = list(base)
+        for origin in base:
+            if "localhost" in origin:
+                resolved.append(origin.replace("localhost", "127.0.0.1"))
+            elif "127.0.0.1" in origin:
+                resolved.append(origin.replace("127.0.0.1", "localhost"))
+        return list(dict.fromkeys(resolved))
 
 
 # Cached singleton settings instance

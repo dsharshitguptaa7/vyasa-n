@@ -139,7 +139,7 @@ export const AssociateDeanDashboardPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN-AI
+          NIVARAN
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Authority Docket</span>

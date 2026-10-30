@@ -185,12 +185,12 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     expect(screen.getByText('Operational Domain')).toBeInTheDocument();
   });
 
-  it('9. NIVARAN-AI operational domain section renders workflow visual and working CTA', () => {
+  it('9. NIVARAN operational domain section renders workflow visual and working CTA', () => {
     renderLandingPage();
 
     // Operational domain banner
     expect(screen.getByText('The First Operational Domain')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'NIVARAN-AI' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'NIVARAN' })).toBeInTheDocument();
     expect(screen.getByText('AI-Assisted Grievance Redressal & Monitoring')).toBeInTheDocument();
 
     // Workflow steps
@@ -202,7 +202,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     expect(screen.getByText('Institutional Record')).toBeInTheDocument();
 
     // Click CTA to navigate
-    const ctas = screen.getAllByRole('button', { name: /Explore NIVARAN-AI/i });
+    const ctas = screen.getAllByRole('button', { name: /Explore NIVARAN/i });
     expect(ctas.length).toBeGreaterThan(0);
     fireEvent.click(ctas[0]);
     expect(screen.getByTestId('nivaran-dest')).toBeInTheDocument();
@@ -291,7 +291,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
   it('16. NIVARAN credit indicator renders and opens popover on desktop hover', () => {
     renderLandingPage();
 
-    const creditBtn = screen.getByRole('button', { name: /NIVARAN-AI Design & Development Information/i });
+    const creditBtn = screen.getByRole('button', { name: /NIVARAN Design & Development Information/i });
     expect(creditBtn).toBeInTheDocument();
     expect(screen.queryByTestId('nivaran-credit-popover')).toBeNull();
 
@@ -302,14 +302,14 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
 
     const popover = screen.getByTestId('nivaran-credit-popover');
     expect(popover).toBeInTheDocument();
-    expect(popover).toHaveTextContent('NIVARAN-AI');
+    expect(popover).toHaveTextContent('NIVARAN');
     expect(popover).toHaveTextContent(/Design & Development/i);
   });
 
-  it('17. NIVARAN credit correctly maps both Harshit Gupta and Manali Yadav without sole ownership', () => {
+  it('17. NIVARAN credit correctly maps Harshit Gupta and removes Manali Yadav', () => {
     renderLandingPage();
 
-    const creditBtn = screen.getByRole('button', { name: /NIVARAN-AI Design & Development Information/i });
+    const creditBtn = screen.getByRole('button', { name: /NIVARAN Design & Development Information/i });
     fireEvent.click(creditBtn);
 
     const popover = screen.getByTestId('nivaran-credit-popover');
@@ -317,7 +317,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
 
     // Must show both contributors
     expect(popover).toHaveTextContent('Harshit Gupta');
-    expect(popover).toHaveTextContent('Manali Yadav');
+    expect(popover).not.toHaveTextContent('Manali Yadav');
     expect(popover).toHaveTextContent('M.Sc. Mathematics with AI & Data Science');
     expect(popover).toHaveTextContent(/Chhatrapati Shahu Ji Maharaj University, Kanpur/i);
   });
@@ -325,7 +325,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
   it('18. Keyboard interaction on NIVARAN credit button works (Enter to toggle, Escape to close)', () => {
     renderLandingPage();
 
-    const creditBtn = screen.getByRole('button', { name: /NIVARAN-AI Design & Development Information/i });
+    const creditBtn = screen.getByRole('button', { name: /NIVARAN Design & Development Information/i });
 
     // Press Enter to open
     fireEvent.keyDown(creditBtn, { key: 'Enter' });
@@ -339,7 +339,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
   it('19. Mobile/touch interaction: tap opens credit popover, outside click closes it', () => {
     renderLandingPage();
 
-    const creditBtn = screen.getByRole('button', { name: /NIVARAN-AI Design & Development Information/i });
+    const creditBtn = screen.getByRole('button', { name: /NIVARAN Design & Development Information/i });
 
     // Tap to open
     fireEvent.click(creditBtn);

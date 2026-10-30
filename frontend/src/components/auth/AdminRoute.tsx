@@ -5,10 +5,11 @@ import { Badge, Button, Card, PageContainer, LoadingState } from '@vyasa/ui';
 
 interface AdminRouteProps {
   children: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, isSuperAdmin, user, logout } = useAuth();
+export const AdminRoute: React.FC<AdminRouteProps> = ({ children, allowedRoles }) => {
+  const { isAuthenticated, isLoading, isAdmin, isSuperAdmin, user, logout } = useAuth();
   const navigate = useNavigate();
 
   if (isLoading) {
@@ -24,8 +25,18 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     return <Navigate to="/authority/login" replace />;
   }
 
-  // Strictly check super_admin role
-  const isAuthorized = isSuperAdmin || (user?.roles?.some((r) => r.toLowerCase() === 'super_admin') ?? false);
+  // Check super_admin by default, or explicit allowedRoles if configured.
+  // Seeded administrator role is permitted when verified by AuthContext isAdmin.
+  const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
+  const effectiveAllowedRoles = allowedRoles && allowedRoles.length > 0
+    ? allowedRoles.map((ar) => ar.toLowerCase())
+    : ['super_admin'];
+
+  const isAuthorized =
+    isSuperAdmin ||
+    userRoles.includes('super_admin') ||
+    (Boolean(allowedRoles && allowedRoles.length > 0) && userRoles.some((r) => effectiveAllowedRoles.includes(r))) ||
+    (Boolean(isAdmin) && userRoles.includes('administrator'));
 
   if (!isAuthorized) {
     return (

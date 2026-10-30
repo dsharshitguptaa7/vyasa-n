@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Badge, Button, PageContainer, LoadingState, EmptyState } from '@vyasa/ui';
+import { Card, Badge, Button, LoadingState, EmptyState, AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../../context/AuthContext';
 import { FormCommitteeModal } from '../components/FormCommitteeModal';
 import { RequestCommitteeModal } from '../components/RequestCommitteeModal';
@@ -15,7 +15,7 @@ import './CaseReview.css';
 
 export const CommitteesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isDean, isAssociateDean, isAssistantDean, authorityDesignation } = useAuth();
+  const { user, displayName, isDean, isAssociateDean, isAssistantDean, authorityDesignation } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'active' | 'dissolved' | 'pending_requests'>('active');
   const [requestSubFilter, setRequestSubFilter] = useState<'PENDING' | 'ALL'>('PENDING');
@@ -33,6 +33,7 @@ export const CommitteesListPage: React.FC = () => {
 
   const canDirectForm = isDean || isAssociateDean;
   const canRequest = isAssociateDean || isAssistantDean;
+  const authorityFullName = displayName || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Appointed Authority');
 
   const loadData = async () => {
     try {
@@ -157,35 +158,112 @@ export const CommitteesListPage: React.FC = () => {
   };
 
   return (
-    <PageContainer style={{ padding: '32px 0 60px' }}>
-      {/* 1. Scholarly Jurisdictional Header */}
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 48px 20px', boxSizing: 'border-box' }}>
+      {/* 0. Clean Institutional Breadcrumb */}
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '16px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
+        >
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>VYASA Dashboard</span>
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          NIVARAN
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>Committees Workspace</span>
+      </nav>
+
+      {/* 1. Canonical Institutional Header with Watermark */}
       <div className="nivaran-case-header">
+        {/* Architectural building watermark */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: '160px',
+            top: 0,
+            bottom: 0,
+            width: '260px',
+            opacity: 0.04,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 0,
+          }}
+        >
+          <AppIcon name="building" size={200} color="#0f2b48" />
+        </div>
+
         <div className="nivaran-case-header__top-bar">
           <div className="nivaran-case-header__title-row">
-            <div className="nivaran-case-icon-chip">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--vyasa-navy)' }}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
+            <div className="nivaran-case-icon-chip" aria-hidden="true">
+              <AppIcon name="users" size={20} color="var(--vyasa-navy, #1b2a4a)" />
             </div>
             <div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--vyasa-gold, #b2811a)',
+                  marginBottom: '2px',
+                }}
+              >
+                Chhatrapati Shahu Ji Maharaj University, Kanpur
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h1 className="nivaran-case-heading" style={{ fontSize: '21px' }}>
+                <h1 className="nivaran-case-heading">
                   Committees &bull; Committee Management System
                 </h1>
                 <Badge variant="teal">{metrics?.total_committees ?? committees.length} Total Committees</Badge>
                 <Badge variant="saffron">CSJMU Statutory Redressal</Badge>
               </div>
-              <p className="nivaran-case-meta" style={{ marginTop: '4px' }}>
+              <p className="nivaran-case-meta">
                 <span className="nivaran-case-meta__item">
                   Institutional governance bodies, fact-finding panels &amp; statutory committee workspaces
                 </span>
                 {authorityDesignation && (
                   <>
                     <span className="nivaran-case-meta__separator">&bull;</span>
-                    <span className="nivaran-case-meta__item" style={{ color: 'var(--vyasa-navy)', fontWeight: 600 }}>
+                    <span className="nivaran-case-meta__item" style={{ color: 'var(--vyasa-navy, #0f2b48)', fontWeight: 600 }}>
                       Jurisdiction: {authorityDesignation}
                     </span>
                   </>
@@ -194,7 +272,44 @@ export const CommitteesListPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', zIndex: 1 }}>
+            {/* Academic Session Indicator */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '6px 12px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+              }}
+            >
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  backgroundColor: '#eff6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#2563eb',
+                }}
+              >
+                <AppIcon name="clock" size={15} />
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+                  Academic Session
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f2b48', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>2026–27</span>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                </div>
+              </div>
+            </div>
+
             {canRequest && (
               <Button
                 variant="outline"
@@ -227,6 +342,96 @@ export const CommitteesListPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 2. Authority Identity & Jurisdiction Summary Strip */}
+      <div
+        data-testid="authority-identity-summary"
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          {/* Account Name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AppIcon name="user" size={15} color="#b2811a" />
+            <div>
+              <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                Appointed Authority
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f2b48' }}>
+                {authorityFullName}
+              </span>
+            </div>
+          </div>
+
+          {/* Institutional Email */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AppIcon name="mail" size={15} color="#2563eb" />
+            <div>
+              <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                Official Email
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>
+                {user?.email || '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* Jurisdiction Scope */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AppIcon name="scale" size={15} color="#0d9488" />
+            <div>
+              <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                Governance Scope
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f2b48' }}>
+                {authorityDesignation || 'Institutional Statutory Committees'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/modules/atharva-veda/nivaran/student-records')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: 'var(--vyasa-primary, #0f2b48)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#eff6ff';
+            e.currentTarget.style.borderColor = '#93c5fd';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#f8fafc';
+            e.currentTarget.style.borderColor = '#cbd5e1';
+          }}
+        >
+          <span>Student Master Records</span>
+          <span aria-hidden="true">&rarr;</span>
+        </button>
+      </div>
+
       {errorMsg && (
         <div
           style={{
@@ -257,12 +462,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-kpi__header">
             <span className="nivaran-docket-kpi__label">Total Committees</span>
             <div className="nivaran-docket-kpi__icon-bubble">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
+              <AppIcon name="users" size={16} />
             </div>
           </div>
           <div className="nivaran-docket-kpi__value">{metrics?.total_committees ?? committees.length}</div>
@@ -273,9 +473,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-kpi__header">
             <span className="nivaran-docket-kpi__label">Active Committees</span>
             <div className="nivaran-docket-kpi__icon-bubble">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
+              <AppIcon name="check-circle" size={16} />
             </div>
           </div>
           <div className="nivaran-docket-kpi__value" style={{ color: '#059669' }}>
@@ -288,10 +486,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-kpi__header">
             <span className="nivaran-docket-kpi__label">Dissolved Committees</span>
             <div className="nivaran-docket-kpi__icon-bubble">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
+              <AppIcon name="file-text" size={16} />
             </div>
           </div>
           <div className="nivaran-docket-kpi__value" style={{ color: '#64748b' }}>
@@ -305,10 +500,7 @@ export const CommitteesListPage: React.FC = () => {
             <div className="nivaran-docket-kpi__header">
               <span className="nivaran-docket-kpi__label">Pending Requests</span>
               <div className="nivaran-docket-kpi__icon-bubble">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
+                <AppIcon name="clock" size={16} />
               </div>
             </div>
             <div className="nivaran-docket-kpi__value" style={{ color: '#b45309' }}>
@@ -322,11 +514,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-kpi__header">
             <span className="nivaran-docket-kpi__label">Votes Requiring Action</span>
             <div className="nivaran-docket-kpi__icon-bubble">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <path d="M9 15l2 2 4-4" />
-              </svg>
+              <AppIcon name="clipboard" size={16} />
             </div>
           </div>
           <div className="nivaran-docket-kpi__value" style={{ color: '#8b5cf6' }}>
@@ -339,12 +527,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-kpi__header">
             <span className="nivaran-docket-kpi__label">Upcoming Meetings</span>
             <div className="nivaran-docket-kpi__icon-bubble">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
+              <AppIcon name="clock" size={16} />
             </div>
           </div>
           <div className="nivaran-docket-kpi__value" style={{ color: '#0284c7' }}>
@@ -390,10 +573,7 @@ export const CommitteesListPage: React.FC = () => {
           <div className="nivaran-docket-controls">
             <div className="nivaran-docket-search-wrap">
               <span className="nivaran-docket-search-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
+                <AppIcon name="search" size={14} />
               </span>
               <input
                 type="text"
@@ -751,6 +931,6 @@ export const CommitteesListPage: React.FC = () => {
           loading={modalLoading}
         />
       )}
-    </PageContainer>
+    </div>
   );
 };

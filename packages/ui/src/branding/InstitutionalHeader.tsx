@@ -10,6 +10,8 @@ export interface InstitutionalHeaderProps {
   className?: string;
   subBrand?: React.ReactNode;
   contextualNav?: React.ReactNode;
+  applicantMode?: boolean;
+  authenticatedMode?: boolean;
 }
 
 /**
@@ -17,6 +19,10 @@ export interface InstitutionalHeaderProps {
  * Adheres to the established two-tier institutional design system:
  * Tier 1: CSJMU Institutional Affiliation Bar (#081726)
  * Accent: Solid Antique Gold Divider (1.5px)
+ * When applicantMode is active:
+ * Only Tier 1 and gold divider are rendered, with actions (notification bell)
+ * placed in Tier 1. Second horizontal navigation bar (Tier 2 & Tier 3) is omitted.
+ * When applicantMode is false/omitted:
  * Tier 2: Primary Ecosystem Masthead (#061524)
  * Tier 3: Optional Contextual Navigation Bar
  */
@@ -27,7 +33,11 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
   className = '',
   subBrand,
   contextualNav,
+  applicantMode = false,
+  authenticatedMode = false,
 }) => {
+  const isCompact = applicantMode || authenticatedMode;
+
   return (
     <header className={`vyasa-institutional-header ${className}`} style={{ position: 'sticky', top: 0, zIndex: 60, width: '100%' }}>
       {/* Tier 1: CSJMU Institutional Affiliation Bar */}
@@ -38,6 +48,9 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
           color: '#ffffff',
           padding: '8px 0',
           fontSize: '12px',
+          minHeight: isCompact ? '48px' : undefined,
+          display: isCompact ? 'flex' : undefined,
+          alignItems: isCompact ? 'center' : undefined,
           transition: 'all 0.25s ease',
         }}
       >
@@ -49,9 +62,23 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
+            width: '100%',
           }}
         >
-          <UniversityBrand size="md" showAccreditation={true} theme="dark" />
+          <div
+            onClick={onLogoClick}
+            role={onLogoClick ? "button" : undefined}
+            tabIndex={onLogoClick ? 0 : undefined}
+            style={{ cursor: onLogoClick ? 'pointer' : 'default', display: 'inline-flex' }}
+            onKeyDown={(e) => {
+              if (onLogoClick && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                onLogoClick();
+              }
+            }}
+          >
+            <UniversityBrand size="md" showAccreditation={true} theme="dark" />
+          </div>
           <div
             className="csjmu-top-bar__meta"
             style={{
@@ -74,6 +101,11 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
             >
               {CSJMU_INSTITUTION.location}
             </span>
+            {isCompact && actions && (
+              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {actions}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -89,9 +121,11 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
         }}
       />
 
-      {/* Tier 2: Primary Ecosystem Masthead */}
-      <div
-        className="vyasa-public-masthead vyasa-masthead"
+      {/* For compact authenticated headers: Tier 2 masthead and Tier 3 contextual nav are omitted */}
+      {!isCompact && (
+        <>
+          <div
+            className="vyasa-public-masthead vyasa-masthead"
         style={{
           backgroundColor: '#061524',
           color: '#ffffff',
@@ -209,6 +243,8 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
         <div className="vyasa-context-nav">
           {contextualNav}
         </div>
+      )}
+      </>
       )}
     </header>
   );

@@ -150,7 +150,7 @@ class GrievanceOCRExtractor:
             return {
                 "title": extracted_title,
                 "description": extracted_description,
-                "confidence_note": "Extracted via Gemini Multimodal. Please verify all details before submitting.",
+                "confidence_note": "Extracted via VYASA AI Assistant. Please verify all details before submitting.",
             }
 
         except json.JSONDecodeError as je:

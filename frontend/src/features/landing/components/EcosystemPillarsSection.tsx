@@ -16,8 +16,18 @@ interface ConceptualPillarItem {
 
 const DEFAULT_ECOSYSTEM_PILLARS: ConceptualPillarItem[] = [
   {
+    id: 'sama-veda',
+    name: 'Sama Veda: SAMIKSHA',
+    subtitle: 'Research Recognition, Publications & Bulletins',
+    description:
+      'Official CSJMU research felicitation portal featuring verified publication archives, Scopus researcher recognition, digital felicitation certificate verification, research bulletins, and CAM-AI project showcases.',
+    badgeLabel: 'Active Subsystem',
+    badgeVariant: 'teal',
+    status: 'active',
+  },
+  {
     id: 'nivaran',
-    name: 'Atharva Veda: NIVARAN-AI',
+    name: 'Atharva Veda: NIVARAN',
     subtitle: 'Institutional Grievance Redressal & Governance',
     description:
       'Official CSJMU doctoral research and university grievance resolution platform, featuring AI-assisted ticket triage, transparent multi-tier escalations, and cryptographic dossier tracking.',
@@ -144,6 +154,19 @@ export const EcosystemPillarsSection: React.FC = () => {
               </span>
             </div>
 
+            {item.id === 'sama-veda' && (
+              <div style={{ marginTop: '14px' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => navigate('/modules/sama-veda')}
+                >
+                  Explore SAMIKSHA &rarr;
+                </Button>
+              </div>
+            )}
+
             {item.id === 'nivaran' && (
               <div style={{ marginTop: '14px' }}>
                 <Button
@@ -152,7 +175,7 @@ export const EcosystemPillarsSection: React.FC = () => {
                   style={{ width: '100%', justifyContent: 'center' }}
                   onClick={() => navigate('/modules/atharva-veda/nivaran')}
                 >
-                  Open Atharva Veda / NIVARAN &rarr;
+                  Open NIVARAN &rarr;
                 </Button>
               </div>
             )}

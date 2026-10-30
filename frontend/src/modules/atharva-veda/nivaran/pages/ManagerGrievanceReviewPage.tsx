@@ -364,7 +364,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
                 <span className="sr-only">Dynamic Routing Destination Preview</span>
               </div>
               <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: 'var(--vyasa-text-secondary)' }}>
-                Under NIVARAN-AI sequential assignment, cases route first to the Subject Assistant Dean.
+                Under NIVARAN sequential assignment, cases route first to the Subject Assistant Dean.
               </p>
               {previewLoading ? (
                 <div style={{ fontSize: '12px', color: 'var(--vyasa-text-secondary)' }}>

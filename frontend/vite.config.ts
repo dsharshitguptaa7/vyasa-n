@@ -39,6 +39,37 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          const norm = id.replace(/\\/g, '/');
+          if (norm.includes('node_modules')) {
+            if (norm.includes('react-router') || norm.includes('react-dom') || norm.includes('/react/')) {
+              return 'vendor-react';
+            }
+            if (norm.includes('lucide-react')) {
+              return 'vendor-lucide';
+            }
+            return 'vendor-libs';
+          }
+          if (norm.includes('frontend/src/admin')) {
+            return 'module-admin';
+          }
+          if (norm.includes('frontend/src/modules/atharva-veda')) {
+            return 'module-atharva-veda';
+          }
+          if (norm.includes('frontend/src/modules/sama-veda')) {
+            return 'module-sama-veda';
+          }
+          if (norm.includes('packages/ui')) {
+            return 'pkg-vyasa-ui';
+          }
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

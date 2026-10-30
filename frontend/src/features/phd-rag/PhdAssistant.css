@@ -1,0 +1,450 @@
+/* VYASA AI Assistant - Modern Academic Research Interface */
+
+:root {
+  --vyasa-navy-primary: #0f2b48;
+  --vyasa-navy-dark: #091c30;
+  --vyasa-navy-surface: #1e293b;
+  --vyasa-navy-bubble: #0f2b48;
+  --vyasa-gold-primary: #b2811a;
+  --vyasa-gold-hover: #d97706;
+  --vyasa-gold-light: #fef3c7;
+  --vyasa-gold-glow: rgba(178, 129, 26, 0.22);
+  --vyasa-teal-primary: #0d766e;
+  --vyasa-teal-light: #f0fdfa;
+  --vyasa-ivory-bg: #faf7f2;
+  --vyasa-ivory-surface: #ffffff;
+  --vyasa-border-subtle: #e8e2d8;
+  --vyasa-border-card: #e2e8f0;
+  --vyasa-text-primary: #19202a;
+  --vyasa-text-secondary: #4b5565;
+  --vyasa-text-muted: #64748b;
+}
+
+/* Page Container - Clean Natural Scroll Layout without Trapped Nested Boxes */
+.vyasa-assistant-page {
+  display: flex;
+  flex-direction: column;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 16px 36px 16px;
+  min-height: calc(100vh - 120px);
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .vyasa-assistant-page {
+    padding: 10px 8px 24px 8px;
+    min-height: auto;
+  }
+}
+
+/* Compact Institutional Header */
+.vyasa-compact-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background-color: #ffffff;
+  border: 1px solid var(--vyasa-border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .vyasa-compact-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+}
+
+/* Main Research Chat Frame */
+.vyasa-chat-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  border: 1px solid var(--vyasa-border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.04);
+  position: relative;
+}
+
+/* Transcript Container */
+.vyasa-chat-transcript {
+  flex: 1;
+  padding: 28px 26px 20px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #fcfbf9;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+@media (max-width: 768px) {
+  .vyasa-chat-transcript {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+}
+
+/* Welcome Centerpiece */
+.vyasa-welcome-container {
+  max-width: 760px;
+  margin: 32px auto;
+  padding: 16px;
+  text-align: center;
+}
+
+.vyasa-prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+  text-align: left;
+}
+
+.vyasa-prompt-card {
+  padding: 14px 16px;
+  background-color: #ffffff;
+  border: 1px solid var(--vyasa-border-subtle);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  outline: none;
+}
+
+.vyasa-prompt-card:hover,
+.vyasa-prompt-card:focus-visible {
+  border-color: var(--vyasa-gold-hover);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Message Rows */
+.vyasa-message-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.vyasa-message-row--user {
+  align-items: flex-end;
+}
+
+.vyasa-message-row--assistant {
+  align-items: flex-start;
+}
+
+/* Message Bubbles */
+.vyasa-bubble-user {
+  max-width: 78%;
+  background-color: var(--vyasa-navy-primary);
+  color: #ffffff;
+  padding: 12px 18px;
+  border-radius: 16px 16px 4px 16px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  box-shadow: 0 2px 6px rgba(15, 43, 72, 0.1);
+  word-break: break-word;
+}
+
+.vyasa-bubble-assistant {
+  max-width: 90%;
+  background-color: #ffffff;
+  color: var(--vyasa-text-primary);
+  padding: 18px 22px;
+  border-radius: 16px 16px 16px 4px;
+  border: 1px solid #e8e4dc;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  font-size: 0.94rem;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .vyasa-bubble-user {
+    max-width: 90%;
+    padding: 10px 14px;
+  }
+  .vyasa-bubble-assistant {
+    max-width: 98%;
+    padding: 14px 14px;
+  }
+}
+
+/* Modern Thinking Card */
+.vyasa-thinking-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background-color: #ffffff;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);
+  margin-top: 4px;
+}
+
+.vyasa-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vyasa-thinking-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--vyasa-gold-hover);
+  border-radius: 50%;
+  animation: vyasa-dot-pulse 1.4s ease-in-out infinite both;
+}
+
+.vyasa-thinking-dot:nth-child(1) { animation-delay: -0.32s; }
+.vyasa-thinking-dot:nth-child(2) { animation-delay: -0.16s; }
+.vyasa-thinking-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes vyasa-dot-pulse {
+  0%, 80%, 100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Modern Floating Sticky Composer */
+.vyasa-composer-wrapper {
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--vyasa-border-subtle);
+  padding: 12px 20px 14px 20px;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vyasa-composer-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 8px;
+  background-color: #faf9f6;
+  border: 1px solid #dfd8cb;
+  border-radius: 24px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+  transition: all 0.2s ease;
+}
+
+.vyasa-composer-pill:focus-within {
+  background-color: #ffffff;
+  border-color: var(--vyasa-gold-hover);
+  box-shadow: 0 3px 12px rgba(178, 129, 26, 0.12);
+}
+
+.vyasa-composer-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--vyasa-text-primary);
+  resize: none;
+  line-height: 1.5;
+  padding: 8px 4px;
+  max-height: 140px;
+  font-family: inherit;
+}
+
+.vyasa-composer-textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* Markdown Table */
+.vyasa-table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.vyasa-markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.vyasa-markdown-table th {
+  background-color: #f8fafc;
+  color: var(--vyasa-text-primary);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.vyasa-markdown-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--vyasa-text-secondary);
+}
+
+.vyasa-markdown-table tr:last-child td {
+  border-bottom: none;
+}
+
+.vyasa-markdown-table tr:hover td {
+  background-color: #fdfbf7;
+}
+
+/* Animations */
+@keyframes vyasa-halo-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--vyasa-gold-glow);
+    border-color: rgba(217, 119, 6, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(217, 119, 6, 0);
+    border-color: rgba(217, 119, 6, 0.65);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+    border-color: rgba(217, 119, 6, 0.35);
+  }
+}
+
+@keyframes vyasa-breathing {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+@keyframes vyasa-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.vyasa-thinking-orbit {
+  animation: vyasa-orbit 4s linear infinite;
+}
+
+@keyframes vyasa-node-drift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes vyasa-equalizer-bar-1 { 0%, 100% { height: 6px; } 50% { height: 18px; } }
+@keyframes vyasa-equalizer-bar-2 { 0%, 100% { height: 16px; } 50% { height: 6px; } }
+@keyframes vyasa-equalizer-bar-3 { 0%, 100% { height: 10px; } 50% { height: 20px; } }
+@keyframes vyasa-equalizer-bar-4 { 0%, 100% { height: 18px; } 50% { height: 8px; } }
+
+@keyframes vyasa-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vyasa-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Component Classes */
+.vyasa-avatar-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.25s ease-out;
+}
+
+.vyasa-avatar-halo--welcome {
+  border: 2px solid rgba(217, 119, 6, 0.4);
+  animation: vyasa-halo-pulse 3.6s ease-in-out infinite;
+}
+
+.vyasa-avatar-halo--thinking {
+  border: 2px solid rgba(217, 119, 6, 0.75);
+  animation: vyasa-halo-pulse 1.8s ease-in-out infinite, vyasa-breathing 2.4s ease-in-out infinite;
+}
+
+.vyasa-avatar-halo--speaking {
+  border: 2px solid rgba(13, 118, 110, 0.6);
+  box-shadow: 0 0 0 4px rgba(13, 118, 110, 0.15);
+}
+
+.vyasa-avatar-halo--paused {
+  border: 2px solid rgba(100, 116, 139, 0.4);
+}
+
+.vyasa-equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+  padding: 0 4px;
+}
+
+.vyasa-equalizer-bar {
+  width: 3px;
+  background-color: var(--vyasa-teal-primary);
+  border-radius: 2px;
+}
+
+.vyasa-equalizer--playing .bar-1 { animation: vyasa-equalizer-bar-1 0.75s ease-in-out infinite; }
+.vyasa-equalizer--playing .bar-2 { animation: vyasa-equalizer-bar-2 0.85s ease-in-out infinite; }
+.vyasa-equalizer--playing .bar-3 { animation: vyasa-equalizer-bar-3 0.65s ease-in-out infinite; }
+.vyasa-equalizer--playing .bar-4 { animation: vyasa-equalizer-bar-4 0.9s ease-in-out infinite; }
+
+.vyasa-equalizer--paused .vyasa-equalizer-bar {
+  animation-play-state: paused !important;
+  opacity: 0.6;
+}
+
+.vyasa-answer-entrance {
+  animation: vyasa-fade-in-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.vyasa-node-cluster {
+  animation: vyasa-node-drift 4s ease-in-out infinite;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .vyasa-avatar-halo--welcome,
+  .vyasa-avatar-halo--thinking,
+  .vyasa-avatar-halo--speaking,
+  .vyasa-equalizer-bar,
+  .vyasa-answer-entrance,
+  .vyasa-node-cluster,
+  .vyasa-thinking-dot,
+  .vyasa-thinking-orbit {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

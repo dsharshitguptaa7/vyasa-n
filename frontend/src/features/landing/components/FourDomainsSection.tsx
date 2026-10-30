@@ -7,10 +7,10 @@ export const FourDomainsSection: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section id="domains" className="vyasa-story-section">
+    <section id="domains" className="vyasa-story-section" aria-label="The Four Domains of VYASA">
       <SectionHeading
         align="center"
-        eyebrow="Ecosystem Architecture"
+        eyebrow="Institutional Architecture"
         title="The Four Domains of VYASAᴺ"
         description="The ecosystem has been conceptually organized around the four Vedas, with each domain carrying an independent institutional role."
       />
@@ -93,23 +93,39 @@ export const FourDomainsSection: React.FC = () => {
 
           {/* Left Domain: Sama Veda */}
           <div className="vyasa-domains-cell--left">
-            <div className="vyasa-domain-card vyasa-domain-card--conceptual">
+            <div className="vyasa-domain-card vyasa-domain-card--operational vyasa-domain-card--samiksha">
               <div className="vyasa-domain-header">
                 <div className="vyasa-domain-title-wrap">
                   <span className="vyasa-domain-icon" aria-hidden="true">
-                    <AppIcon name="globe" size={15} />
+                    <AppIcon name="book-open" size={15} color="var(--vyasa-teal, #0d766e)" />
                   </span>
-                  <h3 className="vyasa-domain-title">Sama Veda</h3>
+                  <h3 className="vyasa-domain-title" style={{ color: 'var(--vyasa-teal, #0d766e)' }}>
+                    Sama Veda
+                  </h3>
                 </div>
-                <Badge variant="neutral" size="sm">Conceptual Domain</Badge>
+                <Badge variant="teal" size="sm">Research Domain</Badge>
               </div>
               <div className="vyasa-domain-dimension">Research Recognition &amp; Communication</div>
               <p className="vyasa-domain-role">
-                The recognition, communication and dissemination dimension of research.
+                The recognition, communication and dissemination dimension of research felicitation, Scopus publication metrics, and CAM-AI showcases.
               </p>
-              <div className="vyasa-domain-footnote">
-                <span className="vyasa-domain-footnote-dot" aria-hidden="true" />
-                <span>Future Development &bull; Conceptual Domain</span>
+              <div className="vyasa-domain-action-row">
+                <span className="vyasa-domain-subsystem-link">
+                  <span>Portal: SAMIKSHA</span>
+                  <AppIcon name="arrow-right" size={12} color="var(--vyasa-teal, #0d766e)" />
+                </span>
+                <Button
+                  variant="teal"
+                  size="sm"
+                  aria-label="Open Sama Veda / SAMIKSHA"
+                  onClick={() => navigate('/modules/sama-veda')}
+                  className="vyasa-domain-action-btn"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Explore SAMIKSHA</span>
+                    <AppIcon name="arrow-right" size={13} />
+                  </span>
+                </Button>
               </div>
             </div>
           </div>
@@ -171,17 +187,17 @@ export const FourDomainsSection: React.FC = () => {
 
           {/* Bottom Domain: Atharva Veda (Operational Domain) */}
           <div className="vyasa-domains-cell--bottom">
-            <div className="vyasa-domain-card vyasa-domain-card--operational">
+            <div className="vyasa-domain-card vyasa-domain-card--operational vyasa-domain-card--nivaran">
               <div className="vyasa-domain-header">
                 <div className="vyasa-domain-title-wrap">
                   <span className="vyasa-domain-icon" aria-hidden="true">
-                    <AppIcon name="shield" size={15} />
+                    <AppIcon name="shield" size={15} color="var(--vyasa-gold, #b2811a)" />
                   </span>
-                  <h3 className="vyasa-domain-title" style={{ color: 'var(--vyasa-teal, #0d766e)' }}>
+                  <h3 className="vyasa-domain-title" style={{ color: 'var(--vyasa-gold, #b2811a)' }}>
                     Atharva Veda
                   </h3>
                 </div>
-                <Badge variant="teal" size="sm">Operational Domain</Badge>
+                <Badge variant="gold" size="sm">Operational Domain</Badge>
               </div>
               <div className="vyasa-domain-dimension">Grievance Redressal &amp; Institutional Well-Being</div>
               <p className="vyasa-domain-role">
@@ -189,18 +205,18 @@ export const FourDomainsSection: React.FC = () => {
               </p>
               <div className="vyasa-domain-action-row">
                 <span className="vyasa-domain-subsystem-link">
-                  <span>Subsystem: NIVARAN-AI</span>
-                  <AppIcon name="arrow-right" size={12} color="var(--vyasa-teal, #0d766e)" />
+                  <span>Subsystem: NIVARAN</span>
+                  <AppIcon name="arrow-right" size={12} color="var(--vyasa-gold, #b2811a)" />
                 </span>
                 <Button
-                  variant="primary"
+                  variant="gold"
                   size="sm"
-                  aria-label="Open Atharva Veda / NIVARAN-AI"
+                  aria-label="Open Atharva Veda / NIVARAN"
                   onClick={() => navigate('/modules/atharva-veda/nivaran')}
                   className="vyasa-domain-action-btn"
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Open Atharva Veda / NIVARAN-AI</span>
+                    <span>Explore NIVARAN</span>
                     <AppIcon name="arrow-right" size={13} />
                   </span>
                 </Button>

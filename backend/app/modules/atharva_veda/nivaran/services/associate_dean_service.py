@@ -404,29 +404,37 @@ class AssociateDeanService:
 
         # Notify Applicant
         if grievance.applicant_vyasa_user_id:
-            notif_app = Notification(
-                user_id=grievance.applicant_vyasa_user_id,
-                source_pillar="NIVARAN",
-                event_type="grievance.resolved",
-                event_id=f"grv_res_assoc_{grievance.id}",
-                title="Grievance Resolved by Associate Dean",
-                message=(
-                    f"Your grievance {grievance.grievance_id} ('{grievance.title}') has been formally resolved by "
-                    f"Associate Dean {authority.name_snapshot}."
-                ),
-                type="GRIEVANCE_RESOLVED",
-                priority="HIGH",
-                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
-                action_required=True,
-                entity_type="grievance",
-                entity_id=str(grievance.id),
-                metadata_json={
-                    "grievance_id": str(grievance.id),
-                    "tracking_id": grievance.grievance_id,
-                    "status": GrievanceStatus.RESOLVED.value,
-                },
-            )
-            db.add(notif_app)
+            try:
+                from app.services.notifications.engine import engine as notification_engine
+                from app.schemas.notification import NotificationEventPayload
+                notification_engine.process_event(
+                    db=db,
+                    event=NotificationEventPayload(
+                        source_pillar="NIVARAN",
+                        event_type="grievance.resolved",
+                        event_id=f"grv_res_assoc_{grievance.id}",
+                        title=f"Grievance Resolved — {grievance.grievance_id}",
+                        message=(
+                            f"Your grievance {grievance.grievance_id} ('{grievance.title}') has been formally resolved by "
+                            f"Associate Dean {authority.name_snapshot}."
+                        ),
+                        priority="HIGH",
+                        action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                        action_required=True,
+                        entity_type="grievance",
+                        entity_id=str(grievance.id),
+                        recipient_user_ids=[grievance.applicant_vyasa_user_id],
+                        channel_override=["IN_APP", "EMAIL"],
+                        metadata={
+                            "grievance_id": str(grievance.id),
+                            "tracking_id": grievance.grievance_id,
+                            "resolution_summary": payload.resolution_notes.strip(),
+                            "status": GrievanceStatus.RESOLVED.value,
+                        },
+                    ),
+                )
+            except Exception as _e:
+                logger.error(f"[Associate Dean] Error processing resolved notification: {_e}")
 
         # Notify active Atharva Veda Managers
         managers = db.scalars(
@@ -831,28 +839,40 @@ class AssociateDeanService:
         db.add(audit)
 
         if grievance.applicant_vyasa_user_id:
-            notif_app = Notification(
-                user_id=grievance.applicant_vyasa_user_id,
-                source_pillar="NIVARAN",
-                event_type="grievance.document_requested",
-                title="Additional Documents Requested",
-                message=(
-                    f"Associate Dean {authority.name_snapshot} has requested {len(payload.documents)} additional "
-                    f"supporting document(s) for your grievance {grievance.grievance_id}."
-                ),
-                type="DOCUMENT_REQUEST",
-                priority="HIGH",
-                action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
-                action_required=True,
-                entity_type="grievance",
-                entity_id=str(grievance.id),
-                metadata_json={
-                    "grievance_id": str(grievance.id),
-                    "tracking_id": grievance.grievance_id,
-                    "request_group_id": str(req_group_id),
-                },
-            )
-            db.add(notif_app)
+            try:
+                from app.services.notifications.engine import engine as notification_engine
+                from app.schemas.notification import NotificationEventPayload
+                doc_names = [d.document_name for d in payload.documents]
+                notification_engine.process_event(
+                    db=db,
+                    event=NotificationEventPayload(
+                        source_pillar="NIVARAN",
+                        event_type="grievance.document_requested",
+                        event_id=f"doc_req_{req_group_id}",
+                        title="Additional Documents Requested",
+                        message=(
+                            f"Associate Dean {authority.name_snapshot} has requested {len(payload.documents)} additional "
+                            f"supporting document(s) for your grievance {grievance.grievance_id}."
+                        ),
+                        priority="HIGH",
+                        action_route=f"/modules/atharva-veda/nivaran/grievance/{grievance.id}",
+                        action_required=True,
+                        entity_type="grievance",
+                        entity_id=str(grievance.id),
+                        recipient_user_ids=[grievance.applicant_vyasa_user_id],
+                        channel_override=["IN_APP", "EMAIL"],
+                        metadata={
+                            "grievance_id": str(grievance.id),
+                            "tracking_id": grievance.grievance_id,
+                            "requested_documents": doc_names,
+                            "instructions": "Please upload requested documents to proceed with grievance review.",
+                            "status": grievance.status.value,
+                            "request_group_id": str(req_group_id),
+                        },
+                    ),
+                )
+            except Exception as _e:
+                logger.error(f"[Associate Dean] Error processing document requested notification: {_e}")
 
         db.commit()
         return created_requests

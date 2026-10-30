@@ -27,7 +27,7 @@ export const VEDA_MODULE_NAV: ModuleNavItem[] = [
   },
   {
     key: 'sama-veda',
-    name: 'Sama Veda',
+    name: 'Sama Veda (SAMIKSHA)',
     path: '/modules/sama-veda',
     vedaDomain: 'sama-veda',
     description: 'Research Recognition & Communication',

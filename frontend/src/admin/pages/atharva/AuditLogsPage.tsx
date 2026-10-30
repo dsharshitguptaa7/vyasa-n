@@ -168,9 +168,9 @@ export const AuditLogsPage: React.FC = () => {
               <thead>
                 <tr
                   style={{
-                    backgroundColor: '#f8fafc',
-                    borderBottom: '1.5px solid var(--vyasa-border, #e3dcd1)',
-                    color: 'var(--vyasa-text-secondary, #475569)',
+                    backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)',
+                    borderBottom: '2px solid var(--vyasa-border, #e3dcd1)',
+                    color: 'var(--vyasa-primary, #0f2b48)',
                     fontSize: '11.5px',
                     letterSpacing: '0.05em',
                     textTransform: 'uppercase',

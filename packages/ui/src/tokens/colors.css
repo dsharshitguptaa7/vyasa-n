@@ -69,4 +69,18 @@
   --vyasa-danger: #b91c1c;
   --vyasa-danger-light: #fef2f2;
   --vyasa-danger-border: #fecaca;
+
+  --vyasa-info: #0d766e;
+  --vyasa-info-light: #f0fdfa;
+  --vyasa-info-border: #99f6e4;
+
+  /* Institutional Aliases for Ecosystem-Wide Token Parity */
+  --vyasa-navy: var(--vyasa-primary);
+  --vyasa-navy-dark: var(--vyasa-primary-hover);
+  --vyasa-navy-light: var(--vyasa-primary-light);
+  --vyasa-border-color: var(--vyasa-border);
+  --vyasa-border-color-subtle: var(--vyasa-border-subtle);
+  --vyasa-bg-card: var(--vyasa-surface);
+  --vyasa-bg-main: var(--vyasa-ivory);
+  --vyasa-bg-surface: var(--vyasa-surface);
 }

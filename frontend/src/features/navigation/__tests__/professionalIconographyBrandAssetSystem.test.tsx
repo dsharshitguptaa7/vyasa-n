@@ -8,6 +8,7 @@ import { Navbar } from '../../../components/common/Navbar';
 import { ServicesMenu } from '../../../components/common/ServicesMenu';
 import { ProfileMenu } from '../../../components/common/ProfileMenu';
 import { ApplicantSidebar } from '../../applicant/components/ApplicantSidebar';
+import { UnifiedSidebar } from '../../../components/layout/UnifiedSidebar';
 import * as AuthContextModule from '../../../context/AuthContext';
 import { AuthenticatedUser } from '../../../types/auth';
 
@@ -250,7 +251,7 @@ describe('VYASA Professional Iconography & Brand Asset System Suite', () => {
 
       render(
         <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/my-grievances']}>
-          <Navbar />
+          <UnifiedSidebar />
         </MemoryRouter>
       );
 
@@ -263,13 +264,12 @@ describe('VYASA Professional Iconography & Brand Asset System Suite', () => {
       expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
 
       // Drawer dialog should be visible
-      const drawer = screen.getByRole('dialog', { name: /NIVARAN Service Mobile Menu/i });
+      const drawer = screen.getByRole('dialog', { name: /Navigation Menu/i });
       expect(drawer).toBeInTheDocument();
-      expect(screen.getByText(/Return to VYASA.*Dashboard/i)).toBeInTheDocument();
 
       // Press Escape to dismiss
       fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
-      expect(screen.queryByRole('dialog', { name: /NIVARAN Service Mobile Menu/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: /Navigation Menu/i })).not.toBeInTheDocument();
     });
   });
 });

@@ -920,7 +920,7 @@ export const AuthoritiesPage: React.FC = () => {
           style={{
             backgroundColor: '#ffffff',
             borderRadius: '8px',
-            border: '1px solid #e2e8f0',
+            border: '1px solid var(--vyasa-border, #e3dcd1)',
             boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
             overflow: 'hidden',
           }}
@@ -930,9 +930,9 @@ export const AuthoritiesPage: React.FC = () => {
               <thead>
                 <tr
                   style={{
-                    backgroundColor: '#f8fafc',
-                    borderBottom: '1.5px solid #e2e8f0',
-                    color: '#64748b',
+                    backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)',
+                    borderBottom: '2px solid var(--vyasa-border, #e3dcd1)',
+                    color: 'var(--vyasa-primary, #0f2b48)',
                     fontSize: '11.5px',
                     letterSpacing: '0.04em',
                     fontWeight: 600,

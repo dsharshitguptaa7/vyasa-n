@@ -56,6 +56,10 @@ def list_admin_modules(
 from app.admin.atharva_admin_router import atharva_admin_router, list_audit_logs
 router.include_router(atharva_admin_router)
 
+# Mount Sama Veda / Research Recognition & Content Management Subsystem
+from app.admin.sama_admin_router import sama_admin_router
+router.include_router(sama_admin_router)
+
 # Top-level platform audit logs route alias
 router.add_api_route(
     "/audit-logs",

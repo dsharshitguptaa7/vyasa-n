@@ -65,7 +65,7 @@ describe('VyasaDashboardPage - Refactored Ecosystem Dashboard Suite', () => {
 
     expect(screen.getByTestId('dashboard-welcome-banner')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-welcome-heading')).toHaveTextContent('Welcome, Dr. Test Authority');
-    expect(screen.getByText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Chhatrapati Shahu Ji Maharaj University/i)[0]).toBeInTheDocument();
     expect(screen.getByText('2026–27')).toBeInTheDocument();
   });
 
@@ -329,10 +329,10 @@ describe('VyasaDashboardPage - Refactored Ecosystem Dashboard Suite', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('grievance-attention-banner')).toBeInTheDocument();
-      expect(screen.getByText(/Action Required in NIVARAN-AI/i)).toBeInTheDocument();
+      expect(screen.getByText(/Action Required in NIVARAN/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /View in NIVARAN-AI/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Review in My Grievances/i }));
     expect(screen.getByTestId('my-grievances-dest')).toBeInTheDocument();
   });
 });

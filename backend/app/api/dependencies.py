@@ -156,3 +156,31 @@ def require_admin_user(
     return current_user
 
 
+def require_permission(permission_name: str):
+    """
+    Factory dependency checking if the caller possesses the specified granular permission
+    through their assigned roles, or possesses the overarching 'super_admin' platform role.
+    """
+    def _permission_guard(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        roles = [r.name.lower() for r in current_user.roles]
+        if "super_admin" in roles:
+            return current_user
+
+        assigned_permissions = set()
+        for r in current_user.roles:
+            if hasattr(r, "permissions") and r.permissions:
+                for p in r.permissions:
+                    assigned_permissions.add(p.name)
+
+        if permission_name not in assigned_permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Missing required permission: '{permission_name}'.",
+            )
+        return current_user
+
+    return _permission_guard
+
+

@@ -6,6 +6,13 @@ from typing import Dict, Any, Optional
 import uuid
 from datetime import datetime, timezone
 
+from app.services.audit_service import (
+    CentralAuditService,
+    audit_service,
+    AuditServiceError,
+    sanitize_audit_details,
+)
+
 
 class AuditEventLogger:
     """
@@ -30,3 +37,12 @@ class AuditEventLogger:
             "resource_id": resource_id,
             "details": details or {},
         }
+
+
+__all__ = [
+    "CentralAuditService",
+    "audit_service",
+    "AuditServiceError",
+    "sanitize_audit_details",
+    "AuditEventLogger",
+]

@@ -213,7 +213,14 @@ export const ServicesMenu: React.FC<ServicesMenuProps> = ({ className = '' }) =>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '3px' }}>
                       <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>
-                        {service.name}
+                        {service.id === 'sama-veda' ? (
+                          <>
+                            <span>SAMIKSHA</span>
+                            <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px', fontWeight: 500 }}>Sama Veda</span>
+                          </>
+                        ) : (
+                          service.name
+                        )}
                       </span>
                       <Badge variant={service.badgeVariant} size="sm">
                         {service.badge}

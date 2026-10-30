@@ -13,7 +13,7 @@ const mockScholarUser: AuthenticatedUser = {
   first_name: 'Harshit',
   last_name: 'Gupta',
   fullName: 'Harshit Gupta',
-  roles: ['applicant'],
+  roles: ['authority'],
   is_active: true,
   is_verified: true,
 };
@@ -31,8 +31,8 @@ const mockAuth = (overrides: Partial<AuthContextModule.AuthContextValue> = {}) =
     hasAuthorityRole: vi.fn(),
     isSuperAdmin: false,
     isAdmin: false,
-    isAuthority: false,
-    isApplicant: true,
+    isAuthority: true,
+    isApplicant: false,
     isGuest: false,
     isManager: false,
     isAssistantDean: false,
@@ -60,7 +60,7 @@ describe('VYASA Header - Profile Menu & Normal-State Button Visibility Suite', (
 
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Navbar />
+        <ProfileMenu />
       </MemoryRouter>
     );
 
@@ -136,14 +136,14 @@ describe('VYASA Header - Profile Menu & Normal-State Button Visibility Suite', (
     expect(screen.getByTestId('profile-menu-item-signout')).toHaveTextContent('Sign Out');
   });
 
-  it('5. Clicking Institutional Profile navigates to /dashboard and closes menu', async () => {
+  it('5. Clicking Institutional Profile navigates to /profile and closes menu', async () => {
     mockAuth();
 
     render(
       <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/my-grievances']}>
         <Routes>
-          <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<Navbar />} />
-          <Route path="/dashboard" element={<div data-testid="dashboard-target">Canonical Dashboard</div>} />
+          <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<ProfileMenu />} />
+          <Route path="/profile" element={<div data-testid="profile-target">Institutional Profile Page</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -155,7 +155,7 @@ describe('VYASA Header - Profile Menu & Normal-State Button Visibility Suite', (
     fireEvent.click(profileItem);
 
     await waitFor(() => {
-      expect(screen.getByTestId('dashboard-target')).toBeInTheDocument();
+      expect(screen.getByTestId('profile-target')).toBeInTheDocument();
       expect(screen.queryByTestId('navbar-profile-dropdown')).not.toBeInTheDocument();
     });
   });
@@ -166,8 +166,9 @@ describe('VYASA Header - Profile Menu & Normal-State Button Visibility Suite', (
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
-          <Route path="/dashboard" element={<Navbar />} />
+          <Route path="/dashboard" element={<ProfileMenu />} />
           <Route path="/applicant/login" element={<div data-testid="login-target">Login Page</div>} />
+          <Route path="/authority/login" element={<div data-testid="login-target">Authority Login Page</div>} />
         </Routes>
       </MemoryRouter>
     );

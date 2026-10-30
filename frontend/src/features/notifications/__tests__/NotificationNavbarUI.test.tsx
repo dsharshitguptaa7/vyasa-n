@@ -80,8 +80,10 @@ describe('Standardized Notification Navbar & Sidebar UI Suite', () => {
     expect(bellBtn).toBeInTheDocument();
 
     // Verify there is NO visible "Notifications" text label rendered inside the top navbar navigation
-    const platformNav = screen.getByRole('navigation', { name: /Platform navigation/i });
-    expect(platformNav).not.toHaveTextContent('Notifications');
+    const platformNav = screen.queryByRole('navigation', { name: /Platform navigation/i });
+    if (platformNav) {
+      expect(platformNav).not.toHaveTextContent('Notifications');
+    }
 
     // Verify the unread badge is present
     await waitFor(() => {
@@ -174,9 +176,9 @@ describe('Standardized Notification Navbar & Sidebar UI Suite', () => {
       </MemoryRouter>
     );
 
-    // Platform nav should not have visible text "Notifications"
-    const platformNav = screen.getByRole('navigation', { name: /Platform navigation/i });
-    expect(platformNav).not.toHaveTextContent('Notifications');
+    // Platform nav should not exist on the unified authenticated top navbar
+    const platformNav = screen.queryByRole('navigation', { name: /Platform navigation/i });
+    expect(platformNav).not.toBeInTheDocument();
 
     // Bell button exists with clean accessible name
     const bellBtn = screen.getByRole('button', { name: /^Notifications$/i });
@@ -184,5 +186,65 @@ describe('Standardized Notification Navbar & Sidebar UI Suite', () => {
 
     // No unread badge when count is 0
     expect(screen.queryByTestId('notification-badge-count')).not.toBeInTheDocument();
+  });
+
+  it('5. VyasaPortalSidebar does NOT display fabricated mock count (neutral state 0)', async () => {
+    mockAuth();
+    // Delay resolution to verify initial render state
+    vi.spyOn(notificationService, 'getSummary').mockImplementation(
+      () => new Promise(() => {})
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <VyasaPortalSidebar activeItem="dashboard" />
+      </MemoryRouter>
+    );
+
+    const notifBtn = screen.getByRole('button', { name: /^Notifications$/i });
+    expect(notifBtn).toBeInTheDocument();
+    // Verify there is no fabricated "3" badge
+    expect(notifBtn).not.toHaveTextContent('3');
+  });
+
+  it('6. VyasaPortalSidebar displays real unread count when API succeeds', async () => {
+    mockAuth();
+    vi.spyOn(notificationService, 'getSummary').mockResolvedValue({
+      total_count: 5,
+      unread_count: 5,
+      action_required_count: 2,
+      by_source: { NIVARAN: 5 },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <VyasaPortalSidebar activeItem="dashboard" />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      const notifBtn = screen.getByRole('button', { name: /Notifications/i });
+      expect(notifBtn).toHaveTextContent('5');
+    });
+  });
+
+  it('7. VyasaPortalSidebar does NOT display fabricated count when API fails', async () => {
+    mockAuth();
+    vi.spyOn(notificationService, 'getSummary').mockRejectedValue(new Error('Network error'));
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <VyasaPortalSidebar activeItem="dashboard" />
+      </MemoryRouter>
+    );
+
+    const notifBtn = screen.getByRole('button', { name: /^Notifications$/i });
+    expect(notifBtn).toBeInTheDocument();
+
+    // Give microtasks time to run catch handler
+    await waitFor(() => {
+      expect(notifBtn).not.toHaveTextContent('3');
+      expect(notifBtn).toHaveTextContent(/^Notifications$/);
+    });
   });
 });

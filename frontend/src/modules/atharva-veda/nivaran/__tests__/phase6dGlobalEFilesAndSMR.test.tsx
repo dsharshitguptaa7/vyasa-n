@@ -10,6 +10,7 @@ import { StudentMasterRecordDetailPage } from '../pages/StudentMasterRecordDetai
 import { StudentRecordSearchPage } from '../pages/StudentRecordSearchPage';
 import { AppRoutes } from '../../../../App';
 import { Navbar } from '../../../../components/common/Navbar';
+import { UnifiedSidebar } from '../../../../components/layout/UnifiedSidebar';
 
 // Mock phase6dService
 vi.mock('../services/phase6dService', () => ({
@@ -220,7 +221,7 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         expect(screen.getByText('SERF-PHD2026001')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('Scholar Kumar')).toBeInTheDocument();
+      expect(screen.getAllByText('Scholar Kumar')[0]).toBeInTheDocument();
       expect(screen.getByText('PHD2026001')).toBeInTheDocument();
       // Must NOT render directory search bar
       expect(screen.queryByPlaceholderText(/Enter Registration No/i)).not.toBeInTheDocument();
@@ -496,10 +497,10 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
   });
 
   // ==========================================
-  // 5. Global Top Navbar Visibility Verification
+  // 5. Unified Navigation & Persona Visibility Verification
   // ==========================================
-  describe('Global Top Navbar Persona Visibility (Navbar.tsx)', () => {
-    it('renders "My E-Files" and "My Student Record" for Applicant in NIVARAN shell', () => {
+  describe('Global Top Navbar & Unified Sidebar Persona Visibility', () => {
+    it('renders persistent CSJMU institutional header for Applicant without horizontal app navbar', () => {
       mockAuth({
         isAuthenticated: true,
         isApplicant: true,
@@ -512,14 +513,13 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         </MemoryRouter>
       );
 
-      expect(screen.getByText('My Grievances')).toBeInTheDocument();
-      expect(screen.getByText('Submit Grievance')).toBeInTheDocument();
-      expect(screen.getByText('My E-Files')).toBeInTheDocument();
-      expect(screen.getByText('My Student Record')).toBeInTheDocument();
-      expect(screen.getByText('Scholar Profile')).toBeInTheDocument();
+      // Top navbar strictly renders CSJMU institutional branding without horizontal app links
+      expect(screen.getByAltText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+      expect(screen.queryByText('Scholar Redressal Portal')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Notifications/i })).toBeInTheDocument();
     });
 
-    it('renders "Closure Review", "E-Files", and "Student Records" for Manager in NIVARAN shell', () => {
+    it('renders unified top navbar and renders "Closure Review", "My E-Files", and "Student Records" in UnifiedSidebar for Manager', () => {
       mockAuth({
         isAuthenticated: true,
         isManager: true,
@@ -527,19 +527,30 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         displayName: 'Dr. Triage Manager',
       });
 
-      render(
+      const { unmount } = render(
         <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/manager/queue']}>
           <Navbar />
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Triage Queue')).toBeInTheDocument();
+      // Unified Top Navbar has zero horizontal app links
+      expect(screen.getByAltText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+      expect(screen.queryByText('Triage Queue')).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/manager/queue']}>
+          <UnifiedSidebar />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText(/Triage Queue/i)).toBeInTheDocument();
       expect(screen.getByText('Closure Review')).toBeInTheDocument();
-      expect(screen.getByText('E-Files')).toBeInTheDocument();
+      expect(screen.getByText('My E-Files')).toBeInTheDocument();
       expect(screen.getByText('Student Records')).toBeInTheDocument();
     });
 
-    it('renders "E-Files" and "Student Records" for Assistant Dean in NIVARAN shell', () => {
+    it('renders unified top navbar and renders "My E-Files" and "Student Records" in UnifiedSidebar for Assistant Dean', () => {
       mockAuth({
         isAuthenticated: true,
         isAssistantDean: true,
@@ -547,19 +558,29 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         displayName: 'Dr. Assistant Dean',
       });
 
-      render(
+      const { unmount } = render(
         <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/assistant-dean/dashboard']}>
           <Navbar />
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Jurisdictional Docket')).toBeInTheDocument();
+      // Unified Top Navbar has zero horizontal app links
+      expect(screen.getByAltText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+      expect(screen.queryByText('Assigned Cases')).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/assistant-dean/dashboard']}>
+          <UnifiedSidebar />
+        </MemoryRouter>
+      );
+
       expect(screen.getByText('Assigned Cases')).toBeInTheDocument();
-      expect(screen.getByText('E-Files')).toBeInTheDocument();
+      expect(screen.getByText('My E-Files')).toBeInTheDocument();
       expect(screen.getByText('Student Records')).toBeInTheDocument();
     });
 
-    it('renders "E-Files" and "Student Records" for Associate Dean in NIVARAN shell', () => {
+    it('renders unified top navbar and renders "My E-Files" and "Student Records" in UnifiedSidebar for Associate Dean', () => {
       mockAuth({
         isAuthenticated: true,
         isAssociateDean: true,
@@ -567,19 +588,29 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         displayName: 'Prof. Associate Dean',
       });
 
-      render(
+      const { unmount } = render(
         <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/associate-dean/dashboard']}>
           <Navbar />
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Executive Docket')).toBeInTheDocument();
-      expect(screen.getByText('Cluster Cases')).toBeInTheDocument();
-      expect(screen.getByText('E-Files')).toBeInTheDocument();
+      // Unified Top Navbar has zero horizontal app links
+      expect(screen.getByAltText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+      expect(screen.queryByText('Jurisdictional Cases')).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/associate-dean/dashboard']}>
+          <UnifiedSidebar />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Jurisdictional Cases')).toBeInTheDocument();
+      expect(screen.getByText('My E-Files')).toBeInTheDocument();
       expect(screen.getByText('Student Records')).toBeInTheDocument();
     });
 
-    it('renders "E-Files" and "Student Records" for Dean in NIVARAN shell', () => {
+    it('renders unified top navbar and renders "My E-Files" and "Student Records" in UnifiedSidebar for Dean', () => {
       mockAuth({
         isAuthenticated: true,
         isDean: true,
@@ -587,15 +618,25 @@ describe('Phase 6D Frontend: Global E-Files & Student Master Records Suite', () 
         displayName: 'Prof. Dean R&D',
       });
 
-      render(
+      const { unmount } = render(
         <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
           <Navbar />
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Executive Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Executive Queue')).toBeInTheDocument();
-      expect(screen.getByText('E-Files')).toBeInTheDocument();
+      // Unified Top Navbar has zero horizontal app links
+      expect(screen.getByAltText(/Chhatrapati Shahu Ji Maharaj University/i)).toBeInTheDocument();
+      expect(screen.queryByText('Executive Command Center')).not.toBeInTheDocument();
+      unmount();
+
+      render(
+        <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+          <UnifiedSidebar />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Executive Command Center')).toBeInTheDocument();
+      expect(screen.getByText('My E-Files')).toBeInTheDocument();
       expect(screen.getByText('Student Records')).toBeInTheDocument();
     });
   });

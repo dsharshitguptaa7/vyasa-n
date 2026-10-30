@@ -1,5 +1,5 @@
 /**
- * Atharva Veda (NIVARAN-AI) Dean Executive Command Center Types.
+ * Atharva Veda (NIVARAN) Dean Executive Command Center Types.
  * Complete type definitions for institutional metrics, pipeline stages,
  * bottleneck analysis, authority workloads, and surveillance indicators.
  */
