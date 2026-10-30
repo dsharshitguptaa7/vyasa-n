@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LoadingState, Button, Modal, AppIcon, CsjmuLogo } from '@vyasa/ui';
+import { LoadingState, Button, Modal, AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../../context/AuthContext';
 import { ApplicantLayout } from '../../../../features/applicant';
 import { grievanceService } from '../services/grievanceService';
@@ -363,129 +363,45 @@ export const ApplicantGrievanceListPage: React.FC = () => {
     }
   };
 
-  const userFirstName = user?.first_name || (displayName ? displayName.split(' ')[0] : 'Scholar');
-
   return (
     <ApplicantLayout
-      activeTab="dashboard"
+      activeTab="my-grievances"
       onOpenProfile={() => navigate('/profile')}
       onOpenHelp={() => setIsHelpModalOpen(true)}
     >
-      {/* 1. Canonical Institutional Welcome Banner */}
-      <div
+      {/* Stately Breadcrumb Navigation */}
+      <nav
+        aria-label="Breadcrumb"
         style={{
-          position: 'relative',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '20px 24px',
-          marginBottom: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(15, 43, 72, 0.03)',
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '18px',
         }}
       >
-        {/* Decorative architectural watermark */}
-        <div
-          aria-hidden="true"
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
           style={{
-            position: 'absolute',
-            right: '160px',
-            top: 0,
-            bottom: 0,
-            width: '280px',
-            opacity: 0.04,
-            pointerEvents: 'none',
-            display: 'flex',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '4px',
           }}
         >
-          <AppIcon name="building" size={200} color="#0f2b48" />
-        </div>
-
-        {/* Left Side: CSJMU Crest & Institutional Greeting */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', zIndex: 1 }}>
-          <div
-            style={{
-              padding: '6px',
-              backgroundColor: '#ffffff',
-              border: '1.5px solid #dc2626',
-              borderRadius: '50%',
-              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <CsjmuLogo size={46} />
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--vyasa-gold, #b2811a)',
-                marginBottom: '2px',
-              }}
-            >
-              Chhatrapati Shahu Ji Maharaj University, Kanpur &bull; NIVARAN-AI
-            </div>
-
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '22px',
-                fontWeight: 700,
-                color: 'var(--vyasa-primary, #0f2b48)',
-                letterSpacing: '-0.01em',
-                lineHeight: 1.25,
-                fontFamily: 'var(--vyasa-font-sans)',
-              }}
-            >
-              Welcome back, {userFirstName}!
-            </h1>
-
-            <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#64748b' }}>
-              Track your grievances, access your academic records and use university services.
-            </p>
-          </div>
-        </div>
-
-        {/* Right Side: Academic Session 2026-27 Badge */}
-        <div
-          style={{
-            zIndex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 14px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #f3e5b8',
-            borderRadius: '8px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
-          }}
-        >
-          <AppIcon name="clock" size={16} color="#d97706" />
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
-              Academic Session
-            </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f2b48', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>2026–27</span>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-            </div>
-          </div>
-        </div>
-      </div>
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>Dashboard</span>
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>My Grievances</span>
+      </nav>
 
       {/* 2. Grievance Summary / KPI Cards */}
       <div
@@ -1696,7 +1612,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
         </div>
       )}
 
-      {/* 6. About NIVARAN-AI & Help & Support Section */}
+      {/* 6. About NIVARAN & Help & Support Section */}
       <div
         style={{
           marginTop: '20px',
@@ -1730,7 +1646,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48' }}>
-                About NIVARAN-AI
+                About NIVARAN
               </span>
               <span style={{ color: '#cbd5e1' }}>•</span>
               <span style={{ fontSize: '12px', fontWeight: 600, color: '#0d766e' }}>

@@ -22,7 +22,8 @@ const PUBLIC_SECTIONS: NavSection[] = [
   { id: 'overview', label: 'Overview', hash: '#overview' },
   { id: 'vision', label: 'The Vision', hash: '#vision' },
   { id: 'domains', label: 'Four Domains', hash: '#domains' },
-  { id: 'nivaran', label: 'NIVARAN-AI', hash: '#nivaran', isOperational: true },
+  { id: 'nivaran', label: 'NIVARAN', hash: '#nivaran', isOperational: true },
+  { id: 'samiksha', label: 'SAMIKSHA', hash: '#samiksha' },
   { id: 'innovation', label: 'Research & Innovation', hash: '#innovation' },
 ];
 
@@ -63,6 +64,30 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // 1b. Pathname & Module-Aware Active Tab Detection
+  useEffect(() => {
+    if (
+      location.pathname.startsWith('/modules/sama-veda') ||
+      location.pathname.startsWith('/sama-veda') ||
+      location.pathname.startsWith('/felicitation')
+    ) {
+      setActiveSection('samiksha');
+    } else if (
+      location.pathname.startsWith('/modules/atharva-veda/nivaran') ||
+      location.pathname.startsWith('/atharva-veda/nivaran') ||
+      location.pathname.startsWith('/nivaran')
+    ) {
+      setActiveSection('nivaran');
+    } else if (location.pathname === '/') {
+      if (location.hash) {
+        const hashId = location.hash.replace('#', '');
+        if (PUBLIC_SECTIONS.some((s) => s.id === hashId)) {
+          setActiveSection(hashId);
+        }
+      }
+    }
+  }, [location.pathname, location.hash]);
+
   // 2. Scroll-Aware Active Section Detection using IntersectionObserver
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;
@@ -72,6 +97,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
       document.getElementById('vision'),
       document.getElementById('domains'),
       document.getElementById('nivaran'),
+      document.getElementById('samiksha'),
       document.getElementById('innovation') || document.getElementById('research'),
     ].filter(Boolean) as HTMLElement[];
 
@@ -178,10 +204,19 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
     e.preventDefault();
     setIsMobileMenuOpen(false);
 
-    // Section 15 Requirement: Clicking NIVARAN-AI respects authentication
+    // Section 15 Requirement: Clicking NIVARAN respects authentication
     if (section.id === 'nivaran') {
       const dest = getNivaranDestination(auth);
       navigate(dest);
+      return;
+    }
+
+    // SAMIKSHA Navigation: Direct access to public institutional research portal
+    if (section.id === 'samiksha') {
+      if (onSelectTab) {
+        onSelectTab('samiksha');
+      }
+      navigate('/modules/sama-veda');
       return;
     }
 
@@ -278,11 +313,12 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               <ul className="vyasa-public-nav-list">
                 {PUBLIC_SECTIONS.map((sec) => {
                   const isActive = activeSection === sec.id;
+                  const isSamiksha = sec.id === 'samiksha';
                   return (
                     <li key={sec.id} className="vyasa-public-nav-item">
                       <button
                         type="button"
-                        className={`vyasa-public-nav-link ${isActive ? 'is-active' : ''}`}
+                        className={`vyasa-public-nav-link ${isSamiksha ? 'vyasa-public-nav-link--samiksha' : ''} ${isActive ? 'is-active' : ''}`}
                         onClick={(e) => handleSectionClick(sec, e)}
                         aria-current={isActive ? 'page' : undefined}
                       >
@@ -465,7 +501,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 <li key={sec.id}>
                   <button
                     type="button"
-                    className={`vyasa-mobile-nav-link ${activeSection === sec.id ? 'is-active' : ''}`}
+                    className={`vyasa-mobile-nav-link ${sec.id === 'samiksha' ? 'vyasa-mobile-nav-link--samiksha' : ''} ${activeSection === sec.id ? 'is-active' : ''}`}
                     onClick={(e) => handleSectionClick(sec, e)}
                   >
                     <span>{sec.label}</span>

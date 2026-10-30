@@ -9,6 +9,7 @@ import {
   TaxonomySubjectItem,
 } from '../types/grievance';
 import { ApiError } from '../../../../services/apiClient';
+import { BRAND_NAMES } from '../../../../constants/userFacingCopy';
 import './CaseReview.css';
 
 const formatFileSize = (bytes?: number | null): string => {
@@ -86,16 +87,20 @@ export const GrievanceSubmitPage: React.FC = () => {
       if (result.title) setTitle(result.title);
       if (result.description) setDescription(result.description);
 
-      setOcrSuccessNotice(
+      const rawNotice =
         result.confidence_note ||
-          'Application digitized successfully! Please review and verify the particulars below before submitting.'
-      );
+        'Application digitized successfully! Please review and verify the particulars below before submitting.';
+      const cleanNotice = rawNotice.replace(/Gemini(\s+Multimodal)?/gi, BRAND_NAMES.assistant);
+      setOcrSuccessNotice(cleanNotice);
     } catch (err: unknown) {
-      setOcrError(
+      let rawErr =
         err instanceof Error
           ? err.message
-          : 'Failed to extract information from document. You can enter details manually.'
-      );
+          : 'Failed to extract information from document. You can enter details manually.';
+      if (/gemini|google[\s_-]*genai|flash-lite/i.test(rawErr)) {
+        rawErr = 'Failed to digitize handwritten document using AI. Please enter details manually.';
+      }
+      setOcrError(rawErr);
     } finally {
       setOcrLoading(false);
     }
@@ -242,7 +247,7 @@ export const GrievanceSubmitPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN-AI
+          NIVARAN
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Submit Grievance</span>
@@ -266,7 +271,7 @@ export const GrievanceSubmitPage: React.FC = () => {
 
               <p className="nivaran-case-meta" style={{ marginTop: '6px' }}>
                 <span className="nivaran-case-meta__item">
-                  NIVARAN-AI &bull; AI-Assisted Grievance Redressal
+                  NIVARAN &bull; AI-Assisted Grievance Redressal
                 </span>
                 <span className="nivaran-case-meta__separator">&bull;</span>
                 <span className="nivaran-case-meta__item">
@@ -605,7 +610,7 @@ export const GrievanceSubmitPage: React.FC = () => {
                       onClick={handleTriggerOcrExtraction}
                       disabled={ocrLoading}
                     >
-                      {ocrLoading ? 'Digitizing with Gemini...' : 'Extract Particulars with AI'}
+                      {ocrLoading ? `Digitizing with ${BRAND_NAMES.assistant}...` : 'Extract Particulars with AI'}
                     </Button>
                   )}
                 </div>

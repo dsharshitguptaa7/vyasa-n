@@ -21,13 +21,13 @@ export const NivaranWorkspaceCard: React.FC = () => {
   return (
     <Card
       variant="gold-accent"
-      title="Atharva Veda: NIVARAN-AI"
+      title="Atharva Veda: NIVARAN"
       subtitle="Institutional Grievance Redressal & Cryptographic Dossier System"
       headerAction={<Badge variant="teal">Modular Monolith</Badge>}
     >
       <div style={{ padding: '12px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
         <p style={{ margin: '0 0 16px', fontSize: '14px' }}>
-          NIVARAN-AI operates as the Atharva Veda pillar of the unified VYASA application.
+          NIVARAN operates as the Atharva Veda pillar of the unified VYASA application.
           It enforces CSJMU grievance triage, accountable forwarding, deliberative committee voting,
           and cryptographic dossier archival within this single monolithic portal.
         </p>

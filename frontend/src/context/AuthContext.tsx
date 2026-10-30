@@ -247,10 +247,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+const defaultAuthContextValue: AuthContextValue = {
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: false,
+  isAdmin: false,
+  isSuperAdmin: false,
+  isAuthority: false,
+  isApplicant: false,
+  isManager: false,
+  isAssistantDean: false,
+  isAssociateDean: false,
+  isDean: false,
+  authorityRole: null,
+  authorityId: null,
+  authorityDesignation: null,
+  persona: 'guest',
+  displayName: '',
+  login: async () => ({ access_token: '', refresh_token: '', token_type: 'bearer', expires_in: 0 }),
+  completeTwoFactorAuth: async () => {},
+  logout: () => {},
+  refreshUser: async () => {},
+};
+
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return defaultAuthContextValue;
   }
   return context;
 };

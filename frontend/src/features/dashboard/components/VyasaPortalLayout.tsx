@@ -1,10 +1,21 @@
 import React from 'react';
-import { VyasaPortalSidebar, VyasaPortalSidebarProps } from './VyasaPortalSidebar';
+import { UnifiedSidebar } from '../../../components/layout/UnifiedSidebar';
+import { Navbar } from '../../../components/common/Navbar';
 
-export interface VyasaPortalLayoutProps extends VyasaPortalSidebarProps {
+export interface VyasaPortalLayoutProps {
   children: React.ReactNode;
+  activeItem?: 'dashboard' | 'profile' | 'services' | 'notifications' | 'settings' | 'help' | string;
+  onSelectProfile?: () => void;
+  onSelectHelp?: () => void;
+  onSelectSettings?: () => void;
+  className?: string;
 }
 
+/**
+ * VyasaPortalLayout (WorkspaceShell): Authenticated portal workspace layout.
+ * Provides a fixed 100vh application shell with stable Navbar and UnifiedSidebar,
+ * and an independently scrolling main content canvas. No marketing footer.
+ */
 export const VyasaPortalLayout: React.FC<VyasaPortalLayoutProps> = ({
   children,
   activeItem = 'dashboard',
@@ -17,30 +28,53 @@ export const VyasaPortalLayout: React.FC<VyasaPortalLayoutProps> = ({
     <div
       className={`vyasa-portal-workspace-layout ${className}`}
       style={{
-        display: 'flex',
-        minHeight: 'calc(100vh - 70px)',
-        backgroundColor: '#fcfbfa',
+        height: '100vh',
+        maxHeight: '100vh',
         width: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'var(--vyasa-ivory, #faf7f2)',
         boxSizing: 'border-box',
       }}
     >
-      <VyasaPortalSidebar
-        activeItem={activeItem}
-        onSelectProfile={onSelectProfile}
-        onSelectHelp={onSelectHelp}
-        onSelectSettings={onSelectSettings}
-      />
-      <main
+      {/* 1. Universal Top Header (Fixed at top) */}
+      <header style={{ flexShrink: 0, zIndex: 50 }}>
+        <Navbar currentTab="governance" />
+      </header>
+
+      {/* 2. Portal Workspace Body */}
+      <div
         style={{
           flex: 1,
-          minWidth: 0,
-          padding: '24px 28px',
-          boxSizing: 'border-box',
-          overflowY: 'auto',
+          minHeight: 0,
+          display: 'flex',
+          overflow: 'hidden',
+          width: '100%',
         }}
       >
-        {children}
-      </main>
+        <UnifiedSidebar
+          activeItem={activeItem}
+          activeTab={activeItem}
+          onSelectProfile={onSelectProfile}
+          onOpenProfile={onSelectProfile}
+          onSelectHelp={onSelectHelp}
+          onOpenHelp={onSelectHelp}
+          onSelectSettings={onSelectSettings}
+        />
+        <main
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: '100%',
+            padding: '24px 28px',
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+          }}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 };

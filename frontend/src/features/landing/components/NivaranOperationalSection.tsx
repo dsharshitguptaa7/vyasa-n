@@ -61,17 +61,17 @@ export const NivaranOperationalSection: React.FC = () => {
   }, [isCreditOpen]);
 
   const workflowSteps = [
-    { num: '1', title: 'Scholar', desc: 'Submit Grievance', icon: 'file-text' as const },
-    { num: '2', title: 'NIVARAN-AI', desc: 'Intake & Security', icon: 'shield' as const },
-    { num: '3', title: 'AI-Assisted Processing', desc: 'Category Suggestion', icon: 'settings' as const },
-    { num: '4', title: 'Institutional Review', desc: 'Initial Review', icon: 'user' as const },
-    { num: '5', title: 'Authority Workflow', desc: 'Case Review', icon: 'users' as const },
-    { num: '6', title: 'Resolution / Escalation', desc: 'Steps to Resolve', icon: 'check-circle' as const },
-    { num: '7', title: 'Institutional Record', desc: 'Activity History', icon: 'file-text' as const },
+    { num: '1', title: 'Scholar', desc: 'Grievance Submission', icon: 'file-text' as const },
+    { num: '2', title: 'Initial Review', desc: 'Intake & Security', icon: 'shield' as const },
+    { num: '3', title: 'AI-Assisted Processing', desc: 'Category Routing', icon: 'settings' as const },
+    { num: '4', title: 'Institutional Review', desc: 'Departmental Review', icon: 'user' as const },
+    { num: '5', title: 'Authority Workflow', desc: 'Authority Evaluation', icon: 'users' as const },
+    { num: '6', title: 'Resolution / Escalation', desc: 'Action & Closure', icon: 'check-circle' as const },
+    { num: '7', title: 'Institutional Record', desc: 'Dossier History', icon: 'file-text' as const },
   ];
 
   return (
-    <section id="nivaran" className="vyasa-story-section">
+    <section id="nivaran" className="vyasa-story-section" aria-label="NIVARAN Operational Pillar">
       <div className="vyasa-nivaran-banner">
         <div className="vyasa-nivaran-banner__content">
           {/* Left Column: Heading, Narrative, and CTA */}
@@ -79,14 +79,14 @@ export const NivaranOperationalSection: React.FC = () => {
             {/* Domain Eyebrow */}
             <div className="vyasa-nivaran-eyebrow">
               <span>The First Operational Domain</span>
-              <span>&bull;</span>
-              <Badge variant="teal" size="sm">Atharva Veda</Badge>
+              <span className="vyasa-nivaran-eyebrow-sep" aria-hidden="true">&bull;</span>
+              <Badge variant="gold" size="sm">Atharva Veda</Badge>
             </div>
 
             {/* Section Heading & Attribution Indicator */}
             <div className="vyasa-nivaran-header-block">
               <div className="vyasa-nivaran-title-row">
-                <h2 className="vyasa-nivaran-title">NIVARAN-AI</h2>
+                <h2 className="vyasa-nivaran-title">NIVARAN</h2>
 
                 {/* Subtle Info / Credit Indicator Button */}
                 <div
@@ -98,7 +98,7 @@ export const NivaranOperationalSection: React.FC = () => {
                   <button
                     type="button"
                     className="vyasa-nivaran-credit-btn"
-                    aria-label="NIVARAN-AI Design & Development Information"
+                    aria-label="NIVARAN Design & Development Information"
                     aria-expanded={isCreditOpen}
                     aria-haspopup="dialog"
                     onClick={handleToggle}
@@ -113,17 +113,16 @@ export const NivaranOperationalSection: React.FC = () => {
                     <div
                       className="vyasa-nivaran-credit-popover"
                       role="dialog"
-                      aria-label="NIVARAN-AI Contributors"
+                      aria-label="NIVARAN Contributors"
                       data-testid="nivaran-credit-popover"
                     >
                       <div className="vyasa-nivaran-credit-header">
-                        <span className="vyasa-nivaran-credit-module">NIVARAN-AI</span>
+                        <span className="vyasa-nivaran-credit-module">NIVARAN</span>
                         <span className="vyasa-nivaran-credit-badge">Atharva Veda</span>
                       </div>
                       <div className="vyasa-nivaran-credit-label">Design &amp; Development</div>
                       <div className="vyasa-nivaran-credit-contributors">
                         <div className="vyasa-nivaran-credit-name">Harshit Gupta</div>
-                        <div className="vyasa-nivaran-credit-name">Manali Yadav</div>
                       </div>
                       <div className="vyasa-nivaran-credit-meta">
                         M.Sc. Mathematics with AI &amp; Data Science
@@ -136,36 +135,69 @@ export const NivaranOperationalSection: React.FC = () => {
               </div>
 
               <div className="vyasa-nivaran-subtitle">
+                Institutional Pillar &bull; Grievance Redressal &amp; Well-Being
+              </div>
+              <div className="vyasa-nivaran-sub-tagline">
                 AI-Assisted Grievance Redressal &amp; Monitoring
               </div>
             </div>
 
             {/* Narrative Description */}
             <p className="vyasa-nivaran-desc">
-              NIVARAN-AI is the grievance resolution service of VYASAᴺ, designed to support
-              smart, AI-assisted grievance submission, initial review, step-by-step progress tracking,
+              NIVARAN is the official grievance redressal service of VYASA, designed to support
+              structured grievance submission, initial review, step-by-step progress tracking,
               and transparent resolutions across Chhatrapati Shahu Ji Maharaj University.
             </p>
 
-            {/* Primary CTA */}
-            <div style={{ marginTop: '24px' }}>
+            {/* Institutional Feature Highlights */}
+            <div className="vyasa-nivaran-tags" aria-label="NIVARAN Core Guarantees">
+              <span className="vyasa-nivaran-tag">
+                <AppIcon name="shield" size={13} />
+                <span>Confidential Intake</span>
+              </span>
+              <span className="vyasa-nivaran-tag">
+                <AppIcon name="layers" size={13} />
+                <span>Multi-Tier Review</span>
+              </span>
+              <span className="vyasa-nivaran-tag">
+                <AppIcon name="check-circle" size={13} />
+                <span>Traceable Record</span>
+              </span>
+            </div>
+
+            {/* Primary Actions */}
+            <div style={{ marginTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Button
                 variant="gold"
                 size="lg"
                 onClick={() => navigate('/modules/atharva-veda/nivaran')}
-                className="vyasa-nivaran-cta-btn"
+                className="vyasa-nivaran-cta-btn vyasa-nivaran-cta-btn--primary"
+                aria-label="Explore NIVARAN"
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Explore NIVARAN-AI</span>
+                  <span>Explore NIVARAN</span>
                   <AppIcon name="arrow-right" size={16} />
                 </span>
               </Button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/applicant/login')}
+                className="vyasa-nivaran-cta-btn vyasa-nivaran-cta-btn--secondary"
+              >
+                <span>Submit / Track Grievance &rarr;</span>
+              </button>
             </div>
           </div>
 
           {/* Right Column: 7-Step Connected Workflow Visual */}
           <div className="vyasa-nivaran-banner__right">
             <div className="vyasa-workflow-pipeline" aria-label="NIVARAN workflow stages">
+              <div className="vyasa-workflow-pipeline__header">
+                <span className="vyasa-workflow-pipeline__title">Institutional Resolution Journey</span>
+                <span className="vyasa-workflow-pipeline__badge">7 Connected Stages</span>
+              </div>
+
               {workflowSteps.map((step, idx) => (
                 <React.Fragment key={step.num}>
                   <div className="vyasa-workflow-step">
@@ -177,8 +209,7 @@ export const NivaranOperationalSection: React.FC = () => {
                   </div>
                   {idx < workflowSteps.length - 1 && (
                     <div className="vyasa-workflow-arrow" aria-hidden="true">
-                      <span className="vyasa-workflow-arrow__line" />
-                      <AppIcon name="arrow-right" size={12} color="var(--vyasa-gold, #d4a017)" />
+                      <AppIcon name="chevron-down" size={11} color="var(--vyasa-gold, #d4a017)" />
                     </div>
                   )}
                 </React.Fragment>

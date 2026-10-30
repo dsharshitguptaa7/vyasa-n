@@ -535,7 +535,7 @@ def test_ocr_extract_success_mocked(client: TestClient, db_session: Session):
     mock_extracted = {
         "title": "Delayed Research Fellowship Disbursement Q3",
         "description": "My JRF fellowship installment for quarter three has not been credited to bank account.",
-        "confidence_note": "Extracted via Gemini Multimodal. Please verify all details before submitting.",
+        "confidence_note": "Extracted via VYASA AI Assistant. Please verify all details before submitting.",
     }
 
     with patch("app.modules.atharva_veda.nivaran.services.ocr_service.ocr_extractor.extract_from_document", return_value=mock_extracted):

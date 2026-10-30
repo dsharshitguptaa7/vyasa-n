@@ -1,11 +1,18 @@
 /**
- * Centralized User-Facing Copy & Plain English Vocabulary
+ * Centralized User-Facing Copy, Brand Names & Plain English Vocabulary
  * Standardizes terminology across the VYASA-N ecosystem:
  * - Public landing, login, and registration pages
  * - Applicant Dashboard and Profile
- * - NIVARAN-AI Grievance Resolution portal
+ * - NIVARAN Grievance Resolution portal
  * - Authority and Administrative dashboards
+ * - VYASA AI Assistant
  */
+
+export const BRAND_NAMES = {
+  assistant: 'VYASA AI Assistant',
+  institution: 'Chhatrapati Shahu Ji Maharaj University, Kanpur',
+  shortInstitution: 'CSJMU',
+} as const;
 
 export const PLAIN_TERMS = {
   // Grievance resolution & review

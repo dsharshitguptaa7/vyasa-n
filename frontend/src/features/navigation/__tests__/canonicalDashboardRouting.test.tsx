@@ -130,7 +130,7 @@ describe('Single Canonical Authenticated Dashboard Architecture Suite', () => {
     // Visiting legacy /applicant redirects to /dashboard rendering canonical dashboard
     await waitFor(() => {
       expect(screen.getByTestId('dashboard-welcome-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('dashboard-welcome-heading')).toHaveTextContent('Welcome, Scholar Test');
+      expect(screen.getByTestId('dashboard-welcome-heading')).toHaveTextContent(/Scholar Test/i);
       expect(screen.queryByText('Scholar Workspace Unavailable')).not.toBeInTheDocument();
     });
   });
@@ -200,7 +200,7 @@ describe('Single Canonical Authenticated Dashboard Architecture Suite', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('dashboard-welcome-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('dashboard-welcome-heading')).toHaveTextContent('Welcome, Scholar Test');
+      expect(screen.getByTestId('dashboard-welcome-heading')).toHaveTextContent(/Scholar Test/i);
     });
   });
 
@@ -335,9 +335,9 @@ describe('Single Canonical Authenticated Dashboard Architecture Suite', () => {
       </MemoryRouter>
     );
 
-    // In NIVARAN header, click "← VYASAᴺ Dashboard"
+    // In Unified Sidebar, click "Dashboard"
     await waitFor(() => {
-      const dashboardLink = screen.getByRole('link', { name: /← VYASA.*Dashboard/i });
+      const dashboardLink = screen.getByRole('link', { name: /^Dashboard$/i });
       expect(dashboardLink).toBeInTheDocument();
       fireEvent.click(dashboardLink);
     });

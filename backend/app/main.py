@@ -62,10 +62,24 @@ app.add_middleware(
 )
 
 
+def _get_cors_headers(request: Request) -> dict:
+    headers = {}
+    origin = request.headers.get("origin")
+    if origin:
+        allowed = settings.cors_origins
+        if origin in allowed or "*" in allowed:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin, User-Agent"
+    return headers
+
+
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(_req: Request, exc: StarletteHTTPException):
+async def http_exception_handler(req: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
+        headers=_get_cors_headers(req),
         content=ApiResponse(
             success=False,
             message=str(exc.detail),
@@ -75,7 +89,7 @@ async def http_exception_handler(_req: Request, exc: StarletteHTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(_req: Request, exc: RequestValidationError):
+async def validation_exception_handler(req: Request, exc: RequestValidationError):
     serialized_errors = []
     for err in exc.errors():
         item = dict(err)
@@ -88,6 +102,7 @@ async def validation_exception_handler(_req: Request, exc: RequestValidationErro
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        headers=_get_cors_headers(req),
         content=ApiResponse(
             success=False,
             message="Request validation failed",
@@ -97,10 +112,11 @@ async def validation_exception_handler(_req: Request, exc: RequestValidationErro
 
 
 @app.exception_handler(Exception)
-async def generic_exception_handler(_req: Request, exc: Exception):
+async def generic_exception_handler(req: Request, exc: Exception):
     logger.error("Unhandled exception: %s", str(exc), exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        headers=_get_cors_headers(req),
         content=ApiResponse(
             success=False,
             message="Internal server error",

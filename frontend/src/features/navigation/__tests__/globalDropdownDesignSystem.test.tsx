@@ -231,7 +231,7 @@ describe('VYASA Global Dropdown Design System - Neutral Institutional UI Suite',
       const servicesBtn = screen.getByRole('button', { name: /Services/i });
       fireEvent.click(servicesBtn);
 
-      expect(screen.getByText('NIVARAN-AI')).toBeInTheDocument();
+      expect(screen.getByText('NIVARAN')).toBeInTheDocument();
       expect(screen.getByText('AI-Assisted Grievance Redressal')).toBeInTheDocument();
     });
   });

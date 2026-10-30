@@ -11,6 +11,14 @@
   margin-right: auto;
   padding-left: var(--vyasa-space-6);
   padding-right: var(--vyasa-space-6);
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .vyasa-page-container {
+    padding-left: var(--vyasa-space-4);
+    padding-right: var(--vyasa-space-4);
+  }
 }
 
 .vyasa-page-container--narrow {
@@ -801,4 +809,215 @@
 
 .vyasa-chevron-icon.is-open {
   transform: rotate(180deg);
+}
+
+/* =========================================================================
+   15. Scholarly Book-Page Loading Animation
+   Palette: Deep Navy (#0f2b48), Warm Ivory (#faf7f2), Muted Gold (#b2811a)
+   ========================================================================= */
+
+@keyframes vyasaPageTurn {
+  0% {
+    transform: rotateY(0deg);
+    background-color: var(--vyasa-ivory, #faf7f2);
+  }
+  50% {
+    background-color: var(--vyasa-ivory-dark, #f2ede4);
+  }
+  100% {
+    transform: rotateY(-180deg);
+    background-color: var(--vyasa-ivory, #faf7f2);
+  }
+}
+
+@keyframes vyasaBookFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.vyasa-book-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vyasa-space-4, 16px);
+  padding: var(--vyasa-space-8, 32px) var(--vyasa-space-4, 16px);
+}
+
+.vyasa-book-loader__book {
+  position: relative;
+  width: 56px;
+  height: 40px;
+  perspective: 400px;
+  animation: vyasaBookFloat 2.4s ease-in-out infinite;
+}
+
+.vyasa-book-loader__cover {
+  position: absolute;
+  inset: -2px;
+  background-color: var(--vyasa-primary, #0f2b48);
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(15, 43, 72, 0.18);
+}
+
+.vyasa-book-loader__spine {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+  background-color: var(--vyasa-gold, #b2811a);
+  border-radius: 1px;
+  z-index: 5;
+}
+
+.vyasa-book-loader__page-left,
+.vyasa-book-loader__page-right {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: calc(50% - 2px);
+  background-color: var(--vyasa-ivory, #faf7f2);
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 5px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vyasa-book-loader__page-left {
+  left: 2px;
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+  border-right: none;
+}
+
+.vyasa-book-loader__page-right {
+  right: 2px;
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+  border-left: none;
+}
+
+.vyasa-book-loader__page-flipping {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  right: 2px;
+  width: calc(50% - 2px);
+  background-color: var(--vyasa-ivory, #faf7f2);
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+  border-left: none;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  animation: vyasaPageTurn 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  z-index: 4;
+  box-sizing: border-box;
+}
+
+.vyasa-book-loader__line {
+  height: 2px;
+  background-color: rgba(15, 43, 72, 0.16);
+  border-radius: 1px;
+  width: 100%;
+}
+
+.vyasa-book-loader__line--short {
+  width: 65%;
+}
+
+.vyasa-book-loader__message {
+  font-family: var(--vyasa-font-sans);
+  font-size: var(--vyasa-text-sm, 14px);
+  font-weight: var(--vyasa-weight-medium, 500);
+  color: var(--vyasa-text-secondary, #4b5565);
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+/* =========================================================================
+   16. Institutional Table System
+   ========================================================================= */
+.vyasa-table-card {
+  background-color: var(--vyasa-surface, #ffffff);
+  border: 1px solid var(--vyasa-border, #e3dcd1);
+  border-radius: var(--vyasa-radius-md, 6px);
+  box-shadow: var(--vyasa-shadow-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vyasa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vyasa-font-sans);
+  font-size: var(--vyasa-text-sm, 13.5px);
+  text-align: left;
+}
+
+.vyasa-table thead tr {
+  background-color: var(--vyasa-surface-warm, #fdfbf7);
+  border-bottom: 2px solid var(--vyasa-border, #e3dcd1);
+  color: var(--vyasa-primary, #0f2b48);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.vyasa-table th {
+  padding: 12px 16px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vyasa-primary, #0f2b48);
+}
+
+.vyasa-table tbody tr {
+  border-bottom: 1px solid var(--vyasa-border-subtle, #ede7de);
+  transition: background-color var(--vyasa-transition-fast);
+}
+
+.vyasa-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.vyasa-table tbody tr:hover {
+  background-color: var(--vyasa-primary-surface, #eff5fa);
+}
+
+.vyasa-table td {
+  padding: 12px 16px;
+  color: var(--vyasa-text, #19202a);
+  vertical-align: middle;
+}
+
+/* =========================================================================
+   17. Accessibility & Reduced Motion Preferences
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .vyasa-book-loader__book {
+    animation: none !important;
+  }
+
+  .vyasa-book-loader__page-flipping {
+    animation: none !important;
+    display: none !important;
+  }
 }

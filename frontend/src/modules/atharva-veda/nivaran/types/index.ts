@@ -1,6 +1,6 @@
 export interface NivaranModuleState {
   moduleKey: 'atharva-veda-nivaran';
-  name: 'Atharva Veda: NIVARAN-AI';
+  name: 'Atharva Veda: NIVARAN';
   domain: 'Grievance Redressal & Institutional Well-Being';
   status: 'active';
   version: '1.0.0-MODULAR';

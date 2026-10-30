@@ -129,7 +129,7 @@ describe('Modular Monolith Atharva Veda (NIVARAN) Internal Routing & Single Sess
         </MemoryRouter>
       );
 
-      expect(screen.getByText('Atharva Veda: NIVARAN-AI')).toBeInTheDocument();
+      expect(screen.getByText('Atharva Veda: NIVARAN')).toBeInTheDocument();
       expect(screen.getByText('Modular Monolith')).toBeInTheDocument();
       expect(screen.getByText(/Current User Session Context/i)).toBeInTheDocument();
     });

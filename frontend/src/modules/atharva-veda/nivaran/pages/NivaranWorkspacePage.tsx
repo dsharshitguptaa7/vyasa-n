@@ -10,7 +10,7 @@ export const NivaranWorkspacePage: React.FC = () => {
   if (auth.isLoading) {
     return (
       <PageContainer style={{ padding: '60px 0', textAlign: 'center' }}>
-        <LoadingState message="Connecting to NIVARAN-AI workspace..." />
+        <LoadingState message="Connecting to NIVARAN workspace..." />
       </PageContainer>
     );
   }

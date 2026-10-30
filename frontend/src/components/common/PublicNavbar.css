@@ -244,7 +244,37 @@
   transition: all 0.2s ease;
 }
 
-/* Operational Service Indicator (NIVARAN-AI) */
+/* SAMIKSHA link specific teal branding accent */
+.vyasa-public-nav-link--samiksha:hover {
+  color: #5eead4;
+}
+
+.vyasa-public-nav-link--samiksha:focus-visible {
+  outline: 2px solid var(--vyasa-teal, #0d766e);
+  outline-offset: 2px;
+}
+
+.vyasa-public-nav-link--samiksha.is-active {
+  color: #ffffff;
+  background: rgba(13, 118, 110, 0.16);
+}
+
+.vyasa-public-nav-link--samiksha.is-active::after {
+  background: var(--vyasa-teal, #0d766e);
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.45);
+}
+
+.vyasa-mobile-nav-link--samiksha:hover {
+  color: #5eead4;
+}
+
+.vyasa-mobile-nav-link--samiksha.is-active {
+  border-left-color: var(--vyasa-teal, #0d766e);
+  color: #5eead4;
+  background: rgba(13, 118, 110, 0.15);
+}
+
+/* Operational Service Indicator (NIVARAN) */
 .vyasa-operational-indicator {
   font-size: 9px;
   font-weight: 700;
@@ -551,13 +581,13 @@
 }
 
 /* Responsive Breakpoints */
-@media (max-width: 1160px) {
+@media (max-width: 1200px) {
   .vyasa-public-nav-list {
     gap: 2px;
   }
   .vyasa-public-nav-link {
-    padding: 7px 10px;
-    font-size: 13px;
+    padding: 6px 9px;
+    font-size: 12.5px;
   }
   .vyasa-public-actions {
     gap: 8px;

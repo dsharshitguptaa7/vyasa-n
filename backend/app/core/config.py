@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     CORS_ORIGIN: str = Field(default="http://localhost:5173", description="Allowed CORS origins")
     APPLICATION_TIMEZONE: str = Field(default="Asia/Kolkata", description="Application institutional business timezone")
 
+    # Storage Foundation
+    STORAGE_BASE_DIR: str = Field(
+        default="storage",
+        description="Base filesystem directory for secure document, certificate, and media storage",
+    )
+
     # Neon PostgreSQL database URL
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
 
@@ -195,8 +201,16 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> List[str]:
         if not self.CORS_ORIGIN:
-            return ["http://localhost:5173"]
-        return [origin.strip() for origin in self.CORS_ORIGIN.split(",") if origin.strip()]
+            base = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        else:
+            base = [origin.strip() for origin in self.CORS_ORIGIN.split(",") if origin.strip()]
+        resolved = list(base)
+        for origin in base:
+            if "localhost" in origin:
+                resolved.append(origin.replace("localhost", "127.0.0.1"))
+            elif "127.0.0.1" in origin:
+                resolved.append(origin.replace("127.0.0.1", "localhost"))
+        return list(dict.fromkeys(resolved))
 
 
 # Cached singleton settings instance

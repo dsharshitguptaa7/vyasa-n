@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PageContainer, Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ApplicantLayout } from '../../../../features/applicant';
+import { MainLayout } from '../../../../components/layout/MainLayout';
 import { grievanceService } from '../services/grievanceService';
 import { GrievanceDetailResponse } from '../types/grievance';
 import { useAuth } from '../../../../context/AuthContext';
@@ -84,7 +85,11 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
 
   const ContentWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (isAuthority || isAdminOrManager) {
-      return <PageContainer style={{ padding: '32px 0 60px' }}>{children}</PageContainer>;
+      return (
+        <MainLayout currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
+          <PageContainer style={{ padding: '32px 0 60px' }}>{children}</PageContainer>
+        </MainLayout>
+      );
     }
     return <ApplicantLayout activeTab="my-grievances">{children}</ApplicantLayout>;
   };
@@ -150,7 +155,7 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
           }}
         >
           <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
-          <span>NIVARAN-AI Dashboard</span>
+          <span>NIVARAN Dashboard</span>
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <button

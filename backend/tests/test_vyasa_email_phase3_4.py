@@ -494,6 +494,75 @@ def test_auth_route_email_failure_does_not_block_login(client, mock_db):
         assert "access_token" in response.json()
 
 
+def test_completed_authority_login_resolves_registered_email_and_dispatches_event(client, mock_db):
+    """Verifies completed authority 2FA login dispatches auth.login_confirmation to the authority's registered email."""
+    test_registered_email = "vice_chancellor.office@csjmu.ac.in"
+    authority_user = _make_user(roles=["authority"], email=test_registered_email)
+    challenge_id = uuid.uuid4()
+    challenge = AuthenticationChallenge(
+        id=challenge_id,
+        user_id=authority_user.id,
+        purpose="TWO_FACTOR_LOGIN",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+    )
+    raw_secret = TwoFactorService.generate_totp_secret()
+    totp = pyotp.TOTP(raw_secret)
+    valid_code = totp.now()
+
+    two_factor = UserTwoFactorAuth(
+        id=uuid.uuid4(),
+        user_id=authority_user.id,
+        totp_secret_encrypted=TwoFactorService.encrypt_secret(raw_secret),
+        is_enabled=True,
+    )
+
+    def scalar_mock(query):
+        q = str(query)
+        if "authentication_challenges" in q:
+            return challenge
+        if "two_factor_attempts" in q:
+            return 0
+        if "user_two_factor_auth" in q:
+            return two_factor
+        if "users" in q:
+            return authority_user
+        if "notifications" in q:
+            return None
+        if "notification_preferences" in q:
+            return None
+        return None
+
+    mock_db.scalar.side_effect = scalar_mock
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = []
+    mock_db.scalars.return_value = mock_scalars
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    from app.services.notifications.email_service import email_sender_service
+
+    with patch.object(email_sender_service, "send_email", wraps=email_sender_service.send_email) as spy_sender:
+        response = client.post(
+            "/api/auth/2fa/verify",
+            json={
+                "challenge_id": str(challenge_id),
+                "code": valid_code,
+            },
+        )
+
+        assert response.status_code == 200
+        assert "access_token" in response.json()
+
+        # Confirm send_email was invoked end-to-end
+        spy_sender.assert_called_once()
+        _, kwargs = spy_sender.call_args
+        assert kwargs["recipient_email"] == test_registered_email
+        assert "Security Notice" in kwargs["subject"]
+        assert "VYASA" in kwargs["subject"]
+        assert len(kwargs["html_content"]) > 100
+        assert len(kwargs["text_content"]) > 50
+
+
 # =============================================================================
 # Phase 4 Tests: NIVARAN-AI Grievance Lifecycle Emails
 # =============================================================================

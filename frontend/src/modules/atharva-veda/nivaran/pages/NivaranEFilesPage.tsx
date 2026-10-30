@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { PageContainer, Card, Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
 import { useNavigate } from 'react-router-dom';
 import { ApplicantLayout } from '../../../../features/applicant';
+import { WorkspaceShell } from '../../../../components/layout/WorkspaceShell';
 import { useAuth } from '../../../../context/AuthContext';
 import { phase6dService } from '../services/phase6dService';
 import { EFileResponse, EFileVerificationResponse } from '../types/phase6d';
@@ -9,7 +10,7 @@ import './CaseReview.css';
 
 export const NivaranEFilesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isApplicant, isAuthority, isDean, isAssociateDean, isAssistantDean, isManager, isAdmin } = useAuth();
+  const { user, displayName, authorityDesignation, isApplicant, isAuthority, isDean, isAssociateDean, isAssistantDean, isManager, isAdmin } = useAuth();
 
   const [efiles, setEfiles] = useState<EFileResponse[]>([]);
   const [total, setTotal] = useState(0);
@@ -79,11 +80,79 @@ export const NivaranEFilesPage: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const authorityFullName = displayName || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Appointed Authority');
+
+  // KPI Calculations
+  const verifiedCount = useMemo(() => {
+    return Object.values(verifications).filter((v) => v?.is_valid).length;
+  }, [verifications]);
+
+  const totalPagesCount = useMemo(() => {
+    return efiles.reduce((acc, curr) => acc + (curr.page_count || 1), 0);
+  }, [efiles]);
+
   const ContentWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (isApplicant) {
       return (
         <ApplicantLayout activeTab="my-efiles">
-          {/* Stately Breadcrumb Navigation */}
+          <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '40px' }}>
+            {/* 0. Clean Institutional Breadcrumb */}
+            <nav
+              aria-label="Breadcrumb"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px',
+                color: '#64748b',
+                marginBottom: '16px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: 'var(--vyasa-navy, #0f2b48)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+                <span>VYASA Dashboard</span>
+              </button>
+              <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+              <button
+                type="button"
+                onClick={() => navigate('/modules/atharva-veda/nivaran/my-grievances')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: 'var(--vyasa-navy, #0f2b48)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                NIVARAN
+              </button>
+              <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+              <span style={{ color: '#64748b', fontWeight: 500 }}>My Sealed E-Files</span>
+            </nav>
+            {children}
+          </div>
+        </ApplicantLayout>
+      );
+    }
+    return (
+      <WorkspaceShell currentTab="governance">
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 48px 20px', boxSizing: 'border-box' }}>
+          {/* 0. Clean Institutional Breadcrumb */}
           <nav
             aria-label="Breadcrumb"
             style={{
@@ -92,7 +161,7 @@ export const NivaranEFilesPage: React.FC = () => {
               gap: '8px',
               fontSize: '13px',
               color: '#64748b',
-              marginBottom: '18px',
+              marginBottom: '16px',
             }}
           >
             <button
@@ -107,16 +176,16 @@ export const NivaranEFilesPage: React.FC = () => {
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '5px',
               }}
             >
               <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
-              <span>Dashboard</span>
+              <span>VYASA Dashboard</span>
             </button>
             <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
             <button
               type="button"
-              onClick={() => navigate('/modules/atharva-veda/nivaran/my-grievances')}
+              onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/dashboard')}
               style={{
                 background: 'none',
                 border: 'none',
@@ -126,63 +195,97 @@ export const NivaranEFilesPage: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              NIVARAN-AI Dashboard
+              NIVARAN
             </button>
             <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
-            <span style={{ color: '#64748b', fontWeight: 500 }}>My Sealed E-Files</span>
+            <span style={{ color: '#64748b', fontWeight: 500 }}>E-Files Archive</span>
           </nav>
           {children}
-        </ApplicantLayout>
-      );
-    }
-    return <PageContainer style={{ padding: '32px 0 60px' }}>{children}</PageContainer>;
+        </div>
+      </WorkspaceShell>
+    );
   };
 
   if (isAdmin && !isAuthority && !isApplicant) {
     return (
-      <PageContainer style={{ padding: '40px 0' }}>
-        <div className="nivaran-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              backgroundColor: '#fee2e2',
-              color: '#dc2626',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}
-          >
-            <AppIcon name="alert-circle" size={24} />
+      <WorkspaceShell currentTab="governance">
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+          <div className="nivaran-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                backgroundColor: '#fee2e2',
+                color: '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}
+            >
+              <AppIcon name="alert-circle" size={24} />
+            </div>
+            <h3 style={{ color: '#b91c1c', margin: '0 0 10px', fontSize: '18px', fontWeight: 600 }}>
+              Access Restricted
+            </h3>
+            <p style={{ color: 'var(--vyasa-text-secondary, #64748b)', maxWidth: '520px', margin: '0 auto 24px', fontSize: '13.5px', lineHeight: 1.5 }}>
+              Administrators do not have direct access to private grievance files.
+              These records are restricted to assigned authorities and applicants.
+              <span className="sr-only">Platform Administrators do not automatically inherit case-level grievance or E-File dossier access.</span>
+            </p>
+            <Button variant="outline" onClick={() => navigate('/admin')}>
+              &larr; Return to Admin Panel
+            </Button>
           </div>
-          <h3 style={{ color: '#b91c1c', margin: '0 0 10px', fontSize: '18px', fontWeight: 600 }}>
-            Access Restricted
-          </h3>
-          <p style={{ color: 'var(--vyasa-text-secondary, #64748b)', maxWidth: '520px', margin: '0 auto 24px', fontSize: '13.5px', lineHeight: 1.5 }}>
-            Administrators do not have direct access to private grievance files.
-            These records are restricted to assigned authorities and applicants.
-            <span className="sr-only">Platform Administrators do not automatically inherit case-level grievance or E-File dossier access.</span>
-          </p>
-          <Button variant="outline" onClick={() => navigate('/admin')}>
-            &larr; Return to Admin Panel
-          </Button>
         </div>
-      </PageContainer>
+      </WorkspaceShell>
     );
   }
 
   return (
     <ContentWrapper>
-      {/* 1. Stately Case Review Header */}
+      {/* 1. Canonical Institutional Header with Watermark */}
       <div className="nivaran-case-header">
+        {/* Architectural building watermark */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: '160px',
+            top: 0,
+            bottom: 0,
+            width: '260px',
+            opacity: 0.04,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 0,
+          }}
+        >
+          <AppIcon name="building" size={200} color="#0f2b48" />
+        </div>
+
         <div className="nivaran-case-header__top-bar">
           <div className="nivaran-case-header__title-row">
             <div className="nivaran-case-icon-chip" aria-hidden="true">
               <AppIcon name="shield" size={20} color="var(--vyasa-navy, #1b2a4a)" />
             </div>
             <div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--vyasa-gold, #b2811a)',
+                  marginBottom: '2px',
+                }}
+              >
+                Chhatrapati Shahu Ji Maharaj University, Kanpur
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <h1 className="nivaran-case-heading">
                   {isApplicant ? 'My Official Sealed E-Files' : 'Institutional Digital E-Files Archive'}
@@ -191,9 +294,11 @@ export const NivaranEFilesPage: React.FC = () => {
                   {total} Sealed Records
                   <span className="sr-only"> {total} Sealed Dossiers</span>
                 </Badge>
-                <Badge variant="gold">Tamper-Proof Record</Badge>
+                <Badge variant="saffron">Tamper-Proof Record</Badge>
+                {!isApplicant && <Badge variant="teal">Cryptographic Archive</Badge>}
               </div>
-              <p className="nivaran-case-meta" style={{ marginTop: '6px' }}>
+
+              <p className="nivaran-case-meta">
                 <span className="nivaran-case-meta__item">
                   {isApplicant
                     ? 'Digital case files and certificates created after formal resolution.'
@@ -201,60 +306,236 @@ export const NivaranEFilesPage: React.FC = () => {
                 </span>
                 <span className="nivaran-case-meta__separator">&bull;</span>
                 <span className="nivaran-case-meta__item">
-                  Chhatrapati Shahu Ji Maharaj University, Kanpur
+                  CSJMU Statutory Redressal
                 </span>
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', zIndex: 1 }}>
+            {/* Academic Session Indicator */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '6px 12px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+              }}
+            >
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  backgroundColor: '#eff6ff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#2563eb',
+                }}
+              >
+                <AppIcon name="clock" size={15} />
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+                  Academic Session
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f2b48', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>2026–27</span>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                </div>
+              </div>
+            </div>
+
             <Button
               variant="outline"
+              size="sm"
               onClick={() => loadData(page, search)}
               disabled={loading}
-              style={{ fontSize: '13px' }}
             >
-              Refresh
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              Refresh Archive
             </Button>
             {isApplicant && (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => navigate('/modules/atharva-veda/nivaran/my-grievances')}
-                style={{ fontSize: '13px' }}
               >
-                My Grievances
+                My Grievances &rarr;
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Authority Search Input */}
+      {/* 2. Authority Identity & Jurisdiction Summary Strip (For Authority users) */}
       {!isApplicant && (
-        <Card variant="gold-accent" style={{ marginBottom: '24px' }}>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 220px', minWidth: 0, width: '100%' }}>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by E-File number (NVR/EF/...), Tracking ID, Title, or Student..."
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--vyasa-border, #cbd5e1)',
-                  fontSize: '13.5px',
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                }}
-              />
+        <div
+          data-testid="authority-identity-summary"
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0',
+            padding: '12px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+            {/* Account Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AppIcon name="user" size={15} color="#b2811a" />
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                  Appointed Authority
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f2b48' }}>
+                  {authorityFullName}
+                </span>
+              </div>
             </div>
-            <Button variant="primary" type="submit" disabled={loading}>
+
+            {/* Institutional Email */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AppIcon name="mail" size={15} color="#2563eb" />
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                  Official Email
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>
+                  {user?.email || '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Jurisdiction Scope */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AppIcon name="scale" size={15} color="#0d9488" />
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>
+                  Jurisdiction Scope
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f2b48' }}>
+                  {authorityDesignation || 'Institutional Digital Dossier Archive'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/modules/atharva-veda/nivaran/student-records')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--vyasa-primary, #0f2b48)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.borderColor = '#93c5fd';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8fafc';
+              e.currentTarget.style.borderColor = '#cbd5e1';
+            }}
+          >
+            <span>Student Master Records</span>
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+        </div>
+      )}
+
+      {/* 3. Structured Executive Metric Cards */}
+      <div className="nivaran-docket-kpi-grid">
+        <div className="nivaran-docket-kpi nivaran-docket-kpi--navy">
+          <div className="nivaran-docket-kpi__header">
+            <span className="nivaran-docket-kpi__label">Total Sealed Records</span>
+            <div className="nivaran-docket-kpi__icon-bubble">
+              <AppIcon name="shield" size={16} />
+            </div>
+          </div>
+          <div className="nivaran-docket-kpi__value">{total}</div>
+          <div className="nivaran-docket-kpi__subtext">Official digitized dossiers</div>
+        </div>
+
+        <div className="nivaran-docket-kpi nivaran-docket-kpi--emerald">
+          <div className="nivaran-docket-kpi__header">
+            <span className="nivaran-docket-kpi__label">Verified In Session</span>
+            <div className="nivaran-docket-kpi__icon-bubble">
+              <AppIcon name="check-circle" size={16} />
+            </div>
+          </div>
+          <div className="nivaran-docket-kpi__value" style={{ color: '#047857' }}>{verifiedCount}</div>
+          <div className="nivaran-docket-kpi__subtext">Cryptographic hash validated</div>
+        </div>
+
+        <div className="nivaran-docket-kpi nivaran-docket-kpi--sky">
+          <div className="nivaran-docket-kpi__header">
+            <span className="nivaran-docket-kpi__label">Total Archival Pages</span>
+            <div className="nivaran-docket-kpi__icon-bubble">
+              <AppIcon name="layers" size={16} />
+            </div>
+          </div>
+          <div className="nivaran-docket-kpi__value" style={{ color: '#0284c7' }}>{totalPagesCount}</div>
+          <div className="nivaran-docket-kpi__subtext">Certified document pages</div>
+        </div>
+
+        <div className="nivaran-docket-kpi nivaran-docket-kpi--amber">
+          <div className="nivaran-docket-kpi__header">
+            <span className="nivaran-docket-kpi__label">Tamper-Proof Seal</span>
+            <div className="nivaran-docket-kpi__icon-bubble">
+              <AppIcon name="file-text" size={16} />
+            </div>
+          </div>
+          <div className="nivaran-docket-kpi__value" style={{ color: '#b45309' }}>SHA-256</div>
+          <div className="nivaran-docket-kpi__subtext">Immutable digital digest</div>
+        </div>
+      </div>
+
+      {/* 4. Authority Search & Filter Toolbar */}
+      {!isApplicant && (
+        <div className="nivaran-docket-toolbar">
+          <form onSubmit={handleSearchSubmit} className="nivaran-docket-search-wrap" style={{ width: '100%' }}>
+            <span className="nivaran-docket-search-icon">
+              <AppIcon name="search" size={14} />
+            </span>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by E-File number (NVR/EF/...), Tracking ID, Title, or Student..."
+              className="nivaran-docket-search-input"
+              style={{ flex: 1, width: '100%', maxWidth: '480px' }}
+            />
+            <Button size="sm" variant="primary" type="submit" disabled={loading} style={{ marginLeft: '8px' }}>
               {loading ? 'Searching...' : 'Search Dossiers'}
             </Button>
             {search && (
               <Button
+                size="sm"
                 variant="outline"
                 type="button"
                 onClick={() => {
@@ -262,31 +543,31 @@ export const NivaranEFilesPage: React.FC = () => {
                   setPage(1);
                   loadData(1, '');
                 }}
+                style={{ marginLeft: '6px' }}
               >
                 Clear
               </Button>
             )}
           </form>
-        </Card>
+        </div>
       )}
 
       {errorMsg && (
         <div
           style={{
-            padding: '14px 18px',
+            padding: '12px 18px',
             backgroundColor: '#fef2f2',
-            color: '#b91c1c',
-            borderRadius: '6px',
             border: '1px solid #fecaca',
-            borderLeft: '4px solid #dc2626',
-            fontSize: '13px',
+            borderRadius: '6px',
+            color: '#b91c1c',
             marginBottom: '20px',
+            fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '8px',
           }}
         >
-          <AppIcon name="alert-circle" size={18} color="#b91c1c" />
+          <AppIcon name="alert-circle" size={16} color="#b91c1c" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -378,7 +659,7 @@ export const NivaranEFilesPage: React.FC = () => {
                         )}
                       </div>
 
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--vyasa-navy, #0f2b48)', margin: '0 0 10px', lineHeight: 1.4 }}>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--vyasa-navy, #0f2b48)', margin: '0 0 10px', lineHeight: 1.4 }}>
                         {ef.grievance_title || `Case: ${ef.grievance_ref}`}
                       </h3>
 
@@ -506,17 +787,18 @@ export const NivaranEFilesPage: React.FC = () => {
                         rel="noopener noreferrer"
                         style={{ textDecoration: 'none' }}
                       >
-                        <Button variant="primary" style={{ fontSize: '12.5px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <Button variant="primary" size="sm" style={{ fontSize: '12.5px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           <span>Download Official PDF</span>
                           <span>&darr;</span>
                         </Button>
                       </a>
                       <Button
                         variant="outline"
+                        size="sm"
                         style={{ fontSize: '12.5px' }}
                         onClick={() => navigate(`/modules/atharva-veda/nivaran/grievance/${ef.grievance_id}`)}
                       >
-                        View Case Record
+                        View Case Record &rarr;
                       </Button>
                     </div>
                   </div>
@@ -524,29 +806,33 @@ export const NivaranEFilesPage: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      )}
 
-      {/* Pagination for Authority Search */}
-      {!isApplicant && totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '24px' }}>
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            &larr; Previous
-          </Button>
-          <span style={{ alignSelf: 'center', fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next &rarr;
-          </Button>
+          {/* Stately Pagination Footnote */}
+          {!isApplicant && totalPages > 1 && (
+            <div className="nivaran-docket-pagination">
+              <span>
+                Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({total} total sealed dossiers)
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  &larr; Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next &rarr;
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </ContentWrapper>

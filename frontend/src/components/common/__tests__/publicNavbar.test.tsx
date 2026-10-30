@@ -62,6 +62,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
             <Route path="/applicant/register" element={<div data-testid="applicant-register-page">Applicant Register Page</div>} />
             <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div data-testid="dean-dashboard-page">Dean Dashboard</div>} />
             <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<div data-testid="applicant-grievances-page">Applicant Grievances</div>} />
+            <Route path="/modules/sama-veda" element={<div data-testid="samiksha-destination">SAMIKSHA Portal</div>} />
           </Routes>
         </AuthProvider>
       </MemoryRouter>
@@ -211,12 +212,12 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(header).toHaveClass('is-scrolled');
   });
 
-  it('14. Section navigation links render: Overview, The Vision, Four Domains, NIVARAN-AI, Research & Innovation', () => {
+  it('14. Section navigation links render: Overview, The Vision, Four Domains, NIVARAN, Research & Innovation', () => {
     renderNavbar();
     expect(screen.getAllByRole('button', { name: /Overview/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /The Vision/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Four Domains/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /NIVARAN-AI/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /NIVARAN/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Research & Innovation/i }).length).toBeGreaterThan(0);
   });
 
@@ -233,7 +234,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
   it('16. NIVARAN navigation respects authentication: routes unauthenticated to applicant login', async () => {
     renderNavbar();
-    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN-AI/i })[0];
+    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN/i })[0];
     fireEvent.click(nivaranBtn);
 
     expect(await screen.findByTestId('applicant-login-page')).toBeInTheDocument();
@@ -255,10 +256,10 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /NIVARAN-AI/i })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /NIVARAN/i })[0]).toBeInTheDocument();
     });
 
-    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN-AI/i })[0];
+    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN/i })[0];
     fireEvent.click(nivaranBtn);
 
     expect(await screen.findByTestId('dean-destination')).toBeInTheDocument();
@@ -291,10 +292,81 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(drawer).toHaveTextContent('Overview');
     expect(drawer).toHaveTextContent('The Vision');
     expect(drawer).toHaveTextContent('Four Domains');
-    expect(drawer).toHaveTextContent('NIVARAN-AI');
+    expect(drawer).toHaveTextContent('NIVARAN');
 
     // Contains login & register
     expect(drawer).toHaveTextContent(/Applicant \/ Scholar/i);
     expect(drawer).toHaveTextContent(/Authority/i);
+  });
+
+  it('20. SAMIKSHA navigation link renders in navbar between NIVARAN and Research & Innovation', () => {
+    renderNavbar();
+    const navLinks = screen.getAllByRole('button').filter((btn) => btn.classList.contains('vyasa-public-nav-link'));
+    const linkLabels = navLinks.map((btn) => btn.textContent?.trim());
+
+    expect(linkLabels).toContain('Overview');
+    expect(linkLabels).toContain('The Vision');
+    expect(linkLabels).toContain('Four Domains');
+    expect(linkLabels).toContain('NIVARANLive');
+    expect(linkLabels).toContain('SAMIKSHA');
+    expect(linkLabels).toContain('Research & Innovation');
+
+    const nivaranIdx = linkLabels.findIndex((l) => l?.startsWith('NIVARAN'));
+    const samikshaIdx = linkLabels.indexOf('SAMIKSHA');
+    const innovationIdx = linkLabels.indexOf('Research & Innovation');
+
+    expect(nivaranIdx).toBeGreaterThan(-1);
+    expect(samikshaIdx).toBe(nivaranIdx + 1);
+    expect(innovationIdx).toBe(samikshaIdx + 1);
+  });
+
+  it('21. Clicking SAMIKSHA navigates directly to the SAMIKSHA research portal', async () => {
+    renderNavbar();
+    const samikshaBtn = screen.getAllByRole('button', { name: /^SAMIKSHA/i })[0];
+    expect(samikshaBtn).toBeInTheDocument();
+    fireEvent.click(samikshaBtn);
+
+    expect(await screen.findByTestId('samiksha-destination')).toBeInTheDocument();
+  });
+
+  it('22. SAMIKSHA reflects active state when currentTab is samiksha or on samiksha route', () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/sama-veda']}>
+        <AuthProvider>
+          <Routes>
+            <Route
+              path="/modules/sama-veda"
+              element={
+                <div>
+                  <PublicNavbar currentTab="samiksha" />
+                  <div data-testid="sama-portal">Portal Content</div>
+                </div>
+              }
+            />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const samikshaBtn = screen.getAllByRole('button', { name: /^SAMIKSHA/i })[0];
+    expect(samikshaBtn).toHaveClass('is-active');
+    expect(samikshaBtn).toHaveClass('vyasa-public-nav-link--samiksha');
+  });
+
+  it('23. Mobile navigation drawer includes SAMIKSHA navigation link and routes to portal', async () => {
+    renderNavbar();
+    const toggleBtn = screen.getByRole('button', { name: /Toggle navigation menu/i });
+    fireEvent.click(toggleBtn);
+
+    const drawer = screen.getByTestId('mobile-nav-drawer');
+    expect(drawer).toHaveTextContent('SAMIKSHA');
+
+    const mobileSamikshaLink = screen.getAllByRole('button', { name: /^SAMIKSHA/i }).find((btn) =>
+      btn.classList.contains('vyasa-mobile-nav-link')
+    )!;
+    expect(mobileSamikshaLink).toBeInTheDocument();
+    fireEvent.click(mobileSamikshaLink);
+
+    expect(await screen.findByTestId('samiksha-destination')).toBeInTheDocument();
   });
 });

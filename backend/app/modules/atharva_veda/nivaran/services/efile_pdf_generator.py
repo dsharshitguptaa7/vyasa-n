@@ -58,7 +58,7 @@ class NumberedCanvas(canvas.Canvas):
 
         # Running Header (pages > 1)
         if self._pageNumber > 1:
-            self.drawString(54, 11 * 72 - 36, "VYASA ECOSYSTEM — NIVARAN-AI OFFICIAL E-FILE DOSSIER")
+            self.drawString(54, 11 * 72 - 36, "VYASA ECOSYSTEM — NIVARAN OFFICIAL E-FILE DOSSIER")
             self.setStrokeColor(COLOR_BORDER)
             self.setLineWidth(0.5)
             self.line(54, 11 * 72 - 42, 8.5 * 72 - 54, 11 * 72 - 42)
@@ -71,7 +71,7 @@ class NumberedCanvas(canvas.Canvas):
         self.drawString(
             54,
             32,
-            "CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR • ATHARVA VEDA / NIVARAN-AI",
+            "CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR • ATHARVA VEDA / NIVARAN",
         )
         page_str = f"Page {self._pageNumber} of {total_pages}"
         self.drawRightString(8.5 * 72 - 54, 32, page_str)
@@ -157,7 +157,7 @@ def create_efile_pdf(snapshot: Dict[str, Any], output_path: str) -> int:
     story.append(Paragraph("CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR", title_style))
     story.append(Spacer(1, 4))
     story.append(
-        Paragraph("VYASA ECOSYSTEM • ATHARVA VEDA / NIVARAN-AI DIGITAL E-FILE DOSSIER", subtitle_style)
+        Paragraph("VYASA ECOSYSTEM • ATHARVA VEDA / NIVARAN DIGITAL E-FILE DOSSIER", subtitle_style)
     )
     story.append(Spacer(1, 12))
     story.append(HRFlowable(width="100%", thickness=1.5, color=COLOR_PRIMARY, spaceBefore=4, spaceAfter=14))

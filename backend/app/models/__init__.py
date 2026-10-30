@@ -91,6 +91,20 @@ from app.modules.atharva_veda.nivaran.models import (
     Cluster,
 )
 
+# Sama Veda Domain Models
+from app.modules.sama_veda.models import (
+    ResearchBulletin,
+    ResearchAuthor,
+    ResearchPublication,
+    PublicationAuthor,
+    FelicitationCertificate,
+    CertificateVerificationEvent,
+    CamAiProject,
+    FellowshipScheme,
+    ResearcherSpotlight,
+    SamaImportBatch,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -151,4 +165,15 @@ __all__ = [
     "ApprovalAction",
     "AIProcessingRecord",
     "Cluster",
+    # Sama Veda
+    "ResearchBulletin",
+    "ResearchAuthor",
+    "ResearchPublication",
+    "PublicationAuthor",
+    "FelicitationCertificate",
+    "CertificateVerificationEvent",
+    "CamAiProject",
+    "FellowshipScheme",
+    "ResearcherSpotlight",
+    "SamaImportBatch",
 ]
