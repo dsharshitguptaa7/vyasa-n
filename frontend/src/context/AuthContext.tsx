@@ -165,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const res = await authService.login(email, password);
-      if (res.requires_two_factor) {
+      if (res.requires_two_factor || res.requires_password_change) {
         return res;
       }
       if (res.access_token) {

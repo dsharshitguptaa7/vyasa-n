@@ -34,6 +34,7 @@ export interface TokenResponse {
   user?: AuthenticatedUser;
   requires_two_factor?: boolean;
   two_factor_setup_required?: boolean;
+  requires_password_change?: boolean;
   challenge_id?: string;
   message?: string;
   recovery_codes?: string[];

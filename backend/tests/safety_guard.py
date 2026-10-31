@@ -77,12 +77,24 @@ def parse_database_target(url: Optional[str]) -> Optional[Tuple[str, str]]:
         return None
 
 
+DIGITALOCEAN_PRODUCTION_TARGET: Tuple[str, str] = (
+    "db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com",
+    "vyasa_n_db",
+)
+
+EXACT_AUTHORIZED_NEON_DEV_TARGET: Tuple[str, str] = (
+    "ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech",
+    "neondb",
+)
+
+
 def get_blocked_production_targets() -> Set[Tuple[str, str]]:
     """
     Inspects backend/.env directly without setting environment variables
     to identify the host and database of the active dev/shared/production instance.
+    Includes the DigitalOcean production cluster to guarantee test isolation.
     """
-    targets: Set[Tuple[str, str]] = set()
+    targets: Set[Tuple[str, str]] = {DIGITALOCEAN_PRODUCTION_TARGET}
 
     # Read from backend/.env if it exists
     env_path = Path(__file__).resolve().parents[1] / ".env"
@@ -107,6 +119,32 @@ def get_blocked_production_targets() -> Set[Tuple[str, str]]:
             targets.add(target)
 
     return targets
+
+
+def get_registered_production_targets() -> Set[Tuple[str, str]]:
+    """
+    Returns registered production database targets (DigitalOcean) that are strictly
+    protected against accidental migration execution.
+    """
+    targets: Set[Tuple[str, str]] = {DIGITALOCEAN_PRODUCTION_TARGET}
+
+    # Also include explicit production database from environment if configured
+    raw_prod_url = os.environ.get("PRODUCTION_DATABASE_URL")
+    if raw_prod_url:
+        target = parse_database_target(raw_prod_url)
+        if target:
+            targets.add(target)
+
+    return targets
+
+
+def get_authorized_dev_targets() -> Set[Tuple[str, str]]:
+    """
+    Returns explicitly authorized development database targets permitted for
+    migrations without requiring production override flags.
+    Matches exact normalized (hostname, database_name). Substring matching is forbidden.
+    """
+    return {EXACT_AUTHORIZED_NEON_DEV_TARGET}
 
 
 def validate_test_database_url(
@@ -254,20 +292,28 @@ def validate_alembic_target_url(
     blocked_targets: Optional[Set[Tuple[str, str]]] = None,
     approved_targets: Optional[Set[Tuple[str, str]]] = None,
     approved_test_targets: Optional[Set[Tuple[str, str]]] = None,
+    authorized_dev_targets: Optional[Set[Tuple[str, str]]] = None,
 ) -> str:
     """
     Validates and secures the target database URL for Alembic migrations.
 
     Safety Rules (Fail-Closed Whitelist Model):
     1. Rejects missing, empty, or non-PostgreSQL URLs (SQLite strictly forbidden).
-    2. Identifies registered targets (production targets, isolated test targets, approved targets).
-    3. Collision Protection: Any test database target colliding with a protected
+    2. Identifies registered targets (production targets, authorized dev targets, test targets, approved targets).
+    3. Production Protection: DigitalOcean (vyasa_n_db) is the production database and is strictly
+       protected against accidental execution unless ALLOW_PRODUCTION_MIGRATIONS=1 is explicitly set.
+       An approved-targets entry cannot override production protection.
+    4. Development Authorization: The exact Neon development target (neondb on
+       ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech) is explicitly authorized
+       for development migrations without requiring production override flags.
+       Matching is strictly exact: substring matching and other databases on the same host are rejected.
+    5. Collision Protection: Any test database target colliding with a protected
        shared/production database is strictly rejected. A test registration cannot override production protection.
-    4. Whitelist Enforcement: Unknown/unregistered migration targets are strictly rejected by default.
-    5. Production Authorization: ALLOW_PRODUCTION_MIGRATIONS=1 strictly authorizes only the
+    6. Whitelist Enforcement: Unknown/unregistered migration targets are strictly rejected by default.
+    7. Production Authorization: ALLOW_PRODUCTION_MIGRATIONS=1 strictly authorizes only the
        registered production database. It cannot authorize an unknown or arbitrary database URL.
-    6. Normalizes driver scheme to postgresql+psycopg://.
-    7. Redacts credentials in all logs and error messages.
+    8. Normalizes driver scheme to postgresql+psycopg://.
+    9. Redacts credentials in all logs and error messages.
     """
     raw_url = target_url or os.environ.get("MIGRATION_DATABASE_URL") or os.environ.get("TEST_DATABASE_URL")
     if not raw_url or not isinstance(raw_url, str) or not raw_url.strip():
@@ -306,10 +352,13 @@ def validate_alembic_target_url(
             "Invalid migration database URL: Could not determine valid hostname and database name."
         )
 
-    # 3. Resolve registered production/shared targets
-    registered_prod_targets = blocked_targets if blocked_targets is not None else get_blocked_production_targets()
+    # 3. Resolve registered production targets (DigitalOcean by default, or explicit blocked_targets)
+    registered_prod_targets = blocked_targets if blocked_targets is not None else get_registered_production_targets()
 
-    # 4. Resolve registered test targets and enforce collision protection (Requirement 2 & 3)
+    # 4. Resolve explicitly authorized development targets (Exact Neon dev target)
+    registered_dev_targets = authorized_dev_targets if authorized_dev_targets is not None else get_authorized_dev_targets()
+
+    # 5. Resolve registered test targets and enforce collision protection
     registered_test_targets: Set[Tuple[str, str]] = set()
     if approved_test_targets is not None:
         registered_test_targets = set(approved_test_targets)
@@ -325,7 +374,7 @@ def validate_alembic_target_url(
                 "A test registration cannot override production protection."
             )
 
-    # 5. Resolve explicit approved targets (Requirement 6)
+    # 6. Resolve explicit approved targets (Requirement 6)
     explicit_approved_targets: Set[Tuple[str, str]] = set()
     if approved_targets is not None:
         explicit_approved_targets = set(approved_targets)
@@ -335,7 +384,9 @@ def validate_alembic_target_url(
     env_allow = os.environ.get("ALLOW_PRODUCTION_MIGRATIONS") == "1"
     is_production_authorized = allow_production or env_allow
 
-    # 6. Whitelist authorization check (Fail-Closed)
+    # 7. Whitelist authorization check (Fail-Closed)
+    # Check 1: Protected Production Database (DigitalOcean)
+    # Production protection CANNOT be bypassed by explicit approved targets
     if target in registered_prod_targets:
         if not is_production_authorized:
             raise TestDatabaseSecurityError(
@@ -344,6 +395,9 @@ def validate_alembic_target_url(
                 "To explicitly apply migrations to this database, set ALLOW_PRODUCTION_MIGRATIONS=1."
             )
         # Production migration explicitly authorized
+    elif target in registered_dev_targets:
+        # Development migration explicitly authorized by policy without requiring production flags
+        pass
     elif target in registered_test_targets:
         # Isolated test database migration authorized
         pass
@@ -358,7 +412,7 @@ def validate_alembic_target_url(
             "registered migration target. Unknown database targets are rejected by default."
         )
 
-    # 7. Normalize scheme to postgresql+psycopg://
+    # 8. Normalize scheme to postgresql+psycopg://
     normalized_url = clean_url
     if normalized_url.startswith("postgres://"):
         normalized_url = normalized_url.replace("postgres://", "postgresql+psycopg://", 1)

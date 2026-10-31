@@ -39,16 +39,37 @@ class AuthenticatedUserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """OAuth2/JWT bearer token or 2FA challenge response."""
+    """OAuth2/JWT bearer token, 2FA challenge response, or first-login onboarding challenge."""
     access_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: Optional[int] = None
     user: Optional[AuthenticatedUserResponse] = None
     requires_two_factor: bool = False
     two_factor_setup_required: bool = False
+    requires_password_change: bool = False
     challenge_id: Optional[uuid.UUID] = None
     message: Optional[str] = None
     recovery_codes: Optional[List[str]] = None
+
+
+class FirstLoginSetPasswordRequest(BaseModel):
+    """Payload submitted by newly created authority to establish permanent password."""
+    challenge_id: uuid.UUID = Field(..., description="Active first-login challenge UUID")
+    new_password: str = Field(..., min_length=8, max_length=128, description="New permanent password")
+    confirm_password: str = Field(..., min_length=8, max_length=128, description="Confirmation of new permanent password")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_complexity(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one number")
+        return v
 
 
 class TokenVerifyRequest(BaseModel):

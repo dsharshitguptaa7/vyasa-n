@@ -21,6 +21,8 @@ from tests.safety_guard import (
     validate_alembic_target_url,
     enforce_test_environment_safety,
     BLOCKED_DUMMY_URL,
+    DIGITALOCEAN_PRODUCTION_TARGET,
+    EXACT_AUTHORIZED_NEON_DEV_TARGET,
 )
 
 
@@ -316,5 +318,104 @@ def test_alembic_ambiguous_environment_targets_rejected():
                 "Ambiguous migration target: both MIGRATION_DATABASE_URL and TEST_DATABASE_URL are configured "
                 "with different targets. Disambiguate by specifying target explicitly via CLI argument (-x db=...)."
             )
+
+
+def test_alembic_guard_allows_exact_authorized_neon_dev_target():
+    """Verify that the exact authorized Neon development target is accepted without production override flags."""
+    neon_url = "postgresql://neondb_owner:safe_mock_password@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/neondb"
+    # Should succeed with allow_production=False and no ALLOW_PRODUCTION_MIGRATIONS env var
+    res = validate_alembic_target_url(neon_url, allow_production=False)
+    assert res.startswith("postgresql+psycopg://")
+    assert "ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech" in res
+    assert "neondb" in res
+
+
+def test_alembic_guard_blocks_digitalocean_production_without_flag():
+    """Verify that DigitalOcean production target is strictly blocked without explicit production authorization."""
+    do_url = "postgresql://vyasa_n_app:safe_mock_password@db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com:25060/vyasa_n_db?sslmode=require"
+    with pytest.raises(TestDatabaseSecurityError, match="Accidental migrations are blocked"):
+        validate_alembic_target_url(do_url, allow_production=False)
+
+
+def test_alembic_guard_digitalocean_cannot_be_overridden_by_approved_targets(monkeypatch):
+    """Verify that DigitalOcean production target CANNOT be bypassed by adding it to APPROVED_MIGRATION_TARGETS."""
+    do_url = "postgresql://vyasa_n_app:safe_mock_password@db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com:25060/vyasa_n_db?sslmode=require"
+    monkeypatch.setenv(
+        "APPROVED_MIGRATION_TARGETS",
+        "db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com/vyasa_n_db",
+    )
+    with pytest.raises(TestDatabaseSecurityError, match="Accidental migrations are blocked"):
+        validate_alembic_target_url(do_url, allow_production=False)
+
+
+def test_alembic_guard_allows_digitalocean_with_explicit_flag(monkeypatch):
+    """Verify that DigitalOcean production target is permitted when ALLOW_PRODUCTION_MIGRATIONS=1 or allow_production=True."""
+    do_url = "postgresql://vyasa_n_app:safe_mock_password@db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com:25060/vyasa_n_db?sslmode=require"
+    # Via allow_production=True
+    res = validate_alembic_target_url(do_url, allow_production=True)
+    assert res.startswith("postgresql+psycopg://")
+    assert "vyasa_n_db" in res
+
+    # Via ALLOW_PRODUCTION_MIGRATIONS=1
+    monkeypatch.setenv("ALLOW_PRODUCTION_MIGRATIONS", "1")
+    res2 = validate_alembic_target_url(do_url, allow_production=False)
+    assert res2.startswith("postgresql+psycopg://")
+    assert "vyasa_n_db" in res2
+
+
+def test_alembic_guard_rejects_similar_neon_hostnames():
+    """Verify that similar or spoofed Neon hostnames are strictly rejected (no substring matching)."""
+    similar_urls = [
+        # Missing '-pooler' suffix
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz.c-4.ap-southeast-1.aws.neon.tech:5432/neondb",
+        # Different endpoint prefix
+        "postgresql://neondb_owner:pass@ep-nameless-feather-other-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/neondb",
+        # Different AWS region
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.us-east-1.aws.neon.tech:5432/neondb",
+        # Substring / spoofed domain suffix
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech.attacker.com:5432/neondb",
+        # Unrelated neon host
+        "postgresql://neondb_owner:pass@ep-random-branch-12345.aws.neon.tech:5432/neondb",
+    ]
+    for url in similar_urls:
+        with pytest.raises(TestDatabaseSecurityError, match="not an approved or registered migration target"):
+            validate_alembic_target_url(url, allow_production=False)
+
+
+def test_alembic_guard_rejects_different_database_names_on_authorized_neon_host():
+    """Verify that different database names on the authorized Neon host are strictly rejected."""
+    wrong_db_urls = [
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/other_db",
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/vyasa_prod",
+        "postgresql://neondb_owner:pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/postgres",
+    ]
+    for url in wrong_db_urls:
+        with pytest.raises(TestDatabaseSecurityError, match="not an approved or registered migration target"):
+            validate_alembic_target_url(url, allow_production=False)
+
+
+def test_alembic_guard_rejects_unknown_targets():
+    """Verify that completely unknown / unregistered database targets are rejected."""
+    unknown_urls = [
+        "postgresql://user:pass@internal-cluster.local:5432/appdb",
+        "postgresql://user:pass@localhost:5432/unregistered_local_db",
+    ]
+    for url in unknown_urls:
+        with pytest.raises(TestDatabaseSecurityError, match="not an approved or registered migration target"):
+            validate_alembic_target_url(url, allow_production=False)
+
+
+def test_test_database_isolation_still_blocks_neon_and_digitalocean():
+    """Verify that existing test-database isolation still blocks targeting Neon dev or DigitalOcean prod as a test DB."""
+    # Neon dev database must not be used as TEST_DATABASE_URL
+    neon_test_url = "postgresql://test_user:safe_pass@ep-nameless-feather-b3e5x4nz-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/neondb"
+    with pytest.raises(TestDatabaseSecurityError, match="matches a blocked shared/production database target"):
+        validate_test_database_url(neon_test_url)
+
+    # DigitalOcean production database must not be used as TEST_DATABASE_URL
+    do_test_url = "postgresql://test_user:safe_pass@db-pgsql-blr1-vyasa9915-do-user-45641142-0.j.db.ondigitalocean.com:25060/vyasa_n_db"
+    with pytest.raises(TestDatabaseSecurityError, match="matches a blocked shared/production database target"):
+        validate_test_database_url(do_test_url)
+
 
 

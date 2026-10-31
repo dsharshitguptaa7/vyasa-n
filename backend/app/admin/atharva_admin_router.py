@@ -116,6 +116,18 @@ def get_atharva_config_summary(
 # ==========================================
 # 2. AUTHORITIES
 # ==========================================
+def _derive_authority_onboarding_status(auth: NivaranAuthority) -> str:
+    user = getattr(auth, "user", None)
+    if not user:
+        return "ACTIVE"
+    if getattr(user, "must_change_password", False):
+        return "PASSWORD_CHANGE_REQUIRED"
+    two_factor = getattr(user, "two_factor_auth", None)
+    if not two_factor or not getattr(two_factor, "is_enabled", False):
+        return "TOTP_SETUP_REQUIRED"
+    return "ACTIVE"
+
+
 @atharva_admin_router.get("/authorities", response_model=ApiResponse)
 def list_authorities(
     role: Optional[NivaranRole] = Query(None, description="Filter by authority role"),
@@ -124,7 +136,10 @@ def list_authorities(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_super_admin_user),
 ):
-    stmt = select(NivaranAuthority)
+    stmt = (
+        select(NivaranAuthority)
+        .options(joinedload(NivaranAuthority.user).joinedload(User.two_factor_auth))
+    )
     if role:
         stmt = stmt.where(NivaranAuthority.role == role)
     if is_active is not None:
@@ -142,7 +157,13 @@ def list_authorities(
     stmt = stmt.order_by(NivaranAuthority.name_snapshot.asc())
     records = db.execute(stmt).scalars().all()
 
-    authorities_out = [AuthorityOut.model_validate(r) for r in records]
+    authorities_out = []
+    for r in records:
+        item = AuthorityOut.model_validate(r)
+        item.onboarding_status = _derive_authority_onboarding_status(r)
+        item.temporary_password = None  # Never expose credentials in list queries
+        authorities_out.append(item)
+
     return ApiResponse(
         success=True,
         message="Atharva Veda authorities retrieved successfully.",
@@ -168,10 +189,15 @@ def create_authority(
             is_active=payload.is_active,
             actor_user_id=admin_user.id,
         )
+        created_out = AuthorityOut.model_validate(created)
+        temp_pwd = getattr(created, "temporary_password", None)
+        created_out.temporary_password = temp_pwd
+        created_out.onboarding_status = "PASSWORD_CHANGE_REQUIRED" if temp_pwd else "ACTIVE"
+
         return ApiResponse(
             success=True,
             message=f"Authority '{created.name_snapshot}' provisioned successfully.",
-            data=AuthorityOut.model_validate(created).model_dump(),
+            data=created_out.model_dump(),
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

@@ -61,6 +61,11 @@ export const AuthoritiesPage: React.FC = () => {
   const [deletingAuthority, setDeletingAuthority] = useState<Authority | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Secure Onboarding Temporary Credential Modal State
+  const [onboardingModalData, setOnboardingModalData] = useState<Authority | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const fetchAuthorities = async () => {
     try {
       setLoading(true);
@@ -213,6 +218,11 @@ export const AuthoritiesPage: React.FC = () => {
         phone: '',
         is_active: true,
       });
+      if (created.temporary_password) {
+        setOnboardingModalData(created);
+        setCopiedPassword(false);
+        setShowPassword(false);
+      }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to provision authority');
     } finally {
@@ -1107,31 +1117,87 @@ export const AuthoritiesPage: React.FC = () => {
 
                         {/* Status */}
                         <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              padding: '2.5px 8px',
-                              borderRadius: '9999px',
-                              backgroundColor: auth.is_active ? '#ecfdf5' : '#f1f5f9',
-                              color: auth.is_active ? '#047857' : '#64748b',
-                              border: auth.is_active ? '1px solid #a7f3d0' : '1px solid #cbd5e1',
-                            }}
-                          >
+                          {auth.onboarding_status === 'PASSWORD_CHANGE_REQUIRED' ? (
                             <span
                               style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                backgroundColor: auth.is_active ? '#10b981' : '#94a3b8',
-                                display: 'inline-block',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2.5px 8px',
+                                borderRadius: '9999px',
+                                backgroundColor: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fde68a',
                               }}
-                            />
-                            {auth.is_active ? 'Active' : 'Inactive'}
-                          </span>
+                              title="Temporary password issued; first-login permanent password setup pending"
+                            >
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#f59e0b',
+                                  display: 'inline-block',
+                                }}
+                              />
+                              Password Pending
+                            </span>
+                          ) : auth.onboarding_status === 'TOTP_SETUP_REQUIRED' ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2.5px 8px',
+                                borderRadius: '9999px',
+                                backgroundColor: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                              }}
+                              title="Password established; mandatory TOTP two-factor enrollment pending"
+                            >
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#3b82f6',
+                                  display: 'inline-block',
+                                }}
+                              />
+                              TOTP Pending
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                padding: '2.5px 8px',
+                                borderRadius: '9999px',
+                                backgroundColor: auth.is_active ? '#ecfdf5' : '#f1f5f9',
+                                color: auth.is_active ? '#047857' : '#64748b',
+                                border: auth.is_active ? '1px solid #a7f3d0' : '1px solid #cbd5e1',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: auth.is_active ? '#10b981' : '#94a3b8',
+                                  display: 'inline-block',
+                                }}
+                              />
+                              {auth.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          )}
                         </td>
 
                         {/* Actions */}
@@ -1783,6 +1849,122 @@ export const AuthoritiesPage: React.FC = () => {
             <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
               This administrative action is logged to the Core audit trail with timestamp and administrator identity.
             </p>
+          </div>
+        </Modal>
+      )}
+
+      {/* Secure Authority Onboarding Temporary Credential Modal */}
+      {onboardingModalData && (
+        <Modal
+          isOpen={true}
+          onClose={() => setOnboardingModalData(null)}
+          title="Secure Authority Onboarding Credential"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setOnboardingModalData(null)}
+              >
+                Done & Close
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fef3c7',
+                borderRadius: '8px',
+                color: '#92400e',
+                fontSize: '13px',
+                lineHeight: '1.5',
+              }}
+            >
+              <strong>Authority account created successfully.</strong>
+              <p style={{ margin: '6px 0 0 0' }}>
+                This temporary password will be shown only once. Share it securely with the authorized recipient.
+                The recipient must set a permanent password and complete mandatory TOTP verification before accessing the authority dashboard.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Officer Name
+                </span>
+                <strong style={{ color: '#0f172a' }}>{onboardingModalData.name_snapshot}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Institutional Email
+                </span>
+                <strong style={{ color: '#0f172a' }}>{onboardingModalData.email_snapshot}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Appointed Role
+                </span>
+                <span style={{ color: '#0f172a', fontWeight: 600 }}>{ROLE_DISPLAY_NAMES[onboardingModalData.role] || onboardingModalData.role}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Department
+                </span>
+                <span style={{ color: '#0f172a' }}>{onboardingModalData.department || 'General Administration'}</span>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                Generated Temporary Password
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{
+                    flex: 1,
+                    fontFamily: 'monospace',
+                    fontSize: '14px',
+                    padding: '10px 14px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    letterSpacing: '0.05em',
+                    color: '#0f172a',
+                    userSelect: 'all',
+                  }}
+                >
+                  {showPassword ? onboardingModalData.temporary_password : '••••••••••••••••'}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? 'Hide' : 'Reveal'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (onboardingModalData.temporary_password) {
+                      navigator.clipboard.writeText(onboardingModalData.temporary_password);
+                      setCopiedPassword(true);
+                      setTimeout(() => setCopiedPassword(false), 2500);
+                    }
+                  }}
+                >
+                  {copiedPassword ? 'Copied!' : 'Copy'}
+                </Button>
+              </div>
+              <span style={{ display: 'block', fontSize: '11.5px', color: '#64748b', marginTop: '6px' }}>
+                ⚠️ This credential will never be retrievable from subsequent views or endpoints.
+              </span>
+            </div>
           </div>
         </Modal>
       )}
