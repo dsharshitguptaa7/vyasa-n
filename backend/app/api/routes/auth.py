@@ -21,6 +21,7 @@ from app.models.two_factor import (
     TwoFactorAttempt,
 )
 from app.models.user import User
+from app.schemas.auth import FirstLoginSetPasswordRequest
 from app.schemas.auth import (
     ApplicantRegisterRequest,
     ApplicantRegistrationResponse,
@@ -268,6 +269,38 @@ def login(
     TwoFactorService.record_attempt(db, normalized_email, success=True, ip_address=client_ip)
 
     # ----------------------------------------------------
+    # FIRST-LOGIN ONBOARDING GATEWAY (MANDATORY PASSWORD CHANGE)
+    # ----------------------------------------------------
+    if getattr(user, "must_change_password", False):
+        challenge = TwoFactorService.create_challenge(
+            db=db,
+            user_id=user.id,
+            purpose="PASSWORD_CHANGE_REQUIRED",
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                module="auth",
+                action="auth.first_login_password_change_required",
+                entity_name="AuthenticationChallenge",
+                entity_id=str(challenge.id),
+                details={"purpose": "PASSWORD_CHANGE_REQUIRED"},
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+        )
+        db.commit()
+
+        return TokenResponse(
+            requires_password_change=True,
+            requires_two_factor=False,
+            challenge_id=challenge.id,
+            message="Temporary password detected. You must set a permanent password before proceeding.",
+        )
+
+    # ----------------------------------------------------
     # AUTHORITY 2FA GATEWAY (CRITICAL SECURITY INVARIANT)
     # ----------------------------------------------------
     if TwoFactorService.is_2fa_mandatory_for_user(user, db):
@@ -363,6 +396,138 @@ def login(
     except Exception as _sec_err:
         logger.error(f"[Auth Security] Hook failed: {_sec_err}")
 
+    return token_resp
+
+
+# ============================================================
+# FIRST-LOGIN ONBOARDING ENDPOINTS
+# ============================================================
+
+@router.post("/first-login/set-password", response_model=TokenResponse)
+def set_permanent_password(
+    payload: FirstLoginSetPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """
+    Establish a permanent password during mandatory first-login onboarding for newly registered authorities.
+    Validates single-use challenge, enforces password complexity, prevents reuse of temporary credential,
+    atomically clears must_change_password, and transitions directly into mandatory TOTP enrollment.
+    """
+    client_ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")[:500] if request else None
+
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password and confirmation password do not match.",
+        )
+
+    challenge = TwoFactorService.get_valid_challenge(
+        db, payload.challenge_id, purpose="PASSWORD_CHANGE_REQUIRED", for_update=True
+    )
+    if challenge is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired onboarding challenge. Please sign in again.",
+        )
+
+    user = db.scalar(
+        select(User).options(joinedload(User.roles)).where(User.id == challenge.user_id).with_for_update(of=User)
+    )
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive or not found.",
+        )
+
+    if not getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Permanent password has already been established.",
+        )
+
+    # Disallow reusing the temporary password
+    if user.password_hash and verify_password(payload.new_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New permanent password cannot be identical to the temporary password.",
+        )
+
+    # Update password and clear must_change_password atomically
+    user.password_hash = hash_password(payload.new_password)
+    user.must_change_password = False
+    db.add(user)
+
+    # Invalidate onboarding challenge atomically
+    TwoFactorService.consume_challenge(db, challenge)
+
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            module="auth",
+            action="auth.permanent_password_configured",
+            entity_name="User",
+            entity_id=str(user.id),
+            details={"status": "password_changed_from_temporary"},
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+    )
+
+    # Advance to mandatory TOTP enrollment
+    if TwoFactorService.is_2fa_mandatory_for_user(user, db):
+        two_factor = db.scalar(
+            select(UserTwoFactorAuth).where(UserTwoFactorAuth.user_id == user.id)
+        )
+        if two_factor is None or not two_factor.is_enabled:
+            totp_challenge = TwoFactorService.create_challenge(
+                db=db,
+                user_id=user.id,
+                purpose="TWO_FACTOR_SETUP",
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+            db.add(
+                AuditLog(
+                    user_id=user.id,
+                    module="auth",
+                    action="auth.two_factor_setup_started",
+                    entity_name="AuthenticationChallenge",
+                    entity_id=str(totp_challenge.id),
+                    details={"purpose": "TWO_FACTOR_SETUP", "stage": "first_login_onboarding"},
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                )
+            )
+            db.commit()
+
+            return TokenResponse(
+                requires_password_change=False,
+                requires_two_factor=True,
+                two_factor_setup_required=True,
+                challenge_id=totp_challenge.id,
+                message="Permanent password set successfully. Mandatory two-factor authentication enrollment is required.",
+            )
+        else:
+            totp_challenge = TwoFactorService.create_challenge(
+                db=db,
+                user_id=user.id,
+                purpose="TWO_FACTOR_LOGIN",
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+            db.commit()
+            return TokenResponse(
+                requires_password_change=False,
+                requires_two_factor=True,
+                two_factor_setup_required=False,
+                challenge_id=totp_challenge.id,
+                message="Permanent password set successfully. Please verify your two-factor code.",
+            )
+
+    token_resp = _issue_authenticated_token(user, db)
+    db.commit()
     return token_resp
 
 
@@ -469,6 +634,12 @@ def confirm_2fa_setup(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive or not found.",
+        )
+
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permanent password change required before completing two-factor setup.",
         )
 
     two_factor = db.scalar(
@@ -578,6 +749,12 @@ def verify_2fa_login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive or not found.",
+        )
+
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permanent password change required before completing two-factor setup.",
         )
 
     # Rate limiting on TOTP attempts
@@ -714,6 +891,12 @@ def verify_2fa_recovery(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive or not found.",
+        )
+
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permanent password change required before completing two-factor setup.",
         )
 
     if TwoFactorService.is_rate_limited(db, user.email):

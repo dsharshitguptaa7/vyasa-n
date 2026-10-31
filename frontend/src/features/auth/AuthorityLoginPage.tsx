@@ -6,6 +6,7 @@ import { CsjmuLogo } from '@vyasa/ui/branding';
 import { VYASAWisdomModal } from '../../components/common/VYASAWisdomModal';
 import { getNextWisdomShloka } from '../../services/wisdomService';
 import { twoFactorService } from '../../services/twoFactorService';
+import { authService } from '../../services/authService';
 import { VedaShloka } from '../../types/wisdom';
 import { TokenResponse, TwoFactorSetupDetails } from '../../types/auth';
 
@@ -21,7 +22,7 @@ interface LocationState {
   two_factor_setup_required?: boolean;
 }
 
-type AuthStep = 'credentials' | 'verify' | 'enrollment' | 'recovery' | 'recovery-display';
+type AuthStep = 'credentials' | 'password-change' | 'verify' | 'enrollment' | 'recovery' | 'recovery-display';
 
 export const AuthorityLoginPage: React.FC = () => {
   const auth = useAuth();
@@ -40,6 +41,14 @@ export const AuthorityLoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // Mandatory First-Login Password Change
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPasswordError, setNewPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Step 2 & Enrollment: TOTP Code
   const [totpCode, setTotpCode] = useState('');
@@ -215,6 +224,14 @@ export const AuthorityLoginPage: React.FC = () => {
     try {
       const res = await login(email.trim(), password);
 
+      if (res?.requires_password_change && res.challenge_id) {
+        setChallengeId(res.challenge_id);
+        setPassword('');
+        setStep('password-change');
+        isSubmittingRef.current = false;
+        return;
+      }
+
       if (res?.requires_two_factor && res.challenge_id) {
         setChallengeId(res.challenge_id);
         twoFactorService.setStoredChallenge({
@@ -257,6 +274,81 @@ export const AuthorityLoginPage: React.FC = () => {
       } else {
         setLoginError('An unexpected error occurred while signing in. Please try again.');
       }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 1b. Submit Mandatory First-Login Permanent Password
+  const validatePermanentPassword = (): boolean => {
+    let isValid = true;
+    setNewPasswordError('');
+    setConfirmPasswordError('');
+
+    if (!newPassword) {
+      setNewPasswordError('Permanent password is required.');
+      isValid = false;
+    } else if (newPassword.length < 8) {
+      setNewPasswordError('Password must be at least 8 characters long.');
+      isValid = false;
+    } else if (!/[A-Z]/.test(newPassword)) {
+      setNewPasswordError('Password must contain at least one uppercase letter.');
+      isValid = false;
+    } else if (!/[a-z]/.test(newPassword)) {
+      setNewPasswordError('Password must contain at least one lowercase letter.');
+      isValid = false;
+    } else if (!/\d/.test(newPassword)) {
+      setNewPasswordError('Password must contain at least one number.');
+      isValid = false;
+    }
+
+    if (!confirmPassword) {
+      setConfirmPasswordError('Please confirm your permanent password.');
+      isValid = false;
+    } else if (newPassword !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match.');
+      isValid = false;
+    }
+
+    return isValid;
+  };
+
+  const handleSetPermanentPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    if (!validatePermanentPassword()) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await authService.setPermanentPassword(challengeId, newPassword, confirmPassword);
+      setNewPassword('');
+      setConfirmPassword('');
+
+      if (res?.requires_two_factor && res.challenge_id) {
+        setChallengeId(res.challenge_id);
+        twoFactorService.setStoredChallenge({
+          challenge_id: res.challenge_id,
+          two_factor_setup_required: Boolean(res.two_factor_setup_required),
+        });
+
+        if (res.two_factor_setup_required) {
+          setStep('enrollment');
+          loadSetupData(res.challenge_id);
+        } else {
+          setStep('verify');
+        }
+        return;
+      }
+
+      if (res?.access_token) {
+        await proceedWithFinalSession(res);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to set permanent password.';
+      setLoginError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -537,6 +629,166 @@ export const AuthorityLoginPage: React.FC = () => {
                   Institutional authorities, deans, and academic governance personnel are protected with mandatory
                   two-factor authentication (TOTP). Standard authenticator apps (Google Authenticator, Microsoft Authenticator) are supported.
                 </p>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {/* STEP 1b: MANDATORY FIRST-LOGIN PASSWORD CHANGE */}
+        {step === 'password-change' && (
+          <Card
+            className="vyasa-auth-card vyasa-auth-card--authority"
+            title="Set Permanent Password"
+            subtitle="First-login security onboarding: Establish your permanent institutional password"
+            headerAction={<Badge variant="saffron">Mandatory Setup</Badge>}
+          >
+            <div
+              style={{
+                marginBottom: '20px',
+                padding: '12px 14px',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fef3c7',
+                borderRadius: '6px',
+                color: '#92400e',
+                fontSize: '13px',
+                lineHeight: '1.5',
+              }}
+            >
+              <strong>Temporary Password Detected</strong>
+              <p style={{ margin: '4px 0 0 0' }}>
+                You have authenticated with a temporary credential. Institutional policy requires you to establish a secure permanent password before completing two-factor enrollment and accessing your dashboard.
+              </p>
+            </div>
+
+            <form onSubmit={handleSetPermanentPassword} noValidate>
+              {loginError && (
+                <div
+                  role="alert"
+                  className="vyasa-auth-alert vyasa-auth-alert--error"
+                >
+                  <span style={{ fontWeight: 700 }}>&bull;</span>
+                  <span style={{ flex: 1 }}>{loginError}</span>
+                </div>
+              )}
+
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ position: 'relative' }}>
+                  <Input
+                    id="authority-new-password"
+                    label="New Permanent Password"
+                    placeholder="Enter new permanent password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      if (newPasswordError) setNewPasswordError('');
+                    }}
+                    error={newPasswordError}
+                    required
+                    disabled={submitting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '38px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {showNewPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ position: 'relative' }}>
+                  <Input
+                    id="authority-confirm-password"
+                    label="Confirm Permanent Password"
+                    placeholder="Re-enter your new permanent password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (confirmPasswordError) setConfirmPasswordError('');
+                    }}
+                    error={confirmPasswordError}
+                    required
+                    disabled={submitting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '38px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {showConfirmPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#64748b',
+                  backgroundColor: '#f8fafc',
+                  padding: '10px 14px',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  lineHeight: '1.6',
+                  marginBottom: '20px',
+                }}
+              >
+                <strong style={{ color: '#334155' }}>Password Policy:</strong>
+                <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                  <li>Minimum 8 characters in length</li>
+                  <li>At least one uppercase letter (A-Z) and one lowercase (a-z)</li>
+                  <li>At least one numerical digit (0-9)</li>
+                  <li>Must differ from your temporary password</li>
+                </ul>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setStep('credentials');
+                    setPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setLoginError(null);
+                  }}
+                  disabled={submitting}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={submitting}
+                  disabled={submitting}
+                  style={{ flex: 2 }}
+                >
+                  {submitting ? 'Updating...' : 'Set Password & Continue'}
+                </Button>
               </div>
             </form>
           </Card>

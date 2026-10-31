@@ -80,7 +80,7 @@ class UserTwoFactorAuth(Base):
     )
 
     # Relationships
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="two_factor_auth")
 
     def __repr__(self) -> str:
         return f"<UserTwoFactorAuth(id={self.id}, user_id={self.user_id}, is_enabled={self.is_enabled})>"

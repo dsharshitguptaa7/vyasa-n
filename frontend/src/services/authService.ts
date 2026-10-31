@@ -77,7 +77,7 @@ export const authService = {
         );
       }
 
-      if (data?.requires_two_factor) {
+      if (data?.requires_two_factor || data?.requires_password_change) {
         return data as TokenResponse;
       }
 
@@ -86,6 +86,53 @@ export const authService = {
       }
 
       this.setToken(data.access_token);
+      return data as TokenResponse;
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        throw err;
+      }
+      throw new AuthError(
+        'Unable to connect to VYASA institutional identity service. Please verify your network connection.'
+      );
+    }
+  },
+
+  async setPermanentPassword(
+    challengeId: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<TokenResponse> {
+    const url = `${config.apiBaseUrl}/auth/first-login/set-password`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id: challengeId,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new AuthError(
+          data?.message || data?.detail || 'Failed to establish permanent password. Please try again.',
+          response.status
+        );
+      }
+
+      if (data?.requires_two_factor || data?.requires_password_change) {
+        return data as TokenResponse;
+      }
+
+      if (data?.access_token) {
+        this.setToken(data.access_token);
+      }
       return data as TokenResponse;
     } catch (err: unknown) {
       if (err instanceof AuthError) {

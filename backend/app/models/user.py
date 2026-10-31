@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.role import Role
     from app.models.notification import Notification
     from app.models.applicant_profile import ApplicantProfile
+    from app.models.two_factor import UserTwoFactorAuth
 
 
 class User(Base):
@@ -54,6 +55,13 @@ class User(Base):
         default=False,
         nullable=False,
     )
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+        comment="Explicit flag requiring user to set permanent password on first login",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -79,6 +87,12 @@ class User(Base):
     )
     applicant_profile: Mapped[Optional["ApplicantProfile"]] = relationship(
         "ApplicantProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    two_factor_auth: Mapped[Optional["UserTwoFactorAuth"]] = relationship(
+        "UserTwoFactorAuth",
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",

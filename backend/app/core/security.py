@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import jwt
@@ -9,6 +10,39 @@ from app.core.config import settings
 
 HASH_ALGORITHM = "sha256"
 ITERATIONS = 100_000
+
+
+def generate_temporary_password(length: int = 16) -> str:
+    """
+    Generate a cryptographically secure temporary password meeting
+    institutional complexity standards (uppercase, lowercase, digits, symbols).
+    """
+    if length < 12:
+        length = 12
+
+    uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    lowercase = "abcdefghijkmnopqrstuvwxyz"
+    digits = "23456789"
+    symbols = "!@#$%^&*()-_=+"
+
+    guaranteed = [
+        secrets.choice(uppercase),
+        secrets.choice(uppercase),
+        secrets.choice(lowercase),
+        secrets.choice(lowercase),
+        secrets.choice(digits),
+        secrets.choice(digits),
+        secrets.choice(symbols),
+        secrets.choice(symbols),
+    ]
+
+    all_chars = uppercase + lowercase + digits + symbols
+    remaining = [secrets.choice(all_chars) for _ in range(length - len(guaranteed))]
+    password_list = guaranteed + remaining
+
+    rng = secrets.SystemRandom()
+    rng.shuffle(password_list)
+    return "".join(password_list)
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> str:

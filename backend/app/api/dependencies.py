@@ -112,6 +112,12 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing platform resources.",
+        )
+
     return user
 
 

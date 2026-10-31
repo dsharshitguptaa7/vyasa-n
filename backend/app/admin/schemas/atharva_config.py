@@ -19,6 +19,8 @@ class AuthorityOut(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    onboarding_status: Optional[str] = None
+    temporary_password: Optional[str] = None
 
 
 class AuthorityCreate(BaseModel):

@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, func, or_
 
-from app.core.security import hash_password
+from app.core.security import hash_password, generate_temporary_password
 from app.models.audit import AuditLog
 from app.models.user import User
 from app.models.role import Role, user_roles
@@ -90,13 +90,14 @@ class AdminConfigService:
                     f"User account '{clean_email}' is already associated with authority '{auth_by_user.name_snapshot}'."
                 )
             vyasa_user_id = user.id
+            temp_password = None
         else:
-            # Create user account with a secure generated credential
+            # Create user account with a secure generated temporary credential
             name_parts = clean_name.split()
             first_name = name_parts[0]
             last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "-"
 
-            temp_password = secrets.token_urlsafe(16)
+            temp_password = generate_temporary_password(16)
             new_user = User(
                 id=uuid.uuid4(),
                 email=clean_email,
@@ -106,6 +107,7 @@ class AdminConfigService:
                 password_hash=hash_password(temp_password),
                 is_active=True,
                 is_verified=True,
+                must_change_password=True,
             )
             db.add(new_user)
             db.flush()
@@ -146,10 +148,13 @@ class AdminConfigService:
                 "designation": authority.designation,
                 "department": authority.department,
                 "is_active": authority.is_active,
+                "must_change_password": True if temp_password else False,
             },
         )
         db.commit()
         db.refresh(authority)
+        # Attach transient temporary password for one-time API exposure by caller
+        authority.temporary_password = temp_password
         return authority
 
     @staticmethod

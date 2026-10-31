@@ -24,6 +24,8 @@ export interface Authority {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  onboarding_status?: string | null;
+  temporary_password?: string | null;
 }
 
 export interface CreateAuthorityPayload {
