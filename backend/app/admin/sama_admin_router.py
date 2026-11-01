@@ -530,10 +530,11 @@ def upload_bulletin_file(
     """
     try:
         result = storage_service.save_file(
-            file=file.file,
+            content=file.file,
             filename=file.filename or "bulletin.pdf",
-            sub_dir="sama_veda/bulletins",
-            allowed_types=["application/pdf"],
+            subfolder="sama_veda/bulletins",
+            allowed_mime_types=["application/pdf"],
+            mime_type=file.content_type or "application/pdf",
         )
         return ApiResponse(
             success=True,
@@ -900,10 +901,11 @@ def upload_certificate_file(
     """
     try:
         result = storage_service.save_file(
-            file=file.file,
+            content=file.file,
             filename=file.filename or "certificate.pdf",
-            sub_dir="sama_veda/certificates",
-            allowed_types=["application/pdf"],
+            subfolder="sama_veda/certificates",
+            allowed_mime_types=["application/pdf"],
+            mime_type=file.content_type or "application/pdf",
         )
         return ApiResponse(
             success=True,
