@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppIcon, Button } from '@vyasa/ui';
+import { AppIcon, Button, Badge, Modal, Input, Select, EmptyState, LoadingState } from '@vyasa/ui';
 import { AdminLayout } from '../../components/AdminLayout';
 import { useAuth } from '../../../context/AuthContext';
 import { samaAdminService } from '../../services/samaAdminService';
@@ -104,8 +104,10 @@ export const CertificatesPage: React.FC = () => {
 
   // Open Issue Modal
   const handleOpenIssue = () => {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(100 + Math.random() * 900);
     setIssueForm({
-      certificate_number: `CSJMU/RD/${new Date().getFullYear()}/V1-I1/${Math.floor(100 + Math.random() * 900)}`,
+      certificate_number: `CSJMU/RD/${year}/CERT-${rand}`,
       bulletin_id: bulletins[0]?.id || '',
       author_id: authors[0]?.id || '',
       publication_id: '',
@@ -115,9 +117,16 @@ export const CertificatesPage: React.FC = () => {
     setShowIssueModal(true);
   };
 
+  // Open Revoke Modal
+  const handleOpenRevoke = (cert: CertificateRecord) => {
+    setSelectedCert(cert);
+    setRevocationReason('');
+    setShowRevokeModal(true);
+  };
+
   // Submit Issue
-  const handleSubmitIssue = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitIssue = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!issueForm.certificate_number || !issueForm.bulletin_id || !issueForm.author_id) {
       setError('Please fill in Certificate Number, Bulletin, and Author');
       return;
@@ -156,35 +165,23 @@ export const CertificatesPage: React.FC = () => {
     }
   };
 
-  // Open Revoke Modal
-  const handleOpenRevoke = (cert: CertificateRecord) => {
-    if (!isSuperAdmin) {
-      setError('Only Super Administrators are permitted to revoke certificates.');
-      return;
-    }
-    setSelectedCert(cert);
-    setRevocationReason('');
-    setShowRevokeModal(true);
-  };
-
   // Submit Revocation
-  const handleSubmitRevocation = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitRevocation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!selectedCert) return;
     if (revocationReason.trim().length < 5) {
-      setError('A formal revocation reason with at least 5 characters is required.');
+      setError('Revocation reason must be at least 5 characters');
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-
       await samaAdminService.revokeCertificate(selectedCert.id, {
         revocation_reason: revocationReason.trim(),
       });
 
-      setSuccessMessage(`Certificate ${selectedCert.certificate_number} has been revoked.`);
+      setSuccessMessage(`Certificate ${selectedCert.certificate_number} revoked.`);
       setShowRevokeModal(false);
       setSelectedCert(null);
       fetchCertificates();
@@ -196,7 +193,7 @@ export const CertificatesPage: React.FC = () => {
     }
   };
 
-  // Handle Download
+  // Download PDF
   const handleDownload = async (cert: CertificateRecord) => {
     try {
       setDownloadingId(cert.id);
@@ -215,95 +212,95 @@ export const CertificatesPage: React.FC = () => {
 
   return (
     <AdminLayout activeTab="sama-certificates">
-      <div className="space-y-6">
-      {/* Top Banner / Breadcrumb */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <AppIcon name="check-circle" className="text-blue-600" />
-            Certificates Management
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage research felicitation certificates, institutional hashes, downloads, and Super Admin revocations.
-          </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Top Banner */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
+              SAMIKSHA • Research Felicitation & Honors
+            </div>
+            <h1 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AppIcon name="check-circle" size={22} color="var(--vyasa-primary, #0f2b48)" />
+              Certificates Management
+            </h1>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: '#64748b' }}>
+              Manage research felicitation certificates, institutional hashes, downloads, and Super Admin revocations.
+            </p>
+          </div>
+          <div>
+            <Button variant="primary" size="sm" onClick={handleOpenIssue}>
+              <AppIcon name="upload" size={14} style={{ marginRight: '6px' }} />
+              Issue Certificate
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleOpenIssue}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition shadow-sm"
-          >
-            <AppIcon name="upload" className="w-4 h-4" />
-            Issue Certificate
-          </button>
-        </div>
-      </div>
 
-      {/* Notifications */}
-      {error && certificates.length > 0 && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-            <AppIcon name="close" className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-      {successMessage && (
-        <div className="p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-sm text-green-700 dark:text-green-300 flex items-center justify-between">
-          <span>{successMessage}</span>
-          <button onClick={() => setSuccessMessage(null)} className="text-green-500 hover:text-green-700">
-            <AppIcon name="close" className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        {/* Notifications */}
+        {error && certificates.length > 0 && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', display: 'flex', alignItems: 'center' }}>
+              <AppIcon name="close" size={14} />
+            </button>
+          </div>
+        )}
+        {successMessage && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#166534', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{successMessage}</span>
+            <button onClick={() => setSuccessMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#166534', display: 'flex', alignItems: 'center' }}>
+              <AppIcon name="close" size={14} />
+            </button>
+          </div>
+        )}
 
-      {/* Search & Filters */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 w-full md:w-96">
-          <div className="relative flex-1">
-            <AppIcon
-              name="search"
-              className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
+        {/* Search & Filters */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            backgroundColor: '#ffffff',
+            padding: '16px',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          }}
+        >
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', flex: '1 1 300px' }}>
+            <Input
               placeholder="Search by certificate # or hash..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+              style={{ flex: 1 }}
+            />
+            <Button variant="outline" size="sm" type="submit">
+              Search
+            </Button>
+          </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Status:</span>
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as 'all' | 'valid' | 'revoked');
+                setPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'All Certificates' },
+                { value: 'valid', label: 'Valid / Active' },
+                { value: 'revoked', label: 'Revoked' },
+              ]}
+              style={{ minWidth: '150px' }}
             />
           </div>
-          <button
-            type="submit"
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition"
-          >
-            Search
-          </button>
-        </form>
-
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Status:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as 'all' | 'valid' | 'revoked');
-              setPage(1);
-            }}
-            className="text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Certificates</option>
-            <option value="valid">Valid / Active</option>
-            <option value="revoked">Revoked</option>
-          </select>
         </div>
-      </div>
 
-      {/* Certificates Table */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+        {/* Certificates Table */}
         {loading ? (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            <div className="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-blue-600 rounded-full mb-2"></div>
-            <p className="text-sm">Loading certificate ledger...</p>
-          </div>
+          <LoadingState message="Loading certificate ledger..." />
         ) : error ? (
           <div
             data-testid="certificates-error-state"
@@ -332,344 +329,329 @@ export const CertificatesPage: React.FC = () => {
             </div>
           </div>
         ) : certificates.length === 0 ? (
-          <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-            <AppIcon name="check-circle" className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-            <p className="text-base font-medium text-gray-700 dark:text-gray-300">No certificates found</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Issue a certificate or refine your filter query.
-            </p>
-          </div>
+          <EmptyState
+            title="No Certificates Found"
+            description="No certificate records match your query. Issue a new research certificate or adjust your filter."
+            action={
+              <Button variant="primary" size="sm" onClick={handleOpenIssue}>
+                + Issue First Certificate
+              </Button>
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-              <thead className="bg-gray-50 dark:bg-gray-800/60 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
-                <tr>
-                  <th className="px-6 py-3">Certificate Number</th>
-                  <th className="px-6 py-3">Recipient / Author</th>
-                  <th className="px-6 py-3">Bulletin</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Hash / Verification</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+          <div className="vyasa-table-card" style={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid var(--vyasa-border, #e3dcd1)', overflowX: 'auto', boxShadow: '0 2px 6px rgba(15, 43, 72, 0.04)' }}>
+            <table className="vyasa-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)', borderBottom: '2px solid var(--vyasa-border, #e3dcd1)', color: 'var(--vyasa-primary, #0f2b48)', fontWeight: 600 }}>
+                  <th style={{ padding: '12px 16px' }}>Certificate Number</th>
+                  <th style={{ padding: '12px 16px' }}>Recipient / Author</th>
+                  <th style={{ padding: '12px 16px' }}>Bulletin</th>
+                  <th style={{ padding: '12px 16px' }}>Status</th>
+                  <th style={{ padding: '12px 16px' }}>Hash / Verification</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody>
                 {certificates.map((cert) => (
-                  <tr key={cert.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/40 transition">
-                    <td className="px-6 py-4 font-mono font-medium text-gray-900 dark:text-white">
-                      {cert.certificate_number}
-                      <div className="text-xs font-sans text-gray-400">
+                  <tr key={cert.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
+                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>
+                        {cert.certificate_number}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
                         Issued: {new Date(cert.created_at).toLocaleDateString()}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-800 dark:text-gray-200">
-                        {cert.author_name || 'Author ID: ' + cert.author_id.slice(0, 8)}
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 600, color: '#0f2b48' }}>
+                        {cert.author_name || `Author ID: ${cert.author_id.slice(0, 8)}`}
                       </div>
                       {cert.author_department && (
-                        <div className="text-xs text-gray-400">{cert.author_department}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>{cert.author_department}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td style={{ padding: '12px 16px' }}>
                       {cert.bulletin_title ? (
                         <div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          <div style={{ fontWeight: 600, color: '#334155' }}>
                             {cert.bulletin_title}
                           </div>
                           {(cert.bulletin_volume != null || cert.bulletin_issue != null) && (
-                            <div className="text-xs text-gray-400">
-                              Vol. {cert.bulletin_volume} Issue {cert.bulletin_issue}
+                            <div style={{ fontSize: '12px', color: '#64748b' }}>
+                              Vol. {cert.bulletin_volume} • Issue {cert.bulletin_issue}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400 font-mono">
+                        <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
                           {cert.bulletin_id.slice(0, 8)}...
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                       {cert.is_revoked ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
-                          Revoked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
-                          Valid
-                        </span>
-                      )}
-                      {cert.is_revoked && cert.revocation_reason && (
-                        <div className="text-xs text-red-500 dark:text-red-400 mt-1 max-w-xs truncate" title={cert.revocation_reason}>
-                          Reason: {cert.revocation_reason}
+                        <div>
+                          <Badge variant="neutral" style={{ color: '#991b1b', backgroundColor: '#fee2e2' }}>
+                            Revoked
+                          </Badge>
+                          {cert.revocation_reason && (
+                            <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '3px', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cert.revocation_reason}>
+                              Reason: {cert.revocation_reason}
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        <Badge variant="teal">Valid</Badge>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500 dark:text-gray-400">
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '11.5px', color: '#64748b' }}>
                       <span title={cert.verification_hash || cert.checksum_sha256 || undefined}>
                         {cert.verification_hash ? `${cert.verification_hash.slice(0, 16)}...` : cert.checksum_sha256 ? `${cert.checksum_sha256.slice(0, 16)}...` : 'Verified'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => handleDownload(cert)}
-                        disabled={downloadingId === cert.id}
-                        className="px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition disabled:opacity-50"
-                        title="Download Certificate PDF"
-                      >
-                        {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
-                      </button>
-
-                      {!cert.is_revoked && (
-                        <button
-                          onClick={() => handleOpenRevoke(cert)}
-                          disabled={!isSuperAdmin}
-                          className={`px-2.5 py-1.5 text-xs font-medium rounded transition ${
-                            isSuperAdmin
-                              ? 'text-red-600 hover:text-red-800 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30'
-                              : 'text-gray-400 border border-gray-200 dark:border-gray-800 cursor-not-allowed opacity-60'
-                          }`}
-                          title={
-                            isSuperAdmin
-                              ? 'Revoke Certificate'
-                              : 'Revocation is strictly restricted to Super Administrators'
-                          }
+                    <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(cert)}
+                          disabled={downloadingId === cert.id}
+                          title="Download Certificate PDF"
                         >
-                          Revoke
-                        </button>
-                      )}
+                          {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
+                        </Button>
+
+                        {!cert.is_revoked && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenRevoke(cert)}
+                            disabled={!isSuperAdmin}
+                            style={{
+                              color: isSuperAdmin ? '#b91c1c' : '#94a3b8',
+                              borderColor: isSuperAdmin ? '#fca5a5' : '#e2e8f0',
+                              cursor: isSuperAdmin ? 'pointer' : 'not-allowed',
+                            }}
+                            title={
+                              isSuperAdmin
+                                ? 'Revoke Certificate'
+                                : 'Revocation is strictly restricted to Super Administrators'
+                            }
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            <div style={{ padding: '14px 18px', borderTop: '1px solid var(--vyasa-border-subtle, #ede7de)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
+              <span>
+                Showing {certificates.length} of {totalCount} certificates
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * limit >= totalCount}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Pagination */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>
-            Showing {certificates.length} of {totalCount} certificates
-          </span>
-          <div className="flex gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded disabled:opacity-50 transition"
-            >
-              Previous
-            </button>
-            <span className="px-2 py-1">Page {page}</span>
-            <button
-              disabled={page * limit >= totalCount}
-              onClick={() => setPage(page + 1)}
-              className="px-3 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded disabled:opacity-50 transition"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal: Issue Certificate */}
-      {showIssueModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-xl w-full border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Issue Felicitation Certificate
-              </h2>
-              <button
+        {/* Modal: Issue Certificate */}
+        <Modal
+          isOpen={showIssueModal}
+          onClose={() => setShowIssueModal(false)}
+          title="Issue Felicitation Certificate"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
                 onClick={() => setShowIssueModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                <AppIcon name="close" className="w-5 h-5" />
-              </button>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                type="button"
+                disabled={submitting}
+                onClick={() => handleSubmitIssue()}
+              >
+                {submitting ? 'Issuing...' : 'Confirm Issuance'}
+              </Button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSubmitIssue} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <Input
+              label="Certificate Number"
+              required
+              value={issueForm.certificate_number}
+              onChange={(e) =>
+                setIssueForm({ ...issueForm, certificate_number: e.target.value })
+              }
+              placeholder="e.g. CSJMU/RD/2026/V1-I1/001"
+              style={{ fontFamily: 'monospace' }}
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+              <Select
+                label="Bulletin Reference"
+                required
+                value={issueForm.bulletin_id}
+                onChange={(e) =>
+                  setIssueForm({ ...issueForm, bulletin_id: e.target.value })
+                }
+                options={[
+                  { value: '', label: 'Select Bulletin' },
+                  ...bulletins.map((b) => ({
+                    value: b.id,
+                    label: `${b.title} (Vol ${b.volume} Iss ${b.issue})`,
+                  })),
+                ]}
+              />
+
+              <Select
+                label="Recipient Author"
+                required
+                value={issueForm.author_id}
+                onChange={(e) =>
+                  setIssueForm({ ...issueForm, author_id: e.target.value })
+                }
+                options={[
+                  { value: '', label: 'Select Author' },
+                  ...authors.map((a) => ({
+                    value: a.id,
+                    label: `${a.name} (${a.department || 'No dept'})`,
+                  })),
+                ]}
+              />
             </div>
 
-            <form onSubmit={handleSubmitIssue} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                  Certificate Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={issueForm.certificate_number}
-                  onChange={(e) =>
-                    setIssueForm({ ...issueForm, certificate_number: e.target.value })
-                  }
-                  className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                  placeholder="e.g. CSJMU/RD/2026/V1-I1/001"
-                />
-              </div>
+            <Select
+              label="Associated Publication (Optional)"
+              value={issueForm.publication_id}
+              onChange={(e) =>
+                setIssueForm({ ...issueForm, publication_id: e.target.value })
+              }
+              options={[
+                { value: '', label: 'None / Independent Certificate' },
+                ...publications.map((p) => ({
+                  value: p.id,
+                  label: `${p.title.slice(0, 80)}...`,
+                })),
+              ]}
+            />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                    Bulletin Reference *
-                  </label>
-                  <select
-                    required
-                    value={issueForm.bulletin_id}
-                    onChange={(e) =>
-                      setIssueForm({ ...issueForm, bulletin_id: e.target.value })
-                    }
-                    className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Bulletin</option>
-                    {bulletins.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.title} (Vol {b.volume} Iss {b.issue})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="vyasa-form-group">
+              <label className="vyasa-label">
+                <span>Upload Certificate PDF (Optional)</span>
+              </label>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setIssueFile(e.target.files?.[0] || null)}
+                className="vyasa-input"
+                style={{ padding: '8px' }}
+              />
+            </div>
+          </form>
+        </Modal>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                    Recipient Author *
-                  </label>
-                  <select
-                    required
-                    value={issueForm.author_id}
-                    onChange={(e) =>
-                      setIssueForm({ ...issueForm, author_id: e.target.value })
-                    }
-                    className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Author</option>
-                    {authors.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.department || 'No dept'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                  Associated Publication (Optional)
-                </label>
-                <select
-                  value={issueForm.publication_id}
-                  onChange={(e) =>
-                    setIssueForm({ ...issueForm, publication_id: e.target.value })
-                  }
-                  className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">None / Independent Certificate</option>
-                  {publications.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title.slice(0, 80)}...
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                  Upload Certificate PDF (Optional)
-                </label>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => setIssueFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/40 dark:file:text-blue-300 hover:file:bg-blue-100"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setShowIssueModal(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  {submitting ? 'Issuing...' : 'Confirm Issuance'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Revoke Certificate (Super Admin Only) */}
-      {showRevokeModal && selectedCert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-red-50 dark:bg-red-900/20">
-              <div className="flex items-center gap-2">
-                <AppIcon name="shield" className="text-red-600" />
-                <h2 className="text-lg font-bold text-red-700 dark:text-red-300">
-                  Revoke Certificate
-                </h2>
-              </div>
-              <button
+        {/* Modal: Revoke Certificate (Super Admin Only) */}
+        <Modal
+          isOpen={showRevokeModal && !!selectedCert}
+          onClose={() => setShowRevokeModal(false)}
+          title="Revoke Certificate"
+          footer={
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
                 onClick={() => setShowRevokeModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                <AppIcon name="close" className="w-5 h-5" />
-              </button>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                type="button"
+                disabled={submitting || revocationReason.trim().length < 5}
+                style={{ backgroundColor: '#b91c1c', borderColor: '#b91c1c' }}
+                onClick={() => handleSubmitRevocation()}
+              >
+                {submitting ? 'Revoking...' : 'Confirm Revocation'}
+              </Button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSubmitRevocation} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: '#92400e',
+                lineHeight: 1.5,
+              }}
+            >
+              <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Important Institutional Action:</p>
+              Certificate revocation is irreversible. The certificate status will be marked as revoked, any subsequent verification attempts will fail, and an immutable audit entry will be recorded.
             </div>
 
-            <form onSubmit={handleSubmitRevocation} className="p-6 space-y-4">
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300">
-                <p className="font-semibold mb-1">Important Institutional Action:</p>
-                Certificate revocation is irreversible. The certificate status will be marked as revoked, any subsequent verification attempts will fail, and an immutable audit entry will be recorded.
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Certificate Number: <span className="font-mono text-gray-900 dark:text-white">{selectedCert.certificate_number}</span>
+            <div>
+              <p style={{ margin: '0 0 4px 0', fontSize: '13.5px', color: '#475569' }}>
+                Certificate Number: <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f2b48' }}>{selectedCert?.certificate_number}</span>
+              </p>
+              {selectedCert?.author_name && (
+                <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+                  Recipient: {selectedCert.author_name}
                 </p>
-                {selectedCert.author_name && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Recipient: {selectedCert.author_name}
-                  </p>
-                )}
-              </div>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-1">
-                  Mandatory Revocation Reason *
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={revocationReason}
-                  onChange={(e) => setRevocationReason(e.target.value)}
-                  placeholder="Provide detailed institutional justification for this revocation..."
-                  className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">Minimum 5 characters required.</p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                <button
-                  type="button"
-                  onClick={() => setShowRevokeModal(false)}
-                  className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || revocationReason.trim().length < 5}
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  {submitting ? 'Revoking...' : 'Confirm Revocation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="vyasa-form-group">
+              <label className="vyasa-label">
+                <span>Mandatory Revocation Reason <span style={{ color: 'var(--vyasa-saffron)' }}>*</span></span>
+              </label>
+              <textarea
+                required
+                rows={3}
+                value={revocationReason}
+                onChange={(e) => setRevocationReason(e.target.value)}
+                placeholder="Provide detailed institutional justification for this revocation..."
+                className="vyasa-input"
+                style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+              />
+              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                Minimum 5 characters required.
+              </span>
+            </div>
+          </form>
+        </Modal>
       </div>
     </AdminLayout>
   );
