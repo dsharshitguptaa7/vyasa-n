@@ -271,6 +271,12 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           icon: 'layers',
         },
         {
+          id: 'subjects',
+          label: 'Subjects',
+          path: '/admin/atharva/subjects',
+          icon: 'book-open',
+        },
+        {
           id: 'grievance-clusters',
           label: 'Grievance Clusters',
           path: '/admin/atharva/grievance-clusters',

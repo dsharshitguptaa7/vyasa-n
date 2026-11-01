@@ -613,6 +613,8 @@ def update_subject(
             ).model_dump(),
         )
     except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -634,6 +636,8 @@ def delete_subject(
             data={"id": str(subject_id)},
         )
     except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 

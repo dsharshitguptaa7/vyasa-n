@@ -337,4 +337,59 @@ describe('Unified VYASA-n Ecosystem Navigation Architecture Suite', () => {
     // No marketing footer in authenticated workspace
     expect(container.querySelector('.vyasa-footer')).not.toBeInTheDocument();
   });
+
+  /* -------------------------------------------------------------------------
+   * Requirement 10: Super Admin NIVARAN sidebar includes Subjects in correct order
+   * ----------------------------------------------------------------------- */
+  it('10. Super Admin NIVARAN sidebar includes Subjects between Subject Clusters and Grievance Clusters', () => {
+    mockAuthHelper({
+      isSuperAdmin: true,
+      isAdmin: true,
+      user: {
+        id: 'admin-1',
+        email: 'superadmin@csjmu.ac.in',
+        fullName: 'Super Administrator',
+        roles: ['super_admin', 'administrator'],
+      },
+      displayName: 'Super Administrator',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <UnifiedSidebar />
+      </MemoryRouter>
+    );
+
+    // Get all links inside NIVARAN
+    const authoritiesLink = screen.getByRole('link', { name: /Authorities Management/i });
+    const categoriesLink = screen.getByRole('link', { name: /Grievance Categories/i });
+    const clustersLink = screen.getByRole('link', { name: /Subject Clusters/i });
+    const subjectsLink = screen.getByRole('link', { name: /^Subjects$/i });
+    const grievanceClustersLink = screen.getByRole('link', { name: /Grievance Clusters/i });
+    const auditLink = screen.getByRole('link', { name: /Audit Explorer/i });
+    const efilesLink = screen.getByRole('link', { name: /My E-Files/i });
+
+    expect(authoritiesLink).toHaveAttribute('href', '/admin/atharva/authorities');
+    expect(categoriesLink).toHaveAttribute('href', '/admin/atharva/categories');
+    expect(clustersLink).toHaveAttribute('href', '/admin/atharva/subject-clusters');
+    expect(subjectsLink).toHaveAttribute('href', '/admin/atharva/subjects');
+    expect(grievanceClustersLink).toHaveAttribute('href', '/admin/atharva/grievance-clusters');
+    expect(auditLink).toHaveAttribute('href', '/admin/atharva/audit-logs');
+    expect(efilesLink).toHaveAttribute('href', '/modules/atharva-veda/nivaran/e-files');
+
+    // Verify ordering
+    const links = [
+      authoritiesLink,
+      categoriesLink,
+      clustersLink,
+      subjectsLink,
+      grievanceClustersLink,
+      auditLink,
+      efilesLink,
+    ];
+
+    for (let i = 0; i < links.length - 1; i++) {
+      expect(links[i].compareDocumentPosition(links[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
 });
