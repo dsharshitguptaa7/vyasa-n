@@ -16,10 +16,10 @@ export const AdminNav: React.FC<AdminNavProps> = () => {
   const navItems: NavItem[] = [
     { label: 'Platform Overview', path: '/admin', icon: 'layout-dashboard' },
     { label: 'Authorities', path: '/admin/atharva/authorities', icon: 'users' },
+    { label: 'Grievance Categories', path: '/admin/atharva/categories', icon: 'grid' },
     { label: 'Subject Clusters', path: '/admin/atharva/subject-clusters', icon: 'layers' },
     { label: 'Subjects', path: '/admin/atharva/subjects', icon: 'book-open' },
     { label: 'Grievance Clusters', path: '/admin/atharva/grievance-clusters', icon: 'shield' },
-    { label: 'Categories & Routing', path: '/admin/atharva/categories', icon: 'settings' },
     { label: 'Audit Logs', path: '/admin/atharva/audit-logs', icon: 'file-text' },
   ];
 

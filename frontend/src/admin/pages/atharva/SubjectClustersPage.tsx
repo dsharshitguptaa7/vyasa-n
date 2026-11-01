@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { LoadingState, Button, Badge, Modal, Input, Select, AppIcon } from '@vyasa/ui';
 import { AdminLayout } from '../../components/AdminLayout';
 import { atharvaAdminService } from '../../services/atharvaAdminService';
@@ -520,7 +521,15 @@ export const SubjectClustersPage: React.FC = () => {
                       </td>
 
                       <td style={{ padding: '14px 18px' }}>
-                        <Badge variant="neutral">{c.subject_count} subjects</Badge>
+                        <Link
+                          to={`/admin/atharva/subjects?cluster=${c.id}`}
+                          style={{ textDecoration: 'none' }}
+                          title={`View all subjects mapped to ${c.name}`}
+                        >
+                          <Badge variant="neutral" style={{ cursor: 'pointer' }}>
+                            {c.subject_count} subjects →
+                          </Badge>
+                        </Link>
                       </td>
 
                       <td style={{ padding: '14px 18px' }}>

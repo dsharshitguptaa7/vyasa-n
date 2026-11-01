@@ -19,7 +19,7 @@ from app.models.applicant_profile import ApplicantProfile
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.taxonomy import SubjectCluster, Subject, GrievanceCluster, Category
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryRoutingType
-from app.modules.atharva_veda.nivaran.models.grievance import Grievance
+from app.modules.atharva_veda.nivaran.models.grievance import Grievance, StudentMasterRecord
 
 
 class AdminConfigService:
@@ -843,6 +843,12 @@ class AdminConfigService:
         ) or 0
         if grv_count > 0:
             conflicts.append(f"{grv_count} historical grievance case(s)")
+
+        smr_count = db.scalar(
+            select(func.count(StudentMasterRecord.id)).where(StudentMasterRecord.subject_id == subject.id)
+        ) or 0
+        if smr_count > 0:
+            conflicts.append(f"{smr_count} student master record(s)")
 
         if conflicts:
             raise ValueError(

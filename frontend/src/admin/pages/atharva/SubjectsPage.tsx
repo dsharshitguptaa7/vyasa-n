@@ -10,6 +10,12 @@ export const SubjectsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Global action notification
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [clusterFilter, setClusterFilter] = useState('');
@@ -19,13 +25,17 @@ export const SubjectsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
 
+  // Modal loading state
+  const [isSaving, setIsSaving] = useState(false);
+
   // Re-map modal state
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [targetClusterId, setTargetClusterId] = useState<string>('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [remapModalError, setRemapModalError] = useState<string | null>(null);
 
   // Add Subject modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalError, setAddModalError] = useState<string | null>(null);
   const [addForm, setAddForm] = useState<CreateSubjectPayload>({
     name: '',
     code: '',
@@ -35,6 +45,7 @@ export const SubjectsPage: React.FC = () => {
 
   // Edit Subject modal state
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editModalError, setEditModalError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<UpdateSubjectPayload>({});
 
   // Delete Subject modal state
@@ -52,7 +63,10 @@ export const SubjectsPage: React.FC = () => {
       setSubjects(subjectsData);
       setClusters(clustersData);
       if (clustersData.length > 0) {
-        setAddForm((prev) => ({ ...prev, subject_cluster_id: clustersData[0].id }));
+        setAddForm((prev) => ({
+          ...prev,
+          subject_cluster_id: prev.subject_cluster_id || clustersData[0].id,
+        }));
       }
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to load subjects catalog');
@@ -63,6 +77,16 @@ export const SubjectsPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    // Read cluster pre-filter from URL query params if provided
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clusterParam = urlParams.get('cluster');
+      if (clusterParam) {
+        setClusterFilter(clusterParam);
+      }
+    } catch {
+      // Ignore if URL query parsing fails
+    }
   }, []);
 
   useEffect(() => {
@@ -106,17 +130,36 @@ export const SubjectsPage: React.FC = () => {
   const handleToggleStatus = async (subject: Subject) => {
     try {
       const updated = await atharvaAdminService.updateSubjectStatus(subject.id, !subject.is_active);
-      setSubjects((prev) => prev.map((s) => (s.id === subject.id ? { ...s, is_active: updated.is_active } : s)));
+      setSubjects((prev) =>
+        prev.map((s) => (s.id === subject.id ? { ...s, is_active: updated.is_active } : s))
+      );
+      setActionFeedback({
+        type: 'success',
+        message: `Subject '${subject.name}' active status set to ${updated.is_active ? 'Active' : 'Inactive'}.`,
+      });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to update subject status');
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to update subject status',
+      });
     }
+  };
+
+  const handleOpenRemapModal = (subject: Subject) => {
+    setSelectedSubject(subject);
+    setTargetClusterId(subject.subject_cluster_id);
+    setRemapModalError(null);
   };
 
   const handleSaveRemap = async () => {
     if (!selectedSubject || !targetClusterId) return;
     try {
       setIsSaving(true);
-      const updated = await atharvaAdminService.updateSubjectMapping(selectedSubject.id, targetClusterId);
+      setRemapModalError(null);
+      const updated = await atharvaAdminService.updateSubjectMapping(
+        selectedSubject.id,
+        targetClusterId
+      );
       const targetCluster = clusters.find((c) => c.id === targetClusterId);
       setSubjects((prev) =>
         prev.map((s) =>
@@ -130,33 +173,56 @@ export const SubjectsPage: React.FC = () => {
             : s
         )
       );
+      setActionFeedback({
+        type: 'success',
+        message: `Subject '${selectedSubject.name}' re-mapped to cluster successfully.`,
+      });
       setSelectedSubject(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to re-map subject cluster');
+      setRemapModalError(err instanceof Error ? err.message : 'Failed to re-map subject cluster');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleCreateSubject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addForm.name.trim() || !addForm.subject_cluster_id) {
-      alert('Subject Name and Faculty Cluster are required.');
+  const handleOpenAddModal = () => {
+    setIsAddModalOpen(true);
+    setAddModalError(null);
+    setAddForm({
+      name: '',
+      code: '',
+      subject_cluster_id: clusters.length > 0 ? clusters[0].id : '',
+      is_active: true,
+    });
+  };
+
+  const handleCreateSubject = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanName = addForm.name.trim();
+    if (!cleanName) {
+      setAddModalError('Subject Name is required.');
+      return;
+    }
+    if (!addForm.subject_cluster_id) {
+      setAddModalError('Faculty Subject Cluster is required.');
       return;
     }
     try {
       setIsSaving(true);
-      const created = await atharvaAdminService.createSubject(addForm);
-      setSubjects((prev) => [...prev, created]);
-      setIsAddModalOpen(false);
-      setAddForm({
-        name: '',
-        code: '',
-        subject_cluster_id: clusters.length > 0 ? clusters[0].id : '',
-        is_active: true,
+      setAddModalError(null);
+      const created = await atharvaAdminService.createSubject({
+        ...addForm,
+        name: cleanName,
+        code: addForm.code?.trim() || null,
       });
+      setSubjects((prev) => [...prev, created]);
+      setActionFeedback({
+        type: 'success',
+        message: `Subject '${created.name}' created successfully.`,
+      });
+      setIsAddModalOpen(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to create subject');
+      setAddModalError(err instanceof Error ? err.message : 'Failed to create subject');
     } finally {
       setIsSaving(false);
     }
@@ -164,24 +230,55 @@ export const SubjectsPage: React.FC = () => {
 
   const openEditModal = (subject: Subject) => {
     setEditingSubject(subject);
+    setEditModalError(null);
     setEditForm({
       name: subject.name,
       code: subject.code || '',
+      subject_cluster_id: subject.subject_cluster_id,
     });
   };
 
   const handleSaveEdit = async () => {
     if (!editingSubject) return;
+    if (typeof editForm.name === 'string' && !editForm.name.trim()) {
+      setEditModalError('Subject Name cannot be empty.');
+      return;
+    }
     try {
       setIsSaving(true);
-      const updated = await atharvaAdminService.updateSubject(editingSubject.id, editForm);
-      setSubjects((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setEditModalError(null);
+      const updated = await atharvaAdminService.updateSubject(editingSubject.id, {
+        name: editForm.name?.trim(),
+        code: editForm.code?.trim() || null,
+        subject_cluster_id: editForm.subject_cluster_id,
+      });
+      const targetCluster = clusters.find((c) => c.id === updated.subject_cluster_id);
+      setSubjects((prev) =>
+        prev.map((s) =>
+          s.id === updated.id
+            ? {
+                ...updated,
+                cluster_name: targetCluster?.name || updated.cluster_name || s.cluster_name,
+                cluster_number: targetCluster?.cluster_number || updated.cluster_number || s.cluster_number,
+              }
+            : s
+        )
+      );
+      setActionFeedback({
+        type: 'success',
+        message: `Subject '${updated.name}' updated successfully.`,
+      });
       setEditingSubject(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to update subject');
+      setEditModalError(err instanceof Error ? err.message : 'Failed to update subject');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleOpenDeleteModal = (subject: Subject) => {
+    setDeletingSubject(subject);
+    setDeleteError(null);
   };
 
   const handleDeleteSubject = async () => {
@@ -191,6 +288,10 @@ export const SubjectsPage: React.FC = () => {
       setDeleteError(null);
       await atharvaAdminService.deleteSubject(deletingSubject.id);
       setSubjects((prev) => prev.filter((s) => s.id !== deletingSubject.id));
+      setActionFeedback({
+        type: 'success',
+        message: `Subject '${deletingSubject.name}' permanently deleted.`,
+      });
       setDeletingSubject(null);
     } catch (err: unknown) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete subject');
@@ -201,6 +302,46 @@ export const SubjectsPage: React.FC = () => {
 
   return (
     <AdminLayout activeTab="subjects">
+      {/* Action feedback notification banner */}
+      {actionFeedback && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 18px',
+            marginBottom: '18px',
+            borderRadius: '6px',
+            backgroundColor: actionFeedback.type === 'success' ? '#ecfdf5' : '#fef2f2',
+            border: `1px solid ${actionFeedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+            color: actionFeedback.type === 'success' ? '#065f46' : '#991b1b',
+            fontSize: '13.5px',
+            boxShadow: 'var(--vyasa-shadow-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{actionFeedback.type === 'success' ? '✓' : '⚠️'}</span>
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              fontWeight: 700,
+              fontSize: '14px',
+              padding: '0 4px',
+            }}
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Official Subject Catalog Banner */}
       <div
@@ -244,7 +385,7 @@ export const SubjectsPage: React.FC = () => {
           </h2>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.55 }}>
             Manage university academic subjects, disciplinary codes, and faculty cluster mappings.
-            All registration taxonomies are driven dynamically from the database.
+            All registration taxonomies and grievance routing are driven dynamically from the database.
           </p>
         </div>
 
@@ -253,7 +394,7 @@ export const SubjectsPage: React.FC = () => {
             variant="primary"
             size="sm"
             leftIcon={<AppIcon name="book-open" size={14} />}
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenAddModal}
           >
             + Add Subject
           </Button>
@@ -363,7 +504,7 @@ export const SubjectsPage: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div style={{ width: '220px' }}>
+        <div style={{ width: '240px' }}>
           <Select
             options={[
               { value: '', label: 'All Faculty Clusters' },
@@ -387,6 +528,16 @@ export const SubjectsPage: React.FC = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
           />
         </div>
+        {clusterFilter && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setClusterFilter('')}
+            style={{ fontSize: '12px' }}
+          >
+            Clear Cluster Filter
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -533,10 +684,7 @@ export const SubjectsPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             style={{ padding: '4px 10px', fontSize: '12px' }}
-                            onClick={() => {
-                              setSelectedSubject(s);
-                              setTargetClusterId(s.subject_cluster_id);
-                            }}
+                            onClick={() => handleOpenRemapModal(s)}
                           >
                             Re-map
                           </Button>
@@ -552,7 +700,7 @@ export const SubjectsPage: React.FC = () => {
                             variant="outline"
                             size="sm"
                             style={{ padding: '4px 10px', fontSize: '12px', color: '#dc2626', borderColor: '#fca5a5' }}
-                            onClick={() => { setDeletingSubject(s); setDeleteError(null); }}
+                            onClick={() => handleOpenDeleteModal(s)}
                           >
                             Delete
                           </Button>
@@ -670,13 +818,28 @@ export const SubjectsPage: React.FC = () => {
               <Button variant="outline" size="sm" onClick={() => setIsAddModalOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={handleCreateSubject} disabled={isSaving}>
+              <Button variant="primary" size="sm" onClick={() => handleCreateSubject()} disabled={isSaving}>
                 {isSaving ? 'Adding...' : 'Add Subject'}
               </Button>
             </div>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {addModalError && (
+              <div
+                role="alert"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #f87171',
+                  borderRadius: '6px',
+                  color: '#991b1b',
+                  fontSize: '13px',
+                }}
+              >
+                {addModalError}
+              </div>
+            )}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
                 Subject Name *
@@ -732,6 +895,21 @@ export const SubjectsPage: React.FC = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {remapModalError && (
+              <div
+                role="alert"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #f87171',
+                  borderRadius: '6px',
+                  color: '#991b1b',
+                  fontSize: '13px',
+                }}
+              >
+                {remapModalError}
+              </div>
+            )}
             <p style={{ margin: 0, color: '#334155', lineHeight: 1.5, fontSize: '13.5px' }}>
               Select the new academic faculty cluster for <strong>{selectedSubject.name}</strong>.
               All applicants in this discipline will subsequently route to the assigned Assistant Dean of the selected cluster.
@@ -771,9 +949,24 @@ export const SubjectsPage: React.FC = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {editModalError && (
+              <div
+                role="alert"
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #f87171',
+                  borderRadius: '6px',
+                  color: '#991b1b',
+                  fontSize: '13px',
+                }}
+              >
+                {editModalError}
+              </div>
+            )}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
-                Subject Name
+                Subject Name *
               </label>
               <Input
                 value={editForm.name || ''}
@@ -789,6 +982,19 @@ export const SubjectsPage: React.FC = () => {
                 onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
               />
             </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#334155' }}>
+                Faculty Subject Cluster
+              </label>
+              <Select
+                options={clusters.map((c) => ({
+                  value: c.id,
+                  label: `Cluster #${c.cluster_number}: ${c.name}`,
+                }))}
+                value={editForm.subject_cluster_id || ''}
+                onChange={(e) => setEditForm({ ...editForm, subject_cluster_id: e.target.value })}
+              />
+            </div>
           </div>
         </Modal>
       )}
@@ -800,10 +1006,24 @@ export const SubjectsPage: React.FC = () => {
           onClose={() => setDeletingSubject(null)}
           title={`Delete Subject: ${deletingSubject.name}`}
           footer={
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <Button variant="outline" size="sm" onClick={() => setDeletingSubject(null)} disabled={isSaving}>
                 Cancel
               </Button>
+              {deletingSubject.is_active && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ color: '#059669', borderColor: '#10b981' }}
+                  onClick={async () => {
+                    await handleToggleStatus(deletingSubject);
+                    setDeletingSubject(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  Deactivate Subject Instead
+                </Button>
+              )}
               <Button
                 variant="primary"
                 size="sm"
@@ -818,23 +1038,24 @@ export const SubjectsPage: React.FC = () => {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
-              Are you sure you want to delete academic subject <strong>{deletingSubject.name}</strong> ({deletingSubject.code || 'No Code'})?
+              Are you sure you want to permanently delete academic subject <strong>{deletingSubject.name}</strong> ({deletingSubject.code || 'No Code'})?
             </p>
             <div
               style={{
                 padding: '12px',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
                 borderRadius: '6px',
-                color: '#991b1b',
+                color: '#92400e',
                 fontSize: '13px',
                 lineHeight: 1.5,
               }}
             >
-              <strong>Constraint:</strong> Subjects referenced by active grievances cannot be deleted. Deactivate the subject instead if intake should be closed.
+              <strong>Safety Guard:</strong> Subjects referenced by student master records, scholar applicant profiles, or historical grievance cases cannot be deleted. If intake for this discipline should be discontinued, deactivate the subject instead to preserve historical records.
             </div>
             {deleteError && (
               <div
+                role="alert"
                 style={{
                   padding: '12px',
                   backgroundColor: '#fee2e2',

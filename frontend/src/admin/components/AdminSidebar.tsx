@@ -167,6 +167,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             ],
           },
           {
+            id: 'categories',
+            label: 'Grievance Categories',
+            path: '/admin/atharva/categories',
+            icon: 'grid',
+          },
+          {
             id: 'subject-clusters',
             label: 'Subject Clusters',
             path: '/admin/atharva/subject-clusters',
@@ -183,12 +189,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             label: 'Grievance Clusters',
             path: '/admin/atharva/grievance-clusters',
             icon: 'shield',
-          },
-          {
-            id: 'categories',
-            label: 'Categories & Routing',
-            path: '/admin/atharva/categories',
-            icon: 'settings',
           },
         ],
       });

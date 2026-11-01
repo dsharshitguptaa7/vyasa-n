@@ -251,9 +251,42 @@ def test_delete_subject_refuses_when_referenced_by_applicant():
         subject,
         5,  # 5 applicants reference this subject!
         0,  # grievances
+        0,  # student master records
     ]
 
     with pytest.raises(ValueError, match="referenced by 5 scholar applicant profile"):
+        AdminConfigService.delete_subject(db=mock_db, subject_id=subject_id)
+
+
+def test_delete_subject_refuses_when_referenced_by_student_master_record():
+    mock_db = MagicMock()
+    subject_id = uuid.uuid4()
+    subject = Subject(id=subject_id, name="Physics", subject_cluster_id=uuid.uuid4())
+
+    mock_db.scalar.side_effect = [
+        subject,
+        0,  # 0 applicants
+        0,  # 0 grievances
+        2,  # 2 student master records reference this subject!
+    ]
+
+    with pytest.raises(ValueError, match="referenced by 2 student master record"):
+        AdminConfigService.delete_subject(db=mock_db, subject_id=subject_id)
+
+
+def test_delete_subject_refuses_when_referenced_by_grievance():
+    mock_db = MagicMock()
+    subject_id = uuid.uuid4()
+    subject = Subject(id=subject_id, name="Chemistry", subject_cluster_id=uuid.uuid4())
+
+    mock_db.scalar.side_effect = [
+        subject,
+        0,  # 0 applicants
+        3,  # 3 historical grievances
+        0,  # 0 student master records
+    ]
+
+    with pytest.raises(ValueError, match="referenced by 3 historical grievance case"):
         AdminConfigService.delete_subject(db=mock_db, subject_id=subject_id)
 
 
@@ -266,6 +299,7 @@ def test_delete_subject_succeeds_when_unreferenced():
         subject,
         0,  # 0 applicants
         0,  # 0 grievances
+        0,  # 0 student master records
     ]
 
     res = AdminConfigService.delete_subject(db=mock_db, subject_id=subject_id)
