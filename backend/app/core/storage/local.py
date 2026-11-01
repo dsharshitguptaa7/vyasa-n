@@ -10,11 +10,9 @@ Implements:
 """
 
 import hashlib
-import io
 import os
 from pathlib import Path
-import re
-from typing import BinaryIO, Dict, Optional, Set, Union
+from typing import BinaryIO, Optional, Set, Union
 import uuid
 
 from app.core.config import settings
@@ -26,65 +24,13 @@ from app.core.storage.base import (
     StorageInvalidFileTypeError,
     StorageSizeLimitError,
     StorageFileNotFoundError,
+    MAGIC_SIGNATURES,
+    DEFAULT_MAX_UPLOAD_BYTES,
+    DEFAULT_ALLOWED_MIME_TYPES,
+    sanitize_filename,
+    verify_magic_bytes,
+    normalize_save_file_args,
 )
-
-# Known file signatures (magic bytes) for validation
-MAGIC_SIGNATURES: Dict[str, bytes] = {
-    "application/pdf": b"%PDF",
-    "image/png": b"\x89PNG\r\n\x1a\n",
-    "image/jpeg": b"\xff\xd8\xff",
-}
-
-# Standard default limits
-DEFAULT_MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024  # 25 MB
-DEFAULT_ALLOWED_MIME_TYPES: Set[str] = {
-    "application/pdf",
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-}
-
-
-def sanitize_filename(filename: str) -> str:
-    """
-    Sanitize arbitrary user-supplied filename:
-    - Strips directory components and path separators.
-    - Replaces whitespace with underscores.
-    - Strips non-alphanumeric characters (except '.', '-', '_').
-    - Limits length to 120 chars.
-    """
-    base = os.path.basename(filename).strip()
-    if not base:
-        base = "unnamed_file"
-    # Replace whitespace
-    base = re.sub(r"\s+", "_", base)
-    # Remove dangerous characters
-    base = re.sub(r"[^a-zA-Z0-9_.-]", "", base)
-    # Prevent hidden unix dotfiles
-    while base.startswith("."):
-        base = base[1:]
-    if not base:
-        base = "unnamed_file"
-    return base[:120]
-
-
-def verify_magic_bytes(content: bytes, declared_mime_type: str) -> None:
-    """
-    Inspect magic bytes to verify file matches its declared MIME type.
-    Prevents executable masquerading (e.g. .exe or .sh renamed to .pdf).
-    """
-    norm_mime = declared_mime_type.strip().lower()
-    if norm_mime in MAGIC_SIGNATURES:
-        expected = MAGIC_SIGNATURES[norm_mime]
-        if not content.startswith(expected):
-            raise StorageInvalidFileTypeError(
-                f"File signature mismatch: declared '{declared_mime_type}' but does not begin with expected magic bytes."
-            )
-    elif norm_mime == "image/webp":
-        if len(content) < 12 or content[:4] != b"RIFF" or content[8:12] != b"WEBP":
-            raise StorageInvalidFileTypeError(
-                "File signature mismatch: declared 'image/webp' but does not contain valid RIFF/WEBP header."
-            )
 
 
 class LocalStorageProvider(BaseStorageProvider):
@@ -114,8 +60,13 @@ class LocalStorageProvider(BaseStorageProvider):
             target = self._base_dir
         else:
             clean_subfolder = str(subfolder).strip().replace("\\", "/")
-            # Rejects null bytes, drive colons, or double-dots
-            if "\0" in clean_subfolder or ":" in clean_subfolder or ".." in clean_subfolder:
+            # Rejects null bytes, drive colons, double-dots, or absolute paths
+            if (
+                clean_subfolder.startswith("/")
+                or "\0" in clean_subfolder
+                or ":" in clean_subfolder
+                or ".." in clean_subfolder
+            ):
                 raise StoragePathTraversalError(
                     f"Path traversal detected in subfolder specification: '{subfolder}'"
                 )
@@ -140,7 +91,12 @@ class LocalStorageProvider(BaseStorageProvider):
             raise StorageError("Storage key cannot be empty.")
 
         clean_key = str(storage_key).strip().replace("\\", "/")
-        if "\0" in clean_key or ":" in clean_key or ".." in clean_key or clean_key.startswith("/"):
+        if (
+            clean_key.startswith("/")
+            or "\0" in clean_key
+            or ":" in clean_key
+            or ".." in clean_key
+        ):
             raise StoragePathTraversalError(
                 f"Path traversal detected in storage key: '{storage_key}'"
             )
@@ -157,59 +113,48 @@ class LocalStorageProvider(BaseStorageProvider):
 
     def save_file(
         self,
-        content: Union[bytes, BinaryIO],
-        filename: str,
-        subfolder: str,
+        content: Optional[Union[bytes, BinaryIO]] = None,
+        filename: Optional[str] = None,
+        subfolder: Optional[str] = None,
         *,
-        allowed_mime_types: Optional[Set[str]] = None,
+        file: Optional[Union[bytes, BinaryIO]] = None,
+        sub_dir: Optional[str] = None,
+        allowed_mime_types: Optional[Union[Set[str], list]] = None,
+        allowed_types: Optional[Union[Set[str], list]] = None,
         max_size_bytes: Optional[int] = None,
         mime_type: Optional[str] = None,
+        content_type: Optional[str] = None,
+        **kwargs,
     ) -> StorageResult:
         """
-        Persist a file into storage with strict validation.
+        Persist a file into local storage with strict validation.
+        Accepts both canonical parameter names and caller aliases.
         """
-        # Read content to bytes
-        if isinstance(content, (io.BytesIO, BinaryIO)):
-            content_bytes = content.read()
-        elif isinstance(content, bytes):
-            content_bytes = content
-        else:
-            raise StorageError(f"Unsupported content type: {type(content)}")
-
-        file_size = len(content_bytes)
-
-        # Enforce size limits
-        size_limit = max_size_bytes or DEFAULT_MAX_UPLOAD_BYTES
-        if file_size > size_limit:
-            raise StorageSizeLimitError(
-                f"File size ({file_size} bytes) exceeds maximum permitted limit ({size_limit} bytes)."
+        content_bytes, actual_filename, actual_subfolder, _, effective_mime, file_size = (
+            normalize_save_file_args(
+                content=content,
+                filename=filename,
+                subfolder=subfolder,
+                file=file,
+                sub_dir=sub_dir,
+                allowed_mime_types=allowed_mime_types,
+                allowed_types=allowed_types,
+                max_size_bytes=max_size_bytes,
+                mime_type=mime_type,
+                content_type=content_type,
             )
-
-        if file_size == 0:
-            raise StorageError("Cannot store an empty 0-byte file.")
-
-        # Resolve MIME type
-        effective_mime = (mime_type or "application/octet-stream").strip().lower()
-        allowed = allowed_mime_types or DEFAULT_ALLOWED_MIME_TYPES
-
-        if effective_mime not in allowed:
-            raise StorageInvalidFileTypeError(
-                f"MIME type '{effective_mime}' is not permitted. Allowed: {sorted(allowed)}"
-            )
-
-        # Verify magic byte signature
-        verify_magic_bytes(content_bytes, effective_mime)
+        )
 
         # Calculate SHA-256
         sha256 = hashlib.sha256(content_bytes).hexdigest()
 
         # Sanitize filename and create unique server-controlled stored name
-        safe_base = sanitize_filename(filename)
+        safe_base = sanitize_filename(actual_filename)
         unique_prefix = uuid.uuid4().hex[:12]
         stored_filename = f"{unique_prefix}_{safe_base}"
 
         # Resolve destination directory
-        target_dir = self._resolve_safe_subfolder(subfolder)
+        target_dir = self._resolve_safe_subfolder(actual_subfolder)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         final_path = target_dir / stored_filename
@@ -235,7 +180,7 @@ class LocalStorageProvider(BaseStorageProvider):
 
         return StorageResult(
             storage_key=rel_path,
-            original_filename=filename,
+            original_filename=actual_filename,
             stored_filename=stored_filename,
             sha256_checksum=sha256,
             file_size_bytes=file_size,

@@ -24,6 +24,30 @@ class Settings(BaseSettings):
         default="storage",
         description="Base filesystem directory for secure document, certificate, and media storage",
     )
+    STORAGE_PROVIDER: str = Field(
+        default="local",
+        description="Active storage provider ('local' or 'spaces')",
+    )
+    SPACES_BUCKET: Optional[str] = Field(
+        default=None,
+        description="DigitalOcean Spaces bucket name (e.g. vyasa-n-documents)",
+    )
+    SPACES_REGION: str = Field(
+        default="sgp1",
+        description="DigitalOcean Spaces region (e.g. sgp1)",
+    )
+    SPACES_ENDPOINT_URL: Optional[str] = Field(
+        default=None,
+        description="DigitalOcean Spaces S3-compatible endpoint URL (e.g. https://sgp1.digitaloceanspaces.com)",
+    )
+    SPACES_ACCESS_KEY_ID: Optional[str] = Field(
+        default=None,
+        description="DigitalOcean Spaces access key ID",
+    )
+    SPACES_SECRET_ACCESS_KEY: Optional[str] = Field(
+        default=None,
+        description="DigitalOcean Spaces secret access key",
+    )
 
     # Neon PostgreSQL database URL
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
@@ -63,6 +87,34 @@ class Settings(BaseSettings):
         default=15,
         description="Lockout window duration in minutes when failed attempts threshold is exceeded",
     )
+
+    @model_validator(mode="after")
+    def validate_storage_security(self) -> "Settings":
+        """
+        Validate storage subsystem settings.
+        If STORAGE_PROVIDER is 'spaces' or 's3', ensures credentials, bucket, and endpoint are configured.
+        Fails closed without silently falling back to ephemeral local storage.
+        """
+        provider = (self.STORAGE_PROVIDER or "local").strip().lower()
+        if provider in ("spaces", "s3"):
+            missing = []
+            if not (self.SPACES_BUCKET and self.SPACES_BUCKET.strip()):
+                missing.append("SPACES_BUCKET")
+            if not (self.SPACES_ACCESS_KEY_ID and self.SPACES_ACCESS_KEY_ID.strip()):
+                missing.append("SPACES_ACCESS_KEY_ID")
+            if not (self.SPACES_SECRET_ACCESS_KEY and self.SPACES_SECRET_ACCESS_KEY.strip()):
+                missing.append("SPACES_SECRET_ACCESS_KEY")
+            if missing:
+                raise ValueError(
+                    f"Storage configuration error: {', '.join(missing)} must be set when STORAGE_PROVIDER is '{provider}'."
+                )
+            if not self.SPACES_ENDPOINT_URL:
+                self.SPACES_ENDPOINT_URL = f"https://{self.SPACES_REGION}.digitaloceanspaces.com"
+        elif provider != "local":
+            raise ValueError(
+                f"Storage configuration error: Unsupported STORAGE_PROVIDER '{self.STORAGE_PROVIDER}'. Must be 'local' or 'spaces'."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
