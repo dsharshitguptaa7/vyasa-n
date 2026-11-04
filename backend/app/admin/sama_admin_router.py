@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, desc
 
-from app.api.dependencies import get_db, require_permission
+from app.api.dependencies import get_db, require_permission, require_super_admin_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.services.audit_service import audit_service
@@ -29,6 +29,9 @@ from app.admin.schemas.sama_cms import (
     PublicationOut,
     PublicationAuthorOut,
     PublicationListResponse,
+    BulkDeletePublicationsRequest,
+    BulkDeleteBatchesRequest,
+    BulkDeleteResult,
     AuthorCreate,
     AuthorUpdate,
     AuthorVerificationUpdate,
@@ -288,6 +291,68 @@ def delete_publication(
         success=True,
         message="Research publication deleted successfully.",
         data={"id": str(publication_id)},
+    )
+
+
+@sama_admin_router.post("/publications/bulk-delete", response_model=ApiResponse)
+def bulk_delete_publications(
+    payload: BulkDeletePublicationsRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Bulk deletes multiple research publications permanently from SAMIKSHA.
+    Restricted strictly to authorized Super Admin users.
+    Safeguards:
+    - Cascades publication_authors removal.
+    - Safely unlinks referenced certificates (sets publication_id=None).
+    - Logs detailed audit action including deleted and failed IDs.
+    - Handles partial failures gracefully without aborting the entire request.
+    """
+    if not payload.publication_ids:
+        raise HTTPException(status_code=400, detail="No publication IDs provided for bulk deletion.")
+
+    deleted_ids, failed_items = sama_cms_service.bulk_delete_publications(
+        db, payload.publication_ids
+    )
+
+    batch_op_id = uuid.uuid4()
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="publications_bulk_deleted",
+        entity_name="ResearchPublication",
+        entity_id=batch_op_id,
+        actor_user_id=current_user.id,
+        details={
+            "requested_count": len(payload.publication_ids),
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": [str(i) for i in deleted_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+        },
+        fail_silent=False,
+    )
+
+    success = len(deleted_ids) > 0 or len(payload.publication_ids) == 0
+    message = (
+        f"Successfully deleted {len(deleted_ids)} publication(s)."
+        if len(failed_items) == 0
+        else f"Deleted {len(deleted_ids)} publication(s); {len(failed_items)} failed."
+    )
+
+    return ApiResponse(
+        success=success,
+        message=message,
+        data={
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": [str(i) for i in deleted_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+            "total_requested": len(payload.publication_ids),
+        },
     )
 
 
@@ -1348,6 +1413,70 @@ def get_import_batch_detail(
             "reconciliation_report": batch.reconciliation_report or {},
             "executed_at": batch.executed_at.isoformat() if batch.executed_at else None,
             "created_at": batch.created_at.isoformat() if batch.created_at else None,
+        },
+    )
+
+
+@sama_admin_router.post("/import/batches/bulk-delete", response_model=ApiResponse)
+def bulk_delete_import_batches(
+    payload: BulkDeleteBatchesRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Bulk deletes multiple import batch history records from SAMIKSHA.
+    Restricted strictly to authorized Super Admin users.
+    """
+    if not payload.batch_ids:
+        raise HTTPException(status_code=400, detail="No batch IDs provided for bulk deletion.")
+
+    deleted_ids = []
+    failed_items = []
+
+    for batch_id in payload.batch_ids:
+        try:
+            batch = db.execute(
+                select(SamaImportBatch).where(SamaImportBatch.id == batch_id)
+            ).scalar_one_or_none()
+            if not batch:
+                failed_items.append({"id": str(batch_id), "reason": "Import batch not found."})
+                continue
+            db.delete(batch)
+            deleted_ids.append(batch_id)
+        except Exception as e:
+            failed_items.append({"id": str(batch_id), "reason": f"Deletion error: {str(e)}"})
+
+    db.commit()
+
+    batch_op_id = uuid.uuid4()
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="import_batches_bulk_deleted",
+        entity_name="SamaImportBatch",
+        entity_id=batch_op_id,
+        actor_user_id=current_user.id,
+        details={
+            "requested_count": len(payload.batch_ids),
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": [str(i) for i in deleted_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=len(deleted_ids) > 0,
+        message=f"Successfully deleted {len(deleted_ids)} import batch(es).",
+        data={
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": [str(i) for i in deleted_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+            "total_requested": len(payload.batch_ids),
         },
     )
 

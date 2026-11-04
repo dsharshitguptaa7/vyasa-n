@@ -476,6 +476,115 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
 
       expect(screen.queryByRole('button', { name: '+ Add Publication' })).toBeNull();
     });
+
+    it('supports multi-selection and bulk delete for authorized Super Admin', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-super',
+          email: 'admin@csjmu.ac.in',
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'super_admin',
+          roles: ['super_admin'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: true,
+        isSuperAdmin: true,
+      });
+
+      const bulkDeleteSpy = vi
+        .spyOn(samaAdminService, 'bulkDeletePublications')
+        .mockResolvedValue({
+          deleted_count: 2,
+          deleted_ids: ['pub-1', 'pub-2'],
+          failed_count: 0,
+          failed_items: [],
+          total_requested: 2,
+        });
+
+      render(
+        <MemoryRouter>
+          <PublicationsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Quantum Machine Learning in Agricultural Remote Sensing')
+        ).toBeInTheDocument();
+      });
+
+      // Select All checkbox
+      const selectAllCheckbox = screen.getByLabelText('Select all publications on this page');
+      fireEvent.click(selectAllCheckbox);
+
+      // Verify bulk action banner appears
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+        expect(screen.getByText(/publications selected/i)).toBeInTheDocument();
+      });
+
+      // Find and click Bulk Delete button
+      const bulkDeleteBtn = screen.getByRole('button', { name: /Bulk Delete/i });
+      expect(bulkDeleteBtn).not.toBeDisabled();
+      fireEvent.click(bulkDeleteBtn);
+
+      // Verify confirmation modal opens
+      await waitFor(() => {
+        expect(screen.getByText('Institutional Safeguard Notice:')).toBeInTheDocument();
+      });
+
+      // Confirm deletion
+      const confirmDeleteBtn = screen.getByRole('button', { name: /Delete .* Entries Permanently/i });
+      fireEvent.click(confirmDeleteBtn);
+
+      await waitFor(() => {
+        expect(bulkDeleteSpy).toHaveBeenCalled();
+      });
+    });
+
+    it('restricts bulk delete action for non-super-admin editors', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-editor',
+          email: 'editor@csjmu.ac.in',
+          first_name: 'Editor',
+          last_name: 'User',
+          role: 'sama_content_editor',
+          roles: ['sama_content_editor'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: false,
+        isSuperAdmin: false,
+      });
+
+      render(
+        <MemoryRouter>
+          <PublicationsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Quantum Machine Learning in Agricultural Remote Sensing')
+        ).toBeInTheDocument();
+      });
+
+      // Select row 1
+      const row1Checkbox = screen.getByLabelText('Select publication quantum-ml-agri');
+      fireEvent.click(row1Checkbox);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+      });
+
+      const bulkDeleteBtn = screen.getByRole('button', { name: /Bulk Delete/i });
+      expect(bulkDeleteBtn).toBeDisabled();
+    });
   });
 
   // 3. Authors Page
@@ -747,6 +856,119 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       await waitFor(() => {
         expect(screen.getByText('Upload Single Entity Batch')).toBeInTheDocument();
         expect(screen.getByText('Generate Dry-Run Preview')).toBeInTheDocument();
+      });
+    });
+
+    it('displays bulk import guidelines, supported formats, and downloadable templates', async () => {
+      vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
+        items: [],
+        total: 0,
+        skip: 0,
+        limit: 10,
+      });
+
+      render(
+        <MemoryRouter>
+          <ImportPage />
+        </MemoryRouter>
+      );
+
+      const customTab = screen.getByText('Custom File Import (JSON / CSV / Excel)');
+      fireEvent.click(customTab);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('import-guidelines-section')).toBeInTheDocument();
+        expect(screen.getByText(/Supported File Formats:/i)).toBeInTheDocument();
+        expect(screen.getByText(/✓ JSON \(\.json\)/i)).toBeInTheDocument();
+        expect(screen.getByText(/✓ CSV \(\.csv\)/i)).toBeInTheDocument();
+        expect(screen.getByText(/✓ Excel \(\.xlsx \/ \.xls\)/i)).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Expected Column Headers (CSV / Excel) or JSON Keys:')).toBeInTheDocument();
+      expect(screen.getByText('Download JSON Template')).toBeInTheDocument();
+      expect(screen.getByText('Download CSV Template')).toBeInTheDocument();
+    });
+
+    it('supports batch selection and bulk delete for Super Admin', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-super',
+          email: 'admin@csjmu.ac.in',
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'super_admin',
+          roles: ['super_admin'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: true,
+        isSuperAdmin: true,
+      });
+
+      vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
+        items: [
+          {
+            id: 'batch-1',
+            batch_number: 'IMP-PUB-20261026-001',
+            entity_type: 'publications',
+            source_filename: 'papers.json',
+            file_format: 'json',
+            mode: 'execute',
+            status: 'completed',
+            total_rows: 5,
+            created_count: 5,
+            updated_count: 0,
+            skipped_count: 0,
+            failed_count: 0,
+            review_count: 0,
+            created_at: '2026-10-26T10:00:00Z',
+          },
+        ],
+        total: 1,
+        skip: 0,
+        limit: 10,
+      });
+
+      const bulkDeleteBatchesSpy = vi
+        .spyOn(samaAdminService, 'bulkDeleteImportBatches')
+        .mockResolvedValue({
+          deleted_count: 1,
+          deleted_ids: ['batch-1'],
+          failed_count: 0,
+          failed_items: [],
+          total_requested: 1,
+        });
+
+      render(
+        <MemoryRouter>
+          <ImportPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('IMP-PUB-20261026-001')).toBeInTheDocument();
+      });
+
+      const batchCheckbox = screen.getByLabelText('Select batch IMP-PUB-20261026-001');
+      fireEvent.click(batchCheckbox);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('batch-bulk-actions-banner')).toBeInTheDocument();
+      });
+
+      const deleteBatchesBtn = screen.getByRole('button', { name: /Bulk Delete Batches/i });
+      fireEvent.click(deleteBatchesBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Institutional Action Notice:')).toBeInTheDocument();
+      });
+
+      const confirmBtn = screen.getByRole('button', { name: /Delete 1 Batches/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(bulkDeleteBatchesSpy).toHaveBeenCalledWith(['batch-1']);
       });
     });
   });

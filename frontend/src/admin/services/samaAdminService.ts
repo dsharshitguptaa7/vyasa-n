@@ -32,6 +32,7 @@ import {
   ImportBatchRecord,
   ImportPreviewResult,
   ImportExecuteResult,
+  BulkDeleteResult,
 } from '../types/sama';
 
 export const samaAdminService = {
@@ -83,6 +84,13 @@ export const samaAdminService = {
 
   async deletePublication(id: string): Promise<{ id: string }> {
     const res = await apiClient.delete<{ id: string }>(`/admin/sama/publications/${id}`);
+    return res.data!;
+  },
+
+  async bulkDeletePublications(publicationIds: string[]): Promise<BulkDeleteResult> {
+    const res = await apiClient.post<BulkDeleteResult>('/admin/sama/publications/bulk-delete', {
+      publication_ids: publicationIds,
+    });
     return res.data!;
   },
 
@@ -387,6 +395,13 @@ export const samaAdminService = {
 
   async getImportBatch(batchId: string): Promise<ImportBatchRecord> {
     const res = await apiClient.get<ImportBatchRecord>(`/admin/sama/import/batches/${batchId}`);
+    return res.data!;
+  },
+
+  async bulkDeleteImportBatches(batchIds: string[]): Promise<BulkDeleteResult> {
+    const res = await apiClient.post<BulkDeleteResult>('/admin/sama/import/batches/bulk-delete', {
+      batch_ids: batchIds,
+    });
     return res.data!;
   },
 

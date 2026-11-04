@@ -94,6 +94,22 @@ class PublicationListResponse(BaseModel):
     limit: Optional[int] = 50
 
 
+class BulkDeletePublicationsRequest(BaseModel):
+    publication_ids: List[uuid.UUID] = Field(..., min_length=1)
+
+
+class BulkDeleteBatchesRequest(BaseModel):
+    batch_ids: List[uuid.UUID] = Field(..., min_length=1)
+
+
+class BulkDeleteResult(BaseModel):
+    deleted_count: int
+    deleted_ids: List[str]
+    failed_count: int
+    failed_items: List[Dict[str, Any]] = []
+    total_requested: int
+
+
 # ============================================================================
 # 2. RESEARCH AUTHORS
 # ============================================================================

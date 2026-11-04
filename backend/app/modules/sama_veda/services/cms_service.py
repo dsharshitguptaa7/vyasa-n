@@ -199,6 +199,45 @@ class SamaCmsService:
         db.delete(publication)
         db.commit()
 
+    @staticmethod
+    def bulk_delete_publications(
+        db: Session,
+        publication_ids: List[uuid.UUID],
+    ) -> Tuple[List[uuid.UUID], List[Dict[str, Any]]]:
+        deleted_ids: List[uuid.UUID] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        for pub_id in publication_ids:
+            try:
+                pub = db.execute(
+                    select(ResearchPublication).where(ResearchPublication.id == pub_id)
+                ).scalar_one_or_none()
+
+                if not pub:
+                    failed_items.append({
+                        "id": str(pub_id),
+                        "reason": "Publication not found",
+                    })
+                    continue
+
+                certs = db.execute(
+                    select(FelicitationCertificate).where(FelicitationCertificate.publication_id == pub_id)
+                ).scalars().all()
+                for c in certs:
+                    c.publication_id = None
+
+                db.delete(pub)
+                db.flush()
+                deleted_ids.append(pub_id)
+            except Exception as e:
+                failed_items.append({
+                    "id": str(pub_id),
+                    "reason": f"Deletion error: {str(e)}",
+                })
+
+        db.commit()
+        return deleted_ids, failed_items
+
     # ========================================================================
     # 2. AUTHORS
     # ========================================================================

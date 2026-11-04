@@ -700,3 +700,82 @@ def test_workflow_bulletin_creation_and_status_toggle(client, mock_db, super_adm
         assert mock_audit.call_args.kwargs["action"] == "bulletin_status_updated"
         assert mock_audit.call_args.kwargs["details"]["new_status"] == "published"
 
+
+
+def test_bulk_delete_publications_as_super_admin(client, super_admin_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: super_admin_user
+
+    id1 = uuid.uuid4()
+    id2 = uuid.uuid4()
+
+    with patch("app.modules.sama_veda.services.cms_service.sama_cms_service.bulk_delete_publications", return_value=([id1, id2], [])) as mock_del, \
+         patch.object(audit_service, "log_from_request") as mock_audit:
+
+        resp = client.post(
+            "/api/admin/sama/publications/bulk-delete",
+            json={"publication_ids": [str(id1), str(id2)]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["deleted_count"] == 2
+        assert data["failed_count"] == 0
+        assert str(id1) in data["deleted_ids"]
+        assert mock_audit.call_args.kwargs["action"] == "publications_bulk_deleted"
+
+
+def test_bulk_delete_publications_forbidden_for_non_super_admin(client, sama_content_editor_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: sama_content_editor_user
+
+    id1 = uuid.uuid4()
+    resp = client.post(
+        "/api/admin/sama/publications/bulk-delete",
+        json={"publication_ids": [str(id1)]},
+    )
+    assert resp.status_code == 403
+    assert "Super Admin" in resp.json()["message"]
+
+
+def test_bulk_delete_publications_partial_failure(client, super_admin_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: super_admin_user
+
+    id1 = uuid.uuid4()
+    id2 = uuid.uuid4()
+
+    with patch(
+        "app.modules.sama_veda.services.cms_service.sama_cms_service.bulk_delete_publications",
+        return_value=([id1], [{"id": str(id2), "reason": "Publication not found"}]),
+    ):
+        resp = client.post(
+            "/api/admin/sama/publications/bulk-delete",
+            json={"publication_ids": [str(id1), str(id2)]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["deleted_count"] == 1
+        assert data["failed_count"] == 1
+        assert data["failed_items"][0]["id"] == str(id2)
+
+
+def test_bulk_delete_import_batches(client, super_admin_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: super_admin_user
+
+    b_id1 = uuid.uuid4()
+    mock_batch = MagicMock()
+    mock_batch.id = b_id1
+
+    # mock scalar_one_or_none
+    mock_db.execute.return_value.scalar_one_or_none.return_value = mock_batch
+
+    with patch.object(audit_service, "log_from_request") as mock_audit:
+        resp = client.post(
+            "/api/admin/sama/import/batches/bulk-delete",
+            json={"batch_ids": [str(b_id1)]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["deleted_count"] == 1
+        assert mock_audit.call_args.kwargs["action"] == "import_batches_bulk_deleted"

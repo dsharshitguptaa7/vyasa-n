@@ -71,6 +71,11 @@ export const PublicationsPage: React.FC = () => {
   const [newStatus, setNewStatus] = useState<ContentStatus>('published');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Multi-selection & Bulk Delete
+  const [selectedPubIds, setSelectedPubIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   // Permissions
   const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
   const canEdit =
@@ -245,6 +250,64 @@ export const PublicationsPage: React.FC = () => {
     }
   };
 
+  const isSuperAdminUser = Boolean(isSuperAdmin || userRoles.includes('super_admin'));
+
+  const toggleSelectPub = (id: string) => {
+    setSelectedPubIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const isAllVisibleSelected =
+    publications.length > 0 && publications.every((p) => selectedPubIds.has(p.id));
+  const isSomeVisibleSelected =
+    publications.some((p) => selectedPubIds.has(p.id)) && !isAllVisibleSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllVisibleSelected) {
+      setSelectedPubIds((prev) => {
+        const next = new Set(prev);
+        publications.forEach((p) => next.delete(p.id));
+        return next;
+      });
+    } else {
+      setSelectedPubIds((prev) => {
+        const next = new Set(prev);
+        publications.forEach((p) => next.add(p.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDeleteSubmit = async () => {
+    if (selectedPubIds.size === 0) return;
+    try {
+      setIsBulkDeleting(true);
+      setErrorMsg(null);
+      const res = await samaAdminService.bulkDeletePublications(Array.from(selectedPubIds));
+      if (res.failed_count === 0) {
+        showFeedback(`Successfully deleted ${res.deleted_count} publication entry(ies).`);
+      } else if (res.deleted_count > 0) {
+        showFeedback(`Deleted ${res.deleted_count} publication(s); ${res.failed_count} item(s) could not be deleted.`);
+      } else {
+        setErrorMsg(`Failed to delete selected publications: ${res.failed_items.map((f) => f.reason).join(', ')}`);
+      }
+      setSelectedPubIds(new Set());
+      setIsBulkDeleteModalOpen(false);
+      fetchPublications();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to execute bulk deletion');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return (
@@ -355,6 +418,71 @@ export const PublicationsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Bulk Action Banner */}
+        {selectedPubIds.size > 0 && (
+          <div
+            data-testid="bulk-actions-banner"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              padding: '12px 18px',
+              backgroundColor: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '8px',
+              fontSize: '13.5px',
+              color: '#9f1239',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontWeight: 700 }}>
+                {selectedPubIds.size} of {totalCount} publications selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedPubIds(new Set())}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#e11d48',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  padding: 0,
+                  fontWeight: 500,
+                }}
+              >
+                Deselect All
+              </button>
+            </div>
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{
+                  color: isSuperAdminUser ? '#ffffff' : '#94a3b8',
+                  backgroundColor: isSuperAdminUser ? '#e11d48' : '#e2e8f0',
+                  borderColor: isSuperAdminUser ? '#be123c' : '#cbd5e1',
+                  fontWeight: 600,
+                  cursor: isSuperAdminUser ? 'pointer' : 'not-allowed',
+                }}
+                disabled={!isSuperAdminUser}
+                onClick={() => isSuperAdminUser && setIsBulkDeleteModalOpen(true)}
+                title={
+                  isSuperAdminUser
+                    ? `Bulk delete ${selectedPubIds.size} selected entries`
+                    : 'Bulk deletion is restricted to Super Administrators only'
+                }
+              >
+                Bulk Delete ({selectedPubIds.size})
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Publications Data Table */}
         {loading ? (
           <LoadingState message="Loading publications catalog..." />
@@ -402,6 +530,18 @@ export const PublicationsPage: React.FC = () => {
             <table className="vyasa-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)', borderBottom: '2px solid var(--vyasa-border, #e3dcd1)', color: 'var(--vyasa-primary, #0f2b48)', fontWeight: 600 }}>
+                  <th style={{ padding: '12px 14px', width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all publications on this page"
+                      checked={isAllVisibleSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeVisibleSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#e11d48' }}
+                    />
+                  </th>
                   <th style={{ padding: '12px 16px' }}>Slug / Serial</th>
                   <th style={{ padding: '12px 16px' }}>Title & Source Journal</th>
                   <th style={{ padding: '12px 16px' }}>Category</th>
@@ -412,7 +552,22 @@ export const PublicationsPage: React.FC = () => {
               </thead>
               <tbody>
                 {publications.map((pub) => (
-                  <tr key={pub.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
+                  <tr
+                    key={pub.id}
+                    style={{
+                      borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)',
+                      backgroundColor: selectedPubIds.has(pub.id) ? '#fff1f2' : undefined,
+                    }}
+                  >
+                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select publication ${pub.slug}`}
+                        checked={selectedPubIds.has(pub.id)}
+                        onChange={() => toggleSelectPub(pub.id)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#e11d48' }}
+                      />
+                    </td>
                     <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>{pub.slug}</span>
                       <div style={{ fontSize: '11px', color: 'var(--vyasa-text-muted, #64748b)' }}>#{pub.serial_no}</div>
@@ -783,6 +938,57 @@ export const PublicationsPage: React.FC = () => {
                 </Button>
                 <Button variant="primary" size="sm" onClick={handleStatusUpdateSubmit} disabled={isSubmitting}>
                   {isSubmitting ? 'Updating...' : 'Confirm Status Update'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* 5. Bulk Delete Confirmation Modal */}
+        {isBulkDeleteModalOpen && (
+          <Modal
+            title={`Confirm Bulk Deletion (${selectedPubIds.size} Publications)`}
+            isOpen={isBulkDeleteModalOpen}
+            onClose={() => !isBulkDeleting && setIsBulkDeleteModalOpen(false)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13.5px', color: '#475569' }}>
+              <div
+                style={{
+                  padding: '12px 14px',
+                  backgroundColor: '#fff1f2',
+                  border: '1px solid #fecdd3',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#9f1239',
+                  lineHeight: 1.5,
+                }}
+              >
+                <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Institutional Safeguard Notice:</p>
+                You are about to permanently delete <strong>{selectedPubIds.size}</strong> selected publication entries from the SAMIKSHA repository.
+                All mapped author links will be cleaned up, and any felicitation certificates referencing these publications will have their link safely set to null without deleting the certificate document.
+              </div>
+
+              <p style={{ margin: 0, color: '#334155' }}>
+                Are you sure you want to proceed with deleting <strong>{selectedPubIds.size}</strong> publications? This action cannot be undone.
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteModalOpen(false)}
+                  disabled={isBulkDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ color: '#ffffff', backgroundColor: '#e11d48', borderColor: '#be123c', fontWeight: 600 }}
+                  onClick={handleBulkDeleteSubmit}
+                  disabled={isBulkDeleting}
+                >
+                  {isBulkDeleting ? 'Deleting Entries...' : `Delete ${selectedPubIds.size} Entries Permanently`}
                 </Button>
               </div>
             </div>

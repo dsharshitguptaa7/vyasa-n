@@ -476,3 +476,11 @@ export interface ImportExecuteResult {
 }
 
 
+
+export interface BulkDeleteResult {
+  deleted_count: number;
+  deleted_ids: string[];
+  failed_count: number;
+  failed_items: { id: string; reason?: string; error?: string }[];
+  total_requested: number;
+}
