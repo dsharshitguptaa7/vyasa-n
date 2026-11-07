@@ -43,6 +43,11 @@ export const AuthorsPage: React.FC = () => {
   const [deletingAuthor, setDeletingAuthor] = useState<ResearchAuthorItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Multi-selection & Bulk Delete
+  const [selectedAuthorIds, setSelectedAuthorIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   // Permissions
   const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
   const canEdit =
@@ -187,12 +192,74 @@ export const AuthorsPage: React.FC = () => {
       setIsSubmitting(true);
       await samaAdminService.deleteAuthor(deletingAuthor.id);
       showFeedback(`Author "${deletingAuthor.full_name}" deleted.`);
+      setSelectedAuthorIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deletingAuthor.id);
+        return next;
+      });
       setDeletingAuthor(null);
       fetchAuthors();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to delete author');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Multi-selection Handlers
+  const toggleSelectAuthor = (id: string) => {
+    setSelectedAuthorIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const isAllVisibleSelected =
+    authors.length > 0 && authors.every((a) => selectedAuthorIds.has(a.id));
+  const isSomeVisibleSelected =
+    authors.some((a) => selectedAuthorIds.has(a.id)) && !isAllVisibleSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllVisibleSelected) {
+      setSelectedAuthorIds((prev) => {
+        const next = new Set(prev);
+        authors.forEach((a) => next.delete(a.id));
+        return next;
+      });
+    } else {
+      setSelectedAuthorIds((prev) => {
+        const next = new Set(prev);
+        authors.forEach((a) => next.add(a.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDeleteSubmit = async () => {
+    if (selectedAuthorIds.size === 0) return;
+    try {
+      setIsBulkDeleting(true);
+      setErrorMsg(null);
+      const res = await samaAdminService.bulkDeleteAuthors(Array.from(selectedAuthorIds));
+      if (res.failed_count === 0) {
+        showFeedback(`Successfully deleted ${res.deleted_count} author profile(s).`);
+      } else if (res.deleted_count > 0) {
+        showFeedback(`Deleted ${res.deleted_count} author(s); ${res.failed_count} item(s) could not be deleted.`);
+      } else {
+        setErrorMsg(`Failed to delete selected authors: ${res.failed_items.map((f) => f.reason).join(', ')}`);
+      }
+      setSelectedAuthorIds(new Set());
+      setIsBulkDeleteModalOpen(false);
+      fetchAuthors();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to execute bulk deletion');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -290,6 +357,72 @@ export const AuthorsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Bulk Action Banner */}
+        {selectedAuthorIds.size > 0 && (
+          <div
+            data-testid="bulk-actions-banner"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              padding: '12px 18px',
+              backgroundColor: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '8px',
+              fontSize: '13.5px',
+              color: '#9f1239',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontWeight: 700 }}>
+                {selectedAuthorIds.size} of {totalCount} authors selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedAuthorIds(new Set())}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#e11d48',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  padding: 0,
+                  fontWeight: 500,
+                }}
+              >
+                Deselect All
+              </button>
+            </div>
+
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{
+                  color: canEdit ? '#ffffff' : '#94a3b8',
+                  backgroundColor: canEdit ? '#e11d48' : '#e2e8f0',
+                  borderColor: canEdit ? '#be123c' : '#cbd5e1',
+                  fontWeight: 600,
+                  cursor: canEdit ? 'pointer' : 'not-allowed',
+                }}
+                disabled={!canEdit}
+                onClick={() => canEdit && setIsBulkDeleteModalOpen(true)}
+                title={
+                  canEdit
+                    ? `Bulk delete ${selectedAuthorIds.size} selected author profiles`
+                    : 'Bulk deletion is restricted to authorized editors only'
+                }
+              >
+                Bulk Delete ({selectedAuthorIds.size})
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Authors Table */}
         {loading ? (
           <LoadingState message="Loading authors index..." />
@@ -337,6 +470,20 @@ export const AuthorsPage: React.FC = () => {
             <table className="vyasa-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)', borderBottom: '2px solid var(--vyasa-border, #e3dcd1)', color: 'var(--vyasa-primary, #0f2b48)', fontWeight: 600 }}>
+                  {canEdit && (
+                    <th style={{ padding: '12px 14px', width: '40px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all authors on this page"
+                        checked={isAllVisibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isSomeVisibleSelected;
+                        }}
+                        onChange={handleToggleSelectAll}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#e11d48' }}
+                      />
+                    </th>
+                  )}
                   <th style={{ padding: '12px 16px' }}>Researcher Name</th>
                   <th style={{ padding: '12px 16px' }}>Scopus Identifier</th>
                   <th style={{ padding: '12px 16px' }}>Department</th>
@@ -347,7 +494,24 @@ export const AuthorsPage: React.FC = () => {
               </thead>
               <tbody>
                 {authors.map((author) => (
-                  <tr key={author.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
+                  <tr
+                    key={author.id}
+                    style={{
+                      borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)',
+                      backgroundColor: selectedAuthorIds.has(author.id) ? '#fff1f2' : undefined,
+                    }}
+                  >
+                    {canEdit && (
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select author ${author.full_name}`}
+                          checked={selectedAuthorIds.has(author.id)}
+                          onChange={() => toggleSelectAuthor(author.id)}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#e11d48' }}
+                        />
+                      </td>
+                    )}
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>{author.full_name}</div>
                       <div style={{ fontSize: '11.5px', color: 'var(--vyasa-text-muted, #64748b)' }}>{author.institutional_affiliation}</div>
@@ -669,6 +833,57 @@ export const AuthorsPage: React.FC = () => {
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Deleting...' : 'Delete Author'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* 5. Bulk Delete Confirmation Modal */}
+        {isBulkDeleteModalOpen && (
+          <Modal
+            title={`Confirm Bulk Deletion (${selectedAuthorIds.size} Authors)`}
+            isOpen={isBulkDeleteModalOpen}
+            onClose={() => !isBulkDeleting && setIsBulkDeleteModalOpen(false)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13.5px', color: '#475569' }}>
+              <div
+                style={{
+                  padding: '12px 14px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '6px',
+                  color: '#991b1b',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                }}
+              >
+                <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Institutional Safeguard Notice:</p>
+                You are about to permanently delete <strong>{selectedAuthorIds.size}</strong> selected author profiles from the SAMIKSHA directory.
+                All publication co-author affiliations and felicitation certificates linked to these author records will be cleaned up, and spotlights will be unlinked.
+              </div>
+
+              <p style={{ margin: 0, color: '#334155' }}>
+                Are you sure you want to proceed with deleting <strong>{selectedAuthorIds.size}</strong> authors? This action cannot be undone.
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteModalOpen(false)}
+                  disabled={isBulkDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ color: '#ffffff', backgroundColor: '#e11d48', borderColor: '#be123c', fontWeight: 600 }}
+                  onClick={handleBulkDeleteSubmit}
+                  disabled={isBulkDeleting}
+                >
+                  {isBulkDeleting ? 'Deleting Profiles...' : `Delete ${selectedAuthorIds.size} Profiles Permanently`}
                 </Button>
               </div>
             </div>

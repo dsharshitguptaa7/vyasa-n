@@ -30,6 +30,7 @@ from app.admin.schemas.sama_cms import (
     PublicationAuthorOut,
     PublicationListResponse,
     BulkDeletePublicationsRequest,
+    BulkDeleteAuthorsRequest,
     BulkDeleteBatchesRequest,
     BulkDeleteResult,
     AuthorCreate,
@@ -533,6 +534,67 @@ def delete_author(
         success=True,
         message="Research author deleted successfully.",
         data={"id": str(author_id)},
+    )
+
+
+@sama_admin_router.post("/authors/bulk-delete", response_model=ApiResponse)
+def bulk_delete_authors(
+    payload: BulkDeleteAuthorsRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:content:edit")),
+):
+    """
+    Bulk deletes multiple research author records permanently from SAMIKSHA.
+    Restricted to authorized users with 'sama:content:edit' permission.
+    Safeguards:
+    - Cascades publication_authors removal and unlinks associated certificates/spotlights.
+    - Logs detailed audit action including deleted and failed IDs.
+    - Handles partial failures gracefully without aborting the entire request.
+    """
+    if not payload.author_ids:
+        raise HTTPException(status_code=400, detail="No author IDs provided for bulk deletion.")
+
+    deleted_ids, failed_items = sama_cms_service.bulk_delete_authors(
+        db, payload.author_ids
+    )
+
+    batch_op_id = uuid.uuid4()
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="authors_bulk_deleted",
+        entity_name="ResearchAuthor",
+        entity_id=batch_op_id,
+        actor_user_id=current_user.id,
+        details={
+            "requested_count": len(payload.author_ids),
+            "deleted_count": len(deleted_ids),
+            "deleted_ids": [str(i) for i in deleted_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+        },
+        fail_silent=False,
+    )
+
+    success = len(deleted_ids) > 0 or len(payload.author_ids) == 0
+    message = (
+        f"Bulk deletion completed: {len(deleted_ids)} author profile(s) deleted."
+        if not failed_items
+        else f"Bulk deletion finished with warnings: {len(deleted_ids)} deleted, {len(failed_items)} failed."
+    )
+
+    return ApiResponse(
+        success=success,
+        message=message,
+        data=BulkDeleteResult(
+            deleted_count=len(deleted_ids),
+            deleted_ids=[str(i) for i in deleted_ids],
+            failed_count=len(failed_items),
+            failed_items=failed_items,
+            total_requested=len(payload.author_ids),
+        ).model_dump(),
     )
 
 

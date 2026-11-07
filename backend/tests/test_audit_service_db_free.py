@@ -7,6 +7,7 @@ Verifies:
 4. Fail-closed behavior on database errors (raises AuditServiceError).
 5. Fail-silent behavior when explicitly requested.
 6. log_from_request client IP and User-Agent resolution.
+7. log_event interface with event-style kwargs and string UUID resolution.
 """
 
 from unittest.mock import MagicMock
@@ -16,6 +17,7 @@ import pytest
 from app.models.audit import AuditLog
 from app.services.audit_service import (
     CentralAuditService,
+    audit_service,
     AuditServiceError,
     sanitize_audit_details,
 )
@@ -153,3 +155,56 @@ def test_log_from_request_extracts_headers():
 
     assert entry.ip_address == "203.0.113.195"
     assert entry.user_agent == "CustomBrowser/1.0"
+
+
+def test_log_event_interface_with_request_context():
+    mock_db = MagicMock()
+    user_id = uuid.uuid4()
+    batch_id = uuid.uuid4()
+
+    event_id = audit_service.log_event(
+        db=mock_db,
+        actor_id=user_id,
+        module="sama_veda",
+        action="IMPORT_EXECUTE",
+        entity_type="SamaImportBatch",
+        entity_id=str(batch_id),
+        metadata={"created_count": 5, "password": "secret_pwd"},
+        request_context={"client_ip": "192.168.1.50", "user_agent": "Mozilla/5.0"},
+        commit=True,
+    )
+
+    assert isinstance(event_id, str)
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_called_once()
+    added_entry = mock_db.add.call_args[0][0]
+    assert added_entry.module == "sama_veda"
+    assert added_entry.action == "IMPORT_EXECUTE"
+    assert added_entry.entity_name == "SamaImportBatch"
+    assert added_entry.entity_id == str(batch_id)
+    assert added_entry.user_id == user_id
+    assert added_entry.ip_address == "192.168.1.50"
+    assert added_entry.details["created_count"] == 5
+    assert added_entry.details["password"] == "[REDACTED]"
+
+
+def test_log_event_with_string_actor_id():
+    mock_db = MagicMock()
+    user_id_str = str(uuid.uuid4())
+    entity_id_str = str(uuid.uuid4())
+
+    event_id = CentralAuditService.log_event(
+        db=mock_db,
+        actor_id=user_id_str,
+        module="sama_veda",
+        action="IMPORT_BUNDLE_EXECUTE",
+        entity_name="SamaImportBatch",
+        entity_id=entity_id_str,
+        details={"status": "completed"},
+        commit=False,
+    )
+
+    assert isinstance(event_id, str)
+    added_entry = mock_db.add.call_args[0][0]
+    assert added_entry.user_id == uuid.UUID(user_id_str)
+    assert added_entry.entity_id == entity_id_str

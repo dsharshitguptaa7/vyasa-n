@@ -80,7 +80,7 @@ class CentralAuditService:
         action: str,
         entity_name: str,
         entity_id: Union[str, uuid.UUID],
-        actor_user_id: Optional[uuid.UUID] = None,
+        actor_user_id: Optional[Union[str, uuid.UUID]] = None,
         details: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
@@ -96,7 +96,7 @@ class CentralAuditService:
             action: Specific action performed (e.g., 'certificate.issued', 'author.verified').
             entity_name: Domain model or target resource name (e.g., 'ResearchAuthor', 'Certificate').
             entity_id: Identifier of the target entity.
-            actor_user_id: UUID of the actor performing the action; None for anonymous/system.
+            actor_user_id: UUID or string UUID of the actor performing the action; None for anonymous/system.
             details: Optional metadata dict. Sensitive keys will be automatically redacted.
             ip_address: Originating client IP address.
             user_agent: Originating client User-Agent string.
@@ -117,9 +117,16 @@ class CentralAuditService:
         clean_entity_id = str(entity_id).strip()
         safe_details = sanitize_audit_details(details)
 
+        parsed_user_id = actor_user_id
+        if isinstance(parsed_user_id, str):
+            try:
+                parsed_user_id = uuid.UUID(parsed_user_id)
+            except (ValueError, AttributeError):
+                parsed_user_id = None
+
         try:
             entry = AuditLog(
-                user_id=actor_user_id,
+                user_id=parsed_user_id,
                 module=str(module).strip(),
                 action=str(action).strip(),
                 entity_name=str(entity_name).strip(),
@@ -155,6 +162,61 @@ class CentralAuditService:
             ) from exc
 
     @staticmethod
+    def log_event(
+        db: Session,
+        *,
+        action: str,
+        entity_id: Union[str, uuid.UUID],
+        module: str = "core",
+        entity_name: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        actor_id: Optional[Union[str, uuid.UUID]] = None,
+        actor_user_id: Optional[Union[str, uuid.UUID]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        details: Optional[Dict[str, Any]] = None,
+        request_context: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        commit: bool = True,
+        fail_silent: bool = False,
+    ) -> str:
+        """
+        Record a structured audit log entry using event-oriented parameter names.
+        Compatible with callers passing entity_type, metadata, actor_id, and request_context.
+        Returns the recorded audit event ID as a string.
+        """
+        target_entity_name = entity_name or entity_type or "UnknownEntity"
+        target_actor = actor_id if actor_id is not None else actor_user_id
+        target_details = details if details is not None else metadata
+
+        resolved_ip = ip_address
+        resolved_ua = user_agent
+        if request_context and isinstance(request_context, dict):
+            if not resolved_ip:
+                resolved_ip = (
+                    request_context.get("client_ip")
+                    or request_context.get("ip_address")
+                    or request_context.get("ip")
+                )
+            if not resolved_ua:
+                resolved_ua = request_context.get("user_agent")
+
+        entry = CentralAuditService.log(
+            db=db,
+            module=module,
+            action=action,
+            entity_name=target_entity_name,
+            entity_id=entity_id,
+            actor_user_id=target_actor,
+            details=target_details,
+            ip_address=resolved_ip,
+            user_agent=resolved_ua,
+            commit=commit,
+            fail_silent=fail_silent,
+        )
+        return str(entry.id) if entry and entry.id else str(uuid.uuid4())
+
+    @staticmethod
     def log_from_request(
         request: Request,
         db: Session,
@@ -163,7 +225,7 @@ class CentralAuditService:
         action: str,
         entity_name: str,
         entity_id: Union[str, uuid.UUID],
-        actor_user_id: Optional[uuid.UUID] = None,
+        actor_user_id: Optional[Union[str, uuid.UUID]] = None,
         details: Optional[Dict[str, Any]] = None,
         commit: bool = False,
         fail_silent: bool = False,

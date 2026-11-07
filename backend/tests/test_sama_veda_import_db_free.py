@@ -295,3 +295,31 @@ def test_get_import_batches_endpoint(test_client):
     assert data["data"]["items"][0]["batch_number"] == "IMP-BUNDLE-001"
 
     app.dependency_overrides.clear()
+
+
+def test_execute_batch_records_audit_event_cleanly():
+    mock_db = MagicMock()
+    batch_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+
+    fake_batch = MagicMock()
+    fake_batch.id = batch_id
+    fake_batch.batch_number = 'IMP-PUB-20261107-123456'
+    fake_batch.entity_type = 'publications'
+    fake_batch.status = 'previewed'
+    fake_batch.raw_payload = []
+    fake_batch.total_rows = 0
+
+    mock_db.execute.return_value.scalar_one_or_none.return_value = fake_batch
+
+    res = import_service.execute_batch(
+        db=mock_db,
+        batch_id=str(batch_id),
+        user_id=user_id,
+        request_context={'client_ip': '127.0.0.1'},
+    )
+
+    assert res.status == 'completed'
+    assert res.batch_id == batch_id
+    assert res.audit_event_id is not None
+    assert mock_db.commit.called

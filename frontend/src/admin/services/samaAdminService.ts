@@ -141,6 +141,13 @@ export const samaAdminService = {
     return res.data!;
   },
 
+  async bulkDeleteAuthors(authorIds: string[]): Promise<BulkDeleteResult> {
+    const res = await apiClient.post<BulkDeleteResult>('/admin/sama/authors/bulk-delete', {
+      author_ids: authorIds,
+    });
+    return res.data!;
+  },
+
   // =========================================================================
   // 3. BULLETINS
   // =========================================================================

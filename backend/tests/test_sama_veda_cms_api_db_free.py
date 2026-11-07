@@ -779,3 +779,68 @@ def test_bulk_delete_import_batches(client, super_admin_user, mock_db):
         data = resp.json()["data"]
         assert data["deleted_count"] == 1
         assert mock_audit.call_args.kwargs["action"] == "import_batches_bulk_deleted"
+
+
+def test_bulk_delete_authors_success(client, sama_content_editor_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: sama_content_editor_user
+
+    id1 = uuid.uuid4()
+    id2 = uuid.uuid4()
+
+    with patch(
+        "app.modules.sama_veda.services.cms_service.sama_cms_service.bulk_delete_authors",
+        return_value=([id1, id2], []),
+    ) as mock_del, patch.object(audit_service, "log_from_request") as mock_audit:
+
+        resp = client.post(
+            "/api/admin/sama/authors/bulk-delete",
+            json={"author_ids": [str(id1), str(id2)]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["deleted_count"] == 2
+        assert data["failed_count"] == 0
+        assert str(id1) in data["deleted_ids"]
+        assert mock_audit.call_args.kwargs["action"] == "authors_bulk_deleted"
+
+
+def test_bulk_delete_authors_forbidden(client, mock_db):
+    # User without sama:content:edit permission
+    viewer_user = MagicMock()
+    viewer_user.id = uuid.uuid4()
+    viewer_user.roles = []
+    viewer_user.has_role.return_value = False
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: viewer_user
+
+    id1 = uuid.uuid4()
+    resp = client.post(
+        "/api/admin/sama/authors/bulk-delete",
+        json={"author_ids": [str(id1)]},
+    )
+    assert resp.status_code == 403
+
+
+def test_bulk_delete_authors_partial_failure(client, sama_content_editor_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: sama_content_editor_user
+
+    id1 = uuid.uuid4()
+    id2 = uuid.uuid4()
+
+    with patch(
+        "app.modules.sama_veda.services.cms_service.sama_cms_service.bulk_delete_authors",
+        return_value=([id1], [{"id": str(id2), "reason": "Author not found"}]),
+    ):
+        resp = client.post(
+            "/api/admin/sama/authors/bulk-delete",
+            json={"author_ids": [str(id1), str(id2)]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["deleted_count"] == 1
+        assert data["failed_count"] == 1
+        assert data["failed_items"][0]["id"] == str(id2)
+

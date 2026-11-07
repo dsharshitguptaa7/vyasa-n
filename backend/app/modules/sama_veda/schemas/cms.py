@@ -98,6 +98,10 @@ class BulkDeletePublicationsRequest(BaseModel):
     publication_ids: List[uuid.UUID] = Field(..., min_length=1)
 
 
+class BulkDeleteAuthorsRequest(BaseModel):
+    author_ids: List[uuid.UUID] = Field(..., min_length=1)
+
+
 class BulkDeleteBatchesRequest(BaseModel):
     batch_ids: List[uuid.UUID] = Field(..., min_length=1)
 

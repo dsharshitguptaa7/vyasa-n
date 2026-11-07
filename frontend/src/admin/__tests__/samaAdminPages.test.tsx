@@ -116,6 +116,19 @@ const mockAuthors: AuthorRecord[] = [
     scopus_h_index: 14,
     created_at: '2026-01-10T00:00:00Z',
   },
+  {
+    id: 'auth-2',
+    full_name: 'Aamena Zaidi',
+    name: 'Aamena Zaidi',
+    email: 'azaidi@csjmu.ac.in',
+    department: 'Life Sciences',
+    designation: 'Assistant Professor',
+    scopus_id: '59258716900',
+    scopus_author_id: '59258716900',
+    is_verified: false,
+    is_scopus_verified: false,
+    created_at: '2026-02-01T00:00:00Z',
+  },
 ];
 
 const mockBulletins: BulletinRecord[] = [
@@ -610,6 +623,75 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       });
 
       expect(screen.getByText(/Confirmed Scopus Identifier/i)).toBeInTheDocument();
+    });
+
+    it('supports multi-selection and bulk delete for authors', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-admin',
+          email: 'admin@csjmu.ac.in',
+          first_name: 'Content',
+          last_name: 'Admin',
+          role: 'sama_content_admin',
+          roles: ['sama_content_admin'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: true,
+        isSuperAdmin: false,
+      });
+
+      const bulkDeleteSpy = vi
+        .spyOn(samaAdminService, 'bulkDeleteAuthors')
+        .mockResolvedValue({
+          deleted_count: 2,
+          deleted_ids: ['auth-1', 'auth-2'],
+          failed_count: 0,
+          failed_items: [],
+          total_requested: 2,
+        });
+
+      render(
+        <MemoryRouter>
+          <AuthorsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Dr. Vikram Chandra')).toBeInTheDocument();
+        expect(screen.getByText('Aamena Zaidi')).toBeInTheDocument();
+      });
+
+      // Select All checkbox
+      const selectAllCheckbox = screen.getByLabelText('Select all authors on this page');
+      fireEvent.click(selectAllCheckbox);
+
+      // Verify bulk actions banner appears
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+        expect(screen.getByText(/authors selected/i)).toBeInTheDocument();
+      });
+
+      // Find and click Bulk Delete button
+      const bulkDeleteBtn = screen.getByRole('button', { name: /Bulk Delete/i });
+      expect(bulkDeleteBtn).not.toBeDisabled();
+      fireEvent.click(bulkDeleteBtn);
+
+      // Verify confirmation modal opens
+      await waitFor(() => {
+        expect(screen.getByText('Institutional Safeguard Notice:')).toBeInTheDocument();
+      });
+
+      // Confirm deletion
+      const confirmDeleteBtn = screen.getByRole('button', { name: /Delete .* Profiles Permanently/i });
+      fireEvent.click(confirmDeleteBtn);
+
+      await waitFor(() => {
+        expect(bulkDeleteSpy).toHaveBeenCalledWith(
+          expect.arrayContaining(['auth-1', 'auth-2'])
+        );
+      });
     });
   });
 

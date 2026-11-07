@@ -339,6 +339,46 @@ class SamaCmsService:
         db.delete(author)
         db.commit()
 
+    @staticmethod
+    def bulk_delete_authors(
+        db: Session,
+        author_ids: List[uuid.UUID],
+    ) -> Tuple[List[uuid.UUID], List[Dict[str, Any]]]:
+        deleted_ids: List[uuid.UUID] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        for author_id in author_ids:
+            try:
+                author = db.execute(
+                    select(ResearchAuthor).where(ResearchAuthor.id == author_id)
+                ).scalar_one_or_none()
+
+                if not author:
+                    failed_items.append({
+                        "id": str(author_id),
+                        "reason": "Author not found",
+                    })
+                    continue
+
+                # Safely unlink any researcher spotlights pointing to this author
+                spotlights = db.execute(
+                    select(ResearcherSpotlight).where(ResearcherSpotlight.author_id == author_id)
+                ).scalars().all()
+                for s in spotlights:
+                    s.author_id = None
+
+                db.delete(author)
+                db.flush()
+                deleted_ids.append(author_id)
+            except Exception as e:
+                failed_items.append({
+                    "id": str(author_id),
+                    "reason": f"Deletion error: {str(e)}",
+                })
+
+        db.commit()
+        return deleted_ids, failed_items
+
     # ========================================================================
     # 3. RESEARCH BULLETINS
     # ========================================================================

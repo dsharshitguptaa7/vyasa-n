@@ -326,4 +326,68 @@ describe('VYASA Signature Vedic Knowledge Invocation Loading Experience', () => 
     expect(screen.queryByTestId('vyasa-vedic-invocation')).toBeNull();
     expect(screen.getByTestId('target')).toBeInTheDocument();
   });
+
+  it('15. Knowledge Mandala sacred geometry elements are rendered', () => {
+    const { container } = render(<VedicInvocation isAppReady={false} />);
+    // Concentric geometric rings & progress track
+    expect(container.querySelector('.vyasa-mandala__perimeter-ring')).toBeInTheDocument();
+    expect(container.querySelector('.vyasa-mandala__progress-arc')).toBeInTheDocument();
+    // Interlocking Ashtakona star
+    expect(container.querySelector('.vyasa-mandala__star-group')).toBeInTheDocument();
+    // 8-Fold sacred lotus petals
+    expect(container.querySelector('.vyasa-mandala__petals-group')).toBeInTheDocument();
+    // Orbiting particles
+    expect(container.querySelector('.vyasa-mandala__particles-group')).toBeInTheDocument();
+    // Radial light rays
+    expect(container.querySelector('.vyasa-mandala__rays-group')).toBeInTheDocument();
+  });
+
+  it('16. Contextual loading intelligence displays dynamic scholarly messages without fabricating percentages', () => {
+    render(<VedicInvocation isAppReady={false} />);
+    const intelChip = screen.getByTestId('vyasa-invocation-intel');
+    expect(intelChip).toBeInTheDocument();
+
+    // Initial message is displayed
+    expect(screen.getByText('ज्ञान के द्वार खोले जा रहे हैं...')).toBeInTheDocument();
+
+    // Verify no fake percentage like "%" or "0%" is present in the text
+    expect(intelChip.textContent).not.toMatch(/\d+%/);
+
+    // Advance time past message transition interval (2200ms + 300ms fade)
+    act(() => {
+      vi.advanceTimersByTime(2550);
+    });
+
+    // Second contextual message appears smoothly
+    expect(screen.getByText('शोध संसाधन तैयार किए जा रहे हैं...')).toBeInTheDocument();
+  });
+
+  it('17. Custom loading messages can be passed and cycled', () => {
+    const customMessages = ['कस्टम संदेश 1', 'कस्टम संदेश 2'];
+    render(<VedicInvocation isAppReady={false} messages={customMessages} />);
+
+    expect(screen.getByText('कस्टम संदेश 1')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2550);
+    });
+
+    expect(screen.getByText('कस्टम संदेश 2')).toBeInTheDocument();
+  });
+
+  it('18. Completion animation converges particles and triggers golden radiance burst', () => {
+    const { container } = render(<VedicInvocation isAppReady={true} minDuration={1000} />);
+    const stage = container.querySelector('.vyasa-invocation__stage');
+    expect(stage).not.toHaveClass('vyasa-invocation__stage--exiting');
+
+    act(() => {
+      vi.advanceTimersByTime(1050);
+    });
+
+    expect(stage).toHaveClass('vyasa-invocation__stage--exiting');
+    // Radiance burst element exists and is styled during exit
+    expect(container.querySelector('.vyasa-mandala__radiance-burst')).toBeInTheDocument();
+    // Container has exit class
+    expect(screen.getByTestId('vyasa-vedic-invocation')).toHaveClass('vyasa-invocation-container--exiting');
+  });
 });
