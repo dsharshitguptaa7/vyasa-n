@@ -1016,3 +1016,315 @@ def test_sec04_rate_limiting_failures_since_latest_success(mock_db):
     assert TwoFactorService.is_rate_limited(mock_db, email) is True
 
 
+
+
+# =========================================================================
+# 9. Fernet Key Management & Decryption Failure Hardening Suite
+# =========================================================================
+
+def test_fernet_encryption_decryption_round_trip():
+    """
+    Verify that TwoFactorService encryption and decryption round-trip perfectly
+    for RFC 6238 Base32 secrets, and distinct calls yield distinct ciphertexts.
+    """
+    secret = TwoFactorService.generate_totp_secret()
+    enc1 = TwoFactorService.encrypt_secret(secret)
+    enc2 = TwoFactorService.encrypt_secret(secret)
+
+    # Distinct ciphertexts due to fresh IV and timestamp
+    assert enc1 != enc2
+
+    dec1 = TwoFactorService.decrypt_secret(enc1)
+    dec2 = TwoFactorService.decrypt_secret(enc2)
+    assert dec1 == secret
+    assert dec2 == secret
+
+
+def test_totp_verification_with_decrypted_secret():
+    """
+    Verify full TOTP code generation and time-step verification lifecycle
+    against decrypted TOTP secrets.
+    """
+    secret = TwoFactorService.generate_totp_secret()
+    encrypted = TwoFactorService.encrypt_secret(secret)
+    decrypted = TwoFactorService.decrypt_secret(encrypted)
+
+    totp = pyotp.TOTP(decrypted)
+    current_code = totp.now()
+
+    assert TwoFactorService.verify_totp_code(decrypted, current_code) is True
+    assert TwoFactorService.verify_totp_code(decrypted, "000000") is False
+
+
+def test_invalid_fernet_token_raises_invalid_token():
+    """
+    Verify that corrupted Fernet tokens or invalid HMAC digests raise
+    cryptography.fernet.InvalidToken and fail closed.
+    """
+    from cryptography.fernet import InvalidToken
+    secret = TwoFactorService.generate_totp_secret()
+    encrypted = TwoFactorService.encrypt_secret(secret)
+
+    # Tamper with the HMAC signature bytes
+    raw_b64 = list(encrypted)
+    raw_b64[-5] = "A" if raw_b64[-5] != "A" else "B"
+    tampered = "".join(raw_b64)
+
+    with pytest.raises(InvalidToken):
+        TwoFactorService.decrypt_secret(tampered)
+
+
+def test_wrong_encryption_key_raises_invalid_token():
+    """
+    Verify that ciphertext encrypted under Key A fails closed and raises
+    InvalidToken when decrypted under an unrelated Key B.
+    """
+    from cryptography.fernet import Fernet, InvalidToken
+    key_a = Fernet.generate_key()
+    key_b = Fernet.generate_key()
+    fernet_a = Fernet(key_a)
+    fernet_b = Fernet(key_b)
+
+    secret = "JBSWY3DPEHPK3PXP"
+    cipher_a = fernet_a.encrypt(secret.encode()).decode()
+
+    with pytest.raises(InvalidToken):
+        TwoFactorService.decrypt_secret(cipher_a, fernet=fernet_b)
+
+
+def test_missing_encryption_key_in_production():
+    """
+    Verify that in production mode, missing or default TOTP_ENCRYPTION_KEY
+    fails closed immediately.
+    """
+    with patch("app.services.two_factor_service.settings.NODE_ENV", "production"):
+        with patch("app.services.two_factor_service.settings.TOTP_ENCRYPTION_KEY", ""):
+            with pytest.raises(RuntimeError, match="strictly required in production"):
+                TwoFactorService._get_fernet_instances()
+
+
+def test_malformed_encrypted_secret_raises_invalid_token():
+    """
+    Verify that malformed, empty, or non-base64 secrets raise InvalidToken safely.
+    """
+    from cryptography.fernet import InvalidToken
+
+    for bad_input in ["", "not-a-fernet-token", "!!!###$$$", None, 12345]:
+        with pytest.raises(InvalidToken):
+            TwoFactorService.decrypt_secret(bad_input)
+
+
+def test_existing_encrypted_secrets_remain_decryptable_via_fallback():
+    """
+    Verify multi-key decryption: a historical ciphertext encrypted under an
+    older key remains 100% decryptable when that key is provided in fallback keys.
+    """
+    from cryptography.fernet import Fernet
+    old_key = Fernet.generate_key().decode()
+    new_primary_key = Fernet.generate_key().decode()
+
+    # Encrypt with old key
+    secret = "JBSWY3DPEHPK3PXP"
+    f_old = Fernet(old_key.encode())
+    old_cipher = f_old.encrypt(secret.encode()).decode()
+
+    # Configure new primary key and old key as fallback
+    with patch("app.services.two_factor_service.settings.NODE_ENV", "development"):
+        with patch("app.services.two_factor_service.settings.TOTP_ENCRYPTION_KEY", new_primary_key):
+            with patch("app.services.two_factor_service.settings.TOTP_FALLBACK_ENCRYPTION_KEYS", old_key):
+                # Verify that decrypt_secret successfully resolves via fallback
+                decrypted = TwoFactorService.decrypt_secret(old_cipher)
+                assert decrypted == secret
+
+                # Verify new encryptions use the new primary key
+                fresh_cipher = TwoFactorService.encrypt_secret(secret)
+                f_new = Fernet(new_primary_key.encode())
+                assert f_new.decrypt(fresh_cipher.encode()).decode() == secret
+
+
+def test_key_rotation_compatibility_and_reencrypt():
+    """
+    Verify controlled re-encryption utility:
+    - Ciphertext encrypted under legacy key is migrated to target key.
+    - Already migrated ciphertext is not touched (returns False).
+    - Unmatched ciphertext raises InvalidToken.
+    """
+    from cryptography.fernet import Fernet, InvalidToken
+    legacy_key = Fernet.generate_key()
+    target_key = Fernet.generate_key()
+    unrelated_key = Fernet.generate_key()
+
+    f_legacy = Fernet(legacy_key)
+    f_target = Fernet(target_key)
+    f_unrelated = Fernet(unrelated_key)
+
+    secret = "MYSECURESECRET32CHARSFOR2FATEST"
+    legacy_cipher = f_legacy.encrypt(secret.encode()).decode()
+
+    # 1. Re-encrypt from legacy to target
+    new_cipher, was_migrated = TwoFactorService.reencrypt_secret(
+        legacy_cipher,
+        target_fernet=f_target,
+        candidate_fernets=[f_legacy],
+    )
+    assert was_migrated is True
+    assert new_cipher != legacy_cipher
+    assert f_target.decrypt(new_cipher.encode()).decode() == secret
+
+    # 2. Re-encrypting already-valid target cipher returns was_migrated=False
+    same_cipher, was_migrated_2 = TwoFactorService.reencrypt_secret(
+        new_cipher,
+        target_fernet=f_target,
+        candidate_fernets=[f_legacy],
+    )
+    assert was_migrated_2 is False
+    assert same_cipher == new_cipher
+
+    # 3. Cipher with no matching candidate raises InvalidToken
+    unrelated_cipher = f_unrelated.encrypt(secret.encode()).decode()
+    with pytest.raises(InvalidToken):
+        TwoFactorService.reencrypt_secret(
+            unrelated_cipher,
+            target_fernet=f_target,
+            candidate_fernets=[f_legacy],
+        )
+
+
+def test_verify_2fa_login_decryption_failure_handling_and_no_leak(client, mock_db):
+    """
+    Verify that a decryption failure during 2FA verification:
+    1. Returns controlled HTTP 401 Unauthorized (NOT unhandled HTTP 500).
+    2. Does not expose encryption keys, secrets, or exception details to the user.
+    3. Logs an audit event with action 'auth.two_factor_decryption_failed'.
+    4. Records a failed attempt for rate limiting.
+    5. Never disables 2FA on the user account.
+    """
+    user_id = uuid.uuid4()
+    challenge_id = uuid.uuid4()
+    email = "authority.test@csjmu.ac.in"
+
+    user = _make_user(["authority"], email=email)
+    user.id = user_id
+
+    challenge = AuthenticationChallenge(
+        id=challenge_id,
+        user_id=user_id,
+        purpose="TWO_FACTOR_LOGIN",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        consumed_at=None,
+    )
+
+    # Corrupted ciphertext that will trigger InvalidToken
+    two_factor = UserTwoFactorAuth(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        totp_secret_encrypted="gAAAAABcorruptedTokenInvalidSignature==",
+        is_enabled=True,
+    )
+
+    def scalar_mock(query):
+        q_str = str(query)
+        if "authentication_challenges" in q_str:
+            return challenge
+        if "user_two_factor_auth" in q_str:
+            return two_factor
+        if "users" in q_str:
+            return user
+        if "count" in q_str:
+            return 0  # not rate limited
+        return None
+
+    mock_db.scalar.side_effect = scalar_mock
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    # Invoke 2FA verification
+    response = client.post(
+        "/api/auth/2fa/verify",
+        json={"challenge_id": str(challenge_id), "code": "123456"},
+    )
+
+    # 1. Controlled 401 status code (NOT 500!)
+    assert response.status_code == 401
+
+    err_msg = _get_err_msg(response)
+    data_str = str(response.json())
+    # 2. Sanitized error message without leaking cryptographic details
+    assert "two-factor authentication verification failed" in err_msg
+    assert "invalidtoken" not in data_str.lower()
+    assert "fernet" not in data_str.lower()
+    assert "signature" not in data_str.lower()
+    assert "digest" not in data_str.lower()
+
+    # 3. 2FA remains strictly enabled (never silently disabled)
+    assert two_factor.is_enabled is True
+
+    # 4. AuditLog recorded
+    added_objects = [call[0][0] for call in mock_db.add.call_args_list]
+    audit_logs = [obj for obj in added_objects if isinstance(obj, AuditLog)]
+    assert any(al.action == "auth.two_factor_decryption_failed" for al in audit_logs)
+
+    # 5. Failed attempt recorded in TwoFactorAttempt
+    attempts = [obj for obj in added_objects if isinstance(obj, TwoFactorAttempt)]
+    assert any(att.success is False for att in attempts)
+
+
+def test_confirm_2fa_setup_decryption_failure_handling(client, mock_db):
+    """
+    Verify that a decryption failure during 2FA setup confirmation fails gracefully
+    with HTTP 400 Bad Request instead of an unhandled HTTP 500.
+    """
+    user_id = uuid.uuid4()
+    challenge_id = uuid.uuid4()
+    user = _make_user(["authority"], email="new.authority@csjmu.ac.in")
+    user.id = user_id
+
+    challenge = AuthenticationChallenge(
+        id=challenge_id,
+        user_id=user_id,
+        purpose="TWO_FACTOR_SETUP",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        consumed_at=None,
+    )
+
+    two_factor = UserTwoFactorAuth(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        totp_secret_encrypted="gAAAAABcorruptedTokenInvalidSignature==",
+        is_enabled=False,
+    )
+
+    def scalar_mock(query):
+        q_str = str(query)
+        if "authentication_challenges" in q_str:
+            return challenge
+        if "user_two_factor_auth" in q_str:
+            return two_factor
+        if "users" in q_str:
+            return user
+        return None
+
+    mock_db.scalar.side_effect = scalar_mock
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    response = client.post(
+        "/api/auth/2fa/confirm-setup",
+        json={"challenge_id": str(challenge_id), "code": "123456"},
+    )
+
+    assert response.status_code == 400
+    err_msg = _get_err_msg(response)
+    data_str = str(response.json())
+    assert "cryptographic configuration mismatch" in err_msg
+    assert "invalidtoken" not in data_str.lower()
+    assert "fernet" not in data_str.lower()
+
+
+def test_key_fingerprint_and_health_check():
+    """
+    Verify diagnostic key health and fingerprint helpers without exposing keys.
+    """
+    assert TwoFactorService.verify_key_health() is True
+    fp_info = TwoFactorService.get_key_fingerprint()
+    assert "primary_key_fingerprint" in fp_info
+    assert fp_info["primary_key_fingerprint"].startswith("sha256:")
+    assert fp_info["total_keys_configured"] >= 1

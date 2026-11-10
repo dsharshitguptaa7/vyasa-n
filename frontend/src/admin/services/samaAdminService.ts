@@ -22,6 +22,18 @@ import {
   FelicitationCertificateItem,
   IssueCertificatePayload,
   CertificateListResponse,
+  CertificateStatsRecord,
+  CertificatePreviewPayload,
+  CertificateApprovalPayload,
+  CertificateReissuePayload,
+  CertificateTemplateItem,
+  CreateTemplatePayload,
+  UpdateTemplatePayload,
+  TemplateListResponse,
+  CertificateSignatoryItem,
+  CreateSignatoryPayload,
+  UpdateSignatoryPayload,
+  SignatoryListResponse,
   ResearcherSpotlightItem,
   CreateSpotlightPayload,
   UpdateSpotlightPayload,
@@ -323,6 +335,135 @@ export const samaAdminService = {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  async getCertificateStats(): Promise<CertificateStatsRecord> {
+    const res = await apiClient.get<CertificateStatsRecord>('/admin/sama/certificates/stats');
+    return res.data || {
+      total_certificates: 0,
+      draft_certificates: 0,
+      pending_approvals: 0,
+      issued_certificates: 0,
+      revoked_certificates: 0,
+      reissued_certificates: 0,
+      total_researchers_linked: 0,
+    };
+  },
+
+  async previewCertificate(payload: CertificatePreviewPayload): Promise<Blob> {
+    const url = `${config.apiBaseUrl}/admin/sama/certificates/preview`;
+    const token = authService.getToken();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to generate certificate preview (HTTP ${response.status})`);
+    }
+    return response.blob();
+  },
+
+  async approveCertificate(
+    id: string,
+    authority: 'DEAN_RD' | 'VICE_CHANCELLOR',
+    action: 'APPROVE' | 'REJECT',
+    remarks?: string
+  ): Promise<FelicitationCertificateItem> {
+    const payload: CertificateApprovalPayload = { action, remarks: remarks || undefined };
+    const res = await apiClient.post<FelicitationCertificateItem>(
+      `/admin/sama/certificates/${id}/approve?authority=${authority}`,
+      payload
+    );
+    return res.data!;
+  },
+
+  async reissueCertificate(id: string, payload: CertificateReissuePayload): Promise<FelicitationCertificateItem> {
+    const res = await apiClient.post<FelicitationCertificateItem>(`/admin/sama/certificates/${id}/reissue`, payload);
+    return res.data!;
+  },
+
+  // =========================================================================
+  // 5b. CERTIFICATE TEMPLATES
+  // =========================================================================
+  async getTemplates(params?: {
+    skip?: number;
+    limit?: number;
+    is_active?: boolean;
+    certificate_type?: string;
+  }): Promise<TemplateListResponse> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    if (params?.is_active !== undefined) q.append('is_active', String(params.is_active));
+    if (params?.certificate_type) q.append('certificate_type', params.certificate_type);
+
+    const qs = q.toString();
+    const res = await apiClient.get<TemplateListResponse>(`/admin/sama/templates${qs ? `?${qs}` : ''}`);
+    return res.data || { total: 0, items: [] };
+  },
+
+  async getTemplate(id: string): Promise<CertificateTemplateItem> {
+    const res = await apiClient.get<CertificateTemplateItem>(`/admin/sama/templates/${id}`);
+    return res.data!;
+  },
+
+  async createTemplate(payload: CreateTemplatePayload): Promise<CertificateTemplateItem> {
+    const res = await apiClient.post<CertificateTemplateItem>('/admin/sama/templates', payload);
+    return res.data!;
+  },
+
+  async updateTemplate(id: string, payload: UpdateTemplatePayload): Promise<CertificateTemplateItem> {
+    const res = await apiClient.put<CertificateTemplateItem>(`/admin/sama/templates/${id}`, payload);
+    return res.data!;
+  },
+
+  // =========================================================================
+  // 5c. CERTIFICATE SIGNATORIES
+  // =========================================================================
+  async getSignatories(params?: {
+    skip?: number;
+    limit?: number;
+    is_active?: boolean;
+    authority_type?: string;
+  }): Promise<SignatoryListResponse> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    if (params?.is_active !== undefined) q.append('is_active', String(params.is_active));
+    if (params?.authority_type) q.append('authority_type', params.authority_type);
+
+    const qs = q.toString();
+    const res = await apiClient.get<SignatoryListResponse>(`/admin/sama/signatories${qs ? `?${qs}` : ''}`);
+    return res.data || { total: 0, items: [] };
+  },
+
+  async getSignatory(id: string): Promise<CertificateSignatoryItem> {
+    const res = await apiClient.get<CertificateSignatoryItem>(`/admin/sama/signatories/${id}`);
+    return res.data!;
+  },
+
+  async createSignatory(payload: CreateSignatoryPayload): Promise<CertificateSignatoryItem> {
+    const res = await apiClient.post<CertificateSignatoryItem>('/admin/sama/signatories', payload);
+    return res.data!;
+  },
+
+  async updateSignatory(id: string, payload: UpdateSignatoryPayload): Promise<CertificateSignatoryItem> {
+    const res = await apiClient.put<CertificateSignatoryItem>(`/admin/sama/signatories/${id}`, payload);
+    return res.data!;
+  },
+
+  async uploadSignatorySignature(id: string, file: File): Promise<CertificateSignatoryItem> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.postFormData<CertificateSignatoryItem>(
+      `/admin/sama/signatories/${id}/upload-signature`,
+      formData
+    );
+    return res.data!;
   },
 
   // =========================================================================

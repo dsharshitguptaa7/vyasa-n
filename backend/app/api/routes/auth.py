@@ -42,6 +42,7 @@ from app.schemas.two_factor import (
     TwoFactorRegenerateRecoveryCodesRequest,
     TwoFactorRecoveryCodesResponse,
 )
+from cryptography.fernet import InvalidToken
 from app.services.two_factor_service import TwoFactorService
 from app.services.notifications.security_email_service import AuthoritySecurityEmailService
 
@@ -594,7 +595,18 @@ def get_2fa_setup_details(
             db.add(two_factor)
             db.commit()
         else:
-            raw_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+            try:
+                raw_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+            except InvalidToken:
+                logger.warning(
+                    "Existing unconfirmed 2FA record for user_id=%s could not be decrypted; generating fresh secret for setup.",
+                    str(user.id),
+                )
+                raw_secret = TwoFactorService.generate_totp_secret()
+                two_factor.totp_secret_encrypted = TwoFactorService.encrypt_secret(raw_secret)
+                two_factor.is_enabled = False
+                db.add(two_factor)
+                db.commit()
 
     provisioning_uri = TwoFactorService.get_provisioning_uri(raw_secret, user.email)
     qr_code_b64 = TwoFactorService.generate_qr_code_base64(provisioning_uri)
@@ -651,7 +663,17 @@ def confirm_2fa_setup(
             detail="Two-factor configuration not found. Please restart setup.",
         )
 
-    decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    try:
+        decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    except InvalidToken:
+        logger.error(
+            "TOTP 2FA confirm setup failed due to decryption error for user_id=%s",
+            str(user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to verify two-factor setup due to cryptographic configuration mismatch. Please restart setup.",
+        )
 
     matched_ts = TwoFactorService.get_matched_totp_timestep(decrypted_secret, payload.code, valid_window=1)
     if matched_ts is None:
@@ -776,7 +798,45 @@ def verify_2fa_login(
             detail="Two-factor authentication is not active on this account.",
         )
 
-    decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    try:
+        decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    except InvalidToken:
+        logger.error(
+            "TOTP 2FA verification failed due to decryption error: key mismatch or corrupted credential for user_id=%s",
+            str(user.id),
+        )
+        TwoFactorService.record_attempt(db, user.email, success=False, ip_address=client_ip)
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                module="auth",
+                action="auth.two_factor_decryption_failed",
+                entity_name="AuthenticationChallenge",
+                entity_id=str(challenge.id),
+                details={
+                    "status": "decryption_failure",
+                    "reason": "cryptographic_key_mismatch_or_invalid_token",
+                    "ip_address": client_ip,
+                },
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Two-factor authentication verification failed. Please contact your institutional administrator.",
+        )
+
+    # Transparent lazy migration: if secret was encrypted under a fallback key, re-encrypt under primary key
+    try:
+        reencrypted, migrated = TwoFactorService.reencrypt_secret(two_factor.totp_secret_encrypted)
+        if migrated:
+            two_factor.totp_secret_encrypted = reencrypted
+            db.add(two_factor)
+            logger.info("Transparently migrated TOTP secret for user_id=%s to primary encryption key.", str(user.id))
+    except Exception as exc:
+        logger.warning("Transparent re-encryption skipped for user_id=%s: %s", str(user.id), exc)
 
     # Replay protection check against both RFC 6238 time-step and window hash
     if TwoFactorService.is_code_replayed(two_factor, payload.code, secret=decrypted_secret):
@@ -1033,7 +1093,18 @@ def regenerate_recovery_codes(
             detail="Two-factor authentication is not active on this account.",
         )
 
-    decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    try:
+        decrypted_secret = TwoFactorService.decrypt_secret(two_factor.totp_secret_encrypted)
+    except InvalidToken:
+        logger.error(
+            "TOTP 2FA recovery code regeneration failed due to decryption error for user_id=%s",
+            str(current_user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to regenerate recovery codes due to security configuration mismatch. Please contact administrator.",
+        )
+
     if not TwoFactorService.verify_totp_code(decrypted_secret, payload.code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -7,6 +7,7 @@ import { RequestDocumentModal } from '../components/RequestDocumentModal';
 import { RequestCommitteeModal } from '../components/RequestCommitteeModal';
 import { FormCommitteeModal } from '../components/FormCommitteeModal';
 import { ClosedCaseEFileCard } from '../components/ClosedCaseEFileCard';
+import { GrievanceLifecycleTracker } from '../components/GrievanceLifecycleTracker';
 import { grievanceService } from '../services/grievanceService';
 import {
   AssociateDeanForwardRequest,
@@ -226,16 +227,52 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
     : dossier.next_authority || null;
 
   return (
-    <PageContainer style={{ padding: '40px 0' }}>
+    <PageContainer>
       {/* Navigation Breadcrumb */}
-      <div style={{ marginBottom: '20px' }}>
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '20px',
+        }}
+      >
         <Link
-          to="/modules/atharva-veda/nivaran/associate-dean/dashboard"
-          style={{ textDecoration: 'none', color: '#64748b', fontSize: '14px', fontWeight: 500 }}
+          to="/dashboard"
+          style={{
+            textDecoration: 'none',
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
         >
-          &larr; Back to Associate Dean Docket
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>Dashboard</span>
         </Link>
-      </div>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <Link
+          to="/atharva-veda/workspace"
+          style={{ textDecoration: 'none', color: 'var(--vyasa-navy, #0f2b48)', fontWeight: 600 }}
+        >
+          Atharva Veda
+        </Link>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <Link
+          to="/atharva-veda/associate-dean/dashboard"
+          style={{ textDecoration: 'none', color: 'var(--vyasa-navy, #0f2b48)', fontWeight: 600 }}
+        >
+          Associate Dean Desk
+        </Link>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>
+          Case #{dossier?.id || id}
+        </span>
+      </nav>
 
       {actionSuccessMsg && (
         <div
@@ -830,50 +867,14 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
             </Card>
           )}
 
-          {/* Status History & Audit Timeline */}
-          <Card style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1e293b', marginBottom: '16px' }}>
-              Case Timeline & Audit History
-            </h2>
-            {dossier.history && dossier.history.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {dossier.history.map((entry, idx) => (
-                  <div
-                    key={entry.id || idx}
-                    style={{
-                      paddingLeft: '14px',
-                      borderLeft: '2px solid #cbd5e1',
-                      position: 'relative',
-                    }}
-                  >
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
-                      {entry.from_status} &rarr; {entry.to_status}
-                    </div>
-                    {entry.remarks && (
-                      <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', lineHeight: 1.5 }}>
-                        {entry.remarks}
-                      </div>
-                    )}
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                      {entry.created_at
-                        ? new Date(entry.created_at).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : ''}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>
-                No historical workflow transitions recorded.
-              </div>
-            )}
-          </Card>
+          {/* Status History & Lifecycle Tracking */}
+          <GrievanceLifecycleTracker
+            currentStatus={dossier.status}
+            history={dossier.history}
+            createdAt={dossier.created_at}
+            updatedAt={dossier.updated_at}
+            grievanceId={dossier.grievance_id}
+          />
         </div>
       </div>
 

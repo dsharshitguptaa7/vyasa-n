@@ -3,13 +3,40 @@ import { AppIcon, Button, Badge, Modal, Input, Select, EmptyState, LoadingState 
 import { AdminLayout } from '../../components/AdminLayout';
 import { useAuth } from '../../../context/AuthContext';
 import { samaAdminService } from '../../services/samaAdminService';
-import type { CertificateRecord, AuthorRecord, BulletinRecord, PublicationRecord } from '../../types/sama';
+import type {
+  CertificateRecord,
+  AuthorRecord,
+  BulletinRecord,
+  PublicationRecord,
+  CertificateStatsRecord,
+  CertificateTemplateItem,
+  CertificateSignatoryItem,
+  CertificateAuthorItem,
+  CreateTemplatePayload,
+  CreateSignatoryPayload,
+} from '../../types/sama';
+
+type TabKey = 'ledger' | 'approvals' | 'designer' | 'templates' | 'signatories';
 
 export const CertificatesPage: React.FC = () => {
   const { user, isSuperAdmin: authSuperAdmin } = useAuth();
   const isSuperAdmin = authSuperAdmin || Boolean(user?.roles?.includes('super_admin'));
 
-  // State
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<TabKey>('ledger');
+
+  // Stats
+  const [stats, setStats] = useState<CertificateStatsRecord>({
+    total_certificates: 0,
+    draft_certificates: 0,
+    pending_approvals: 0,
+    issued_certificates: 0,
+    revoked_certificates: 0,
+    reissued_certificates: 0,
+    total_researchers_linked: 0,
+  });
+
+  // Certificate Ledger State
   const [certificates, setCertificates] = useState<CertificateRecord[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -18,42 +45,150 @@ export const CertificatesPage: React.FC = () => {
 
   // Filters & Search
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'valid' | 'revoked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'pending' | 'revoked' | 'superseded'>('all');
   const [page, setPage] = useState(1);
-  const limit = 15;
+  const limit = 12;
 
-  // Reference data for modals
+  // Auxiliary Reference Data
   const [authors, setAuthors] = useState<AuthorRecord[]>([]);
   const [bulletins, setBulletins] = useState<BulletinRecord[]>([]);
   const [publications, setPublications] = useState<PublicationRecord[]>([]);
+  const [templates, setTemplates] = useState<CertificateTemplateItem[]>([]);
+  const [signatories, setSignatories] = useState<CertificateSignatoryItem[]>([]);
+
+  // Action states
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   // Modals state
-  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showWizardModal, setShowWizardModal] = useState(false);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [showReissueModal, setShowReissueModal] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSignatoryModal, setShowSignatoryModal] = useState(false);
   const [selectedCert, setSelectedCert] = useState<CertificateRecord | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // Issue Form state
-  const [issueForm, setIssueForm] = useState({
-    certificate_number: '',
-    bulletin_id: '',
-    author_id: '',
-    publication_id: '',
-    verification_hash: '',
-  });
-  const [issueFile, setIssueFile] = useState<File | null>(null);
-
-  // Revoke Form state
+  // Revoke state
   const [revocationReason, setRevocationReason] = useState('');
 
-  // Fetch certificates
+  // Reissue state
+  const [reissueReason, setReissueReason] = useState('');
+  const [reissueTitle, setReissueTitle] = useState('');
+  const [reissueResearchTitle, setReissueResearchTitle] = useState('');
+
+  // Approval state
+  const [approvalAuthority, setApprovalAuthority] = useState<'DEAN_RD' | 'VICE_CHANCELLOR'>('DEAN_RD');
+  const [approvalAction, setApprovalAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
+  const [approvalRemarks, setApprovalRemarks] = useState('');
+
+  // Designer State
+  const [designerTitle, setDesignerTitle] = useState('Certificate of Appreciation & Research Excellence');
+  const [designerPresentation, setDesignerPresentation] = useState('This certificate is proudly conferred upon');
+  const [designerContribution, setDesignerContribution] = useState('in recognition of scholarly research publication in:');
+  const [designerResearchTitle, setDesignerResearchTitle] = useState(
+    'Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles'
+  );
+  const [designerCongratulatory, setDesignerCongratulatory] = useState(
+    'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
+  );
+  const [designerAuthors] = useState<CertificateAuthorItem[]>([
+    {
+      author_name_snapshot: 'Dr. Akhilesh Kumar',
+      academic_title_snapshot: 'Dr.',
+      department_snapshot: 'Department of Physics',
+      scopus_id_snapshot: '57211512345',
+      affiliation_snapshot: 'CSJM University, Kanpur',
+      author_order: 1,
+      author_role: 'First Author',
+    },
+    {
+      author_name_snapshot: 'Dr. Anju Dixit',
+      academic_title_snapshot: 'Dr.',
+      department_snapshot: 'Department of Chemistry',
+      scopus_id_snapshot: '57200192834',
+      affiliation_snapshot: 'CSJM University, Kanpur',
+      author_order: 2,
+      author_role: 'Corresponding Author',
+    },
+  ]);
+  const [designerBorderColor, setDesignerBorderColor] = useState('#B2811A');
+  const [designerAccentColor, setDesignerAccentColor] = useState('#6B1D2F');
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [renderingPreview, setRenderingPreview] = useState(false);
+
+  // Create Wizard State
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardTemplateId, setWizardTemplateId] = useState('');
+  const [wizardTitle, setWizardTitle] = useState('Certificate of Appreciation & Research Excellence');
+  const [wizardPresentation, setWizardPresentation] = useState('This certificate is proudly conferred upon');
+  const [wizardContribution, setWizardContribution] = useState('in recognition of scholarly research publication in:');
+  const [wizardResearchTitle, setWizardResearchTitle] = useState('');
+  const [wizardCongratulatory, setWizardCongratulatory] = useState(
+    'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
+  );
+  const [wizardBulletinId, setWizardBulletinId] = useState('');
+  const [wizardPublicationId, setWizardPublicationId] = useState('');
+  const [wizardAuthors, setWizardAuthors] = useState<CertificateAuthorItem[]>([]);
+  const [wizardSubmitMode, setWizardSubmitMode] = useState<'APPROVAL' | 'DIRECT' | 'DRAFT'>('APPROVAL');
+  const [wizardDirectJustification, setWizardDirectJustification] = useState('');
+
+  // Live Vector PDF Preview State
+  const [wizardPreviewBlobUrl, setWizardPreviewBlobUrl] = useState<string | null>(null);
+  const [renderingWizardPreview, setRenderingWizardPreview] = useState(false);
+  const [showWizardPreviewModal, setShowWizardPreviewModal] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState<number>(100);
+
+  // Wizard Author Picker & Search-as-you-type
+  const [searchAuthorQuery, setSearchAuthorQuery] = useState('');
+  const [selectedDirectoryAuthorRole, setSelectedDirectoryAuthorRole] = useState('Co-Author');
+  const [manualAuthorName, setManualAuthorName] = useState('');
+  const [manualAuthorTitle, setManualAuthorTitle] = useState('Dr.');
+  const [manualAuthorDept, setManualAuthorDept] = useState('');
+  const [manualAuthorScopusId, setManualAuthorScopusId] = useState('');
+  const [manualAuthorRole, setManualAuthorRole] = useState('Co-Author');
+  const [manualAuthorAffiliation, setManualAuthorAffiliation] = useState(
+    'Chhatrapati Shahu Ji Maharaj University, Kanpur'
+  );
+
+  // Template Modal State
+  const [templateForm, setTemplateForm] = useState<CreateTemplatePayload>({
+    code: '',
+    name: '',
+    description: '',
+    certificate_type: 'RESEARCH_PUBLICATION',
+    orientation: 'LANDSCAPE',
+  });
+
+  // Signatory Modal State
+  const [signatoryForm, setSignatoryForm] = useState<CreateSignatoryPayload>({
+    authority_type: 'DEAN_RD',
+    signatory_name: '',
+    designation: '',
+    department: 'CSJMU, Kanpur',
+  });
+  const [signatureUploadFile, setSignatureUploadFile] = useState<File | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Data Fetching
+  // ---------------------------------------------------------------------------
+  const fetchStats = async () => {
+    try {
+      const data = await samaAdminService.getCertificateStats();
+      setStats(data);
+    } catch (err) {
+      console.warn('Failed to fetch certificate statistics', err);
+    }
+  };
+
   const fetchCertificates = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const isRevokedParam =
-        statusFilter === 'all' ? undefined : statusFilter === 'revoked';
+
+      let isRevokedParam: boolean | undefined = undefined;
+      if (statusFilter === 'revoked') isRevokedParam = true;
 
       const res = await samaAdminService.getCertificates({
         skip: (page - 1) * limit,
@@ -62,115 +197,338 @@ export const CertificatesPage: React.FC = () => {
         is_revoked: isRevokedParam,
       });
 
-      setCertificates(res.items);
+      let items = res.items;
+      if (statusFilter === 'issued') {
+        items = items.filter((c) => c.status === 'ISSUED' && !c.is_revoked);
+      } else if (statusFilter === 'pending') {
+        items = items.filter(
+          (c) => c.status === 'PENDING_DEAN_APPROVAL' || c.status === 'PENDING_VC_APPROVAL' || c.status === 'DRAFT'
+        );
+      } else if (statusFilter === 'superseded') {
+        items = items.filter((c) => c.status === 'SUPERSEDED');
+      }
+
+      setCertificates(items);
       setTotalCount(res.total);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } }; message?: string };
-      setError(e.response?.data?.detail || e.message || 'Failed to load certificates');
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to load certificates');
     } finally {
       setLoading(false);
     }
   }, [page, search, statusFilter]);
 
-  // Load auxiliary reference data
   const loadReferenceData = async () => {
     try {
-      const [authRes, bullRes, pubRes] = await Promise.all([
+      const [authRes, bullRes, pubRes, tplRes, sigRes] = await Promise.all([
         samaAdminService.getAuthors({ limit: 100 }),
         samaAdminService.getBulletins({ limit: 100 }),
         samaAdminService.getPublications({ limit: 100 }),
+        samaAdminService.getTemplates({ limit: 50 }),
+        samaAdminService.getSignatories({ limit: 50 }),
       ]);
       setAuthors(authRes.items);
       setBulletins(bullRes.items);
       setPublications(pubRes.items);
+      setTemplates(tplRes.items);
+      setSignatories(sigRes.items);
+      if (tplRes.items.length > 0) {
+        setWizardTemplateId(tplRes.items[0].id);
+      }
     } catch (err) {
-      console.warn('Failed to load auxiliary reference data', err);
+      console.warn('Failed to load auxiliary data', err);
     }
   };
 
   useEffect(() => {
     fetchCertificates();
+    fetchStats();
   }, [fetchCertificates]);
 
   useEffect(() => {
     loadReferenceData();
   }, []);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    fetchCertificates();
+  // ---------------------------------------------------------------------------
+  // Designer & Preview Actions
+  // ---------------------------------------------------------------------------
+  const handleRenderDesignerPreview = async () => {
+    try {
+      setRenderingPreview(true);
+      setError(null);
+      const blob = await samaAdminService.previewCertificate({
+        title: designerTitle,
+        presentation_statement: designerPresentation,
+        research_contribution_statement: designerContribution,
+        research_title: designerResearchTitle,
+        congratulatory_statement: designerCongratulatory,
+        authors: designerAuthors,
+        config_overrides: {
+          primary_border_color: designerBorderColor,
+          accent_color: designerAccentColor,
+        },
+      });
+
+      if (previewPdfUrl) {
+        window.URL.revokeObjectURL(previewPdfUrl);
+      }
+      const newUrl = window.URL.createObjectURL(blob);
+      setPreviewPdfUrl(newUrl);
+      setSuccessMessage('High-resolution vector certificate rendered.');
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to render live vector preview');
+    } finally {
+      setRenderingPreview(false);
+    }
   };
 
-  // Open Issue Modal
-  const handleOpenIssue = () => {
-    const year = new Date().getFullYear();
-    const rand = Math.floor(100 + Math.random() * 900);
-    setIssueForm({
-      certificate_number: `CSJMU/RD/${year}/CERT-${rand}`,
-      bulletin_id: bulletins[0]?.id || '',
-      author_id: authors[0]?.id || '',
-      publication_id: '',
-      verification_hash: '',
-    });
-    setIssueFile(null);
-    setShowIssueModal(true);
+  // ---------------------------------------------------------------------------
+  // Wizard Actions
+  // ---------------------------------------------------------------------------
+  const handleOpenWizard = () => {
+    setWizardStep(1);
+    setWizardTitle('Certificate of Appreciation & Research Excellence');
+    setWizardPresentation('This certificate is proudly conferred upon');
+    setWizardContribution('in recognition of scholarly research publication in:');
+    setWizardResearchTitle('');
+    setWizardCongratulatory(
+      'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
+    );
+    setWizardBulletinId(bulletins[0]?.id || '');
+    setWizardPublicationId('');
+    setWizardAuthors([]);
+    setWizardSubmitMode('APPROVAL');
+    setWizardDirectJustification('');
+    setSearchAuthorQuery('');
+    setWizardTemplateId(templates[0]?.id || '');
+    setShowWizardModal(true);
   };
 
-  // Open Revoke Modal
-  const handleOpenRevoke = (cert: CertificateRecord) => {
-    setSelectedCert(cert);
-    setRevocationReason('');
-    setShowRevokeModal(true);
-  };
+  const handleAddAuthorFromDirectory = (authorRecord: AuthorRecord) => {
+    if (!authorRecord) return;
 
-  // Submit Issue
-  const handleSubmitIssue = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!issueForm.certificate_number || !issueForm.bulletin_id || !issueForm.author_id) {
-      setError('Please fill in Certificate Number, Bulletin, and Author');
+    if (wizardAuthors.some((a) => a.researcher_id === authorRecord.id)) {
+      setError(`Researcher "${authorRecord.full_name}" is already included on this certificate.`);
       return;
+    }
+
+    if (authorRecord.scopus_id) {
+      const conflict = wizardAuthors.find((a) => a.scopus_id_snapshot === authorRecord.scopus_id);
+      if (conflict) {
+        setError(`Notice: Scopus ID "${authorRecord.scopus_id}" is already assigned to "${conflict.author_name_snapshot}".`);
+      }
+    }
+
+    const assignedRole = wizardAuthors.length === 0 ? 'First Author' : selectedDirectoryAuthorRole || 'Co-Author';
+    const newAuthor: CertificateAuthorItem = {
+      researcher_id: authorRecord.id,
+      author_name_snapshot: authorRecord.full_name,
+      academic_title_snapshot: authorRecord.full_name.startsWith('Dr.') ? 'Dr.' : (authorRecord.full_name.startsWith('Prof.') ? 'Prof.' : 'Dr.'),
+      department_snapshot: authorRecord.department || 'Department of Research',
+      scopus_id_snapshot: authorRecord.scopus_id || null,
+      affiliation_snapshot: authorRecord.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur',
+      author_order: wizardAuthors.length + 1,
+      author_role: assignedRole,
+    };
+
+    setWizardAuthors([...wizardAuthors, newAuthor]);
+    setSearchAuthorQuery('');
+    setError(null);
+  };
+
+  const handleAddManualAuthor = () => {
+    if (!manualAuthorName.trim()) {
+      setError('Author full legal name is required.');
+      return;
+    }
+
+    const newAuthor: CertificateAuthorItem = {
+      researcher_id: null,
+      author_name_snapshot: manualAuthorName.trim(),
+      academic_title_snapshot: manualAuthorTitle,
+      department_snapshot: manualAuthorDept.trim() || 'Department of Research',
+      scopus_id_snapshot: manualAuthorScopusId.trim() || null,
+      affiliation_snapshot: manualAuthorAffiliation.trim() || 'Chhatrapati Shahu Ji Maharaj University, Kanpur',
+      author_order: wizardAuthors.length + 1,
+      author_role: manualAuthorRole || (wizardAuthors.length === 0 ? 'First Author' : 'Co-Author'),
+    };
+
+    setWizardAuthors([...wizardAuthors, newAuthor]);
+    setManualAuthorName('');
+    setManualAuthorDept('');
+    setManualAuthorScopusId('');
+    setError(null);
+  };
+
+  const handleRemoveWizardAuthor = (idx: number) => {
+    const updated = wizardAuthors.filter((_, i) => i !== idx).map((a, i) => ({ ...a, author_order: i + 1 }));
+    setWizardAuthors(updated);
+  };
+
+  const handleMoveWizardAuthor = (idx: number, direction: 'UP' | 'DOWN') => {
+    const newIdx = direction === 'UP' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= wizardAuthors.length) return;
+    const copy = [...wizardAuthors];
+    const temp = copy[idx];
+    copy[idx] = copy[newIdx];
+    copy[newIdx] = temp;
+    setWizardAuthors(copy.map((a, i) => ({ ...a, author_order: i + 1 })));
+  };
+
+  const handleSelectPublicationForWizard = (pubId: string) => {
+    setWizardPublicationId(pubId);
+    const pub = publications.find((p) => p.id === pubId);
+    if (pub) {
+      setWizardResearchTitle(pub.title);
+      if (pub.bulletin_id) {
+        setWizardBulletinId(pub.bulletin_id);
+      }
+    }
+  };
+
+  const handleGenerateWizardPreview = async () => {
+    if (wizardAuthors.length === 0) {
+      setError('Please add at least one recipient author before generating a vector preview.');
+      return;
+    }
+    try {
+      setRenderingWizardPreview(true);
+      setError(null);
+      const blob = await samaAdminService.previewCertificate({
+        title: wizardTitle,
+        presentation_statement: wizardPresentation,
+        research_contribution_statement: wizardContribution,
+        research_title: wizardResearchTitle || 'Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles',
+        congratulatory_statement: wizardCongratulatory,
+        template_id: wizardTemplateId || null,
+        authors: wizardAuthors,
+      });
+
+      if (wizardPreviewBlobUrl) {
+        URL.revokeObjectURL(wizardPreviewBlobUrl);
+      }
+      const newUrl = URL.createObjectURL(blob);
+      setWizardPreviewBlobUrl(newUrl);
+      setShowWizardPreviewModal(true);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to render PDF vector preview');
+    } finally {
+      setRenderingWizardPreview(false);
+    }
+  };
+
+  const handleSubmitWizard = async () => {
+    if (wizardAuthors.length === 0) {
+      setError('Please add at least one recipient author.');
+      return;
+    }
+    if (!wizardResearchTitle.trim()) {
+      setError('Research paper / publication title is required.');
+      return;
+    }
+    if (wizardSubmitMode === 'DIRECT') {
+      if (wizardDirectJustification.trim().length < 10) {
+        setError('Direct official issuance requires a mandatory institutional justification (minimum 10 characters).');
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
       setError(null);
 
-      let storagePath = `certificates/${issueForm.certificate_number.replace(/[\/\\]/g, '_')}.pdf`;
-      let checksum: string | undefined = undefined;
-
-      if (issueFile) {
-        const uploadResult = await samaAdminService.uploadCertificateFile(issueFile);
-        storagePath = uploadResult.storage_key;
-        checksum = uploadResult.checksum_sha256;
-      }
-
-      const created = await samaAdminService.createCertificate({
-        certificate_number: issueForm.certificate_number.trim(),
-        bulletin_id: issueForm.bulletin_id,
-        author_id: issueForm.author_id,
-        publication_id: issueForm.publication_id || undefined,
-        file_storage_path: storagePath,
-        checksum_sha256: checksum,
+      const submitForApproval = wizardSubmitMode === 'APPROVAL';
+      const created = await samaAdminService.issueCertificate({
+        template_id: wizardTemplateId || undefined,
+        title: wizardTitle,
+        presentation_statement: wizardPresentation,
+        research_contribution_statement: wizardContribution,
+        research_title: wizardResearchTitle,
+        congratulatory_statement: wizardCongratulatory,
+        bulletin_id: wizardBulletinId || undefined,
+        publication_id: wizardPublicationId || undefined,
+        authors: wizardAuthors,
+        submit_for_approval: submitForApproval,
+        direct_issue_justification: wizardSubmitMode === 'DIRECT' ? wizardDirectJustification.trim() : undefined,
       });
 
-      setSuccessMessage(`Certificate ${created.certificate_number} issued successfully.`);
-      setShowIssueModal(false);
+      setSuccessMessage(
+        submitForApproval
+          ? `Certificate ${created.certificate_number} created and submitted for Dean – R&D approval.`
+          : `Certificate ${created.certificate_number} officially issued via authorized direct seal.`
+      );
+      setShowWizardModal(false);
       fetchCertificates();
+      fetchStats();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } }; message?: string };
-      setError(e.response?.data?.detail || e.message || 'Failed to issue certificate');
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to issue certificate');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Submit Revocation
+  // ---------------------------------------------------------------------------
+  // Approval Actions
+  // ---------------------------------------------------------------------------
+  const handleOpenApprovalModal = (cert: CertificateRecord, authority: 'DEAN_RD' | 'VICE_CHANCELLOR') => {
+    setSelectedCert(cert);
+    setApprovalAuthority(authority);
+    setApprovalAction('APPROVE');
+    setApprovalRemarks('');
+    setShowApprovalModal(true);
+  };
+
+  const handleSubmitApproval = async () => {
+    if (!selectedCert) return;
+    if (approvalAction === 'REJECT' && !approvalRemarks.trim()) {
+      setError('Rejection remarks are mandatory.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      await samaAdminService.approveCertificate(
+        selectedCert.id,
+        approvalAuthority,
+        approvalAction,
+        approvalRemarks.trim()
+      );
+
+      setSuccessMessage(
+        approvalAction === 'APPROVE'
+          ? `Approval successfully registered by ${approvalAuthority === 'DEAN_RD' ? 'Dean – R&D' : 'Vice Chancellor'}.`
+          : `Certificate review returned with feedback.`
+      );
+      setShowApprovalModal(false);
+      setSelectedCert(null);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Approval action failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Revocation & Reissuance Actions
+  // ---------------------------------------------------------------------------
+  const handleOpenRevoke = (cert: CertificateRecord) => {
+    setSelectedCert(cert);
+    setRevocationReason('');
+    setShowRevokeModal(true);
+  };
+
   const handleSubmitRevocation = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedCert) return;
     if (revocationReason.trim().length < 5) {
-      setError('Revocation reason must be at least 5 characters');
+      setError('Revocation reason must be at least 5 characters with official audit rationale.');
       return;
     }
 
@@ -181,477 +539,1872 @@ export const CertificatesPage: React.FC = () => {
         revocation_reason: revocationReason.trim(),
       });
 
-      setSuccessMessage(`Certificate ${selectedCert.certificate_number} revoked.`);
+      setSuccessMessage(`Certificate ${selectedCert.certificate_number} permanently revoked.`);
       setShowRevokeModal(false);
       setSelectedCert(null);
       fetchCertificates();
+      fetchStats();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } }; message?: string };
-      setError(e.response?.data?.detail || e.message || 'Failed to revoke certificate');
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to revoke certificate');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Download PDF
+  const handleOpenReissue = (cert: CertificateRecord) => {
+    setSelectedCert(cert);
+    setReissueReason('');
+    setReissueTitle(cert.title || 'Certificate of Appreciation & Research Excellence');
+    setReissueResearchTitle(cert.research_title || '');
+    setShowReissueModal(true);
+  };
+
+  const handleSubmitReissue = async () => {
+    if (!selectedCert) return;
+    if (reissueReason.trim().length < 5) {
+      setError('Reissue explanation must be at least 5 characters.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      const reissued = await samaAdminService.reissueCertificate(selectedCert.id, {
+        reissue_reason: reissueReason.trim(),
+        updated_title: reissueTitle.trim() || undefined,
+        updated_research_title: reissueResearchTitle.trim() || undefined,
+      });
+
+      setSuccessMessage(
+        `Original certificate superseded. New official replacement ${reissued.certificate_number} generated.`
+      );
+      setShowReissueModal(false);
+      setSelectedCert(null);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to reissue certificate');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // PDF Download & Public Verification Link
+  // ---------------------------------------------------------------------------
   const handleDownload = async (cert: CertificateRecord) => {
     try {
       setDownloadingId(cert.id);
       setError(null);
       await samaAdminService.downloadCertificate(
         cert.id,
-        `${cert.certificate_number.replace(/[\/\\]/g, '_')}.pdf`
+        `${cert.certificate_number.split('/').join('_')}.pdf`
       );
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } }; message?: string };
-      setError(e.response?.data?.detail || e.message || 'Failed to download certificate PDF');
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to download certificate PDF');
     } finally {
       setDownloadingId(null);
     }
   };
 
+  const handleCopyVerificationUrl = (cert: CertificateRecord) => {
+    const token = cert.verification_token || cert.certificate_number;
+    const url = `${window.location.origin}/verify/${encodeURIComponent(token)}`;
+    navigator.clipboard.writeText(url);
+    setCopiedToken(token);
+    setSuccessMessage(`Public verification URL copied to clipboard: ${url}`);
+    setTimeout(() => setCopiedToken(null), 3000);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Template & Signatory Management Handlers
+  // ---------------------------------------------------------------------------
+  const handleCreateTemplate = async () => {
+    if (!templateForm.code || !templateForm.name) {
+      setError('Template code and name are required.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await samaAdminService.createTemplate(templateForm);
+      setSuccessMessage(`Template ${templateForm.name} created.`);
+      setShowTemplateModal(false);
+      loadReferenceData();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.message || 'Failed to create template');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateSignatory = async () => {
+    if (!signatoryForm.signatory_name || !signatoryForm.designation) {
+      setError('Signatory name and designation are required.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const sig = await samaAdminService.createSignatory(signatoryForm);
+      if (signatureUploadFile) {
+        await samaAdminService.uploadSignatorySignature(sig.id, signatureUploadFile);
+      }
+      setSuccessMessage(`Signatory ${signatoryForm.signatory_name} saved.`);
+      setShowSignatoryModal(false);
+      setSignatureUploadFile(null);
+      loadReferenceData();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.message || 'Failed to save signatory');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <AdminLayout activeTab="sama-certificates">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {/* Top Banner */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Institutional Header Banner */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #0F2B48 0%, #1E3A8A 60%, #6B1D2F 100%)',
+            color: '#FFFFFF',
+            padding: '24px 28px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 16px rgba(15, 43, 72, 0.15)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
-              SAMIKSHA • Research Felicitation & Honors
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#D4AF37',
+                marginBottom: '4px',
+              }}
+            >
+              CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR • SAMIKSHA
             </div>
-            <h1 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AppIcon name="check-circle" size={22} color="var(--vyasa-primary, #0f2b48)" />
-              Certificates Management
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AppIcon name="shield" size={26} color="#D4AF37" />
+              Digital Certificate Management & Verification System
             </h1>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: '#64748b' }}>
-              Manage research felicitation certificates, institutional hashes, downloads, and Super Admin revocations.
+            <p style={{ margin: '6px 0 0 0', fontSize: '13.5px', color: '#E2E8F0', maxWidth: '780px' }}>
+              Institution-grade digital certificates with multi-author citation, dual authorized signatures (Dean R&D &
+              Vice Chancellor), vector PDF rendering, and cryptographic QR verification.
             </p>
           </div>
-          <div>
-            <Button variant="primary" size="sm" onClick={handleOpenIssue}>
-              <AppIcon name="upload" size={14} style={{ marginRight: '6px' }} />
-              Issue Certificate
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button variant="outline" size="sm" onClick={() => { fetchCertificates(); fetchStats(); }}>
+              <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleOpenWizard}
+              style={{ backgroundColor: '#B2811A', borderColor: '#B2811A', fontWeight: 600 }}
+            >
+              <AppIcon name="edit" size={14} style={{ marginRight: '6px' }} />
+              New Joint Certificate
             </Button>
           </div>
         </div>
 
-        {/* Notifications */}
-        {error && certificates.length > 0 && (
-          <div style={{ padding: '12px 16px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* 7 KPI Statistics Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Total Issued</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>{stats.total_certificates}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase' }}>Issued & Active</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#166534', marginTop: '4px' }}>{stats.issued_certificates}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#D97706', textTransform: 'uppercase' }}>Pending Approvals</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#D97706', marginTop: '4px' }}>{stats.pending_approvals}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#6366F1', textTransform: 'uppercase' }}>Drafts</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#6366F1', marginTop: '4px' }}>{stats.draft_certificates}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#DC2626', textTransform: 'uppercase' }}>Revoked</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#DC2626', marginTop: '4px' }}>{stats.revoked_certificates}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#8B5CF6', textTransform: 'uppercase' }}>Superseded</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#8B5CF6', marginTop: '4px' }}>{stats.reissued_certificates}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#0284C7', textTransform: 'uppercase' }}>Linked Scholars</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{stats.total_researchers_linked}</div>
+          </div>
+        </div>
+
+        {/* Global Notifications */}
+        {error && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#991B1B', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>{error}</span>
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', display: 'flex', alignItems: 'center' }}>
+            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991B1B' }}>
               <AppIcon name="close" size={14} />
             </button>
           </div>
         )}
         {successMessage && (
-          <div style={{ padding: '12px 16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#166534', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '12px 16px', backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', color: '#166534', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>{successMessage}</span>
-            <button onClick={() => setSuccessMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#166534', display: 'flex', alignItems: 'center' }}>
+            <button onClick={() => setSuccessMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#166534' }}>
               <AppIcon name="close" size={14} />
             </button>
           </div>
         )}
 
-        {/* Search & Filters */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            backgroundColor: '#ffffff',
-            padding: '16px',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-          }}
-        >
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', flex: '1 1 300px' }}>
-            <Input
-              placeholder="Search by certificate # or hash..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <Button variant="outline" size="sm" type="submit">
-              Search
-            </Button>
-          </form>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Status:</span>
-            <Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as 'all' | 'valid' | 'revoked');
-                setPage(1);
-              }}
-              options={[
-                { value: 'all', label: 'All Certificates' },
-                { value: 'valid', label: 'Valid / Active' },
-                { value: 'revoked', label: 'Revoked' },
-              ]}
-              style={{ minWidth: '150px' }}
-            />
-          </div>
-        </div>
-
-        {/* Certificates Table */}
-        {loading ? (
-          <LoadingState message="Loading certificate ledger..." />
-        ) : error ? (
-          <div
-            data-testid="certificates-error-state"
+        {/* Navigation Tabs */}
+        <div style={{ borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '20px' }}>
+          <button
+            onClick={() => setActiveTab('ledger')}
             style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '8px',
-              border: '1px solid #fecaca',
-              padding: '40px 24px',
-              textAlign: 'center',
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'ledger' ? 700 : 500,
+              color: activeTab === 'ledger' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'ledger' ? '3px solid #B2811A' : '3px solid transparent',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
-              gap: '12px',
+              gap: '6px',
             }}
           >
-            <div style={{ color: '#991b1b', fontWeight: 600, fontSize: '16px' }}>
-              Failed to load certificates
-            </div>
-            <div style={{ color: '#64748b', fontSize: '14px', maxWidth: '520px', lineHeight: 1.5 }}>
-              {error}
-            </div>
-            <div style={{ marginTop: '8px' }}>
-              <Button variant="primary" size="sm" onClick={fetchCertificates}>
-                Retry
-              </Button>
-            </div>
-          </div>
-        ) : certificates.length === 0 ? (
-          <EmptyState
-            title="No Certificates Found"
-            description="No certificate records match your query. Issue a new research certificate or adjust your filter."
-            action={
-              <Button variant="primary" size="sm" onClick={handleOpenIssue}>
-                + Issue First Certificate
-              </Button>
-            }
-          />
-        ) : (
-          <div className="vyasa-table-card" style={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid var(--vyasa-border, #e3dcd1)', overflowX: 'auto', boxShadow: '0 2px 6px rgba(15, 43, 72, 0.04)' }}>
-            <table className="vyasa-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ backgroundColor: 'var(--vyasa-surface-warm, #fdfbf7)', borderBottom: '2px solid var(--vyasa-border, #e3dcd1)', color: 'var(--vyasa-primary, #0f2b48)', fontWeight: 600 }}>
-                  <th style={{ padding: '12px 16px' }}>Certificate Number</th>
-                  <th style={{ padding: '12px 16px' }}>Recipient / Author</th>
-                  <th style={{ padding: '12px 16px' }}>Bulletin</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px' }}>Hash / Verification</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {certificates.map((cert) => (
-                  <tr key={cert.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>
-                        {cert.certificate_number}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                        Issued: {new Date(cert.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 600, color: '#0f2b48' }}>
-                        {cert.author_name || `Author ID: ${cert.author_id.slice(0, 8)}`}
-                      </div>
-                      {cert.author_department && (
-                        <div style={{ fontSize: '12px', color: '#64748b' }}>{cert.author_department}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {cert.bulletin_title ? (
-                        <div>
-                          <div style={{ fontWeight: 600, color: '#334155' }}>
-                            {cert.bulletin_title}
-                          </div>
-                          {(cert.bulletin_volume != null || cert.bulletin_issue != null) && (
-                            <div style={{ fontSize: '12px', color: '#64748b' }}>
-                              Vol. {cert.bulletin_volume} • Issue {cert.bulletin_issue}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                          {cert.bulletin_id.slice(0, 8)}...
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                      {cert.is_revoked ? (
-                        <div>
-                          <Badge variant="neutral" style={{ color: '#991b1b', backgroundColor: '#fee2e2' }}>
-                            Revoked
-                          </Badge>
-                          {cert.revocation_reason && (
-                            <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '3px', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cert.revocation_reason}>
-                              Reason: {cert.revocation_reason}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <Badge variant="teal">Valid</Badge>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '11.5px', color: '#64748b' }}>
-                      <span title={cert.verification_hash || cert.checksum_sha256 || undefined}>
-                        {cert.verification_hash ? `${cert.verification_hash.slice(0, 16)}...` : cert.checksum_sha256 ? `${cert.checksum_sha256.slice(0, 16)}...` : 'Verified'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownload(cert)}
-                          disabled={downloadingId === cert.id}
-                          title="Download Certificate PDF"
-                        >
-                          {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
-                        </Button>
+            <AppIcon name="file-text" size={16} />
+            Issued Ledger ({totalCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('approvals')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'approvals' ? 700 : 500,
+              color: activeTab === 'approvals' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'approvals' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="shield" size={16} />
+            Approval Queue {stats.pending_approvals > 0 && <Badge variant="gold">{stats.pending_approvals}</Badge>}
+          </button>
+          <button
+            onClick={() => setActiveTab('designer')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'designer' ? 700 : 500,
+              color: activeTab === 'designer' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'designer' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="edit" size={16} />
+            Online Certificate Designer
+          </button>
+          <button
+            onClick={() => setActiveTab('templates')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'templates' ? 700 : 500,
+              color: activeTab === 'templates' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'templates' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="file-text" size={16} />
+            Templates ({templates.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('signatories')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'signatories' ? 700 : 500,
+              color: activeTab === 'signatories' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'signatories' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="user" size={16} />
+            Signing Authorities ({signatories.length})
+          </button>
+        </div>
 
-                        {!cert.is_revoked && (
+        {/* =================================================================== */}
+        {/* TAB 1: ISSUED LEDGER */}
+        {/* =================================================================== */}
+        {activeTab === 'ledger' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Search and Filters */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ flex: '1 1 300px' }}>
+                <Input
+                  placeholder="Search certificate #, author name, Scopus ID, paper title..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div style={{ width: '180px' }}>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as any);
+                    setPage(1);
+                  }}
+                  options={[
+                    { label: 'All Certificates', value: 'all' },
+                    { label: 'Issued & Active', value: 'issued' },
+                    { label: 'Pending Approvals', value: 'pending' },
+                    { label: 'Revoked', value: 'revoked' },
+                    { label: 'Superseded', value: 'superseded' },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Certificate Ledger Cards */}
+            {loading ? (
+              <LoadingState message="Loading certificate records..." />
+            ) : certificates.length === 0 ? (
+              <EmptyState
+                title="No Certificates Found"
+                description="No digital certificates match your filter criteria. Issue a new joint certificate using the wizard."
+                action={
+                  <Button variant="primary" size="sm" onClick={handleOpenWizard}>
+                    <span style={{ marginRight: '6px' }}>+</span>
+                    Issue First Certificate
+                  </Button>
+                }
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {certificates.map((cert) => {
+                  const isRevoked = cert.is_revoked || cert.status === 'REVOKED';
+                  const isSuperseded = cert.status === 'SUPERSEDED';
+                  const isPending =
+                    cert.status === 'PENDING_DEAN_APPROVAL' ||
+                    cert.status === 'PENDING_VC_APPROVAL' ||
+                    cert.status === 'DRAFT';
+
+                  return (
+                    <div
+                      key={cert.id}
+                      style={{
+                        background: '#FFFFFF',
+                        border: isRevoked ? '1px solid #FECACA' : isSuperseded ? '1px solid #E2E8F0' : '1px solid #E2E8F0',
+                        borderLeft: isRevoked
+                          ? '5px solid #DC2626'
+                          : isSuperseded
+                          ? '5px solid #8B5CF6'
+                          : isPending
+                          ? '5px solid #D97706'
+                          : '5px solid #166534',
+                        borderRadius: '8px',
+                        padding: '16px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
+                              {cert.certificate_number}
+                            </span>
+                            {isRevoked ? (
+                              <Badge variant="neutral" style={{ color: '#DC2626', borderColor: '#FECACA' }}>REVOKED</Badge>
+                            ) : isSuperseded ? (
+                              <Badge variant="neutral">SUPERSEDED</Badge>
+                            ) : cert.status === 'PENDING_DEAN_APPROVAL' ? (
+                              <Badge variant="gold">Awaiting Dean R&D</Badge>
+                            ) : cert.status === 'PENDING_VC_APPROVAL' ? (
+                              <Badge variant="gold">Awaiting Vice Chancellor</Badge>
+                            ) : cert.status === 'DRAFT' ? (
+                              <Badge variant="neutral">Draft</Badge>
+                            ) : (
+                              <Badge variant="teal">ISSUED & VERIFIED</Badge>
+                            )}
+                            <span style={{ fontSize: '12px', color: '#64748B' }}>
+                              Issued: {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : 'Pending'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B', marginTop: '4px' }}>
+                            {cert.title || 'Certificate of Appreciation & Research Excellence'}
+                          </div>
+
+                          {cert.research_title && (
+                            <div style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
+                              "{cert.research_title}"
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenRevoke(cert)}
-                            disabled={!isSuperAdmin}
-                            style={{
-                              color: isSuperAdmin ? '#b91c1c' : '#94a3b8',
-                              borderColor: isSuperAdmin ? '#fca5a5' : '#e2e8f0',
-                              cursor: isSuperAdmin ? 'pointer' : 'not-allowed',
-                            }}
-                            title={
-                              isSuperAdmin
-                                ? 'Revoke Certificate'
-                                : 'Revocation is strictly restricted to Super Administrators'
-                            }
+                            onClick={() => handleCopyVerificationUrl(cert)}
+                            title="Copy Public Verification Link"
                           >
-                            Revoke
+                            <AppIcon name="clipboard" size={14} style={{ marginRight: '4px' }} />
+                            {copiedToken === (cert.verification_token || cert.certificate_number) ? 'Copied' : 'Verify Link'}
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={downloadingId === cert.id || isRevoked}
+                            onClick={() => handleDownload(cert)}
+                            title={isRevoked ? 'Revoked certificate cannot be downloaded' : 'Download Official PDF'}
+                          >
+                            <span style={{ marginRight: '4px' }}>&darr;</span>
+                            {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
+                          </Button>
 
-            {/* Pagination */}
-            <div style={{ padding: '14px 18px', borderTop: '1px solid var(--vyasa-border-subtle, #ede7de)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
-              <span>
-                Showing {certificates.length} of {totalCount} certificates
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page * limit >= totalCount}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
+                          {!isRevoked && !isSuperseded && isSuperAdmin && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenReissue(cert)}
+                                title="Reissue / Supersede with corrections"
+                              >
+                                Reissue
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                onClick={() => handleOpenRevoke(cert)}
+                                title="Permanently revoke certificate"
+                              >
+                                Revoke
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Multi-Author Chips */}
+                      {cert.authors && cert.authors.length > 0 ? (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                            Recipients ({cert.authors.length}):
+                          </span>
+                          {cert.authors.map((auth, aIdx) => (
+                            <span
+                              key={aIdx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: '#F1F5F9',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '14px',
+                                padding: '3px 10px',
+                                fontSize: '12px',
+                                color: '#0F2B48',
+                              }}
+                            >
+                              <strong>{auth.author_name_snapshot}</strong>
+                              {auth.scopus_id_snapshot && (
+                                <span style={{ fontSize: '10px', color: '#D97706', fontWeight: 600 }}>
+                                  [Scopus: {auth.scopus_id_snapshot}]
+                                </span>
+                              )}
+                              <span style={{ fontSize: '10px', color: '#64748B' }}>({auth.author_role})</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : cert.author_name ? (
+                        <div style={{ fontSize: '12.5px', color: '#334155' }}>
+                          Recipient: <strong>{cert.author_name}</strong> {cert.author_department && `(${cert.author_department})`}
+                        </div>
+                      ) : null}
+
+                      {/* Revocation Warning */}
+                      {isRevoked && cert.revocation_reason && (
+                        <div style={{ background: '#FEF2F2', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', color: '#991B1B' }}>
+                          <strong>Revocation Reason:</strong> {cert.revocation_reason}
+                        </div>
+                      )}
+
+                      {/* Reissue Notice */}
+                      {isSuperseded && cert.reissued_reason && (
+                        <div style={{ background: '#F5F3FF', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', color: '#6D28D9' }}>
+                          <strong>Superseded Note:</strong> {cert.reissued_reason}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 2: APPROVAL QUEUE */}
+        {/* =================================================================== */}
+        {activeTab === 'approvals' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '14px 18px', color: '#92400E', fontSize: '13.5px' }}>
+              <strong>Dual Signing Policy:</strong> Official university certificates require mandatory review and approval by both the <strong>Dean – Research & Development</strong> and the <strong>Vice Chancellor</strong> before final cryptographic sealing and public release.
+            </div>
+
+            {loading ? (
+              <LoadingState message="Checking approval queue..." />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {certificates
+                  .filter(
+                    (c) =>
+                      c.status === 'PENDING_DEAN_APPROVAL' ||
+                      c.status === 'PENDING_VC_APPROVAL' ||
+                      c.status === 'DRAFT'
+                  )
+                  .map((cert) => (
+                    <div
+                      key={cert.id}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '10px',
+                        padding: '18px 22px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
+                              {cert.certificate_number}
+                            </span>
+                            {cert.status === 'PENDING_DEAN_APPROVAL' ? (
+                              <Badge variant="gold">Step 1: Pending Dean R&D Approval</Badge>
+                            ) : cert.status === 'PENDING_VC_APPROVAL' ? (
+                              <Badge variant="gold">Step 2: Pending Vice Chancellor Approval</Badge>
+                            ) : (
+                              <Badge variant="neutral">Draft</Badge>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1E293B', marginTop: '6px' }}>
+                            {cert.title}
+                          </div>
+                          <div style={{ fontSize: '13.5px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
+                            "{cert.research_title}"
+                          </div>
+                        </div>
+
+                        {/* Direct Authority Review Actions */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {cert.status === 'PENDING_DEAN_APPROVAL' && (
+                            <>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                style={{ backgroundColor: '#166534', borderColor: '#166534' }}
+                                onClick={() => handleOpenApprovalModal(cert, 'DEAN_RD')}
+                              >
+                                <AppIcon name="check" size={14} style={{ marginRight: '4px' }} />
+                                Approve as Dean R&D
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                onClick={() => {
+                                  setSelectedCert(cert);
+                                  setApprovalAuthority('DEAN_RD');
+                                  setApprovalAction('REJECT');
+                                  setApprovalRemarks('');
+                                  setShowApprovalModal(true);
+                                }}
+                              >
+                                Reject with Remarks
+                              </Button>
+                            </>
+                          )}
+
+                          {cert.status === 'PENDING_VC_APPROVAL' && (
+                            <>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+                                onClick={() => handleOpenApprovalModal(cert, 'VICE_CHANCELLOR')}
+                              >
+                                <AppIcon name="shield" size={14} style={{ marginRight: '4px' }} />
+                                Seal & Issue as Vice Chancellor
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                onClick={() => {
+                                  setSelectedCert(cert);
+                                  setApprovalAuthority('VICE_CHANCELLOR');
+                                  setApprovalAction('REJECT');
+                                  setApprovalRemarks('');
+                                  setShowApprovalModal(true);
+                                }}
+                              >
+                                Reject with Remarks
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Author Details Breakdown */}
+                      {cert.authors && cert.authors.length > 0 && (
+                        <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '10px 14px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px' }}>
+                            Author Citation Breakdown:
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                            {cert.authors.map((a, i) => (
+                              <div key={i} style={{ fontSize: '12.5px', color: '#1E293B' }}>
+                                <strong>{a.author_order}. {a.author_name_snapshot}</strong> ({a.author_role})
+                                <div style={{ fontSize: '11px', color: '#64748B' }}>
+                                  {a.department_snapshot} {a.scopus_id_snapshot && `• Scopus: ${a.scopus_id_snapshot}`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {certificates.filter(
+                  (c) =>
+                    c.status === 'PENDING_DEAN_APPROVAL' ||
+                    c.status === 'PENDING_VC_APPROVAL' ||
+                    c.status === 'DRAFT'
+                ).length === 0 && (
+                  <EmptyState
+                    title="All Approvals Cleared"
+                    description="No certificates are currently awaiting Dean R&D or Vice Chancellor authorization."
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 3: ONLINE CERTIFICATE DESIGNER */}
+        {/* =================================================================== */}
+        {activeTab === 'designer' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '20px', alignItems: 'start' }}>
+            {/* Live Visual Canvas */}
+            <div
+              style={{
+                background: '#FAF7F0',
+                border: `3px double ${designerBorderColor}`,
+                borderRadius: '8px',
+                padding: '36px 40px',
+                position: 'relative',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+                minHeight: '520px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              {/* Corner Ornaments */}
+              <div style={{ position: 'absolute', top: '10px', left: '10px', width: '24px', height: '24px', borderTop: `2px solid ${designerBorderColor}`, borderLeft: `2px solid ${designerBorderColor}` }} />
+              <div style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderTop: `2px solid ${designerBorderColor}`, borderRight: `2px solid ${designerBorderColor}` }} />
+              <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '24px', height: '24px', borderBottom: `2px solid ${designerBorderColor}`, borderLeft: `2px solid ${designerBorderColor}` }} />
+              <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '24px', height: '24px', borderBottom: `2px solid ${designerBorderColor}`, borderRight: `2px solid ${designerBorderColor}` }} />
+
+              {/* Header: University Branding */}
+              <div style={{ textAlign: 'center', borderBottom: `1px solid ${designerBorderColor}40`, paddingBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', color: designerAccentColor, textTransform: 'uppercase' }}>
+                  CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                  (Accredited A++ by NAAC) • Research & Development Cell
+                </div>
+                <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '22px', fontWeight: 700, color: designerAccentColor, margin: '14px 0 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {designerTitle}
+                </h2>
+              </div>
+
+              {/* Body Content */}
+              <div style={{ textAlign: 'center', margin: '20px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontStyle: 'italic', fontSize: '13px', color: '#475569' }}>
+                  {designerPresentation}
+                </div>
+
+                {/* Author Names */}
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#0F2B48', fontFamily: 'Georgia, serif' }}>
+                  {designerAuthors.map((a) => a.author_name_snapshot).join('  •  ')}
+                </div>
+
+                <div style={{ fontStyle: 'italic', fontSize: '13px', color: '#475569' }}>
+                  {designerContribution}
+                </div>
+
+                {/* Research Title */}
+                <div style={{ fontSize: '14.5px', fontWeight: 600, color: designerAccentColor, maxWidth: '680px', margin: '0 auto', lineHeight: '1.4' }}>
+                  "{designerResearchTitle}"
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#64748B', maxWidth: '620px', margin: '8px auto 0 auto', lineHeight: '1.4' }}>
+                  {designerCongratulatory}
+                </div>
+              </div>
+
+              {/* Signatures & Seal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '20px', borderTop: `1px solid ${designerBorderColor}40` }}>
+                <div style={{ textAlign: 'center', width: '180px' }}>
+                  <div style={{ height: '36px', borderBottom: '1px dashed #94A3B8', marginBottom: '6px' }} />
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F2B48' }}>Dean – Research & Development</div>
+                  <div style={{ fontSize: '10px', color: '#64748B' }}>Chhatrapati Shahu Ji Maharaj University</div>
+                </div>
+
+                {/* Central Academic Seal */}
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      border: `2px double ${designerBorderColor}`,
+                      margin: '0 auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#FFF',
+                    }}
+                  >
+                    <AppIcon name="shield" size={28} color={designerBorderColor} />
+                  </div>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: designerBorderColor, marginTop: '4px', letterSpacing: '0.06em' }}>
+                    SEAL OF EXCELLENCE
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', width: '180px' }}>
+                  <div style={{ height: '36px', borderBottom: '1px dashed #94A3B8', marginBottom: '6px' }} />
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F2B48' }}>Vice Chancellor</div>
+                  <div style={{ fontSize: '10px', color: '#64748B' }}>Chhatrapati Shahu Ji Maharaj University</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Designer Configuration Panel */}
+            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0F2B48' }}>
+                Designer Configuration
+              </h3>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Certificate Title</label>
+                <Input value={designerTitle} onChange={(e) => setDesignerTitle(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Presentation Statement</label>
+                <Input value={designerPresentation} onChange={(e) => setDesignerPresentation(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Contribution Statement</label>
+                <Input value={designerContribution} onChange={(e) => setDesignerContribution(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Research Paper Title</label>
+                <Input value={designerResearchTitle} onChange={(e) => setDesignerResearchTitle(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Congratulatory Note</label>
+                <Input value={designerCongratulatory} onChange={(e) => setDesignerCongratulatory(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Primary Gold Border</label>
+                <input
+                  type="color"
+                  value={designerBorderColor}
+                  onChange={(e) => setDesignerBorderColor(e.target.value)}
+                  style={{ width: '100%', height: '36px', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Maroon Accent Color</label>
+                <input
+                  type="color"
+                  value={designerAccentColor}
+                  onChange={(e) => setDesignerAccentColor(e.target.value)}
+                  style={{ width: '100%', height: '36px', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <Button
+                variant="primary"
+                onClick={handleRenderDesignerPreview}
+                disabled={renderingPreview}
+                style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+              >
+                <AppIcon name="file-text" size={14} style={{ marginRight: '6px' }} />
+                {renderingPreview ? 'Rendering Vector PDF...' : 'Render Live Vector PDF'}
+              </Button>
+
+              {previewPdfUrl && (
+                <a
+                  href={previewPdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textAlign: 'center', fontSize: '13px', color: '#0284C7', textDecoration: 'underline' }}
+                >
+                  Open Rendered Vector PDF in New Tab
+                </a>
+              )}
             </div>
           </div>
         )}
 
-        {/* Modal: Issue Certificate */}
-        <Modal
-          isOpen={showIssueModal}
-          onClose={() => setShowIssueModal(false)}
-          title="Issue Felicitation Certificate"
-          footer={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => setShowIssueModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                disabled={submitting}
-                onClick={() => handleSubmitIssue()}
-              >
-                {submitting ? 'Issuing...' : 'Confirm Issuance'}
-              </Button>
-            </div>
-          }
-        >
-          <form onSubmit={handleSubmitIssue} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <Input
-              label="Certificate Number"
-              required
-              value={issueForm.certificate_number}
-              onChange={(e) =>
-                setIssueForm({ ...issueForm, certificate_number: e.target.value })
-              }
-              placeholder="e.g. CSJMU/RD/2026/V1-I1/001"
-              style={{ fontFamily: 'monospace' }}
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-              <Select
-                label="Bulletin Reference"
-                required
-                value={issueForm.bulletin_id}
-                onChange={(e) =>
-                  setIssueForm({ ...issueForm, bulletin_id: e.target.value })
-                }
-                options={[
-                  { value: '', label: 'Select Bulletin' },
-                  ...bulletins.map((b) => ({
-                    value: b.id,
-                    label: `${b.title} (Vol ${b.volume} Iss ${b.issue})`,
-                  })),
-                ]}
-              />
-
-              <Select
-                label="Recipient Author"
-                required
-                value={issueForm.author_id}
-                onChange={(e) =>
-                  setIssueForm({ ...issueForm, author_id: e.target.value })
-                }
-                options={[
-                  { value: '', label: 'Select Author' },
-                  ...authors.map((a) => ({
-                    value: a.id,
-                    label: `${a.name} (${a.department || 'No dept'})`,
-                  })),
-                ]}
-              />
-            </div>
-
-            <Select
-              label="Associated Publication (Optional)"
-              value={issueForm.publication_id}
-              onChange={(e) =>
-                setIssueForm({ ...issueForm, publication_id: e.target.value })
-              }
-              options={[
-                { value: '', label: 'None / Independent Certificate' },
-                ...publications.map((p) => ({
-                  value: p.id,
-                  label: `${p.title.slice(0, 80)}...`,
-                })),
-              ]}
-            />
-
-            <div className="vyasa-form-group">
-              <label className="vyasa-label">
-                <span>Upload Certificate PDF (Optional)</span>
-              </label>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setIssueFile(e.target.files?.[0] || null)}
-                className="vyasa-input"
-                style={{ padding: '8px' }}
-              />
-            </div>
-          </form>
-        </Modal>
-
-        {/* Modal: Revoke Certificate (Super Admin Only) */}
-        <Modal
-          isOpen={showRevokeModal && !!selectedCert}
-          onClose={() => setShowRevokeModal(false)}
-          title="Revoke Certificate"
-          footer={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => setShowRevokeModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                disabled={submitting || revocationReason.trim().length < 5}
-                style={{ backgroundColor: '#b91c1c', borderColor: '#b91c1c' }}
-                onClick={() => handleSubmitRevocation()}
-              >
-                {submitting ? 'Revoking...' : 'Confirm Revocation'}
-              </Button>
-            </div>
-          }
-        >
-          <form onSubmit={handleSubmitRevocation} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div
-              style={{
-                padding: '12px 14px',
-                backgroundColor: '#fffbeb',
-                border: '1px solid #fde68a',
-                borderRadius: '8px',
-                fontSize: '13px',
-                color: '#92400e',
-                lineHeight: 1.5,
-              }}
-            >
-              <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Important Institutional Action:</p>
-              Certificate revocation is irreversible. The certificate status will be marked as revoked, any subsequent verification attempts will fail, and an immutable audit entry will be recorded.
-            </div>
-
-            <div>
-              <p style={{ margin: '0 0 4px 0', fontSize: '13.5px', color: '#475569' }}>
-                Certificate Number: <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0f2b48' }}>{selectedCert?.certificate_number}</span>
-              </p>
-              {selectedCert?.author_name && (
-                <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
-                  Recipient: {selectedCert.author_name}
+        {/* =================================================================== */}
+        {/* TAB 4: TEMPLATES */}
+        {/* =================================================================== */}
+        {activeTab === 'templates' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0F2B48' }}>Reusable Certificate Templates</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748B' }}>
+                  Institutional templates retain fixed dimensions, official emblems, and decorative gold borders.
                 </p>
-              )}
+              </div>
+              <Button variant="primary" size="sm" onClick={() => setShowTemplateModal(true)}>
+                <span style={{ marginRight: '6px' }}>+</span>
+                New Template
+              </Button>
             </div>
 
-            <div className="vyasa-form-group">
-              <label className="vyasa-label">
-                <span>Mandatory Revocation Reason <span style={{ color: 'var(--vyasa-saffron)' }}>*</span></span>
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={revocationReason}
-                onChange={(e) => setRevocationReason(e.target.value)}
-                placeholder="Provide detailed institutional justification for this revocation..."
-                className="vyasa-input"
-                style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
-              />
-              <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                Minimum 5 characters required.
-              </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', fontFamily: 'monospace' }}>
+                        {tpl.code}
+                      </span>
+                      {tpl.is_default && <Badge variant="teal">DEFAULT</Badge>}
+                    </div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+                      {tpl.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                      {tpl.description || 'Institutional landscape A4 template.'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                    Orientation: {tpl.orientation} • Type: {tpl.certificate_type} • Version: {tpl.version}
+                  </div>
+                </div>
+              ))}
             </div>
-          </form>
-        </Modal>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 5: SIGNATORIES */}
+        {/* =================================================================== */}
+        {activeTab === 'signatories' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0F2B48' }}>Authorized Signing Authorities</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748B' }}>
+                  Configure authorized dignitaries for Dean – Research & Development and Vice Chancellor.
+                </p>
+              </div>
+              <Button variant="primary" size="sm" onClick={() => setShowSignatoryModal(true)}>
+                <span style={{ marginRight: '6px' }}>+</span>
+                Add Signatory
+              </Button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {signatories.map((sig) => (
+                <div
+                  key={sig.id}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    padding: '18px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Badge variant={sig.authority_type === 'DEAN_RD' ? 'primary' : 'gold'}>
+                      {sig.authority_type === 'DEAN_RD' ? 'Dean – R&D' : 'Vice Chancellor'}
+                    </Badge>
+                    <Badge variant={sig.is_active ? 'teal' : 'neutral'}>
+                      {sig.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#0F2B48' }}>
+                      {sig.signatory_name}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
+                      {sig.designation}
+                    </div>
+                    {sig.department && (
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        {sig.department}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px', fontSize: '11px', color: '#94A3B8' }}>
+                    Signature Asset: {sig.signature_image_path ? 'Uploaded' : 'Vector Default'} • Version: {sig.signature_asset_version}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: CREATE JOINT CERTIFICATE WIZARD */}
+        {/* =================================================================== */}
+        {showWizardModal && (
+          <Modal
+            isOpen={showWizardModal}
+            onClose={() => setShowWizardModal(false)}
+            title="Create Joint Institutional Certificate"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Wizard Steps Indicator */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
+                <span style={{ fontSize: '13px', fontWeight: wizardStep === 1 ? 700 : 500, color: wizardStep === 1 ? '#B2811A' : '#64748B' }}>
+                  1. Template & Scope
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: wizardStep === 2 ? 700 : 500, color: wizardStep === 2 ? '#B2811A' : '#64748B' }}>
+                  2. Recipient Authors ({wizardAuthors.length})
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: wizardStep === 3 ? 700 : 500, color: wizardStep === 3 ? '#B2811A' : '#64748B' }}>
+                  3. Publication Details
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: wizardStep === 4 ? 700 : 500, color: wizardStep === 4 ? '#B2811A' : '#64748B' }}>
+                  4. Review & Issue
+                </span>
+              </div>
+
+              {/* STEP 1: Visual Template Selector */}
+              {wizardStep === 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Select University Certificate Template
+                      </label>
+                      <span style={{ fontSize: '12px', color: '#64748B' }}>
+                        {templates.length} official template{templates.length === 1 ? '' : 's'} available
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+                      {templates.map((tpl) => {
+                        const isSelected = wizardTemplateId === tpl.id || (!wizardTemplateId && tpl.is_default);
+                        return (
+                          <div
+                            key={tpl.id}
+                            onClick={() => setWizardTemplateId(tpl.id)}
+                            style={{
+                              border: isSelected ? '2px solid #B2811A' : '1px solid #CBD5E1',
+                              borderRadius: '8px',
+                              padding: '12px',
+                              backgroundColor: isSelected ? '#FAF7F0' : '#FFFFFF',
+                              boxShadow: isSelected ? '0 4px 12px rgba(178, 129, 26, 0.15)' : 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease-in-out',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#6B1D2F', letterSpacing: '0.05em' }}>
+                                {tpl.code}
+                              </span>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                {tpl.is_default && <Badge variant="gold">Default</Badge>}
+                                {isSelected && <Badge variant="teal">✓ Selected</Badge>}
+                              </div>
+                            </div>
+
+                            {/* Miniature Vector Mockup */}
+                            <div
+                              style={{
+                                height: '70px',
+                                backgroundColor: '#FAF7F0',
+                                border: '1.5px solid #B2811A',
+                                borderRadius: '4px',
+                                padding: '4px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: '10px',
+                              }}
+                            >
+                              <div style={{ width: '92%', height: '100%', border: '1px solid #D4AF37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '3px' }}>
+                                <div style={{ width: '60%', height: '3px', backgroundColor: '#6B1D2F', borderRadius: '1px' }} />
+                                <div style={{ width: '40%', height: '2px', backgroundColor: '#142C46', borderRadius: '1px' }} />
+                                <div style={{ width: '75%', height: '2px', backgroundColor: '#64748B', borderRadius: '1px' }} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', width: '90%' }}>
+                                  <div style={{ width: '25%', height: '1.5px', backgroundColor: '#B2811A' }} />
+                                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#B2811A', opacity: 0.5 }} />
+                                  <div style={{ width: '25%', height: '1.5px', backgroundColor: '#B2811A' }} />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', lineHeight: 1.3 }}>
+                              {tpl.name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '3px' }}>
+                              Category: <strong>{tpl.certificate_type || 'Research Publication'}</strong>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748B' }}>
+                              Format: <strong>Landscape A4 (297 × 210 mm)</strong>
+                            </div>
+
+                            {/* Color Scheme Palette Swatches */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #E2E8F0' }}>
+                              <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>Palette:</span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#FAF7F0', border: '1px solid #CBD5E1' }} title="Warm Ivory #FAF7F0" />
+                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#B2811A' }} title="Antique Gold #B2811A" />
+                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#6B1D2F' }} title="Deep Maroon #6B1D2F" />
+                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#142C46' }} title="Deep Navy #142C46" />
+                              <span style={{ fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' }}>v{tpl.version || 1}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Certificate Formal Heading</label>
+                    <Input value={wizardTitle} onChange={(e) => setWizardTitle(e.target.value)} />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Presentation Statement</label>
+                    <Input value={wizardPresentation} onChange={(e) => setWizardPresentation(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: Multi-Author Management & Researcher Directory */}
+              {wizardStep === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Real-Time Autocomplete Directory Search */}
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Search Researcher Directory (Search-as-you-type):
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11.5px', color: '#64748B' }}>Add as:</span>
+                        <select
+                          value={selectedDirectoryAuthorRole}
+                          onChange={(e) => setSelectedDirectoryAuthorRole(e.target.value)}
+                          style={{
+                            fontSize: '12px',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: '#FFFFFF',
+                          }}
+                        >
+                          <option value="First Author">First Author</option>
+                          <option value="Corresponding Author">Corresponding Author</option>
+                          <option value="Co-Author">Co-Author</option>
+                          <option value="Principal Investigator">Principal Investigator</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <Input
+                      placeholder="Type researcher name, department, or Scopus ID to search..."
+                      value={searchAuthorQuery}
+                      onChange={(e) => setSearchAuthorQuery(e.target.value)}
+                    />
+
+                    {/* Autocomplete Suggestions Dropdown */}
+                    {searchAuthorQuery.trim().length > 0 && (
+                      <div
+                        style={{
+                          marginTop: '6px',
+                          background: '#FFFFFF',
+                          border: '1px solid #CBD5E1',
+                          borderRadius: '6px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        }}
+                      >
+                        {authors
+                          .filter((a) => {
+                            const q = searchAuthorQuery.toLowerCase();
+                            return (
+                              a.full_name.toLowerCase().includes(q) ||
+                              (a.department && a.department.toLowerCase().includes(q)) ||
+                              (a.scopus_id && a.scopus_id.toLowerCase().includes(q))
+                            );
+                          })
+                          .slice(0, 8)
+                          .map((a) => {
+                            const isAlreadyAdded = wizardAuthors.some((auth) => auth.researcher_id === a.id);
+                            return (
+                              <div
+                                key={a.id}
+                                onClick={() => {
+                                  if (!isAlreadyAdded) handleAddAuthorFromDirectory(a);
+                                }}
+                                style={{
+                                  padding: '8px 12px',
+                                  borderBottom: '1px solid #F1F5F9',
+                                  cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
+                                  backgroundColor: isAlreadyAdded ? '#F8FAFC' : '#FFFFFF',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <div>
+                                  <span style={{ fontWeight: 600, fontSize: '13px', color: isAlreadyAdded ? '#94A3B8' : '#0F2B48' }}>
+                                    {a.full_name}
+                                  </span>
+                                  <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '8px' }}>
+                                    {a.department || 'CSJMU'}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  {a.scopus_id ? (
+                                    <Badge variant="gold">Scopus: {a.scopus_id}</Badge>
+                                  ) : (
+                                    <Badge variant="neutral">No Scopus ID</Badge>
+                                  )}
+                                  {isAlreadyAdded ? (
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Already Added</span>
+                                  ) : (
+                                    <Button variant="primary" size="sm" onClick={(e) => { e.stopPropagation(); handleAddAuthorFromDirectory(a); }}>
+                                      + Add
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual Author Entry Fallback */}
+                  <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Or Add Researcher Manually (External / Non-Directory Collaborators):
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '70px 1.2fr 1fr 1fr 100px 120px 60px', gap: '8px' }}>
+                      <Input placeholder="Title" value={manualAuthorTitle} onChange={(e) => setManualAuthorTitle(e.target.value)} />
+                      <Input placeholder="Full Legal Name" value={manualAuthorName} onChange={(e) => setManualAuthorName(e.target.value)} />
+                      <Input placeholder="Department" value={manualAuthorDept} onChange={(e) => setManualAuthorDept(e.target.value)} />
+                      <Input placeholder="Affiliation" value={manualAuthorAffiliation} onChange={(e) => setManualAuthorAffiliation(e.target.value)} />
+                      <Input placeholder="Scopus ID" value={manualAuthorScopusId} onChange={(e) => setManualAuthorScopusId(e.target.value)} />
+                      <select
+                        value={manualAuthorRole}
+                        onChange={(e) => setManualAuthorRole(e.target.value)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '3px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid #CBD5E1',
+                        }}
+                      >
+                        <option value="First Author">First Author</option>
+                        <option value="Corresponding Author">Corresponding Author</option>
+                        <option value="Co-Author">Co-Author</option>
+                        <option value="Principal Investigator">Principal Investigator</option>
+                      </select>
+                      <Button variant="outline" size="sm" onClick={handleAddManualAuthor}>
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Current Authors List */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase' }}>
+                        Authors Included on Single Certificate ({wizardAuthors.length}):
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#64748B' }}>
+                        Drag or use ↑ / ↓ arrows to adjust formal author order
+                      </span>
+                    </div>
+
+                    {wizardAuthors.length === 0 ? (
+                      <div style={{ fontSize: '13px', color: '#94A3B8', fontStyle: 'italic', padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '6px', textAlign: 'center' }}>
+                        No authors added yet. Use the search bar or manual entry above to add at least one recipient.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {wizardAuthors.map((auth, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              background: '#F1F5F9',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              borderLeft: `4px solid ${idx === 0 ? '#B2811A' : '#64748B'}`,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', width: '24px' }}>
+                                #{auth.author_order}
+                              </span>
+                              <div>
+                                <strong>{auth.academic_title_snapshot} {auth.author_name_snapshot}</strong>
+                                <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '6px' }}>
+                                  • {auth.department_snapshot}
+                                </span>
+                              </div>
+                              <Badge variant="primary">{auth.author_role}</Badge>
+                              {auth.scopus_id_snapshot ? (
+                                <Badge variant="gold">Scopus: {auth.scopus_id_snapshot}</Badge>
+                              ) : (
+                                <Badge variant="neutral">No Scopus ID</Badge>
+                              )}
+                              {auth.researcher_id ? (
+                                <Badge variant="teal">Directory-Linked</Badge>
+                              ) : (
+                                <Badge variant="neutral">Manual Entry</Badge>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                onClick={() => handleMoveWizardAuthor(idx, 'UP')}
+                                disabled={idx === 0}
+                                title="Move author up"
+                                style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '4px', cursor: idx === 0 ? 'not-allowed' : 'pointer', padding: '2px 8px', fontSize: '12px' }}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                onClick={() => handleMoveWizardAuthor(idx, 'DOWN')}
+                                disabled={idx === wizardAuthors.length - 1}
+                                title="Move author down"
+                                style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '4px', cursor: idx === 0 ? 'not-allowed' : 'pointer', padding: '2px 8px', fontSize: '12px' }}
+                              >
+                                ↓
+                              </button>
+                              <button
+                                onClick={() => handleRemoveWizardAuthor(idx)}
+                                title="Remove author"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', marginLeft: '6px', fontSize: '14px', fontWeight: 700 }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Publication Details */}
+              {wizardStep === 3 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Associate Existing Publication (Optional)</label>
+                    <Select
+                      value={wizardPublicationId}
+                      onChange={(e) => handleSelectPublicationForWizard(e.target.value)}
+                      options={[
+                        { label: '-- Select publication from SAMIKSHA database --', value: '' },
+                        ...publications.map((p) => ({ label: `${p.title} (${p.source_journal})`, value: p.id })),
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Research Paper / Publication Title *</label>
+                    <Input
+                      value={wizardResearchTitle}
+                      onChange={(e) => setWizardResearchTitle(e.target.value)}
+                      placeholder="e.g. Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Contribution Statement</label>
+                    <Input value={wizardContribution} onChange={(e) => setWizardContribution(e.target.value)} />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Congratulatory Note</label>
+                    <Input value={wizardCongratulatory} onChange={(e) => setWizardCongratulatory(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Review, Live Vector PDF Preview & Submission */}
+              {wizardStep === 4 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Summary Card */}
+                  <div style={{ background: '#FAF7F0', border: '1px solid #B2811A', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', textTransform: 'uppercase' }}>Certificate Summary</div>
+                      <Badge variant="gold">
+                        {templates.find((t) => t.id === wizardTemplateId)?.name || 'Default Template'}
+                      </Badge>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', marginTop: '6px' }}>{wizardTitle}</div>
+                    <div style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', marginTop: '3px' }}>"{wizardResearchTitle}"</div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0F2B48', marginTop: '10px' }}>
+                      Recipients ({wizardAuthors.length}): {wizardAuthors.map((a) => `${a.academic_title_snapshot} ${a.author_name_snapshot} (${a.author_role})`).join(' • ')}
+                    </div>
+                  </div>
+
+                  {/* Prominent Live Vector PDF Preview Action */}
+                  <div style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48' }}>
+                        Live Vector PDF Preview (Temporary Draft Render)
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                        Renders the vector certificate with dynamic typography, DRAFT watermark, and placeholder signatures without reserving a certificate number.
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={renderingWizardPreview}
+                      onClick={handleGenerateWizardPreview}
+                    >
+                      {renderingWizardPreview ? 'Rendering Vector PDF...' : 'Preview Vector PDF'}
+                    </Button>
+                  </div>
+
+                  {/* Submission Workflow Mode Selection */}
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Issuance Workflow Mode</label>
+                    <Select
+                      value={wizardSubmitMode}
+                      onChange={(e) => setWizardSubmitMode(e.target.value as any)}
+                      options={[
+                        { label: 'Submit for Dual Authority Approval (Dean R&D & VC)', value: 'APPROVAL' },
+                        { label: 'Direct Official Issuance (Super Admin immediate seal)', value: 'DIRECT' },
+                        { label: 'Save as Draft', value: 'DRAFT' },
+                      ]}
+                    />
+                  </div>
+
+                  {/* Direct Issuance Warning & Mandatory Justification */}
+                  {wizardSubmitMode === 'DIRECT' && (
+                    <div style={{ background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: '8px', padding: '12px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#B45309', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        ⚠️ Institutional Direct Issuance Notice
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#92400E', marginBottom: '8px' }}>
+                        Direct issuance immediately affixes the official seal and generates permanent credentials, bypassing the Dean R&D and Vice Chancellor dual approval workflow. This action is permanently recorded in the immutable institutional audit ledger with your user identity and timestamp.
+                      </div>
+                      <label style={{ fontSize: '12px', fontWeight: 700, color: '#78350F' }}>
+                        Mandatory Institutional Justification / Audit Rationale * (min 10 characters):
+                      </label>
+                      <textarea
+                        value={wizardDirectJustification}
+                        onChange={(e) => setWizardDirectJustification(e.target.value)}
+                        placeholder="State the institutional council directive or official reason for direct seal issuance..."
+                        rows={3}
+                        style={{
+                          width: '100%',
+                          marginTop: '4px',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          border: '1px solid #D97706',
+                          fontSize: '12.5px',
+                          fontFamily: 'inherit',
+                        }}
+                      />
+                      <div style={{ fontSize: '11px', color: wizardDirectJustification.trim().length >= 10 ? '#059669' : '#DC2626', marginTop: '2px' }}>
+                        {wizardDirectJustification.trim().length}/10 characters minimum
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardSubmitMode === 'APPROVAL' && (
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '10px', fontSize: '12px', color: '#1E40AF' }}>
+                      <strong>Standard Dual Approval Routing:</strong> The certificate will enter the Dean – R&D queue for academic verification, followed by the Vice Chancellor queue for final seal and cryptographic registration.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Wizard Navigation Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={wizardStep === 1}
+                  onClick={() => setWizardStep(wizardStep - 1)}
+                >
+                  Back
+                </Button>
+
+                {wizardStep < 4 ? (
+                  <Button variant="primary" size="sm" onClick={() => setWizardStep(wizardStep + 1)}>
+                    Next Step
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={submitting}
+                    onClick={handleSubmitWizard}
+                    style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+                  >
+                    {submitting ? 'Processing...' : 'Complete & Submit Certificate'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: LIVE VECTOR PDF PREVIEW (PHASE 1) */}
+        {/* =================================================================== */}
+        {showWizardPreviewModal && wizardPreviewBlobUrl && (
+          <Modal
+            isOpen={showWizardPreviewModal}
+            onClose={() => setShowWizardPreviewModal(false)}
+            title="Live Vector PDF Preview (Temporary Draft Render)"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Draft Watermark Advisory Banner */}
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #F87171',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.4 }}>
+                  <strong>DRAFT PREVIEW MODE:</strong> This vector PDF was generated on-the-fly using the ReportLab engine with semi-transparent draft watermarks and preview placeholders for verification QR codes and official signatures. No permanent certificate record or unique sequence number has been reserved.
+                </div>
+              </div>
+
+              {/* Controls Toolbar: Zoom, Open in Tab, Close */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Zoom:</span>
+                  {[75, 100, 125, 150].map((z) => (
+                    <button
+                      key={z}
+                      onClick={() => setPreviewZoom(z)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: previewZoom === z ? '1px solid #B2811A' : '1px solid #CBD5E1',
+                        background: previewZoom === z ? '#FAF7F0' : '#FFFFFF',
+                        fontWeight: previewZoom === z ? 700 : 500,
+                        color: previewZoom === z ? '#B2811A' : '#334155',
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {z}%
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <a
+                    href={wizardPreviewBlobUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      textDecoration: 'none',
+                      fontSize: '12px',
+                      color: '#0284C7',
+                      fontWeight: 600,
+                      padding: '4px 8px',
+                    }}
+                  >
+                    Open in Tab ↗
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = wizardPreviewBlobUrl;
+                      link.download = `CSJMU_Certificate_Draft_Preview_${Date.now()}.pdf`;
+                      link.click();
+                    }}
+                  >
+                    Download Draft PDF
+                  </Button>
+                </div>
+              </div>
+
+              {/* Embed / Iframe Viewer */}
+              <div
+                style={{
+                  width: '100%',
+                  height: '520px',
+                  overflow: 'auto',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '6px',
+                  background: '#525659',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <iframe
+                  src={`${wizardPreviewBlobUrl}#zoom=${previewZoom}`}
+                  title="Certificate Vector Preview"
+                  style={{
+                    width: `${previewZoom}%`,
+                    height: '100%',
+                    border: 'none',
+                    backgroundColor: '#FFFFFF',
+                  }}
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
+                <Button variant="primary" size="sm" onClick={() => setShowWizardPreviewModal(false)}>
+                  Close Preview
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: APPROVAL DECISION */}
+        {/* =================================================================== */}
+        {showApprovalModal && selectedCert && (
+          <Modal
+            isOpen={showApprovalModal}
+            onClose={() => setShowApprovalModal(false)}
+            title={`Authority Review: ${approvalAuthority === 'DEAN_RD' ? 'Dean – R&D' : 'Vice Chancellor'}`}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '13.5px', color: '#1E293B' }}>
+                Reviewing Certificate <strong>{selectedCert.certificate_number}</strong>
+                <div style={{ fontStyle: 'italic', color: '#64748B', marginTop: '2px' }}>"{selectedCert.research_title}"</div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Action</label>
+                <Select
+                  value={approvalAction}
+                  onChange={(e) => setApprovalAction(e.target.value as any)}
+                  options={[
+                    { label: 'Approve & Affix Official Seal', value: 'APPROVE' },
+                    { label: 'Reject with Mandatory Institutional Remarks', value: 'REJECT' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                  Remarks {approvalAction === 'REJECT' && <span style={{ color: '#DC2626' }}>* (Mandatory)</span>}
+                </label>
+                <Input
+                  value={approvalRemarks}
+                  onChange={(e) => setApprovalRemarks(e.target.value)}
+                  placeholder={approvalAction === 'APPROVE' ? 'e.g. Meritorious publication approved.' : 'Reason for rejection...'}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowApprovalModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={handleSubmitApproval}
+                  style={approvalAction === 'REJECT' ? { backgroundColor: '#DC2626', borderColor: '#DC2626' } : {}}
+                >
+                  {submitting ? 'Submitting...' : approvalAction === 'APPROVE' ? 'Confirm Approval' : 'Confirm Rejection'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: REVOKE CERTIFICATE */}
+        {/* =================================================================== */}
+        {showRevokeModal && selectedCert && (
+          <Modal
+            isOpen={showRevokeModal}
+            onClose={() => setShowRevokeModal(false)}
+            title="Revoke Certificate"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', padding: '10px 14px', fontSize: '13px', color: '#991B1B' }}>
+                <strong>Permanent Action:</strong> Revoking will permanently invalidate certificate{' '}
+                <strong>{selectedCert.certificate_number}</strong>. Public verification will display REVOKED status and downloads will be blocked.
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                  Revocation Audit Reason * (min 5 characters)
+                </label>
+                <Input
+                  value={revocationReason}
+                  onChange={(e) => setRevocationReason(e.target.value)}
+                  placeholder="e.g. Journal retraction or institutional correction"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowRevokeModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={submitting || revocationReason.trim().length < 5}
+                  onClick={handleSubmitRevocation}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  {submitting ? 'Revoking...' : 'Permanently Revoke'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: REISSUE / SUPERSEDE */}
+        {/* =================================================================== */}
+        {showReissueModal && selectedCert && (
+          <Modal
+            isOpen={showReissueModal}
+            onClose={() => setShowReissueModal(false)}
+            title="Reissue / Supersede Certificate"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ fontSize: '13px', color: '#475569' }}>
+                This creates an official replacement for <strong>{selectedCert.certificate_number}</strong>, preserving cryptographic history and marking the previous certificate as SUPERSEDED.
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Reissue Reason * (min 5 characters)</label>
+                <Input
+                  value={reissueReason}
+                  onChange={(e) => setReissueReason(e.target.value)}
+                  placeholder="e.g. Author name orthography correction per official university records"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Corrected Certificate Title</label>
+                <Input value={reissueTitle} onChange={(e) => setReissueTitle(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Corrected Research Title</label>
+                <Input value={reissueResearchTitle} onChange={(e) => setReissueResearchTitle(e.target.value)} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowReissueModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={submitting || reissueReason.trim().length < 5}
+                  onClick={handleSubmitReissue}
+                  style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+                >
+                  {submitting ? 'Processing...' : 'Confirm Reissue'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: CREATE TEMPLATE */}
+        {/* =================================================================== */}
+        {showTemplateModal && (
+          <Modal
+            isOpen={showTemplateModal}
+            onClose={() => setShowTemplateModal(false)}
+            title="Create Reusable Template"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Template Code (e.g. CSJMU_A4_SPECIAL)</label>
+                <Input value={templateForm.code} onChange={(e) => setTemplateForm({ ...templateForm, code: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Template Name</label>
+                <Input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Description</label>
+                <Input value={templateForm.description || ''} onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowTemplateModal(false)}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={handleCreateTemplate} disabled={submitting}>Save Template</Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: ADD SIGNATORY */}
+        {/* =================================================================== */}
+        {showSignatoryModal && (
+          <Modal
+            isOpen={showSignatoryModal}
+            onClose={() => setShowSignatoryModal(false)}
+            title="Add Signing Authority"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Authority Role</label>
+                <Select
+                  value={signatoryForm.authority_type}
+                  onChange={(e) => setSignatoryForm({ ...signatoryForm, authority_type: e.target.value })}
+                  options={[
+                    { label: 'Dean – Research & Development', value: 'DEAN_RD' },
+                    { label: 'Vice Chancellor', value: 'VICE_CHANCELLOR' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Signatory Full Legal Name & Honorific</label>
+                <Input
+                  value={signatoryForm.signatory_name}
+                  onChange={(e) => setSignatoryForm({ ...signatoryForm, signatory_name: e.target.value })}
+                  placeholder="e.g. Prof. (Dr.) Rajesh Kumar"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Official Designation</label>
+                <Input
+                  value={signatoryForm.designation}
+                  onChange={(e) => setSignatoryForm({ ...signatoryForm, designation: e.target.value })}
+                  placeholder="e.g. Dean – Research & Development"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Signature Image Asset (PNG / SVG with transparent background)</label>
+                <input
+                  type="file"
+                  accept="image/png,image/svg+xml"
+                  onChange={(e) => setSignatureUploadFile(e.target.files?.[0] || null)}
+                  style={{ display: 'block', marginTop: '4px', fontSize: '13px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowSignatoryModal(false)}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={handleCreateSignatory} disabled={submitting}>Save Authority</Button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     </AdminLayout>
   );

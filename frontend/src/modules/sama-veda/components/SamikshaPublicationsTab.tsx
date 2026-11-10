@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Badge, Input, Select, EmptyState, Button } from '@vyasa/ui';
+import React, { useMemo, useState } from 'react';
+import { Badge, Input, Select, EmptyState, Button, AppIcon } from '@vyasa/ui';
 import { PublicPublication } from '../services/samaVedaService';
 
 interface SamikshaPublicationsTabProps {
@@ -23,6 +23,12 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
   selectedYear = '',
   onSelectedYearChange,
 }) => {
+  const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolean>>({});
+
+  const toggleAbstract = (id: string) => {
+    setExpandedAbstracts((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   // Extract unique years from publications
   const years = useMemo(() => {
     const set = new Set<string>();
@@ -50,22 +56,29 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
     });
   }, [publications, selectedYear]);
 
+  const quickCategories = ['Article', 'Review', 'Book Chapter', 'Conference Paper'];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+      {/* Header Eyebrow */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div className="samiksha-eyebrow">
+            <AppIcon name="book-open" size={13} color="#0d766e" />
+            <span>Scholarly Literature Catalog</span>
+          </div>
+          <h2 className="samiksha-section-title">
+            Publications Archive
+          </h2>
+          <p className="samiksha-section-desc">
+            Explore peer-reviewed publications, Scopus-indexed research, and faculty contributions across CSJMU departments.
+          </p>
+        </div>
+      </div>
+
       {/* Search and Filters Bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          flexWrap: 'wrap',
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: '240px' }}>
+      <div className="samiksha-filter-bar">
+        <div style={{ flex: 1, minWidth: '260px' }}>
           <Input
             placeholder="Search by publication title, author, or journal..."
             value={pubSearch}
@@ -118,6 +131,51 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
         )}
       </div>
 
+      {/* Quick Category Chips */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Filter by type:</span>
+        <button
+          type="button"
+          onClick={() => onPubCategoryChange('')}
+          style={{
+            padding: '4px 12px',
+            borderRadius: '20px',
+            fontSize: '12px',
+            fontWeight: 600,
+            border: pubCategory === '' ? '1px solid #0d766e' : '1px solid #e2e8f0',
+            background: pubCategory === '' ? '#f0fdfa' : '#ffffff',
+            color: pubCategory === '' ? '#0d766e' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          All
+        </button>
+        {quickCategories.map((qc) => {
+          const isSelected = pubCategory.toLowerCase() === qc.toLowerCase();
+          return (
+            <button
+              key={qc}
+              type="button"
+              onClick={() => onPubCategoryChange(isSelected ? '' : qc)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: isSelected ? '1px solid #0d766e' : '1px solid #e2e8f0',
+                background: isSelected ? '#f0fdfa' : '#ffffff',
+                color: isSelected ? '#0d766e' : '#64748b',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {qc}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Catalog List */}
       {displayedPublications.length === 0 ? (
         <EmptyState
@@ -134,24 +192,21 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
           {displayedPublications.map((pub) => {
             const pubDate = pub.published_at || pub.created_at;
             const formattedDate = pubDate ? new Date(pubDate).toLocaleDateString() : null;
+            const isExpanded = !!expandedAbstracts[pub.id];
 
             return (
               <div
                 key={pub.id}
+                className="samiksha-card samiksha-interactive-lift"
                 style={{
-                  background: '#ffffff',
-                  padding: '22px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '10px',
-                  boxShadow: '0 2px 8px rgba(15, 43, 72, 0.03)',
-                  transition: 'border-color 0.15s ease',
+                  gap: '12px',
+                  padding: '24px',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <Badge variant="teal">{pub.category || 'Article'}</Badge>
                     <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace' }}>#{pub.serial_no}</span>
                     {formattedDate && (
@@ -169,25 +224,29 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
                         textDecoration: 'none',
                         fontWeight: 600,
                         background: '#f0fdfa',
-                        padding: '3px 8px',
+                        padding: '4px 10px',
                         borderRadius: '6px',
                         border: '1px solid #99f6e4',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease',
                       }}
                     >
-                      DOI: {pub.doi} &nearr;
+                      <span>DOI: {pub.doi} &nearr;</span>
                     </a>
                   )}
                 </div>
 
-                <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: '#0f2b48', margin: '4px 0 2px 0', lineHeight: 1.4 }}>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#0f2b48', margin: '4px 0 2px 0', lineHeight: 1.4 }}>
                   {pub.title}
                 </h3>
 
-                <div style={{ fontSize: '13.5px', color: '#334155', fontWeight: 600 }}>
+                <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 600 }}>
                   {pub.author_display}
                 </div>
 
-                <div style={{ fontSize: '12.5px', color: '#64748b', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>
                   {pub.source_journal}
                 </div>
 
@@ -200,9 +259,10 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
                           fontSize: '11px',
                           color: '#475569',
                           background: '#f8fafc',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
+                          padding: '3px 10px',
+                          borderRadius: '6px',
                           border: '1px solid #e2e8f0',
+                          fontWeight: 500,
                         }}
                       >
                         {link.author_name || 'Scholar'} {link.department ? `(${link.department})` : ''}
@@ -212,9 +272,39 @@ export const SamikshaPublicationsTab: React.FC<SamikshaPublicationsTabProps> = (
                 )}
 
                 {pub.abstract && (
-                  <p style={{ fontSize: '13px', color: '#64748b', margin: '6px 0 0 0', lineHeight: 1.6 }}>
-                    {pub.abstract}
-                  </p>
+                  <div style={{ marginTop: '4px' }}>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: '#64748b',
+                        margin: 0,
+                        lineHeight: 1.6,
+                        display: isExpanded ? 'block' : '-webkit-box',
+                        WebkitLineClamp: isExpanded ? 'none' : 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: isExpanded ? 'visible' : 'hidden',
+                      }}
+                    >
+                      {pub.abstract}
+                    </p>
+                    {pub.abstract.length > 180 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAbstract(pub.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#0d766e',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: '4px 0 0 0',
+                        }}
+                      >
+                        {isExpanded ? 'Show less \u2191' : 'Read abstract \u2193'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             );

@@ -78,6 +78,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             minWidth: 0,
             height: '100%',
             overflowY: 'auto',
+            overflowX: 'hidden',
             boxSizing: 'border-box',
           }}
         >

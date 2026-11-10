@@ -6,8 +6,8 @@ import secrets
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
-from cryptography.fernet import Fernet
+from typing import Any, Dict, List, Optional, Tuple, Union
+from cryptography.fernet import Fernet, MultiFernet, InvalidToken
 import pyotp
 import qrcode
 from sqlalchemy import select, func, or_
@@ -55,65 +55,236 @@ class TwoFactorService:
         return False
 
     @staticmethod
-    def _get_fernet() -> Fernet:
+    def _derive_fernet_from_string(secret_str: str) -> Fernet:
+        """Derive a Fernet instance from an arbitrary secret string using SHA-256."""
+        derived_key = base64.urlsafe_b64encode(hashlib.sha256(secret_str.encode("utf-8")).digest())
+        return Fernet(derived_key)
+
+    @classmethod
+    def _parse_fernet_key(cls, raw_key: str) -> Optional[Fernet]:
         """
-        Derive a deterministic Fernet key using application secrets.
-        Never logs or exposes the derivation inputs.
-        Fails closed in production if TOTP_ENCRYPTION_KEY is missing, malformed, or dev default.
+        Parse raw key string into a Fernet instance.
+        If valid 32-byte URL-safe base64, constructs Fernet directly.
+        Otherwise falls back to deterministic SHA-256 derivation.
         """
-        is_production = (settings.NODE_ENV or "development").strip().lower() in ("production", "prod")
-        raw_key = (settings.TOTP_ENCRYPTION_KEY or "").strip()
+        clean_key = (raw_key or "").strip()
+        if not clean_key:
+            return None
+        try:
+            raw_bytes = base64.urlsafe_b64decode(clean_key.encode("utf-8"))
+            if len(raw_bytes) == 32:
+                return Fernet(clean_key.encode("utf-8"))
+        except Exception:
+            pass
+        return cls._derive_fernet_from_string(clean_key)
+
+    @classmethod
+    def get_development_fallback_fernet(cls) -> Fernet:
+        """
+        Explicit deterministic development fallback Fernet key.
+        Derived from settings.SECRET_KEY or the documented governance development secret.
+        """
+        dev_source = getattr(settings, "SECRET_KEY", None) or "vyasa-core-development-secret-key-csjmu-governance"
+        return cls._derive_fernet_from_string(dev_source)
+
+    @classmethod
+    def _get_fernet_instances(cls) -> List[Fernet]:
+        """
+        Build ordered list of Fernet instances:
+        1. Primary key (configured TOTP_ENCRYPTION_KEY or development fallback)
+        2. Configured fallback keys (from comma-separated TOTP_ENCRYPTION_KEY or TOTP_FALLBACK_ENCRYPTION_KEYS)
+        3. Deterministic dev fallback (in non-production mode, to guarantee local backward compatibility)
+        Never logs or exposes key material.
+        """
+        is_production = (getattr(settings, "NODE_ENV", "development") or "development").strip().lower() in ("production", "prod")
+        raw_key = (getattr(settings, "TOTP_ENCRYPTION_KEY", "") or "").strip()
+
+        # Support comma-separated keys in TOTP_ENCRYPTION_KEY (primary first)
+        key_tokens = [k.strip() for k in raw_key.split(",") if k.strip()] if raw_key else []
+        primary_token = key_tokens[0] if key_tokens else ""
+
+        instances: List[Fernet] = []
 
         if is_production:
-            if not raw_key:
+            if not primary_token:
                 raise RuntimeError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY is strictly required in production mode."
                 )
             if (
-                raw_key == "vyasa-core-development-secret-key-csjmu-governance"
-                or "development" in raw_key.lower()
-                or "default" in raw_key.lower()
+                primary_token == "vyasa-core-development-secret-key-csjmu-governance"
+                or "development" in primary_token.lower()
+                or "default" in primary_token.lower()
             ):
                 raise RuntimeError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY must not use a known development secret."
                 )
             try:
-                raw_bytes = base64.urlsafe_b64decode(raw_key.encode("utf-8"))
+                raw_bytes = base64.urlsafe_b64decode(primary_token.encode("utf-8"))
                 if len(raw_bytes) != 32:
                     raise ValueError("Key must decode to 32 bytes")
-                return Fernet(raw_key.encode("utf-8"))
+                primary_fernet = Fernet(primary_token.encode("utf-8"))
+                instances.append(primary_fernet)
             except Exception:
                 raise RuntimeError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY is not a valid 32-byte URL-safe base64 Fernet key."
                 )
+        else:
+            # Development / testing mode
+            if primary_token:
+                dev_fernet = cls._parse_fernet_key(primary_token)
+                if dev_fernet:
+                    instances.append(dev_fernet)
+            else:
+                instances.append(cls.get_development_fallback_fernet())
 
-        # Local development / test mode
-        if raw_key:
-            try:
-                raw_bytes = base64.urlsafe_b64decode(raw_key.encode("utf-8"))
-                if len(raw_bytes) == 32:
-                    return Fernet(raw_key.encode("utf-8"))
-            except Exception:
-                pass
-            derived_key = base64.urlsafe_b64encode(hashlib.sha256(raw_key.encode("utf-8")).digest())
-            return Fernet(derived_key)
+        # Additional fallback keys from comma-separated tokens in TOTP_ENCRYPTION_KEY
+        fallback_tokens: List[str] = []
+        if len(key_tokens) > 1:
+            fallback_tokens.extend(key_tokens[1:])
 
-        # Explicit documented local development fallback
-        dev_source = (settings.SECRET_KEY or "vyasa-core-development-secret-key-csjmu-governance").encode("utf-8")
-        derived_dev_key = base64.urlsafe_b64encode(hashlib.sha256(dev_source).digest())
-        return Fernet(derived_dev_key)
+        # Configured fallback keys from TOTP_FALLBACK_ENCRYPTION_KEYS
+        raw_fallbacks = (getattr(settings, "TOTP_FALLBACK_ENCRYPTION_KEYS", "") or "").strip()
+        if raw_fallbacks:
+            fallback_tokens.extend([fb.strip() for fb in raw_fallbacks.split(",") if fb.strip()])
+
+        for token in fallback_tokens:
+            fb_inst = cls._parse_fernet_key(token)
+            if fb_inst:
+                instances.append(fb_inst)
+
+        # In non-production mode, append deterministic dev fallback to ensure historical dev ciphertexts decrypt
+        if not is_production:
+            instances.append(cls.get_development_fallback_fernet())
+
+        # Deduplicate instances while strictly preserving priority order
+        deduped: List[Fernet] = []
+        seen_keys = set()
+        for inst in instances:
+            key_id = inst._signing_key + inst._encryption_key
+            if key_id not in seen_keys:
+                seen_keys.add(key_id)
+                deduped.append(inst)
+
+        return deduped
+
+    @classmethod
+    def _get_fernet(cls) -> Union[Fernet, MultiFernet]:
+        """
+        Derive Fernet or MultiFernet instance containing primary and fallback keys.
+        Primary key encrypts; MultiFernet transparently attempts decryption across all keys in order.
+        """
+        instances = cls._get_fernet_instances()
+        if len(instances) == 1:
+            return instances[0]
+        return MultiFernet(instances)
+
+    @classmethod
+    def get_key_fingerprint(cls) -> Dict[str, Any]:
+        """
+        Safe diagnostic metadata for running instances.
+        Never prints or logs raw key bytes or secrets.
+        """
+        instances = cls._get_fernet_instances()
+        primary = instances[0]
+        primary_fp = hashlib.sha256(primary._signing_key + primary._encryption_key).hexdigest()[:16]
+        return {
+            "primary_key_fingerprint": f"sha256:{primary_fp}",
+            "total_keys_configured": len(instances),
+            "fallback_keys_count": len(instances) - 1,
+            "is_multi_key_ready": len(instances) > 1,
+        }
+
+    @classmethod
+    def verify_key_health(cls) -> bool:
+        """
+        Verify that primary encryption key is functional by performing an in-memory
+        encrypt/decrypt round-trip on a synthetic test secret. Never persists test data.
+        """
+        test_secret = "JBSWY3DPEHPK3PXP"
+        try:
+            enc = cls.encrypt_secret(test_secret)
+            dec = cls.decrypt_secret(enc)
+            return dec == test_secret
+        except Exception as exc:
+            logger.error("TOTP encryption health check failed: %s", type(exc).__name__)
+            return False
 
     @classmethod
     def encrypt_secret(cls, secret: str) -> str:
-        """Encrypt TOTP base32 secret at rest using AES-128-CBC."""
+        """Encrypt TOTP base32 secret at rest using primary Fernet key."""
         fernet = cls._get_fernet()
         return fernet.encrypt(secret.encode("utf-8")).decode("utf-8")
 
     @classmethod
-    def decrypt_secret(cls, encrypted_secret: str) -> str:
-        """Decrypt TOTP base32 secret from storage."""
-        fernet = cls._get_fernet()
-        return fernet.decrypt(encrypted_secret.encode("utf-8")).decode("utf-8")
+    def decrypt_secret(cls, encrypted_secret: str, fernet: Optional[Any] = None) -> str:
+        """
+        Decrypt TOTP base32 secret from storage.
+        Tries primary and configured fallback keys in sequence via MultiFernet.
+        Explicitly handles and sanitizes InvalidToken, logging a safe diagnostic
+        without exposing secrets, ciphertext, or keys.
+        """
+        if not encrypted_secret or not isinstance(encrypted_secret, str):
+            logger.error("Failed to decrypt TOTP secret: empty or invalid ciphertext payload.")
+            raise InvalidToken("Invalid secret payload")
+
+        fernet_instance = fernet or cls._get_fernet()
+        try:
+            return fernet_instance.decrypt(encrypted_secret.encode("utf-8")).decode("utf-8")
+        except InvalidToken as exc:
+            logger.error(
+                "Failed to decrypt TOTP secret: cryptographic token invalid or key signature mismatch."
+            )
+            raise exc
+        except Exception as exc:
+            logger.error(
+                "Failed to decrypt TOTP secret due to unexpected error: %s",
+                type(exc).__name__,
+            )
+            raise InvalidToken("Decryption failed") from exc
+
+    @classmethod
+    def reencrypt_secret(
+        cls,
+        encrypted_secret: str,
+        target_fernet: Optional[Fernet] = None,
+        candidate_fernets: Optional[List[Fernet]] = None,
+    ) -> Tuple[str, bool]:
+        """
+        Controlled re-encryption utility for safe key rotation and migration:
+        - If the ciphertext is already decryptable under target_fernet (primary), returns (encrypted_secret, False).
+        - Otherwise attempts candidate keys (or cls._get_fernet_instances()).
+        - When a candidate succeeds, re-encrypts under target_fernet, verifies round-trip decryption,
+          and returns (new_ciphertext, True).
+        - If no candidate succeeds, raises InvalidToken.
+        Never exposes raw keys or plaintext in logs or reports.
+        """
+        all_instances = cls._get_fernet_instances()
+        target = target_fernet or all_instances[0]
+
+        # 1. Check if already decryptable under target key
+        try:
+            target.decrypt(encrypted_secret.encode("utf-8"))
+            return encrypted_secret, False
+        except InvalidToken:
+            pass
+
+        # 2. Iterate candidates
+        candidates = candidate_fernets or all_instances[1:]
+        if not candidates:
+            candidates = [cls.get_development_fallback_fernet()]
+
+        for cand in candidates:
+            try:
+                decrypted = cand.decrypt(encrypted_secret.encode("utf-8")).decode("utf-8")
+                new_encrypted = target.encrypt(decrypted.encode("utf-8")).decode("utf-8")
+                verify_dec = target.decrypt(new_encrypted.encode("utf-8")).decode("utf-8")
+                if verify_dec != decrypted:
+                    raise RuntimeError("Re-encryption round-trip verification failed.")
+                return new_encrypted, True
+            except InvalidToken:
+                continue
+
+        raise InvalidToken("Unable to decrypt ciphertext with any candidate key.")
 
     @staticmethod
     def generate_totp_secret() -> str:

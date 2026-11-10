@@ -311,18 +311,26 @@
 .nivaran-timeline {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  position: relative;
 }
 
 .nivaran-timeline-node {
   display: flex;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 16px 20px;
   background-color: #ffffff;
   border: 1px solid var(--vyasa-border, #e2e8f0);
-  border-left: 3px solid var(--vyasa-primary, #1b2a4a);
-  border-radius: 0 6px 6px 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  border-left: 4px solid var(--vyasa-primary, #1b2a4a);
+  border-radius: 4px 10px 10px 4px;
+  box-shadow: 0 1px 3px rgba(15, 43, 72, 0.04);
+  transition: all 0.2s ease;
+}
+
+.nivaran-timeline-node:hover {
+  box-shadow: 0 4px 12px rgba(15, 43, 72, 0.08);
+  border-color: #cbd5e1;
+  border-left-color: var(--vyasa-gold, #d4a017);
 }
 
 .nivaran-timeline-node__main {
@@ -334,36 +342,44 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .nivaran-timeline-node__transition {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--vyasa-navy, #1b2a4a);
   font-size: 13.5px;
+  letter-spacing: 0.01em;
 }
 
 .nivaran-timeline-node__time {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--vyasa-text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .nivaran-timeline-node__remarks {
-  margin-top: 6px;
-  font-size: 12.5px;
+  margin-top: 8px;
+  font-size: 13px;
   color: #334155;
-  background-color: rgba(27, 42, 74, 0.03);
-  padding: 6px 10px;
-  border-radius: 4px;
-  line-height: 1.5;
+  background-color: #f8fafc;
+  border-left: 2px solid #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  line-height: 1.55;
 }
 
 .nivaran-timeline-node__actor {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--vyasa-text-muted, #64748b);
-  margin-top: 4px;
+  margin-top: 6px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* 7. Institutional Docket & Dashboard Styles */

@@ -272,23 +272,155 @@ export interface CamProjectListResponse {
 }
 
 // ============================================================================
-// 5. CERTIFICATES
+// 5. CERTIFICATES & MODERN INSTITUTIONAL LIFECYCLE MANAGEMENT
 // ============================================================================
+
+export type CertificateStatus =
+  | 'DRAFT'
+  | 'PENDING_DEAN_APPROVAL'
+  | 'PENDING_VC_APPROVAL'
+  | 'ISSUED'
+  | 'REJECTED'
+  | 'REVOKED'
+  | 'SUPERSEDED';
+
+export type AuthorityType = 'DEAN_RD' | 'VICE_CHANCELLOR';
+
+export interface CertificateAuthorItem {
+  id?: string;
+  certificate_id?: string;
+  researcher_id?: string | null;
+  author_name_snapshot: string;
+  academic_title_snapshot?: string | null;
+  scopus_id_snapshot?: string | null;
+  affiliation_snapshot?: string | null;
+  department_snapshot?: string | null;
+  author_order: number;
+  author_role: string;
+}
+
+export interface CertificateApprovalItem {
+  id?: string;
+  certificate_id?: string;
+  authority_type: AuthorityType | string;
+  signatory_id?: string | null;
+  signatory_name_snapshot?: string | null;
+  designation_snapshot?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  remarks?: string | null;
+  decided_at?: string | null;
+  decided_by_user_id?: string | null;
+}
+
+export interface CertificateSignatoryItem {
+  id: string;
+  authority_type: string;
+  signatory_name: string;
+  designation: string;
+  department?: string | null;
+  signature_image_path?: string | null;
+  signature_asset_version: number;
+  is_active: boolean;
+  effective_date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateSignatoryPayload {
+  authority_type: string;
+  signatory_name: string;
+  designation: string;
+  department?: string;
+  is_active?: boolean;
+}
+
+export interface UpdateSignatoryPayload {
+  authority_type?: string;
+  signatory_name?: string;
+  designation?: string;
+  department?: string;
+  is_active?: boolean;
+}
+
+export interface CertificateTemplateItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  certificate_type: string;
+  orientation: string;
+  config: Record<string, any>;
+  is_active: boolean;
+  is_default: boolean;
+  version: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateTemplatePayload {
+  code: string;
+  name: string;
+  description?: string;
+  certificate_type?: string;
+  orientation?: string;
+  config?: Record<string, any>;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+
+export interface UpdateTemplatePayload {
+  name?: string;
+  description?: string;
+  certificate_type?: string;
+  orientation?: string;
+  config?: Record<string, any>;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+
+export interface CertificateStatsRecord {
+  total_certificates: number;
+  draft_certificates: number;
+  pending_approvals: number;
+  issued_certificates: number;
+  revoked_certificates: number;
+  reissued_certificates: number;
+  total_researchers_linked: number;
+}
 
 export interface FelicitationCertificateItem {
   id: string;
   certificate_number: string;
-  bulletin_id: string;
-  author_id: string;
+  certificate_type?: string;
+  status?: CertificateStatus;
+  template_id?: string | null;
+  template_version?: number | null;
+  title?: string | null;
+  presentation_statement?: string | null;
+  research_contribution_statement?: string | null;
+  research_title?: string | null;
+  congratulatory_statement?: string | null;
+  publication_details?: Record<string, any> | null;
+  verification_token?: string | null;
+  verification_url?: string | null;
+  bulletin_id?: string | null;
+  author_id?: string | null;
   publication_id?: string | null;
-  file_storage_path: string;
+  file_storage_path?: string | null;
   checksum_sha256?: string | null;
   download_count: number;
-  issued_at: string;
+  issued_at?: string | null;
+  approved_at?: string | null;
   is_revoked: boolean;
   revoked_at?: string | null;
   revocation_reason?: string | null;
+  rejection_reason?: string | null;
+  reissued_from_id?: string | null;
+  reissued_reason?: string | null;
   created_at: string;
+  authors?: CertificateAuthorItem[];
+  approvals?: CertificateApprovalItem[];
+  template?: CertificateTemplateItem | null;
 
   verification_hash?: string;
   author_name?: string | null;
@@ -299,12 +431,49 @@ export interface FelicitationCertificateItem {
 }
 
 export interface IssueCertificatePayload {
-  certificate_number: string;
-  bulletin_id: string;
-  author_id: string;
+  certificate_type?: string;
+  template_id?: string | null;
+  title?: string;
+  presentation_statement?: string;
+  research_contribution_statement?: string;
+  research_title?: string;
+  congratulatory_statement?: string;
+  publication_details?: Record<string, any>;
+  authors?: CertificateAuthorItem[];
+  submit_for_approval?: boolean;
+  direct_issue_justification?: string;
+  certificate_number?: string;
+  bulletin_id?: string | null;
+  author_id?: string | null;
   publication_id?: string | null;
-  file_storage_path: string;
+  file_storage_path?: string;
   checksum_sha256?: string | null;
+}
+
+export interface CertificatePreviewPayload {
+  certificate_type?: string;
+  template_id?: string | null;
+  title?: string;
+  presentation_statement?: string;
+  authors: CertificateAuthorItem[];
+  research_contribution_statement?: string;
+  research_title?: string;
+  publication_details?: Record<string, any>;
+  congratulatory_statement?: string;
+  config_overrides?: Record<string, any>;
+}
+
+export interface CertificateApprovalPayload {
+  action: 'APPROVE' | 'REJECT';
+  remarks?: string;
+}
+
+export interface CertificateReissuePayload {
+  reissue_reason: string;
+  updated_title?: string;
+  updated_authors?: CertificateAuthorItem[];
+  updated_research_title?: string;
+  updated_publication_details?: Record<string, any>;
 }
 
 export interface RevokeCertificatePayload {
@@ -314,6 +483,16 @@ export interface RevokeCertificatePayload {
 export interface CertificateListResponse {
   total: number;
   items: FelicitationCertificateItem[];
+}
+
+export interface SignatoryListResponse {
+  total: number;
+  items: CertificateSignatoryItem[];
+}
+
+export interface TemplateListResponse {
+  total: number;
+  items: CertificateTemplateItem[];
 }
 
 // ============================================================================

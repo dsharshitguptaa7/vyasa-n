@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.audit import AuditLog
+from app.models.role import Role
 from app.models.user import User
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.enums import CategoryRoutingType, NivaranRole
@@ -44,7 +45,7 @@ CANONICAL_AUTHORITIES: List[Dict[str, Any]] = [
         "email": "research@csjmu.ac.in",
         "name": "Prof. Namita Tiwari",
         "role": NivaranRole.DEAN,
-        "designation": "Dean, Research & Development",
+        "designation": "Dean of Research & Development",
         "department": "R&D",
     },
     # 2. Manager
@@ -319,15 +320,29 @@ class AuthorityReconciliationService:
 
 
         # ------------------------------------------------------------------
-        # 2. ACTIVATE CANONICAL USERS
+        # 2. ACTIVATE CANONICAL USERS & ASSIGN GENERIC AUTHORITY ROLE
         # ------------------------------------------------------------------
-        logger.info("Step 2: Activating 15 canonical users...")
+        logger.info("Step 2: Activating 15 canonical users and ensuring generic authority role...")
         canonical_user_ids = [a["vyasa_user_id"] for a in CANONICAL_AUTHORITIES]
         activated_count = self.db.execute(
             text("UPDATE users SET is_active = true WHERE id = ANY(:uids)").bindparams(uids=canonical_user_ids)
         ).rowcount
         report["users_activated"] = activated_count
         logger.info(f"Activated {activated_count} canonical users.")
+
+        # Ensure generic system role 'authority' is assigned in user_roles
+        role_authority = self.db.execute(select(Role).where(Role.name == "authority")).scalar_one_or_none()
+        if role_authority:
+            for uid in canonical_user_ids:
+                has_role = self.db.execute(
+                    text("SELECT 1 FROM user_roles WHERE user_id = :uid AND role_id = :rid")
+                    .bindparams(uid=uid, rid=role_authority.id)
+                ).scalar()
+                if not has_role:
+                    self.db.execute(
+                        text("INSERT INTO user_roles (user_id, role_id) VALUES (:uid, :rid)")
+                        .bindparams(uid=uid, rid=role_authority.id)
+                    )
 
         # ------------------------------------------------------------------
         # 3. CREATE 15 CANONICAL NIVARAN AUTHORITIES

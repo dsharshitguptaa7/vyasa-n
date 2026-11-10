@@ -153,7 +153,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
     expect(nivaran?.name).toBe('NIVARAN');
     expect(nivaran?.isActive).toBe(true);
     expect(nivaran?.moduleKey).toBe('atharva_veda_nivaran');
-    expect(nivaran?.route).toBe('/modules/atharva-veda/nivaran');
+    expect(nivaran?.route).toBe('/atharva-veda/workspace');
   });
 
   // 3. NIVARAN is visible in Services dropdown
@@ -323,7 +323,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div>Target Dean Dashboard</div>} />
+          <Route path="/atharva-veda/dean/dashboard" element={<div>Target Dean Dashboard</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -348,7 +348,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<div>Target Scholar Grievances</div>} />
+          <Route path="/atharva-veda/my-grievances" element={<div>Target Scholar Grievances</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -374,7 +374,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/manager/queue" element={<div>Target Manager Queue</div>} />
+          <Route path="/atharva-veda/manager/queue" element={<div>Target Manager Queue</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -400,7 +400,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/assistant-dean/dashboard" element={<div>Target Assistant Dean Docket</div>} />
+          <Route path="/atharva-veda/assistant-dean/dashboard" element={<div>Target Assistant Dean Docket</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -426,7 +426,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/associate-dean/dashboard" element={<div>Target Associate Dean Docket</div>} />
+          <Route path="/atharva-veda/associate-dean/dashboard" element={<div>Target Associate Dean Docket</div>} />
         </Routes>
       </MemoryRouter>
     );
@@ -452,7 +452,7 @@ describe('VYASA Services Menu & Platform UX Architecture Suite', () => {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<ServicesMenu />} />
-          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div>Target Dean Command Center</div>} />
+          <Route path="/atharva-veda/dean/dashboard" element={<div>Target Dean Command Center</div>} />
         </Routes>
       </MemoryRouter>
     );

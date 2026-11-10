@@ -5,7 +5,14 @@ Tables prefixed with 'sama_*'.
 from app.modules.sama_veda.models.bulletin import ResearchBulletin
 from app.modules.sama_veda.models.author import ResearchAuthor
 from app.modules.sama_veda.models.publication import ResearchPublication, PublicationAuthor
-from app.modules.sama_veda.models.certificate import FelicitationCertificate, CertificateVerificationEvent
+from app.modules.sama_veda.models.certificate import (
+    CertificateTemplate,
+    CertificateSignatory,
+    FelicitationCertificate,
+    CertificateAuthor,
+    CertificateApproval,
+    CertificateVerificationEvent,
+)
 from app.modules.sama_veda.models.cam_project import CamAiProject
 from app.modules.sama_veda.models.fellowship import FellowshipScheme
 from app.modules.sama_veda.models.spotlight import ResearcherSpotlight
@@ -16,7 +23,11 @@ __all__ = [
     "ResearchAuthor",
     "ResearchPublication",
     "PublicationAuthor",
+    "CertificateTemplate",
+    "CertificateSignatory",
     "FelicitationCertificate",
+    "CertificateAuthor",
+    "CertificateApproval",
     "CertificateVerificationEvent",
     "CamAiProject",
     "FellowshipScheme",

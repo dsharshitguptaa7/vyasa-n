@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, desc
+from sqlalchemy.exc import OperationalError, DBAPIError
 
+from app.core.logging import logger
 from app.api.dependencies import get_db, require_permission, require_super_admin_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
@@ -49,8 +51,19 @@ from app.admin.schemas.sama_cms import (
     CamProjectListResponse,
     CertificateIssueRequest,
     CertificateRevokeRequest,
+    CertificateReissueRequest,
     CertificateOut,
     CertificateListResponse,
+    CertificateStatsOut,
+    CertificateApprovalActionRequest,
+    CertificateSignatoryCreate,
+    CertificateSignatoryUpdate,
+    CertificateSignatoryOut,
+    SignatoryListResponse,
+    CertificateTemplateCreate,
+    CertificateTemplateUpdate,
+    CertificateTemplateOut,
+    TemplateListResponse,
     SpotlightCreate,
     SpotlightUpdate,
     SpotlightOut,
@@ -98,11 +111,26 @@ def _to_publication_out(pub: ResearchPublication) -> PublicationOut:
 
 def _handle_db_schema_exception(exc: Exception, entity_name: str):
     err_str = str(exc).lower()
-    if "relation" in err_str or "does not exist" in err_str or "undefinedtable" in err_str or "undefined_table" in err_str:
+    
+    # 1. Distinguish network / connection / resolution failures from missing schema
+    if isinstance(exc, (OperationalError, DBAPIError)) and any(
+        kw in err_str for kw in ["connection", "timeout", "refused", "name resolution", "getaddrinfo", "server closed", "could not connect"]
+    ):
+        logger.error("Database connectivity failure while accessing %s: %s", entity_name, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is currently unreachable. Please verify database connectivity.",
+        )
+
+    # 2. Schema / migration errors (missing table, missing column, undefined relation)
+    if any(kw in err_str for kw in ["relation", "does not exist", "undefinedtable", "undefined_table", "undefined_column", "undefinedcolumn"]):
+        logger.error("Database schema/migration error accessing %s: %s", entity_name, exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"{entity_name} database table is uninitialized or not migrated. Please verify database initialization.",
         )
+
+    logger.error("Unexpected database error accessing %s: %s", entity_name, exc)
     raise exc
 
 # ============================================================================
@@ -966,8 +994,108 @@ def delete_cam_project(
 
 
 # ============================================================================
-# 5. FELICITATION CERTIFICATES MANAGEMENT & REVOCATION
+# 5. FELICITATION CERTIFICATES & MODERN DIGITAL CERTIFICATE MANAGEMENT
 # ============================================================================
+
+@sama_admin_router.get("/certificates/stats", response_model=ApiResponse)
+def get_certificate_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    try:
+        stats = sama_cms_service.get_certificate_stats(db)
+    except Exception as exc:
+        _handle_db_schema_exception(exc, "Felicitation certificates")
+    return ApiResponse(
+        success=True,
+        message="Certificate statistics aggregated successfully.",
+        data=CertificateStatsOut.model_validate(stats).model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/preview")
+def preview_certificate_pdf(
+    payload: CertificateIssueRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    from fastapi.responses import Response
+    from app.modules.sama_veda.services.certificate_pdf_service import certificate_pdf_engine
+    
+    author_items = []
+    if payload.authors:
+        sorted_authors = sorted(payload.authors, key=lambda x: getattr(x, "author_order", 1) or 1)
+        for a in sorted_authors:
+            author_items.append({
+                "author_name_snapshot": a.author_name_snapshot,
+                "academic_title_snapshot": a.academic_title_snapshot,
+                "scopus_id_snapshot": a.scopus_id_snapshot,
+                "department_snapshot": a.department_snapshot,
+                "affiliation_snapshot": a.affiliation_snapshot,
+                "author_role": getattr(a, "author_role", "Author"),
+                "author_order": getattr(a, "author_order", 1),
+            })
+    else:
+        author_items = [{
+            "author_name_snapshot": "Recipient Researcher",
+            "department_snapshot": "Department of Physics",
+            "academic_title_snapshot": "Dr.",
+            "author_role": "First Author",
+            "author_order": 1,
+        }]
+
+    # Look up active signatories if present (purely read-only, never seed or commit)
+    dean_name = "Prof. (Dr.) Rajesh Kumar"
+    dean_desig = "Dean – Research & Development"
+    dean_sig = None
+    vc_name = "Prof. Vinay Kumar Pathak"
+    vc_desig = "Vice Chancellor"
+    vc_sig = None
+    try:
+        from app.modules.sama_veda.models.certificate import CertificateSignatory
+        sig_stmt = select(CertificateSignatory).where(CertificateSignatory.is_active == True)
+        signatories = db.scalars(sig_stmt).all()
+        for s in signatories:
+            if s.authority_type == "DEAN_RD":
+                dean_name = s.signatory_name
+                dean_desig = s.designation
+                dean_sig = s.signature_image_path
+            elif s.authority_type == "VICE_CHANCELLOR":
+                vc_name = s.signatory_name
+                vc_desig = s.designation
+                vc_sig = s.signature_image_path
+    except Exception:
+        pass
+
+    pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number=payload.certificate_number or "CSJMU/PREVIEW/DRAFT-0000",
+        verification_token="PREVIEW",
+        verification_url=f"{str(request.base_url).rstrip('/')}/verify/preview-draft",
+        title=payload.title,
+        presentation_statement=payload.presentation_statement or "This certificate is proudly conferred upon",
+        authors=author_items,
+        research_contribution_statement=payload.research_contribution_statement or "in recognition of meritorious scholarly contribution published in the research article titled:",
+        research_title=payload.research_title or "Exemplary Research Paper Title",
+        publication_details=payload.publication_details,
+        congratulatory_statement=payload.congratulatory_statement or "The university commends the exemplary commitment to advancing research frontiers and intellectual pursuit.",
+        dean_name=dean_name,
+        dean_designation=dean_desig,
+        dean_signature_path=dean_sig,
+        vc_name=vc_name,
+        vc_designation=vc_desig,
+        vc_signature_path=vc_sig,
+        is_preview=True,
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": "inline; filename=certificate_preview.pdf",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        }
+    )
+
 
 @sama_admin_router.get("/certificates", response_model=ApiResponse)
 def list_admin_certificates(
@@ -977,6 +1105,8 @@ def list_admin_certificates(
     author_id: Optional[uuid.UUID] = None,
     is_revoked: Optional[bool] = None,
     search: Optional[str] = None,
+    status: Optional[str] = None,
+    certificate_type: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:read")),
 ):
@@ -989,6 +1119,8 @@ def list_admin_certificates(
             author_id=author_id,
             is_revoked=is_revoked,
             search=search,
+            status=status,
+            certificate_type=certificate_type,
         )
     except Exception as exc:
         _handle_db_schema_exception(exc, "Felicitation certificates")
@@ -1059,20 +1191,33 @@ def issue_certificate(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:certificate:manage")),
 ):
-    # Verify unique certificate number
-    existing = sama_cms_service.get_certificate_by_number(db, payload.certificate_number)
-    if existing:
-        raise HTTPException(status_code=400, detail="Certificate number already exists.")
+    if payload.certificate_number:
+        existing = sama_cms_service.get_certificate_by_number(db, payload.certificate_number)
+        if existing:
+            raise HTTPException(status_code=400, detail="Certificate number already exists.")
 
-    # Verify bulletin and author exist
-    bulletin = sama_cms_service.get_bulletin_by_id(db, payload.bulletin_id)
-    if not bulletin:
-        raise HTTPException(status_code=400, detail="Referenced bulletin does not exist.")
-    author = sama_cms_service.get_author_by_id(db, payload.author_id)
-    if not author:
-        raise HTTPException(status_code=400, detail="Referenced author does not exist.")
+    if payload.bulletin_id:
+        bulletin = sama_cms_service.get_bulletin_by_id(db, payload.bulletin_id)
+        if not bulletin:
+            raise HTTPException(status_code=400, detail="Referenced bulletin does not exist.")
+    if payload.author_id:
+        author = sama_cms_service.get_author_by_id(db, payload.author_id)
+        if not author:
+            raise HTTPException(status_code=400, detail="Referenced author does not exist.")
 
-    cert = sama_cms_service.issue_certificate(db, payload)
+    if payload.authors and not payload.submit_for_approval:
+        # Exceptional direct issuance requires mandatory institutional justification (>= 10 chars)
+        justification = (payload.direct_issue_justification or "").strip()
+        if len(justification) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Direct certificate issuance requires a mandatory institutional justification (minimum 10 characters).",
+            )
+
+    base_url = str(request.base_url).rstrip("/")
+    cert = sama_cms_service.issue_certificate(
+        db, payload, created_by_user_id=current_user.id, base_verification_url=base_url
+    )
 
     audit_service.log_from_request(
         request=request,
@@ -1086,6 +1231,8 @@ def issue_certificate(
             "certificate_number": cert.certificate_number,
             "author_id": str(cert.author_id),
             "bulletin_id": str(cert.bulletin_id),
+            "submit_mode": "APPROVAL" if payload.submit_for_approval else "DIRECT_ISSUANCE",
+            "direct_issue_justification": payload.direct_issue_justification if not payload.submit_for_approval else None,
         },
         fail_silent=False,
     )
@@ -1142,6 +1289,288 @@ def revoke_certificate(
     )
 
 
+@sama_admin_router.post("/certificates/{certificate_id}/approve", response_model=ApiResponse)
+def approve_certificate(
+    certificate_id: uuid.UUID,
+    payload: CertificateApprovalActionRequest,
+    request: Request,
+    authority: str = Query("DEAN_RD", description="DEAN_RD | VICE_CHANCELLOR"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    """
+    Dual authority approval endpoint for Dean – R&D and Vice Chancellor.
+    When both authorities approve, final vector PDF is rendered and document becomes ISSUED.
+    """
+    cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    if payload.action.upper() == "REJECT" and not payload.remarks:
+        raise HTTPException(status_code=400, detail="Rejection remarks are mandatory when rejecting a certificate.")
+
+    base_url = str(request.base_url).rstrip("/")
+    updated_cert = sama_cms_service.process_authority_approval(
+        db,
+        cert,
+        authority_type=authority.strip().upper(),
+        action=payload.action,
+        remarks=payload.remarks,
+        user_id=current_user.id,
+        base_verification_url=base_url,
+    )
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action=f"certificate_approval_{payload.action.lower()}",
+        entity_name="FelicitationCertificate",
+        entity_id=updated_cert.id,
+        actor_user_id=current_user.id,
+        details={
+            "certificate_number": updated_cert.certificate_number,
+            "authority": authority,
+            "action": payload.action,
+            "status": updated_cert.status,
+            "remarks": payload.remarks,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=True,
+        message=f"Certificate approval action '{payload.action}' recorded successfully.",
+        data=CertificateOut.model_validate(updated_cert).model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/{certificate_id}/reissue", response_model=ApiResponse)
+def reissue_certificate(
+    certificate_id: uuid.UUID,
+    payload: CertificateReissueRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:revoke")),
+):
+    """
+    Reissue a certificate with corrections. Marks old certificate as SUPERSEDED and issues replacement document.
+    Restricted to Super Admin.
+    """
+    cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    base_url = str(request.base_url).rstrip("/")
+    new_cert = sama_cms_service.reissue_certificate(
+        db, cert, reason=payload.reissue_reason, data=payload, created_by_user_id=current_user.id, base_verification_url=base_url
+    )
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificate_reissued",
+        entity_name="FelicitationCertificate",
+        entity_id=new_cert.id,
+        actor_user_id=current_user.id,
+        details={
+            "previous_certificate_id": str(cert.id),
+            "previous_certificate_number": cert.certificate_number,
+            "new_certificate_number": new_cert.certificate_number,
+            "reissue_reason": payload.reissue_reason,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=True,
+        message=f"Certificate {cert.certificate_number} superseded and reissued as {new_cert.certificate_number}.",
+        data=CertificateOut.model_validate(new_cert).model_dump(),
+    )
+
+
+# ============================================================================
+# TEMPLATE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@sama_admin_router.get("/templates", response_model=ApiResponse)
+def list_admin_templates(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    is_active: Optional[bool] = None,
+    certificate_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    try:
+        total, tpls = sama_cms_service.list_templates(
+            db, skip=skip, limit=limit, is_active=is_active, certificate_type=certificate_type
+        )
+    except Exception as exc:
+        _handle_db_schema_exception(exc, "Certificate templates")
+    items = [CertificateTemplateOut.model_validate(t) for t in tpls]
+    return ApiResponse(
+        success=True,
+        message="Certificate templates retrieved successfully.",
+        data=TemplateListResponse(total=total, items=items).model_dump(),
+    )
+
+
+@sama_admin_router.get("/templates/{template_id}", response_model=ApiResponse)
+def get_admin_template(
+    template_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    tpl = sama_cms_service.get_template_by_id(db, template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Certificate template not found.")
+    return ApiResponse(
+        success=True,
+        message="Certificate template retrieved successfully.",
+        data=CertificateTemplateOut.model_validate(tpl).model_dump(),
+    )
+
+
+@sama_admin_router.post("/templates", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_admin_template(
+    payload: CertificateTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    tpl = sama_cms_service.create_template(db, payload, user_id=current_user.id)
+    return ApiResponse(
+        success=True,
+        message="Certificate template created successfully.",
+        data=CertificateTemplateOut.model_validate(tpl).model_dump(),
+    )
+
+
+@sama_admin_router.put("/templates/{template_id}", response_model=ApiResponse)
+def update_admin_template(
+    template_id: uuid.UUID,
+    payload: CertificateTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    tpl = sama_cms_service.get_template_by_id(db, template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Certificate template not found.")
+    updated = sama_cms_service.update_template(db, tpl, payload)
+    return ApiResponse(
+        success=True,
+        message="Certificate template updated successfully.",
+        data=CertificateTemplateOut.model_validate(updated).model_dump(),
+    )
+
+
+# ============================================================================
+# SIGNATORY MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@sama_admin_router.get("/signatories", response_model=ApiResponse)
+def list_admin_signatories(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    is_active: Optional[bool] = None,
+    authority_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    try:
+        total, sigs = sama_cms_service.list_signatories(
+            db, skip=skip, limit=limit, is_active=is_active, authority_type=authority_type
+        )
+    except Exception as exc:
+        _handle_db_schema_exception(exc, "Certificate signatories")
+    items = [CertificateSignatoryOut.model_validate(s) for s in sigs]
+    return ApiResponse(
+        success=True,
+        message="Certificate signatories retrieved successfully.",
+        data=SignatoryListResponse(total=total, items=items).model_dump(),
+    )
+
+
+@sama_admin_router.get("/signatories/{signatory_id}", response_model=ApiResponse)
+def get_admin_signatory(
+    signatory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    sig = sama_cms_service.get_signatory_by_id(db, signatory_id)
+    if not sig:
+        raise HTTPException(status_code=404, detail="Certificate signatory not found.")
+    return ApiResponse(
+        success=True,
+        message="Certificate signatory retrieved successfully.",
+        data=CertificateSignatoryOut.model_validate(sig).model_dump(),
+    )
+
+
+@sama_admin_router.post("/signatories", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_admin_signatory(
+    payload: CertificateSignatoryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    sig = sama_cms_service.create_signatory(db, payload)
+    return ApiResponse(
+        success=True,
+        message="Certificate signatory created successfully.",
+        data=CertificateSignatoryOut.model_validate(sig).model_dump(),
+    )
+
+
+@sama_admin_router.put("/signatories/{signatory_id}", response_model=ApiResponse)
+def update_admin_signatory(
+    signatory_id: uuid.UUID,
+    payload: CertificateSignatoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    sig = sama_cms_service.get_signatory_by_id(db, signatory_id)
+    if not sig:
+        raise HTTPException(status_code=404, detail="Certificate signatory not found.")
+    updated = sama_cms_service.update_signatory(db, sig, payload)
+    return ApiResponse(
+        success=True,
+        message="Certificate signatory updated successfully.",
+        data=CertificateSignatoryOut.model_validate(updated).model_dump(),
+    )
+
+
+@sama_admin_router.post("/signatories/{signatory_id}/upload-signature", response_model=ApiResponse)
+def upload_signatory_signature(
+    signatory_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    sig = sama_cms_service.get_signatory_by_id(db, signatory_id)
+    if not sig:
+        raise HTTPException(status_code=404, detail="Certificate signatory not found.")
+
+    try:
+        result = storage_service.save_file(
+            content=file.file,
+            filename=file.filename or "signature.png",
+            subfolder="sama_veda/signatures",
+            allowed_mime_types=["image/png", "image/jpeg"],
+        )
+        sig.signature_image_path = result.storage_key
+        sig.signature_asset_version += 1
+        db.commit()
+        db.refresh(sig)
+        return ApiResponse(
+            success=True,
+            message="Signatory signature asset uploaded successfully.",
+            data=CertificateSignatoryOut.model_validate(sig).model_dump(),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to upload signature asset: {e}")
+
+
 @sama_admin_router.get("/certificates/{certificate_id}/download")
 def download_admin_certificate(
     certificate_id: uuid.UUID,
@@ -1166,7 +1595,8 @@ def download_admin_certificate(
     cert.download_count += 1
     db.commit()
 
-    safe_name = cert.certificate_number.replace("/", "_") + ".pdf"
+    cert_no = cert.certificate_number if isinstance(cert.certificate_number, str) else "certificate"
+    safe_name = cert_no.replace("/", "_") + ".pdf"
     return FileResponse(
         path=str(file_path),
         media_type="application/pdf",

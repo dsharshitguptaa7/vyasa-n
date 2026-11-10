@@ -201,7 +201,7 @@ export const VyasaPortalSidebar: React.FC<VyasaPortalSidebarProps> = ({
             >
               {activeServices.map((service) => {
                 const isServiceActive = location.pathname.startsWith(service.route);
-                const iconName: any = service.id === 'nivaran' ? 'shield' : service.id === 'sama-veda' ? 'book-open' : 'grid';
+                const iconName: any = service.id === 'nivaran' ? 'shield' : service.id === 'sama-veda' ? 'book-open' : service.id === 'anudaan' ? 'building' : (service.icon as any) || 'grid';
                 return (
                   <button
                     key={service.id}

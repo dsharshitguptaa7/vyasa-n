@@ -14,6 +14,7 @@ import { ResolveGrievanceModal } from '../components/ResolveGrievanceModal';
 import { RequestDocumentModal } from '../components/RequestDocumentModal';
 import { RequestCommitteeModal } from '../components/RequestCommitteeModal';
 import { ClosedCaseEFileCard } from '../components/ClosedCaseEFileCard';
+import { GrievanceLifecycleTracker } from '../components/GrievanceLifecycleTracker';
 import './CaseReview.css';
 
 export const AssistantDeanGrievanceDetailPage: React.FC = () => {
@@ -123,7 +124,7 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
             Case dossier could not be found or you lack Assistant Dean jurisdiction.
           </p>
           <div style={{ textAlign: 'center', marginTop: '12px' }}>
-            <Button variant="outline" onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/cases')}>
+            <Button variant="outline" onClick={() => navigate('/atharva-veda/assistant-dean/cases')}>
               Return to Queue
             </Button>
           </div>
@@ -144,13 +145,79 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
 
   return (
     <PageContainer style={{ padding: '36px 0 80px' }}>
+      {/* 0. Stately Role Breadcrumb Navigation */}
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '16px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
+        >
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>Dashboard</span>
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/atharva-veda/workspace')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Atharva Veda
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/atharva-veda/assistant-dean/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Assistant Dean Desk
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>
+          Case #{dossier?.id || id}
+        </span>
+      </nav>
+
       {/* 1. Stately Case Review Header */}
       <div className="nivaran-case-header">
         <div className="nivaran-case-header__top-bar">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/cases')}
+            onClick={() => navigate('/atharva-veda/assistant-dean/cases')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <AppIcon name="arrow-left" size={13} /> Back to Docket
@@ -509,53 +576,14 @@ export const AssistantDeanGrievanceDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Audit History Timeline */}
-          <div className="nivaran-card">
-            <div className="nivaran-card__header">
-              <div className="nivaran-card__header-left">
-                <div className="nivaran-card__header-chip" aria-hidden="true">
-                  <AppIcon name="clock" size={16} color="var(--vyasa-navy, #1b2a4a)" />
-                </div>
-                <div>
-                  <h3 className="nivaran-card__title">Status History &amp; Activity Log</h3>
-                  <p className="nivaran-card__subtitle">History of updates and actions taken</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="nivaran-card__body">
-              {dossier.history.length === 0 ? (
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
-                  No state transition history recorded.
-                </p>
-              ) : (
-                <div className="nivaran-timeline">
-                  {dossier.history.map((h) => (
-                    <div key={h.id} className="nivaran-timeline-node">
-                      <div className="nivaran-timeline-node__main">
-                        <div className="nivaran-timeline-node__header">
-                          <span className="nivaran-timeline-node__transition">
-                            {h.from_status ? `${h.from_status} \u2192 ` : ''}{h.to_status}
-                          </span>
-                          <span className="nivaran-timeline-node__time">
-                            {new Date(h.created_at).toLocaleString()}
-                          </span>
-                        </div>
-                        {h.remarks && (
-                          <div className="nivaran-timeline-node__remarks">
-                            {h.remarks}
-                          </div>
-                        )}
-                        <div className="nivaran-timeline-node__actor">
-                          Actor: <strong>{h.actor_type}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Audit History & Modern Lifecycle Tracking */}
+          <GrievanceLifecycleTracker
+            currentStatus={dossier.status}
+            history={dossier.history}
+            createdAt={dossier.created_at}
+            updatedAt={dossier.updated_at}
+            grievanceId={dossier.grievance_id}
+          />
         </div>
 
         {/* Right Column: Actions & Stage 2 Routing Preview */}

@@ -15,21 +15,36 @@
 .vyasa-public-header .csjmu-top-bar {
   background-color: #081726;
   color: #ffffff;
-  padding: 8px 0;
+  padding: 0;
+  height: 64px;
+  min-height: 64px;
+  max-height: 68px;
   font-size: 12px;
   transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .vyasa-public-header.is-scrolled .csjmu-top-bar {
-  padding: 5px 0;
+  height: 56px;
+  min-height: 56px;
 }
 
 .csjmu-top-bar__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
+  height: 100%;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 24px;
+  padding-right: 24px;
+  max-width: 1440px !important;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Style accreditation pill inside UniversityBrand */
@@ -75,6 +90,10 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   transition: all 0.25s ease;
   position: relative;
+  height: 64px;
+  min-height: 64px;
+  max-height: 68px;
+  box-sizing: border-box;
 }
 
 .vyasa-public-header.is-scrolled .vyasa-public-masthead {
@@ -82,21 +101,28 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  height: 56px;
+  min-height: 56px;
 }
 
 .vyasa-public-masthead__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
-  padding-top: 0;
-  padding-bottom: 0;
+  height: 100%;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 24px;
+  padding-right: 24px;
   transition: height 0.25s ease;
   gap: 16px;
+  max-width: 1440px !important;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .vyasa-public-header.is-scrolled .vyasa-public-masthead__inner {
-  height: 56px;
+  height: 100%;
 }
 
 /* 4. VYASA Logo & Horizontal Brand Lockup */
@@ -187,7 +213,7 @@
 .vyasa-public-nav-list {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -200,9 +226,9 @@
 .vyasa-public-nav-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 13.5px;
+  gap: 5px;
+  padding: 7px 11px;
+  font-size: 13px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
@@ -272,6 +298,43 @@
   border-left-color: var(--vyasa-teal, #0d766e);
   color: #5eead4;
   background: rgba(13, 118, 110, 0.15);
+}
+
+/* ANUDAAN link specific saffron branding accent */
+.vyasa-public-nav-link--anudaan:hover {
+  color: #fdba74;
+}
+
+.vyasa-public-nav-link--anudaan:focus-visible {
+  outline: 2px solid var(--vyasa-saffron, #c85602);
+  outline-offset: 2px;
+}
+
+.vyasa-public-nav-link--anudaan.is-active {
+  color: #ffffff;
+  background: rgba(200, 86, 2, 0.16);
+}
+
+.vyasa-public-nav-link--anudaan.is-active::after {
+  background: var(--vyasa-saffron, #c85602);
+  box-shadow: 0 0 8px rgba(200, 86, 2, 0.45);
+}
+
+.vyasa-public-nav-link--anudaan .vyasa-operational-indicator,
+.vyasa-mobile-nav-link--anudaan .vyasa-operational-indicator {
+  background: rgba(200, 86, 2, 0.28);
+  border-color: var(--vyasa-saffron, #c85602);
+  color: #fed7aa;
+}
+
+.vyasa-mobile-nav-link--anudaan:hover {
+  color: #fdba74;
+}
+
+.vyasa-mobile-nav-link--anudaan.is-active {
+  border-left-color: var(--vyasa-saffron, #c85602);
+  color: #fdba74;
+  background: rgba(200, 86, 2, 0.15);
 }
 
 /* Operational Service Indicator (NIVARAN) */
@@ -581,20 +644,52 @@
 }
 
 /* Responsive Breakpoints */
-@media (max-width: 1200px) {
+@media (max-width: 1366px) {
   .vyasa-public-nav-list {
-    gap: 2px;
+    gap: 3px;
   }
   .vyasa-public-nav-link {
-    padding: 6px 9px;
+    padding: 6px 8px;
     font-size: 12.5px;
+    gap: 4px;
   }
   .vyasa-public-actions {
     gap: 8px;
   }
+  .vyasa-access-btn {
+    padding: 7px 11px;
+    font-size: 12px;
+  }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1280px) {
+  .vyasa-public-nav-list {
+    gap: 2px;
+  }
+  .vyasa-public-nav-link {
+    padding: 5px 6px;
+    font-size: 11.5px;
+    gap: 3px;
+  }
+  .vyasa-public-actions {
+    gap: 6px;
+  }
+  .vyasa-access-btn {
+    padding: 6px 9px;
+    font-size: 11.5px;
+  }
+  .vyasa-public-logo-lockup {
+    gap: 6px;
+  }
+  .vyasa-public-logo-title {
+    font-size: 13px;
+  }
+  .vyasa-public-logo-tagline {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 1180px) {
   .vyasa-public-nav-container {
     display: none;
   }
@@ -611,13 +706,45 @@
   }
 }
 
+@media (max-width: 768px) {
+  .vyasa-public-header .csjmu-top-bar {
+    height: 58px;
+    min-height: 58px;
+  }
+  .vyasa-public-masthead {
+    height: 58px;
+    min-height: 58px;
+  }
+  .csjmu-top-bar__inner,
+  .vyasa-public-masthead__inner {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
 @media (max-width: 640px) {
+  .vyasa-public-header .csjmu-top-bar {
+    height: 54px;
+    min-height: 54px;
+  }
   .csjmu-top-bar__inner {
-    justify-content: center;
-    text-align: center;
+    justify-content: space-between;
+    padding-left: 14px;
+    padding-right: 14px;
   }
   .csjmu-top-bar__meta {
-    display: none;
+    font-size: 10.5px;
+  }
+  .csjmu-top-bar__location {
+    font-size: 10.5px;
+  }
+  .vyasa-public-masthead {
+    height: 56px;
+    min-height: 56px;
+  }
+  .vyasa-public-masthead__inner {
+    padding-left: 14px;
+    padding-right: 14px;
   }
   .vyasa-public-logo-title {
     font-size: 13px;

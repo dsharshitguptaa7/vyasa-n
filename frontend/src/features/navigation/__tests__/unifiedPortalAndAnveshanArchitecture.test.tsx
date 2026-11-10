@@ -110,7 +110,7 @@ describe('Unified Portal, Layout & ANVESHAN Architecture Suite', () => {
 
       expect(mockNavigate).toHaveBeenCalled();
       const calledPath = mockNavigate.mock.calls[0][0];
-      expect(calledPath).toContain('/modules/atharva-veda/nivaran');
+      expect(calledPath).toContain('/atharva-veda');
     });
 
     it('1.3 Guidelines & Help opens help modal callback or guidelines, NOT grievances', () => {
@@ -143,7 +143,7 @@ describe('Unified Portal, Layout & ANVESHAN Architecture Suite', () => {
       expect(dashboardLink.getAttribute('href')).toBe('/dashboard');
 
       const grievancesLink = screen.getByRole('link', { name: /My Grievances/i });
-      expect(grievancesLink.getAttribute('href')).toBe('/modules/atharva-veda/nivaran/my-grievances');
+      expect(grievancesLink.getAttribute('href')).toBe('/atharva-veda/my-grievances');
 
       const anveshanLink = screen.getByRole('link', { name: /SAMIKSHA Research/i });
       expect(anveshanLink.getAttribute('href')).toBe('/modules/sama-veda');
@@ -177,7 +177,7 @@ describe('Unified Portal, Layout & ANVESHAN Architecture Suite', () => {
       );
 
       const pubButton = screen.getByRole('button', { name: /Publications Archive/i });
-      expect(pubButton).toHaveStyle({ borderBottom: '2px solid #0d766e' });
+      expect(pubButton).toHaveClass('is-active');
     });
 
     it('2.3 Clicking tab navigates to canonical subroute without full page reload', () => {
@@ -207,7 +207,7 @@ describe('Unified Portal, Layout & ANVESHAN Architecture Suite', () => {
       );
 
       const overviewBtn = screen.getByRole('button', { name: /Overview/i });
-      expect(overviewBtn).toHaveStyle({ borderBottom: '2px solid #0d766e' });
+      expect(overviewBtn).toHaveClass('is-active');
     });
   });
 

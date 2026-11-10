@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge, Button, LoadingState, EmptyState, AppIcon } from '@vyasa/ui';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { phase6dService } from '../services/phase6dService';
 import { StudentMasterRecordSummaryItem } from '../types/phase6d';
@@ -8,24 +8,45 @@ import './CaseReview.css';
 
 export const StudentRecordSearchPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, displayName, authorityDesignation } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  const initialQuery = searchParams.get('q') || searchParams.get('searchTerm') || '';
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [results, setResults] = useState<StudentMasterRecordSummaryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(Boolean(initialQuery.trim()));
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const authorityFullName = displayName || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Appointed Authority');
 
+  // Trigger search on mount or when searchParams change
+  useEffect(() => {
+    const query = searchParams.get('q') || searchParams.get('searchTerm');
+    if (query && query.trim()) {
+      setSearchTerm(query.trim());
+      setLoading(true);
+      setErrorMsg(null);
+      setHasSearched(true);
+      phase6dService
+        .searchStudentRecords(query.trim(), undefined, 1, 20)
+        .then((data) => setResults(data.items))
+        .catch((err) => setErrorMsg(err instanceof Error ? err.message : 'Directory search failed.'))
+        .finally(() => setLoading(false));
+    }
+  }, [searchParams]);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    const query = searchTerm.trim();
+    if (!query) return;
 
+    setSearchParams({ q: query });
     try {
       setLoading(true);
       setErrorMsg(null);
       setHasSearched(true);
-      const data = await phase6dService.searchStudentRecords(searchTerm.trim(), undefined, 1, 20);
+      const data = await phase6dService.searchStudentRecords(query, undefined, 1, 20);
       setResults(data.items);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Directory search failed.');
@@ -69,7 +90,7 @@ export const StudentRecordSearchPage: React.FC = () => {
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <button
           type="button"
-          onClick={() => navigate('/modules/atharva-veda/nivaran/assistant-dean/dashboard')}
+          onClick={() => navigate('/atharva-veda/workspace')}
           style={{
             background: 'none',
             border: 'none',
@@ -79,7 +100,7 @@ export const StudentRecordSearchPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN
+          Atharva Veda
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Student Master Records</span>

@@ -4,6 +4,7 @@ import { HeroSection } from './components/HeroSection';
 import { VisionSection } from './components/VisionSection';
 import { SignaturePillarsSection } from './components/SignaturePillarsSection';
 import { FourDomainsSection } from './components/FourDomainsSection';
+import { AnudaanShowcaseSection } from './components/AnudaanShowcaseSection';
 import { SamikshaHighlightSection } from './components/SamikshaHighlightSection';
 import { NivaranOperationalSection } from './components/NivaranOperationalSection';
 import { IntegratedEcosystemSection } from './components/IntegratedEcosystemSection';
@@ -43,7 +44,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterEcosystem }) =>
       {/* 4. THE FOUR DOMAINS OF VYASAⁿ (Institutional Architecture) */}
       <FourDomainsSection />
 
-      {/* 5. SAMIKSHA (Detailed Branding & Research Services) */}
+      {/* 5. ANUDAAN (Dedicated Showcase & Incentive Processing) */}
+      <AnudaanShowcaseSection />
+
+      {/* 6. SAMIKSHA (Detailed Branding & Research Services) */}
       <SamikshaHighlightSection />
 
       {/* 6. NIVARAN (Detailed Branding & Grievance Flow) */}

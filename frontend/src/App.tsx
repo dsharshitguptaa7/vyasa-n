@@ -15,8 +15,14 @@ import { AuthorityLoginPage, ApplicantLoginPage, ApplicantRegisterPage } from '.
 import { VyasaDashboardPage, VyasaProfilePage } from './features/dashboard';
 import { SystemBoundaryView } from './features/system';
 import { RigVedaDashboardPage } from './modules/rig-veda';
-import { YajurVedaDashboardPage } from './modules/yajur-veda';
-import { SamaVedaDashboardPage } from './modules/sama-veda';
+import {
+  YajurVedaDashboardPage,
+  AnudaanPortalPage,
+  AnudaanTrackingPage,
+  AnudaanSanctionLetterPage,
+  AnudaanWizardPage,
+} from './modules/yajur-veda';
+import { SamaVedaDashboardPage, PublicCertificateVerificationPage } from './modules/sama-veda';
 import {
   NivaranWorkspacePage,
   GrievanceSubmitPage,
@@ -35,7 +41,6 @@ import {
   StudentMasterRecordsPage,
   StudentMasterRecordDetailPage,
   MyStudentRecordPage,
-  StudentRecordSearchPage,
   CommitteesListPage,
   CommitteeWorkspacePage,
 } from './modules/atharva-veda/nivaran';
@@ -311,6 +316,49 @@ export const AppRoutes: React.FC = () => {
           </PublicShell>
         }
       />
+      <Route
+        path="/modules/yajur-veda/anudaan"
+        element={
+          <PublicShell currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
+            <AnudaanPortalPage />
+          </PublicShell>
+        }
+      />
+      <Route
+        path="/modules/yajur-veda/anudaan/apply"
+        element={
+          <PublicShell currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
+            <AnudaanWizardPage />
+          </PublicShell>
+        }
+      />
+      <Route
+        path="/modules/yajur-veda/anudaan/track"
+        element={
+          <PublicShell currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
+            <AnudaanTrackingPage />
+          </PublicShell>
+        }
+      />
+      <Route
+        path="/modules/yajur-veda/anudaan/sanction/:id"
+        element={
+          <PublicShell currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
+            <AnudaanSanctionLetterPage />
+          </PublicShell>
+        }
+      />
+      <Route
+        path="/yajur-veda/anudaan/sanction/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/modules/yajur-veda/anudaan/sanction/${id || ''}`} />}
+      />
+      <Route
+        path="/anudaan/sanction/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/modules/yajur-veda/anudaan/sanction/${id || ''}`} />}
+      />
+      <Route path="/anudaan" element={<Navigate to="/modules/yajur-veda/anudaan" replace />} />
+      <Route path="/anudaan/apply" element={<Navigate to="/modules/yajur-veda/anudaan/apply" replace />} />
+      <Route path="/anudaan/track" element={<Navigate to="/modules/yajur-veda/anudaan/track" replace />} />
 
       {/* Sama Veda (ANVESHAN) Research Recognition & Innovation Portal */}
       <Route
@@ -340,9 +388,15 @@ export const AppRoutes: React.FC = () => {
         element={<DynamicParamRedirect to={({ tab }) => `/modules/sama-veda/${tab || ''}`} />}
       />
 
-      {/* Atharva Veda: NIVARAN Workspace & Grievance Lifecycle */}
+      {/* Public Digital Certificate Verification Routes */}
+      <Route path="/verify/:token" element={<PublicCertificateVerificationPage />} />
+      <Route path="/certificates/verify/:token" element={<PublicCertificateVerificationPage />} />
+      <Route path="/modules/sama-veda/verify/:token" element={<PublicCertificateVerificationPage />} />
+
+      {/* Atharva Veda: Canonical Workspace & Grievance Lifecycle */}
+      <Route path="/atharva-veda" element={<Navigate to="/atharva-veda/workspace" replace />} />
       <Route
-        path="/modules/atharva-veda/nivaran"
+        path="/atharva-veda/workspace"
         element={
           <PublicShell currentTab="nivaran" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
             <NivaranWorkspacePage />
@@ -350,7 +404,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/submit"
+        path="/atharva-veda/submit"
         element={
           <ApplicantRoute>
             <GrievanceSubmitPage />
@@ -358,7 +412,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/my-grievances"
+        path="/atharva-veda/my-grievances"
         element={
           <ApplicantRoute>
             <ApplicantGrievanceListPage />
@@ -366,31 +420,11 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/track"
-        element={<Navigate to="/modules/atharva-veda/nivaran/my-grievances" replace />}
-      />
-      <Route
-        path="/applicant/submit-grievance"
-        element={<Navigate to="/modules/atharva-veda/nivaran/submit" replace />}
-      />
-      <Route
-        path="/applicant/my-grievances"
-        element={<Navigate to="/modules/atharva-veda/nivaran/my-grievances" replace />}
-      />
-      <Route
-        path="/applicant/track"
-        element={<Navigate to="/modules/atharva-veda/nivaran/track" replace />}
-      />
-      <Route
-        path="/track-grievance"
-        element={<Navigate to="/modules/atharva-veda/nivaran/track" replace />}
-      />
-      <Route
-        path="/modules/atharva-veda/nivaran/grievance/:id"
+        path="/atharva-veda/grievance/:id"
         element={<ApplicantGrievanceDetailPage />}
       />
       <Route
-        path="/modules/atharva-veda/nivaran/manager/queue"
+        path="/atharva-veda/manager/queue"
         element={
           <ManagerRoute>
             <WorkspaceShell currentTab="governance">
@@ -400,7 +434,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/manager/review/:id"
+        path="/atharva-veda/manager/review/:id"
         element={
           <ManagerRoute>
             <WorkspaceShell currentTab="governance">
@@ -410,7 +444,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/manager/closure-queue"
+        path="/atharva-veda/manager/closure-queue"
         element={
           <ManagerRoute>
             <WorkspaceShell currentTab="governance">
@@ -422,7 +456,7 @@ export const AppRoutes: React.FC = () => {
 
       {/* Atharva Veda: Scoped Authority Case Queues */}
       <Route
-        path="/modules/atharva-veda/nivaran/assistant-dean/cases"
+        path="/atharva-veda/assistant-dean/cases"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
             <AssistantDeanDashboardPage />
@@ -430,7 +464,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/assistant-dean/dashboard"
+        path="/atharva-veda/assistant-dean/dashboard"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
             <AssistantDeanDashboardPage />
@@ -438,23 +472,27 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/assistant-dean/grievance/:id"
+        path="/atharva-veda/assistant-dean/grievance/:id"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
-            <AssistantDeanGrievanceDetailPage />
+            <WorkspaceShell currentTab="governance">
+              <AssistantDeanGrievanceDetailPage />
+            </WorkspaceShell>
           </AuthorityScopedRoute>
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/assistant-dean/grievances/:id"
+        path="/atharva-veda/assistant-dean/grievances/:id"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSISTANT_DEAN']} roleTitle="Assistant Dean">
-            <AssistantDeanGrievanceDetailPage />
+            <WorkspaceShell currentTab="governance">
+              <AssistantDeanGrievanceDetailPage />
+            </WorkspaceShell>
           </AuthorityScopedRoute>
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/associate-dean/cases"
+        path="/atharva-veda/associate-dean/cases"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
             <AssociateDeanDashboardPage />
@@ -462,7 +500,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/associate-dean/dashboard"
+        path="/atharva-veda/associate-dean/dashboard"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
             <AssociateDeanDashboardPage />
@@ -470,7 +508,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/associate-dean/grievance/:id"
+        path="/atharva-veda/associate-dean/grievance/:id"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
             <WorkspaceShell currentTab="governance">
@@ -480,7 +518,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/associate-dean/grievances/:id"
+        path="/atharva-veda/associate-dean/grievances/:id"
         element={
           <AuthorityScopedRoute allowedRoles={['ASSOCIATE_DEAN']} roleTitle="Associate Dean">
             <WorkspaceShell currentTab="governance">
@@ -490,7 +528,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/dean/dashboard"
+        path="/atharva-veda/dean/dashboard"
         element={
           <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean of Research & Development">
             <WorkspaceShell currentTab="governance">
@@ -500,7 +538,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/dean/cases"
+        path="/atharva-veda/dean/cases"
         element={
           <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean of Academic Affairs">
             <WorkspaceShell currentTab="governance">
@@ -510,9 +548,9 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
-      {/* Global Atharva Veda: E-Files & Student Master Records */}
+      {/* Atharva Veda: E-Files & Student Master Records */}
       <Route
-        path="/modules/atharva-veda/nivaran/e-files"
+        path="/atharva-veda/e-files"
         element={
           <AuthenticatedRoute>
             <NivaranEFilesPage />
@@ -520,7 +558,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/student-records"
+        path="/atharva-veda/student-records"
         element={
           <AuthenticatedRoute>
             <WorkspaceShell currentTab="governance">
@@ -530,7 +568,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/student-records/me"
+        path="/atharva-veda/student-records/me"
         element={
           <ApplicantRoute>
             <MyStudentRecordPage />
@@ -538,17 +576,11 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/student-records/search"
-        element={
-          <AuthorityScopedRoute allowedRoles={['MANAGER', 'ASSISTANT_DEAN', 'ASSOCIATE_DEAN', 'DEAN']} roleTitle="Student Records Directory">
-            <WorkspaceShell currentTab="governance">
-              <StudentRecordSearchPage />
-            </WorkspaceShell>
-          </AuthorityScopedRoute>
-        }
+        path="/atharva-veda/student-records/search"
+        element={<DynamicParamRedirect to={() => '/atharva-veda/student-records'} />}
       />
       <Route
-        path="/modules/atharva-veda/nivaran/student-records/:id"
+        path="/atharva-veda/student-records/:id"
         element={
           <AuthenticatedRoute>
             <WorkspaceShell currentTab="governance">
@@ -560,7 +592,7 @@ export const AppRoutes: React.FC = () => {
 
       {/* Atharva Veda: Committee Management Workspace */}
       <Route
-        path="/modules/atharva-veda/nivaran/committees"
+        path="/atharva-veda/committees"
         element={
           <AuthorityScopedRoute
             allowedRoles={['MANAGER', 'ASSISTANT_DEAN', 'ASSOCIATE_DEAN', 'DEAN']}
@@ -573,7 +605,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/modules/atharva-veda/nivaran/committees/:id"
+        path="/atharva-veda/committees/:id"
         element={
           <AuthorityScopedRoute
             allowedRoles={['MANAGER', 'ASSISTANT_DEAN', 'ASSOCIATE_DEAN', 'DEAN']}
@@ -586,56 +618,161 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
-      {/* Direct Atharva Veda aliases (without /modules prefix) */}
-      <Route path="/atharva-veda/nivaran/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
-      <Route path="/atharva-veda/nivaran/committees/:id" element={<Navigate to="/modules/atharva-veda/nivaran/committees/:id" replace />} />
-      <Route path="/nivaran/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
-      <Route path="/nivaran/committees/:id" element={<Navigate to="/modules/atharva-veda/nivaran/committees/:id" replace />} />
-      <Route path="/committees" element={<Navigate to="/modules/atharva-veda/nivaran/committees" replace />} />
-      <Route path="/atharva-veda/nivaran" element={<Navigate to="/modules/atharva-veda/nivaran" replace />} />
-      <Route path="/atharva-veda/nivaran/submit" element={<Navigate to="/modules/atharva-veda/nivaran/submit" replace />} />
-      <Route path="/atharva-veda/nivaran/my-grievances" element={<Navigate to="/modules/atharva-veda/nivaran/my-grievances" replace />} />
+      {/* Legacy /modules/atharva-veda/nivaran/* redirects */}
+      <Route path="/modules/atharva-veda" element={<Navigate to="/atharva-veda/workspace" replace />} />
+      <Route path="/modules/atharva-veda/nivaran" element={<Navigate to="/atharva-veda/workspace" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/submit" element={<Navigate to="/atharva-veda/submit" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/track" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/grievance/${id || ''}`} />}
+      />
+      <Route path="/modules/atharva-veda/nivaran/manager/queue" element={<Navigate to="/atharva-veda/manager/queue" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/manager/review/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/manager/review/${id || ''}`} />}
+      />
+      <Route path="/modules/atharva-veda/nivaran/manager/closure-queue" element={<Navigate to="/atharva-veda/manager/closure-queue" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/assistant-dean/cases" element={<Navigate to="/atharva-veda/assistant-dean/cases" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/assistant-dean/dashboard" element={<Navigate to="/atharva-veda/assistant-dean/dashboard" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/assistant-dean/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route
+        path="/modules/atharva-veda/nivaran/assistant-dean/grievances/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route path="/modules/atharva-veda/nivaran/associate-dean/cases" element={<Navigate to="/atharva-veda/associate-dean/cases" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/associate-dean/dashboard" element={<Navigate to="/atharva-veda/associate-dean/dashboard" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/associate-dean/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/associate-dean/grievances/${id || ''}`} />}
+      />
+      <Route
+        path="/modules/atharva-veda/nivaran/associate-dean/grievances/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/associate-dean/grievances/${id || ''}`} />}
+      />
+      <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<Navigate to="/atharva-veda/dean/dashboard" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/dean/cases" element={<Navigate to="/atharva-veda/dean/cases" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/e-files" element={<Navigate to="/atharva-veda/e-files" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/student-records" element={<Navigate to="/atharva-veda/student-records" replace />} />
+      <Route path="/modules/atharva-veda/nivaran/student-records/me" element={<Navigate to="/atharva-veda/student-records/me" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/student-records/search"
+        element={<DynamicParamRedirect to={() => '/atharva-veda/student-records'} />}
+      />
+      <Route
+        path="/modules/atharva-veda/nivaran/student-records/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/student-records/${id || ''}`} />}
+      />
+      <Route path="/modules/atharva-veda/nivaran/committees" element={<Navigate to="/atharva-veda/committees" replace />} />
+      <Route
+        path="/modules/atharva-veda/nivaran/committees/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/committees/${id || ''}`} />}
+      />
+
+      {/* Legacy /atharva-veda/nivaran/* redirects */}
+      <Route path="/atharva-veda/nivaran" element={<Navigate to="/atharva-veda/workspace" replace />} />
+      <Route path="/atharva-veda/nivaran/submit" element={<Navigate to="/atharva-veda/submit" replace />} />
+      <Route path="/atharva-veda/nivaran/my-grievances" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
       <Route
         path="/atharva-veda/nivaran/grievance/:id"
-        element={<ApplicantGrievanceDetailPage />}
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/grievance/${id || ''}`} />}
       />
-      <Route path="/atharva-veda/nivaran/manager/queue" element={<Navigate to="/modules/atharva-veda/nivaran/manager/queue" replace />} />
+      <Route path="/atharva-veda/nivaran/manager/queue" element={<Navigate to="/atharva-veda/manager/queue" replace />} />
       <Route
         path="/atharva-veda/nivaran/manager/review/:id"
-        element={<DynamicParamRedirect to={({ id }) => `/modules/atharva-veda/nivaran/manager/review/${id || ''}`} />}
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/manager/review/${id || ''}`} />}
       />
-      <Route path="/atharva-veda/nivaran/assistant-dean/dashboard" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/dashboard" replace />} />
-      <Route path="/atharva-veda/nivaran/assistant-dean/cases" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/cases" replace />} />
-      <Route path="/atharva-veda/nivaran/assistant-dean/grievance/:id" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/grievance/:id" replace />} />
-      <Route path="/atharva-veda/nivaran/assistant-dean/grievances/:id" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/grievances/:id" replace />} />
-      <Route path="/atharva-veda/nivaran/associate-dean/dashboard" element={<Navigate to="/modules/atharva-veda/nivaran/associate-dean/dashboard" replace />} />
-      <Route path="/atharva-veda/nivaran/associate-dean/cases" element={<Navigate to="/modules/atharva-veda/nivaran/associate-dean/cases" replace />} />
-      <Route path="/atharva-veda/nivaran/associate-dean/grievance/:id" element={<Navigate to="/modules/atharva-veda/nivaran/associate-dean/grievance/:id" replace />} />
-      <Route path="/atharva-veda/nivaran/associate-dean/grievances/:id" element={<Navigate to="/modules/atharva-veda/nivaran/associate-dean/grievances/:id" replace />} />
-      <Route path="/associate-dean" element={<Navigate to="/modules/atharva-veda/nivaran/associate-dean/dashboard" replace />} />
-      <Route path="/atharva-veda/nivaran/dean/dashboard" element={<Navigate to="/modules/atharva-veda/nivaran/dean/dashboard" replace />} />
-      <Route path="/dean/dashboard" element={<Navigate to="/modules/atharva-veda/nivaran/dean/dashboard" replace />} />
-      <Route path="/atharva-veda/nivaran/dean/cases" element={<Navigate to="/modules/atharva-veda/nivaran/dean/cases" replace />} />
+      <Route path="/atharva-veda/nivaran/manager/closure-queue" element={<Navigate to="/atharva-veda/manager/closure-queue" replace />} />
+      <Route path="/atharva-veda/nivaran/assistant-dean/dashboard" element={<Navigate to="/atharva-veda/assistant-dean/dashboard" replace />} />
+      <Route path="/atharva-veda/nivaran/assistant-dean/cases" element={<Navigate to="/atharva-veda/assistant-dean/cases" replace />} />
+      <Route
+        path="/atharva-veda/nivaran/assistant-dean/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route
+        path="/atharva-veda/nivaran/assistant-dean/grievances/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route path="/atharva-veda/nivaran/associate-dean/dashboard" element={<Navigate to="/atharva-veda/associate-dean/dashboard" replace />} />
+      <Route path="/atharva-veda/nivaran/associate-dean/cases" element={<Navigate to="/atharva-veda/associate-dean/cases" replace />} />
+      <Route
+        path="/atharva-veda/nivaran/associate-dean/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/associate-dean/grievances/${id || ''}`} />}
+      />
+      <Route
+        path="/atharva-veda/nivaran/associate-dean/grievances/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/associate-dean/grievances/${id || ''}`} />}
+      />
+      <Route path="/atharva-veda/nivaran/dean/dashboard" element={<Navigate to="/atharva-veda/dean/dashboard" replace />} />
+      <Route path="/atharva-veda/nivaran/dean/cases" element={<Navigate to="/atharva-veda/dean/cases" replace />} />
+      <Route path="/atharva-veda/nivaran/e-files" element={<Navigate to="/atharva-veda/e-files" replace />} />
+      <Route path="/atharva-veda/nivaran/student-records" element={<Navigate to="/atharva-veda/student-records" replace />} />
+      <Route path="/atharva-veda/nivaran/student-records/me" element={<Navigate to="/atharva-veda/student-records/me" replace />} />
+      <Route
+        path="/atharva-veda/nivaran/student-records/search"
+        element={<DynamicParamRedirect to={() => '/atharva-veda/student-records'} />}
+      />
+      <Route
+        path="/atharva-veda/nivaran/student-records/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/student-records/${id || ''}`} />}
+      />
+      <Route path="/atharva-veda/nivaran/committees" element={<Navigate to="/atharva-veda/committees" replace />} />
+      <Route
+        path="/atharva-veda/nivaran/committees/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/committees/${id || ''}`} />}
+      />
 
-      {/* Legacy NIVARAN alias redirects */}
-      <Route path="/modules/nivaran" element={<Navigate to="/modules/atharva-veda/nivaran" replace />} />
-      <Route path="/nivaran" element={<Navigate to="/modules/atharva-veda/nivaran" replace />} />
-      <Route path="/nivaran/submit" element={<Navigate to="/modules/atharva-veda/nivaran/submit" replace />} />
-      <Route path="/nivaran/my-grievances" element={<Navigate to="/modules/atharva-veda/nivaran/my-grievances" replace />} />
-      <Route path="/nivaran/assistant-dean/dashboard" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/dashboard" replace />} />
-      <Route path="/nivaran/assistant-dean/cases" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/cases" replace />} />
-      <Route path="/nivaran/assistant-dean/grievance/:id" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/grievance/:id" replace />} />
-      <Route path="/nivaran/assistant-dean/grievances/:id" element={<Navigate to="/modules/atharva-veda/nivaran/assistant-dean/grievances/:id" replace />} />
-
+      {/* Legacy /nivaran/* and applicant aliases */}
+      <Route path="/applicant/submit-grievance" element={<Navigate to="/atharva-veda/submit" replace />} />
+      <Route path="/applicant/my-grievances" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
+      <Route path="/applicant/track" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
+      <Route path="/track-grievance" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
+      <Route path="/modules/nivaran" element={<Navigate to="/atharva-veda/workspace" replace />} />
+      <Route path="/nivaran" element={<Navigate to="/atharva-veda/workspace" replace />} />
+      <Route path="/nivaran/submit" element={<Navigate to="/atharva-veda/submit" replace />} />
+      <Route path="/nivaran/my-grievances" element={<Navigate to="/atharva-veda/my-grievances" replace />} />
       <Route
         path="/nivaran/grievance/:id"
-        element={<ApplicantGrievanceDetailPage />}
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/grievance/${id || ''}`} />}
       />
-      <Route path="/nivaran/manager/queue" element={<Navigate to="/modules/atharva-veda/nivaran/manager/queue" replace />} />
+      <Route path="/nivaran/manager/queue" element={<Navigate to="/atharva-veda/manager/queue" replace />} />
       <Route
         path="/nivaran/manager/review/:id"
-        element={<DynamicParamRedirect to={({ id }) => `/modules/atharva-veda/nivaran/manager/review/${id || ''}`} />}
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/manager/review/${id || ''}`} />}
       />
+      <Route path="/nivaran/manager/closure-queue" element={<Navigate to="/atharva-veda/manager/closure-queue" replace />} />
+      <Route path="/nivaran/assistant-dean/dashboard" element={<Navigate to="/atharva-veda/assistant-dean/dashboard" replace />} />
+      <Route path="/nivaran/assistant-dean/cases" element={<Navigate to="/atharva-veda/assistant-dean/cases" replace />} />
+      <Route
+        path="/nivaran/assistant-dean/grievance/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route
+        path="/nivaran/assistant-dean/grievances/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/assistant-dean/grievances/${id || ''}`} />}
+      />
+      <Route path="/associate-dean" element={<Navigate to="/atharva-veda/associate-dean/dashboard" replace />} />
+      <Route path="/nivaran/associate-dean/dashboard" element={<Navigate to="/atharva-veda/associate-dean/dashboard" replace />} />
+      <Route path="/nivaran/associate-dean/cases" element={<Navigate to="/atharva-veda/associate-dean/cases" replace />} />
+      <Route path="/dean/dashboard" element={<Navigate to="/atharva-veda/dean/dashboard" replace />} />
+      <Route path="/nivaran/dean/dashboard" element={<Navigate to="/atharva-veda/dean/dashboard" replace />} />
+      <Route path="/nivaran/dean/cases" element={<Navigate to="/atharva-veda/dean/cases" replace />} />
+      <Route
+        path="/nivaran/student-records/search"
+        element={<DynamicParamRedirect to={() => '/atharva-veda/student-records'} />}
+      />
+      <Route path="/nivaran/student-records/me" element={<Navigate to="/atharva-veda/student-records/me" replace />} />
+      <Route path="/nivaran/student-records" element={<Navigate to="/atharva-veda/student-records" replace />} />
+      <Route path="/nivaran/committees" element={<Navigate to="/atharva-veda/committees" replace />} />
+      <Route
+        path="/nivaran/committees/:id"
+        element={<DynamicParamRedirect to={({ id }) => `/atharva-veda/committees/${id || ''}`} />}
+      />
+      <Route path="/committees" element={<Navigate to="/atharva-veda/committees" replace />} />
 
       {/* 8. Institutional Admin Console */}
       <Route

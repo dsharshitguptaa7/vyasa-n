@@ -71,6 +71,10 @@ class Settings(BaseSettings):
         default="",
         description="Dedicated Fernet key (32 url-safe base64-encoded bytes) for encrypting TOTP secrets at rest; strictly required in production",
     )
+    TOTP_FALLBACK_ENCRYPTION_KEYS: str = Field(
+        default="",
+        description="Optional comma-separated list of historical Fernet keys or secrets for seamless multi-key decryption and zero-downtime key rotation",
+    )
     TOTP_ISSUER: str = Field(
         default="VYASA-N",
         description="Institutional issuer name for authenticator apps",
@@ -135,15 +139,16 @@ class Settings(BaseSettings):
                 )
 
             # 2. Validate TOTP_ENCRYPTION_KEY
-            key = (self.TOTP_ENCRYPTION_KEY or "").strip()
-            if not key:
+            raw_totp_key = (self.TOTP_ENCRYPTION_KEY or "").strip()
+            if not raw_totp_key:
                 raise ValueError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY is strictly required in production mode."
                 )
+            primary_key = [k.strip() for k in raw_totp_key.split(",") if k.strip()][0]
             if (
-                key == "vyasa-core-development-secret-key-csjmu-governance"
-                or "development" in key.lower()
-                or "default" in key.lower()
+                primary_key == "vyasa-core-development-secret-key-csjmu-governance"
+                or "development" in primary_key.lower()
+                or "default" in primary_key.lower()
             ):
                 raise ValueError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY must not use a known development secret."
@@ -152,10 +157,10 @@ class Settings(BaseSettings):
             # Validate valid Fernet key format (32 url-safe base64-encoded bytes, 44 chars)
             try:
                 from cryptography.fernet import Fernet
-                raw_bytes = base64.urlsafe_b64decode(key.encode("utf-8"))
+                raw_bytes = base64.urlsafe_b64decode(primary_key.encode("utf-8"))
                 if len(raw_bytes) != 32:
                     raise ValueError("Key decoded length must be 32 bytes")
-                Fernet(key.encode("utf-8"))
+                Fernet(primary_key.encode("utf-8"))
             except Exception:
                 raise ValueError(
                     "Production configuration error: TOTP_ENCRYPTION_KEY is not a valid 32-byte URL-safe base64 Fernet key."

@@ -373,4 +373,90 @@ describe('SamaVedaPublicPortal', () => {
       expect(screen.getByText(/Hold a printed certificate for this research/i)).toBeInTheDocument();
     });
   });
+
+  it('renders volume-based archive architecture and navigates to issue table of contents detail view', async () => {
+    vi.spyOn(samaVedaService, 'getBulletins').mockResolvedValue({
+      items: [
+        {
+          id: 'b-vol2-iss1',
+          volume_number: 2,
+          issue_number: 1,
+          title: 'CSJMU Research Bulletin Vol 2 Issue 1',
+          publication_period: 'January - March 2026',
+          publication_count: 91,
+          file_size_bytes: 5242880,
+          checksum_sha256: 'b2d84ba6b4ee2660843c011689234891b2d84ba6b4ee2660843c011689234891',
+          published_at: '2026-04-01T10:00:00Z',
+        },
+      ],
+      total: 1,
+    });
+    vi.spyOn(samaVedaService, 'getCamProjects').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaVedaService, 'getFellowships').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaVedaService, 'getSpotlights').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaVedaService, 'getAuthors').mockResolvedValue({ items: [], total: 0, skip: 0, limit: 100 });
+    vi.spyOn(samaVedaService, 'getPublications').mockResolvedValue({
+      items: [
+        {
+          id: 'pub-article-1',
+          bulletin_id: 'b-vol2-iss1',
+          serial_no: 1,
+          slug: 'ai-precision-agriculture',
+          title: 'AI Precision Agriculture and Crop Yields',
+          source_journal: 'Journal of Agricultural Sciences',
+          category: 'Article',
+          author_display: 'Dr. Vivek Pandey',
+          authors_complete: true,
+          published_at: '2026-03-10T10:00:00Z',
+          created_at: '2026-03-10T10:00:00Z',
+          is_featured: true,
+          doi: '10.1016/j.jags.2026.0123',
+          author_links: [{ author_id: 'auth-1', author_name: 'Dr. Vivek Pandey', author_order: 1, is_corresponding: true, department: 'Agronomy' }],
+        },
+      ],
+      total: 1,
+      skip: 0,
+      limit: 100,
+    });
+
+    render(
+      <MemoryRouter>
+        <SamaVedaDashboardPage />
+      </MemoryRouter>
+    );
+
+    // Switch to Research Bulletins tab
+    fireEvent.click(screen.getByRole('button', { name: 'Research Bulletins' }));
+
+    // Check Volume Navigation section rendered with real data
+    await waitFor(() => {
+      expect(screen.getByText('Select Volume Archive')).toBeInTheDocument();
+      expect(screen.getByText('Volume 2')).toBeInTheDocument();
+      expect(screen.getByText('1 Issue Available')).toBeInTheDocument();
+      expect(screen.getByText('91 Publications')).toBeInTheDocument();
+    });
+
+    // Check Issue Card actions: Read Online, Download Bulletin PDF, View Issue Details
+    expect(screen.getByRole('button', { name: 'Read Online' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /View Issue Details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download CSJMU Research Bulletin Vol 2 Issue 1' })).toBeInTheDocument();
+
+    // Click 'View Issue Details'
+    fireEvent.click(screen.getByRole('button', { name: /View Issue Details/i }));
+
+    // Check dedicated issue detail view and Table of Contents rendered
+    await waitFor(() => {
+      expect(screen.getByText('Table of Contents • Issue 1')).toBeInTheDocument();
+      expect(screen.getByText('AI Precision Agriculture and Crop Yields')).toBeInTheDocument();
+      expect(screen.getByText('Dr. Vivek Pandey')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Back to Volumes Archive/i })).toBeInTheDocument();
+    });
+
+    // Navigate back to volume archive
+    fireEvent.click(screen.getByRole('button', { name: /Back to Volumes Archive/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Volume Archive')).toBeInTheDocument();
+    });
+  });
 });

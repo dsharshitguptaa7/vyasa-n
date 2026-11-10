@@ -42,6 +42,10 @@ EXPECTED_SAMA_TABLES = [
     "sama_publication_authors",
     "sama_felicitation_certificates",
     "sama_certificate_verification_events",
+    "sama_certificate_templates",
+    "sama_certificate_signatories",
+    "sama_certificate_authors",
+    "sama_certificate_approvals",
     "sama_cam_ai_projects",
     "sama_fellowship_schemes",
     "sama_researcher_spotlights",
@@ -58,7 +62,7 @@ def test_sama_veda_tables_registered_in_metadata(table_name):
 def test_sama_veda_table_count():
     """Verifies exactly 10 physical tables are created for Sama Veda."""
     registered_sama = [t for t in Base.metadata.tables.keys() if t.startswith("sama_")]
-    assert len(registered_sama) == 10
+    assert len(registered_sama) == 14
     assert set(registered_sama) == set(EXPECTED_SAMA_TABLES)
 
 
@@ -492,3 +496,102 @@ def test_publication_and_bulletin_lifecycle_columns():
     assert "revoked_at" in cert_table.c
     assert "revocation_reason" in cert_table.c
 
+
+
+def test_certificate_template_defaults():
+    from app.modules.sama_veda.models import CertificateTemplate
+    table = CertificateTemplate.__table__
+    assert "code" in table.c
+    assert "name" in table.c
+    assert "config" in table.c
+    assert "is_default" in table.c
+    assert "version" in table.c
+
+    tpl = CertificateTemplate(
+        code="CSJMU_A4_TEST",
+        name="CSJMU Official Test Template",
+        orientation="LANDSCAPE",
+        config={"border_color": "#B2811A"},
+    )
+    assert tpl.code == "CSJMU_A4_TEST"
+    assert tpl.orientation == "LANDSCAPE"
+    assert table.c.is_active.default.arg is True
+
+
+def test_certificate_signatory_defaults():
+    from app.modules.sama_veda.models import CertificateSignatory
+    table = CertificateSignatory.__table__
+    assert "authority_type" in table.c
+    assert "signatory_name" in table.c
+    assert "designation" in table.c
+    assert "is_active" in table.c
+
+    sig = CertificateSignatory(
+        authority_type="DEAN_RD",
+        signatory_name="Prof. (Dr.) Rajesh Kumar",
+        designation="Dean ? Research & Development",
+    )
+    assert sig.authority_type == "DEAN_RD"
+    assert table.c.is_active.default.arg is True
+
+
+def test_certificate_author_and_approval_relationships():
+    from app.modules.sama_veda.models import (
+        CertificateAuthor,
+        CertificateApproval,
+        FelicitationCertificate,
+    )
+    c_id = uuid.uuid4()
+    cert = FelicitationCertificate(
+        id=c_id,
+        certificate_number="CSJMU/SAMIKSHA/2026/000001",
+        title="Certificate of Appreciation",
+        status="PENDING_DEAN_APPROVAL",
+    )
+
+    auth1 = CertificateAuthor(
+        author_name_snapshot="Dr. Akhilesh Kumar",
+        academic_title_snapshot="Dr.",
+        scopus_id_snapshot="57211512345",
+        author_order=1,
+    )
+    auth2 = CertificateAuthor(
+        author_name_snapshot="Dr. Anju Dixit",
+        academic_title_snapshot="Dr.",
+        scopus_id_snapshot="57200192834",
+        author_order=2,
+    )
+    cert.authors.append(auth1)
+    cert.authors.append(auth2)
+
+    appr1 = CertificateApproval(
+        authority_type="DEAN_RD",
+        signatory_name_snapshot="Prof. (Dr.) Rajesh Kumar",
+        designation_snapshot="Dean ? Research & Development",
+        status="APPROVED",
+    )
+    cert.approvals.append(appr1)
+
+    assert len(cert.authors) == 2
+    assert cert.authors[0].author_name_snapshot == "Dr. Akhilesh Kumar"
+    assert cert.authors[1].author_order == 2
+    assert len(cert.approvals) == 1
+    assert cert.approvals[0].authority_type == "DEAN_RD"
+    assert cert.approvals[0].status == "APPROVED"
+
+
+def test_alembic_modern_certificate_system_migration_contract():
+    migration_path = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "8b29c54e1018_sama_veda_modern_certificate_system.py"
+    assert migration_path.is_file(), f"Migration file not found at {migration_path}"
+    spec = importlib.util.spec_from_file_location(
+        "migration_8b29c54e1018",
+        str(migration_path),
+    )
+    assert spec is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod.revision == "8b29c54e1018"
+    assert mod.down_revision == "8b29c54e1017"
+    assert callable(getattr(mod, "upgrade", None))
+    assert callable(getattr(mod, "downgrade", None))

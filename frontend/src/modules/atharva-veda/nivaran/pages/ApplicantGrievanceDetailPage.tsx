@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { PageContainer, Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
+import { Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ApplicantLayout } from '../../../../features/applicant';
-import { MainLayout } from '../../../../components/layout/MainLayout';
+import { WorkspaceShell } from '../../../../components/layout/WorkspaceShell';
 import { grievanceService } from '../services/grievanceService';
 import { GrievanceDetailResponse } from '../types/grievance';
 import { useAuth } from '../../../../context/AuthContext';
 
 import { ApplicantFeedbackCard } from '../components/ApplicantFeedbackCard';
 import { ClosedCaseEFileCard } from '../components/ClosedCaseEFileCard';
+import { GrievanceLifecycleTracker } from '../components/GrievanceLifecycleTracker';
 import './CaseReview.css';
 
 const formatFileSize = (bytes?: number | null): string => {
@@ -86,9 +87,11 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
   const ContentWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (isAuthority || isAdminOrManager) {
       return (
-        <MainLayout currentTab="pillars" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/authority/login')}>
-          <PageContainer style={{ padding: '32px 0 60px' }}>{children}</PageContainer>
-        </MainLayout>
+        <WorkspaceShell currentTab="governance">
+          <div style={{ padding: '24px 28px 48px', boxSizing: 'border-box', minWidth: 0 }}>
+            {children}
+          </div>
+        </WorkspaceShell>
       );
     }
     return <ApplicantLayout activeTab="my-grievances">{children}</ApplicantLayout>;
@@ -472,17 +475,17 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
               <AppIcon name="clipboard" size={16} color="var(--vyasa-navy, #1b2a4a)" />
             </div>
             <div>
-              <h3 className="nivaran-card__title">Attached Documents &amp; Evidence ({dossier.documents.length})</h3>
+              <h3 className="nivaran-card__title">Attached Documents &amp; Evidence ({(dossier.documents || []).length})</h3>
               <p className="nivaran-card__subtitle">Authenticated documentation submitted with this grievance</p>
             </div>
           </div>
-          {dossier.documents.length > 0 && (
-            <Badge variant="teal" size="sm">{dossier.documents.length} File{dossier.documents.length > 1 ? 's' : ''}</Badge>
+          {(dossier.documents || []).length > 0 && (
+            <Badge variant="teal" size="sm">{(dossier.documents || []).length} File{(dossier.documents || []).length > 1 ? 's' : ''}</Badge>
           )}
         </div>
 
         <div className="nivaran-card__body">
-          {dossier.documents.length === 0 ? (
+          {(dossier.documents || []).length === 0 ? (
             <div className="nivaran-empty-state">
               <div className="nivaran-empty-state__icon" aria-hidden="true">
                 <AppIcon name="file-text" size={24} />
@@ -493,7 +496,7 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {dossier.documents.map((doc) => (
+              {(dossier.documents || []).map((doc) => (
                 <div
                   key={doc.id}
                   style={{
@@ -575,71 +578,14 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
         />
       )}
 
-      {/* 8. Refined Status History Timeline Card */}
-      <div className="nivaran-card">
-        <div className="nivaran-card__header">
-          <div className="nivaran-card__header-left">
-            <div className="nivaran-card__header-chip" aria-hidden="true">
-              <AppIcon name="clock" size={16} color="var(--vyasa-navy, #1b2a4a)" />
-            </div>
-            <div>
-              <h3 className="nivaran-card__title">
-                Status History{' '}
-                <span className="sr-only">Lifecycle Status History (Immutable Audit Trail)</span>
-              </h3>
-              <p className="nivaran-card__subtitle">Chronological audit trail of updates and actions taken</p>
-            </div>
-          </div>
-          {dossier.history.length > 0 && (
-            <Badge variant="neutral" size="sm">{dossier.history.length} Event{dossier.history.length > 1 ? 's' : ''}</Badge>
-          )}
-        </div>
-
-        <div className="nivaran-card__body">
-          {dossier.history.length === 0 ? (
-            <div className="nivaran-empty-state">
-              <div className="nivaran-empty-state__icon" aria-hidden="true">
-                <AppIcon name="clock" size={24} />
-              </div>
-              <p className="nivaran-empty-state__text">No status transitions recorded yet.</p>
-            </div>
-          ) : (
-            <div className="nivaran-timeline">
-              {dossier.history.map((h, idx) => (
-                <div key={h.id || idx} className="nivaran-timeline-node">
-                  <div className="nivaran-timeline-node__main">
-                    <div className="nivaran-timeline-node__header">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span className="nivaran-timeline-node__transition">
-                          {h.from_status ? (
-                            <>
-                              <span>{h.from_status}</span>
-                              <span style={{ color: '#94a3b8', margin: '0 4px' }}>&rarr;</span>
-                            </>
-                          ) : null}
-                          <span style={{ color: 'var(--vyasa-navy, #1b2a4a)', fontWeight: 700 }}>
-                            {h.to_status}
-                          </span>
-                        </span>
-                        <Badge variant="neutral" size="sm">{h.actor_type}</Badge>
-                      </div>
-                      <span className="nivaran-timeline-node__time">
-                        {new Date(h.created_at).toLocaleString()}
-                      </span>
-                    </div>
-
-                    {h.remarks && (
-                      <div className="nivaran-timeline-node__remarks">
-                        {h.remarks}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* 8. Modern & Attractive Status History & Lifecycle Tracking */}
+      <GrievanceLifecycleTracker
+        currentStatus={dossier.status}
+        history={dossier.history}
+        createdAt={dossier.created_at}
+        updatedAt={dossier.updated_at}
+        grievanceId={dossier.grievance_id}
+      />
     </ContentWrapper>
   );
 };

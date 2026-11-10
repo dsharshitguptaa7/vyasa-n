@@ -22,6 +22,18 @@ from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryR
 from app.modules.atharva_veda.nivaran.models.grievance import Grievance, StudentMasterRecord
 
 
+# Centralized Mapping: Institutional Authority Roles -> Platform Generic Roles
+PLATFORM_GENERIC_AUTHORITY_ROLE = "authority"
+
+INSTITUTIONAL_TO_PLATFORM_ROLES: Dict[NivaranRole, List[str]] = {
+    NivaranRole.DEAN: [PLATFORM_GENERIC_AUTHORITY_ROLE],
+    NivaranRole.ASSOCIATE_DEAN: [PLATFORM_GENERIC_AUTHORITY_ROLE],
+    NivaranRole.ASSISTANT_DEAN: [PLATFORM_GENERIC_AUTHORITY_ROLE],
+    NivaranRole.MANAGER: [PLATFORM_GENERIC_AUTHORITY_ROLE, "manager"],
+    NivaranRole.GUEST_MEMBER: [PLATFORM_GENERIC_AUTHORITY_ROLE],
+}
+
+
 class AdminConfigService:
     @staticmethod
     def log_config_audit(
@@ -48,6 +60,56 @@ class AdminConfigService:
     # =========================================================================
     # 1. AUTHORITY MANAGEMENT & LIFECYCLE
     # =========================================================================
+
+    @staticmethod
+    def _ensure_user_platform_authority_roles(
+        db: Session,
+        user: Optional[User],
+        institutional_role: NivaranRole,
+    ) -> None:
+        """
+        Guarantees that a canonical User identity associated with an institutional authority
+        receives the generic platform role 'authority' (and 'manager' for triage managers if defined).
+        Never queries the generic roles table for domain roles like 'DEAN' or 'ASSOCIATE_DEAN'.
+        Prevents duplicate entries and preserves existing unrelated user roles.
+        """
+        if not user or not getattr(user, "id", None):
+            return
+
+        required_role_names = INSTITUTIONAL_TO_PLATFORM_ROLES.get(
+            institutional_role, [PLATFORM_GENERIC_AUTHORITY_ROLE]
+        )
+
+        role_records = []
+        if hasattr(db, "scalars"):
+            res = db.scalars(select(Role).where(func.lower(Role.name).in_([r.lower() for r in required_role_names])))
+            if hasattr(res, "all"):
+                role_records = res.all()
+        if not role_records:
+            auth_role = db.scalar(select(Role).where(func.lower(Role.name) == PLATFORM_GENERIC_AUTHORITY_ROLE))
+            if auth_role:
+                role_records = [auth_role]
+
+        existing_role_ids = set()
+        if getattr(user, "roles", None):
+            existing_role_ids = {r.id for r in user.roles if getattr(r, "id", None)}
+
+        try:
+            db_assigned_role_ids = {
+                r[0] for r in db.execute(
+                    select(user_roles.c.role_id).where(user_roles.c.user_id == user.id)
+                ).all()
+            }
+            existing_role_ids.update(db_assigned_role_ids)
+        except Exception:
+            pass
+
+        for role_rec in role_records:
+            if role_rec and getattr(role_rec, "id", None) and role_rec.id not in existing_role_ids:
+                db.execute(user_roles.insert().values(user_id=user.id, role_id=role_rec.id))
+                existing_role_ids.add(role_rec.id)
+                if hasattr(user, "roles") and isinstance(user.roles, list):
+                    user.roles.append(role_rec)
 
     @staticmethod
     def create_authority(
@@ -114,12 +176,8 @@ class AdminConfigService:
             vyasa_user_id = new_user.id
             user = new_user
 
-        # Ensure user has matching platform role if available
-        role_record = db.scalar(select(Role).where(func.lower(Role.name) == role.value.lower()))
-        if role_record and user:
-            existing_role_ids = {r.id for r in user.roles}
-            if role_record.id not in existing_role_ids:
-                db.execute(user_roles.insert().values(user_id=user.id, role_id=role_record.id))
+        # Ensure canonical user has generic platform role 'authority'
+        AdminConfigService._ensure_user_platform_authority_roles(db, user, role)
 
         # Create NivaranAuthority
         authority = NivaranAuthority(
@@ -240,6 +298,11 @@ class AdminConfigService:
             authority.is_active = is_active
 
         if changes:
+            # Ensure canonical user preserves generic platform role 'authority'
+            user = db.scalar(select(User).options(joinedload(User.roles)).where(User.id == authority.vyasa_user_id))
+            if user:
+                AdminConfigService._ensure_user_platform_authority_roles(db, user, authority.role)
+
             AdminConfigService.log_config_audit(
                 db=db,
                 actor_user_id=actor_user_id,

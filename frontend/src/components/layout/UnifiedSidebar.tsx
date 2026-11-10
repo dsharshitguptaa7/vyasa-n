@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AppIcon, IconName } from '@vyasa/ui';
 import { useAuth } from '../../context/AuthContext';
 import { getNivaranDestination } from '../../utils/personaRouting';
 import { notificationService } from '../../services/notificationService';
+import {
+  getNivaranNavItems,
+  getSamikshaNavItems,
+  getAnudaanNavItems,
+} from '../../config/navigation';
 
 export interface UnifiedSidebarProps {
   activeItem?: string;
@@ -16,13 +21,6 @@ export interface UnifiedSidebarProps {
   onAddAuthority?: () => void;
   className?: string;
   style?: React.CSSProperties;
-}
-
-interface NavSubItem {
-  id: string;
-  label: string;
-  path: string;
-  icon: IconName;
 }
 
 export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
@@ -70,14 +68,13 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   const userRoles = useMemo(() => (user?.roles || []).map((r: string) => r.toLowerCase()), [user]);
   const isAdministrator =
     isSuperAdmin || isAdmin || userRoles.includes('super_admin') || userRoles.includes('administrator');
-  const isSamaAdmin = isAdministrator || userRoles.includes('sama_content_admin');
-  const isSamaEditor = isSamaAdmin || userRoles.includes('sama_content_editor');
 
   // Derive human-readable institutional role label
   const roleLabel = useMemo(() => {
     if (isSuperAdmin) return 'Super Administrator';
     if (isAdministrator) return 'Administrator';
     if (auth?.authorityDesignation) return auth.authorityDesignation;
+    if (userRoles.includes('vice_chancellor') || userRoles.includes('vc')) return 'Vice Chancellor';
     if (isDean) return 'Dean R&D';
     if (isAssociateDean) return 'Associate Dean';
     if (isAssistantDean) return 'Assistant Dean';
@@ -88,6 +85,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   }, [
     isSuperAdmin,
     isAdministrator,
+    userRoles,
     isDean,
     isAssociateDean,
     isAssistantDean,
@@ -100,7 +98,8 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   // Context detection
   const isInsideNivaran = Boolean(
     location?.pathname &&
-      (location.pathname.startsWith('/modules/atharva-veda/nivaran') ||
+      (location.pathname.startsWith('/atharva-veda') ||
+        location.pathname.startsWith('/modules/atharva-veda/nivaran') ||
         location.pathname.startsWith('/atharva-veda/nivaran') ||
         location.pathname.startsWith('/nivaran') ||
         location.pathname.startsWith('/admin/atharva'))
@@ -114,17 +113,74 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
         location.pathname.startsWith('/admin/sama'))
   );
 
+  const isInsideAnudaan = Boolean(
+    location?.pathname &&
+      (location.pathname.startsWith('/modules/yajur-veda') ||
+        location.pathname.startsWith('/yajur-veda') ||
+        location.pathname.startsWith('/anudaan'))
+  );
+
   const [isNivaranOpen, setIsNivaranOpen] = useState(true);
   const [isSamikshaOpen, setIsSamikshaOpen] = useState(isInsideSamiksha);
+  const [isAnudaanOpen, setIsAnudaanOpen] = useState(isInsideAnudaan);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
+
+  // Body scroll locking & focus management when drawer is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const focusables = mobileDrawerRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables && focusables.length > 0) {
+        focusables[0].focus();
+      }
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isMobileOpen]);
+
+  // Focus trap inside drawer
+  const handleDrawerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      setIsMobileOpen(false);
+      mobileToggleRef.current?.focus();
+      return;
+    }
+    if (e.key === 'Tab' && mobileDrawerRef.current) {
+      const focusables = mobileDrawerRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  };
 
   // Sync accordion expansion on route changes
   useEffect(() => {
     if (isInsideNivaran) setIsNivaranOpen(true);
     if (isInsideSamiksha) setIsSamikshaOpen(true);
+    if (isInsideAnudaan) setIsAnudaanOpen(true);
     setIsMobileOpen(false);
-  }, [location?.pathname, isInsideNivaran, isInsideSamiksha]);
+  }, [location?.pathname, isInsideNivaran, isInsideSamiksha, isInsideAnudaan]);
 
   // Notifications live polling
   useEffect(() => {
@@ -207,7 +263,11 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   const handleNivaranToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsNivaranOpen((prev) => !prev);
-    if (!location?.pathname?.startsWith('/modules/atharva-veda/nivaran') && location?.pathname !== nivaranDestination) {
+    if (
+      !location?.pathname?.startsWith('/atharva-veda') &&
+      !location?.pathname?.startsWith('/modules/atharva-veda/nivaran') &&
+      location?.pathname !== nivaranDestination
+    ) {
       navigate(nivaranDestination);
     }
   };
@@ -217,6 +277,14 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
     setIsSamikshaOpen((prev) => !prev);
     if (!location?.pathname?.startsWith('/modules/sama-veda')) {
       navigate('/modules/sama-veda');
+    }
+  };
+
+  const handleAnudaanToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsAnudaanOpen((prev) => !prev);
+    if (!location?.pathname?.startsWith('/modules/yajur-veda/anudaan')) {
+      navigate('/modules/yajur-veda/anudaan');
     }
   };
 
@@ -248,295 +316,10 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
     return false;
   };
 
-  // NIVARAN sub-items based on authorized role
-  const nivaranItems: NavSubItem[] = useMemo(() => {
-    if (isAdministrator) {
-      return [
-        {
-          id: 'authorities',
-          label: 'Authorities Management',
-          path: '/admin/atharva/authorities',
-          icon: 'users',
-        },
-        {
-          id: 'categories',
-          label: 'Grievance Categories',
-          path: '/admin/atharva/categories',
-          icon: 'grid',
-        },
-        {
-          id: 'subject-clusters',
-          label: 'Subject Clusters',
-          path: '/admin/atharva/subject-clusters',
-          icon: 'layers',
-        },
-        {
-          id: 'subjects',
-          label: 'Subjects',
-          path: '/admin/atharva/subjects',
-          icon: 'book-open',
-        },
-        {
-          id: 'grievance-clusters',
-          label: 'Grievance Clusters',
-          path: '/admin/atharva/grievance-clusters',
-          icon: 'shield',
-        },
-        {
-          id: 'audit-logs',
-          label: 'Audit Explorer',
-          path: '/admin/atharva/audit-logs',
-          icon: 'file-text',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-      ];
-    }
-
-    if (isManager) {
-      return [
-        {
-          id: 'manager-queue',
-          label: 'Case Triage Queue',
-          path: '/modules/atharva-veda/nivaran/manager/queue',
-          icon: 'clipboard',
-        },
-        {
-          id: 'closure-queue',
-          label: 'Closure Review',
-          path: '/modules/atharva-veda/nivaran/manager/closure-queue',
-          icon: 'check-circle',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-        {
-          id: 'student-records',
-          label: 'Student Records',
-          path: '/modules/atharva-veda/nivaran/student-records/search',
-          icon: 'search',
-        },
-        {
-          id: 'committees',
-          label: 'Committees Workspace',
-          path: '/modules/atharva-veda/nivaran/committees',
-          icon: 'users',
-        },
-      ];
-    }
-
-    if (isAssistantDean) {
-      return [
-        {
-          id: 'assigned-cases',
-          label: 'Assigned Cases',
-          path: '/modules/atharva-veda/nivaran/assistant-dean/dashboard',
-          icon: 'clipboard',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-        {
-          id: 'student-records',
-          label: 'Student Records',
-          path: '/modules/atharva-veda/nivaran/student-records/search',
-          icon: 'search',
-        },
-        {
-          id: 'committees',
-          label: 'Committees Workspace',
-          path: '/modules/atharva-veda/nivaran/committees',
-          icon: 'users',
-        },
-      ];
-    }
-
-    if (isAssociateDean) {
-      return [
-        {
-          id: 'jurisdiction-cases',
-          label: 'Jurisdictional Cases',
-          path: '/modules/atharva-veda/nivaran/associate-dean/dashboard',
-          icon: 'clipboard',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-        {
-          id: 'student-records',
-          label: 'Student Records',
-          path: '/modules/atharva-veda/nivaran/student-records/search',
-          icon: 'search',
-        },
-        {
-          id: 'committees',
-          label: 'Committees Workspace',
-          path: '/modules/atharva-veda/nivaran/committees',
-          icon: 'users',
-        },
-      ];
-    }
-
-    if (isDean) {
-      return [
-        {
-          id: 'executive-review',
-          label: 'Executive Command Center',
-          path: '/modules/atharva-veda/nivaran/dean/dashboard',
-          icon: 'clipboard',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-        {
-          id: 'student-records',
-          label: 'Student Records',
-          path: '/modules/atharva-veda/nivaran/student-records/search',
-          icon: 'search',
-        },
-        {
-          id: 'committees',
-          label: 'Committees Workspace',
-          path: '/modules/atharva-veda/nivaran/committees',
-          icon: 'users',
-        },
-      ];
-    }
-
-    if (isAuthority) {
-      return [
-        {
-          id: 'authority-cases',
-          label: 'Authority Cases',
-          path: nivaranDestination,
-          icon: 'clipboard',
-        },
-        {
-          id: 'my-efiles',
-          label: 'My E-Files',
-          path: '/modules/atharva-veda/nivaran/e-files',
-          icon: 'layers',
-        },
-        {
-          id: 'student-records',
-          label: 'Student Records',
-          path: '/modules/atharva-veda/nivaran/student-records/search',
-          icon: 'search',
-        },
-        {
-          id: 'committees',
-          label: 'Committees Workspace',
-          path: '/modules/atharva-veda/nivaran/committees',
-          icon: 'users',
-        },
-      ];
-    }
-
-    // Default Scholar / Applicant items
-    return [
-      {
-        id: 'submit-grievance',
-        label: 'Submit Grievance',
-        path: '/modules/atharva-veda/nivaran/submit',
-        icon: 'file-text',
-      },
-      {
-        id: 'my-grievances',
-        label: 'My Grievances',
-        path: '/modules/atharva-veda/nivaran/my-grievances',
-        icon: 'clipboard',
-      },
-      {
-        id: 'my-efiles',
-        label: 'My E-Files',
-        path: '/modules/atharva-veda/nivaran/e-files',
-        icon: 'layers',
-      },
-      {
-        id: 'my-student-record',
-        label: 'My Student Record',
-        path: '/modules/atharva-veda/nivaran/student-records/me',
-        icon: 'graduation-cap',
-      },
-    ];
-  }, [
-    isAdministrator,
-    isManager,
-    isAssistantDean,
-    isAssociateDean,
-    isDean,
-    isAuthority,
-    nivaranDestination,
-  ]);
-
-  // SAMIKSHA sub-items (strictly adhering to required 6 items)
-  const samikshaItems: NavSubItem[] = useMemo(() => {
-    const items: NavSubItem[] = [
-      {
-        id: 'publications',
-        label: 'Research Publications',
-        path: '/modules/sama-veda/publications',
-        icon: 'file-text',
-      },
-      {
-        id: 'bulletins',
-        label: 'Research Bulletins',
-        path: '/modules/sama-veda/bulletins',
-        icon: 'bell',
-      },
-      {
-        id: 'researchers',
-        label: 'Researcher Directory',
-        path: '/modules/sama-veda/researchers',
-        icon: 'users',
-      },
-      {
-        id: 'certificates',
-        label: 'Certificate Verification',
-        path: '/modules/sama-veda/certificates',
-        icon: 'check-circle',
-      },
-      {
-        id: 'cam-projects',
-        label: 'CAM-AI Projects',
-        path: '/modules/sama-veda/cam-projects',
-        icon: 'grid',
-      },
-      {
-        id: 'fellowships',
-        label: 'Fellowship Schemes',
-        path: '/modules/sama-veda/fellowships',
-        icon: 'graduation-cap',
-      },
-    ];
-
-    if (isSamaEditor) {
-      items.push({
-        id: 'sama-cms',
-        label: 'SAMIKSHA CMS',
-        path: '/admin/sama',
-        icon: 'edit',
-      });
-    }
-
-    return items;
-  }, [isSamaEditor]);
+  // Centralized Navigation Configurations
+  const nivaranItems = useMemo(() => getNivaranNavItems(auth), [auth]);
+  const samikshaItems = useMemo(() => getSamikshaNavItems(auth), [auth]);
+  const anudaanItems = useMemo(() => getAnudaanNavItems(auth), [auth]);
 
   // Initials
   const initials = useMemo(() => {
@@ -780,6 +563,83 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             </div>
           )}
         </div>
+
+        {/* ANUDAAN Accordion */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              width: '100%',
+              borderRadius: '7px',
+              backgroundColor: isInsideAnudaan ? 'rgba(200, 86, 2, 0.08)' : 'transparent',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <NavLink
+              to="/modules/yajur-veda/anudaan"
+              onClick={() => setIsMobileOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '11px',
+                flex: 1,
+                padding: '8px 8px 8px 12px',
+                color: isInsideAnudaan ? 'var(--vyasa-saffron, #c85602)' : 'var(--vyasa-text-secondary, #4b5565)',
+                fontWeight: 600,
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              <AppIcon name="building" size={16} color="var(--vyasa-saffron, #c85602)" />
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                <span>ANUDAAN</span>
+                <span style={{ fontSize: '10.5px', fontWeight: 500, color: 'var(--vyasa-text-muted, #64748b)' }}>
+                  Research Publication Incentives
+                </span>
+              </div>
+            </NavLink>
+            <button
+              type="button"
+              aria-label="Toggle ANUDAAN sections"
+              aria-expanded={isAnudaanOpen}
+              onClick={handleAnudaanToggle}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '8px 10px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                color: 'var(--vyasa-text-muted, #64748b)',
+              }}
+            >
+              <AppIcon
+                name={isAnudaanOpen ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color="var(--vyasa-text-muted, #64748b)"
+              />
+            </button>
+          </div>
+
+          {isAnudaanOpen && (
+            <div
+              style={{
+                marginLeft: '16px',
+                paddingLeft: '10px',
+                borderLeft: '1.5px solid var(--vyasa-border, #e3dcd1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+                marginTop: '2px',
+              }}
+            >
+              {anudaanItems.map((item) =>
+                renderNavLink(item.id, item.label, item.path, item.icon)
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 3. UTILITIES & NAVIGATION */}
@@ -995,6 +855,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
     <>
       {/* Mobile Drawer Toggle (visible only on small viewports via CSS) */}
       <button
+        ref={mobileToggleRef}
         type="button"
         className="vyasa-sidebar-mobile-toggle"
         aria-label="Toggle navigation menu"
@@ -1045,6 +906,9 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             }}
           />
           <div
+            ref={mobileDrawerRef}
+            tabIndex={-1}
+            onKeyDown={handleDrawerKeyDown}
             role="dialog"
             aria-modal="true"
             aria-label="Navigation Menu"
@@ -1056,6 +920,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
               backgroundColor: '#ffffff',
               boxShadow: '4px 0 24px rgba(0,0,0,0.2)',
               zIndex: 90,
+              outline: 'none',
             }}
           >
             {sidebarMarkup}

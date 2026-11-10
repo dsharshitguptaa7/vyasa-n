@@ -162,25 +162,44 @@ export const FourDomainsSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Domain: Yajur Veda */}
+          {/* Right Domain: Yajur Veda (ANUDAAN Operational Domain) */}
           <div className="vyasa-domains-cell--right">
-            <div className="vyasa-domain-card vyasa-domain-card--conceptual">
+            <div className="vyasa-domain-card vyasa-domain-card--operational vyasa-domain-card--anudaan">
               <div className="vyasa-domain-header">
                 <div className="vyasa-domain-title-wrap">
                   <span className="vyasa-domain-icon" aria-hidden="true">
-                    <AppIcon name="building" size={15} />
+                    <AppIcon name="building" size={15} color="var(--vyasa-saffron, #c85602)" />
                   </span>
-                  <h3 className="vyasa-domain-title">Yajur Veda</h3>
+                  <h3 className="vyasa-domain-title" style={{ color: 'var(--vyasa-saffron, #c85602)' }}>
+                    Yajur Veda
+                  </h3>
                 </div>
-                <Badge variant="neutral" size="sm">Conceptual Domain</Badge>
+                <Badge variant="saffron" size="sm">Operational Domain</Badge>
               </div>
               <div className="vyasa-domain-dimension">Research Administration &amp; Incentives</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--vyasa-saffron, #c85602)', marginBottom: '8px', lineHeight: 1.35 }}>
+                ANUDAAN &ndash; Research Publication Incentive Management System
+              </div>
               <p className="vyasa-domain-role">
-                The administrative and institutional support dimension of research.
+                An institutional initiative for eligible CSJMU Campus Faculty, Registered Research Scholars and Post-Doctoral Researchers to submit research publication incentive claims.
               </p>
-              <div className="vyasa-domain-footnote">
-                <span className="vyasa-domain-footnote-dot" aria-hidden="true" />
-                <span>Future Development &bull; Conceptual Domain</span>
+              <div className="vyasa-domain-action-row">
+                <span className="vyasa-domain-subsystem-link">
+                  <span>Portal: ANUDAAN</span>
+                  <AppIcon name="arrow-right" size={12} color="var(--vyasa-saffron, #c85602)" />
+                </span>
+                <Button
+                  variant="saffron"
+                  size="sm"
+                  aria-label="Open Yajur Veda / ANUDAAN"
+                  onClick={() => navigate('/modules/yajur-veda/anudaan')}
+                  className="vyasa-domain-action-btn"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Explore ANUDAAN</span>
+                    <AppIcon name="arrow-right" size={13} />
+                  </span>
+                </Button>
               </div>
             </div>
           </div>

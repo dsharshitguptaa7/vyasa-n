@@ -161,12 +161,12 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
     expect(screen.getAllByText('Conceptual Domain').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('6. Yajur Veda is explicitly represented as Conceptual Domain / Future Development', () => {
+  it('6. Yajur Veda is explicitly represented as Operational Domain (ANUDAAN)', () => {
     renderLandingPage();
 
     expect(screen.getByRole('heading', { name: 'Yajur Veda' })).toBeInTheDocument();
     expect(screen.getByText('Research Administration & Incentives')).toBeInTheDocument();
-    expect(screen.getByText(/The administrative and institutional support dimension/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/eligible CSJMU Campus Faculty/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('7. Sama Veda is explicitly represented as Conceptual Domain / Future Development', () => {
@@ -182,7 +182,7 @@ describe('VYASA Public Landing Page - Institutional Vision Story Suite', () => {
 
     expect(screen.getByRole('heading', { name: 'Atharva Veda' })).toBeInTheDocument();
     expect(screen.getByText('Grievance Redressal & Institutional Well-Being')).toBeInTheDocument();
-    expect(screen.getByText('Operational Domain')).toBeInTheDocument();
+    expect(screen.getAllByText('Operational Domain').length).toBeGreaterThanOrEqual(1);
   });
 
   it('9. NIVARAN operational domain section renders workflow visual and working CTA', () => {

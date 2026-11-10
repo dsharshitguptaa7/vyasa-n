@@ -144,7 +144,9 @@ def get_authorized_dev_targets() -> Set[Tuple[str, str]]:
     migrations without requiring production override flags.
     Matches exact normalized (hostname, database_name). Substring matching is forbidden.
     """
-    return {EXACT_AUTHORIZED_NEON_DEV_TARGET}
+    return {
+        EXACT_AUTHORIZED_NEON_DEV_TARGET,
+    }
 
 
 def validate_test_database_url(

@@ -2,15 +2,76 @@
 Atharva Veda (NIVARAN-AI) Dependencies
 Guarantees strict separation between Applicant, Admin, and Institutional Authority personas.
 """
-from typing import Optional
+import re
+from typing import Optional, Set
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
+from app.core.config import settings
 from app.models.user import User
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole
+
+# Institutional jurisdiction and designation specifications for Dean Executive Authority
+CANONICAL_DEAN_RD_DESIGNATION = "Dean of Research & Development"
+DEAN_RD_DESIGNATION_ALIASES: Set[str] = {
+    "dean of research & development",
+    "dean, research & development",
+    "dean research & development",
+    "dean of research and development",
+    "dean, research and development",
+    "dean research and development",
+    "dean of r&d",
+    "dean, r&d",
+    "dean (r&d)",
+    "dean r&d",
+    "dean of research",
+    "dean, research",
+}
+RD_DEPARTMENTS: Set[str] = {"r&d", "research & development", "research and development", "research"}
+NON_RD_DEPARTMENTS: Set[str] = {"academics", "academic affairs", "student affairs", "student welfare", "examinations", "administration"}
+
+
+def is_authorized_dean_of_rd(authority: Optional[NivaranAuthority], user: User) -> bool:
+    """
+    Validates institutional jurisdiction for Dean of Research & Development:
+    1. Caller must have an active NivaranAuthority profile with role == DEAN.
+    2. Caller must belong to the authorized institutional domain (e.g. csjmu.ac.in).
+    3. Caller's designation or department must match the Research & Development jurisdiction,
+       and must not belong to a foreign department/faculty (e.g. Academic Affairs).
+    """
+    if not authority or authority.role != NivaranRole.DEAN:
+        return False
+
+    # 1. Institutional domain validation (CSJMU)
+    inst_domain = settings.SUPPORT_CONTACT_EMAIL.split("@")[-1].lower() if "@" in settings.SUPPORT_CONTACT_EMAIL else "csjmu.ac.in"
+    user_email = (user.email or "").strip().lower()
+    user_domain = user_email.split("@")[-1] if "@" in user_email else ""
+    if user_domain != inst_domain and not user_email.endswith("@csjmu.ac.in"):
+        return False
+
+    # 2. Department check
+    dept = (authority.department or "").strip().lower()
+    if dept in NON_RD_DEPARTMENTS:
+        return False
+
+    # 3. Designation normalization and alias matching
+    desig = (authority.designation or "").strip().lower()
+    norm_desig = re.sub(r"\s+", " ", re.sub(r"[,()\-]", " ", desig)).strip()
+
+    is_alias_match = desig in DEAN_RD_DESIGNATION_ALIASES or norm_desig in {
+        re.sub(r"\s+", " ", re.sub(r"[,()\-]", " ", a)).strip() for a in DEAN_RD_DESIGNATION_ALIASES
+    }
+    has_rd_keywords = "research" in desig or "r&d" in desig or "r & d" in desig
+    is_rd_dept = dept in RD_DEPARTMENTS
+
+    # Non-R&D exclusion: if explicitly assigned to another faculty/domain without R&D
+    if any(k in desig for k in ("academic", "student welfare", "student affairs", "examination")) and not has_rd_keywords:
+        return False
+
+    return is_alias_match or (has_rd_keywords and (is_rd_dept or not dept)) or (is_rd_dept and not desig)
 
 
 def get_current_atharva_user(current_user: User = Depends(get_current_user)) -> User:
@@ -124,7 +185,8 @@ def require_atharva_dean(
     db: Session = Depends(get_db),
 ) -> User:
     """
-    Validates that the caller is an appointed Institutional Authority with the DEAN role.
+    Validates that the caller is an appointed Institutional Authority with the DEAN role
+    specifically within the Dean of Research & Development institutional jurisdiction.
     """
     authority = db.scalar(
         select(NivaranAuthority).where(
@@ -137,6 +199,13 @@ def require_atharva_dean(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access restricted to Atharva Veda Dean.",
         )
+    
+    if not is_authorized_dean_of_rd(authority, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional Jurisdiction Restricted: Dean of Research & Development Required.",
+        )
+
     return current_user
 
 
@@ -222,4 +291,3 @@ def require_atharva_authority(
             detail="Institutional authority profile required.",
         )
     return current_user
-

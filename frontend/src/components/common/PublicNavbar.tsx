@@ -24,6 +24,7 @@ const PUBLIC_SECTIONS: NavSection[] = [
   { id: 'domains', label: 'Four Domains', hash: '#domains' },
   { id: 'nivaran', label: 'NIVARAN', hash: '#nivaran', isOperational: true },
   { id: 'samiksha', label: 'SAMIKSHA', hash: '#samiksha' },
+  { id: 'anudaan', label: 'ANUDAAN', hash: '#anudaan', isOperational: true },
   { id: 'innovation', label: 'Research & Innovation', hash: '#innovation' },
 ];
 
@@ -78,6 +79,12 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
       location.pathname.startsWith('/nivaran')
     ) {
       setActiveSection('nivaran');
+    } else if (
+      location.pathname.startsWith('/modules/yajur-veda') ||
+      location.pathname.startsWith('/yajur-veda') ||
+      location.pathname.startsWith('/anudaan')
+    ) {
+      setActiveSection('anudaan');
     } else if (location.pathname === '/') {
       if (location.hash) {
         const hashId = location.hash.replace('#', '');
@@ -96,8 +103,9 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
       document.getElementById('overview') || document.getElementById('hero'),
       document.getElementById('vision'),
       document.getElementById('domains'),
-      document.getElementById('nivaran'),
+      document.getElementById('anudaan'),
       document.getElementById('samiksha'),
+      document.getElementById('nivaran'),
       document.getElementById('innovation') || document.getElementById('research'),
     ].filter(Boolean) as HTMLElement[];
 
@@ -220,6 +228,15 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
       return;
     }
 
+    // ANUDAAN Navigation: Direct access to public institutional incentive portal
+    if (section.id === 'anudaan') {
+      if (onSelectTab) {
+        onSelectTab('anudaan');
+      }
+      navigate('/modules/yajur-veda/anudaan');
+      return;
+    }
+
     if (onSelectTab) {
       onSelectTab(section.id);
     }
@@ -287,7 +304,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             tabIndex={0}
             aria-label={`${VYASA_BRAND.productName} - ${VYASA_BRAND.taglineHindi}`}
           >
-            <VyasaLogo size={isScrolled ? 36 : 42} />
+            <VyasaLogo size={isScrolled ? 42 : 48} />
             <div className="vyasa-public-logo-text">
               <span className="vyasa-public-logo-title">VYASAᴺ ECOSYSTEM</span>
               <span className="vyasa-public-logo-tagline" lang="hi">
@@ -314,11 +331,12 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 {PUBLIC_SECTIONS.map((sec) => {
                   const isActive = activeSection === sec.id;
                   const isSamiksha = sec.id === 'samiksha';
+                  const isAnudaan = sec.id === 'anudaan';
                   return (
                     <li key={sec.id} className="vyasa-public-nav-item">
                       <button
                         type="button"
-                        className={`vyasa-public-nav-link ${isSamiksha ? 'vyasa-public-nav-link--samiksha' : ''} ${isActive ? 'is-active' : ''}`}
+                        className={`vyasa-public-nav-link ${isSamiksha ? 'vyasa-public-nav-link--samiksha' : ''} ${isAnudaan ? 'vyasa-public-nav-link--anudaan' : ''} ${isActive ? 'is-active' : ''}`}
                         onClick={(e) => handleSectionClick(sec, e)}
                         aria-current={isActive ? 'page' : undefined}
                       >
@@ -501,7 +519,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 <li key={sec.id}>
                   <button
                     type="button"
-                    className={`vyasa-mobile-nav-link ${sec.id === 'samiksha' ? 'vyasa-mobile-nav-link--samiksha' : ''} ${activeSection === sec.id ? 'is-active' : ''}`}
+                    className={`vyasa-mobile-nav-link ${sec.id === 'samiksha' ? 'vyasa-mobile-nav-link--samiksha' : ''} ${sec.id === 'anudaan' ? 'vyasa-mobile-nav-link--anudaan' : ''} ${activeSection === sec.id ? 'is-active' : ''}`}
                     onClick={(e) => handleSectionClick(sec, e)}
                   >
                     <span>{sec.label}</span>

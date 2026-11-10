@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PageContainer, Card, Badge, Button, LoadingState } from '@vyasa/ui';
+import { PageContainer, Card, Badge, Button, LoadingState, AppIcon } from '@vyasa/ui';
 import { useParams, useNavigate } from 'react-router-dom';
 import { grievanceService } from '../services/grievanceService';
 import {
@@ -114,7 +114,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
 
       setSuccessMsg('Grievance successfully reviewed and assigned to the responsible officer.');
       setTimeout(() => {
-        navigate('/modules/atharva-veda/nivaran/manager/queue');
+        navigate('/atharva-veda/manager/queue');
       }, 1500);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to assign case.');
@@ -142,7 +142,73 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
   }
 
   return (
-    <PageContainer style={{ padding: '40px 0' }}>
+    <PageContainer style={{ padding: '36px 0 60px' }}>
+      {/* Navigation Breadcrumb */}
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#64748b',
+          marginBottom: '16px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
+        >
+          <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
+          <span>Dashboard</span>
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/atharva-veda/workspace')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Atharva Veda
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <button
+          type="button"
+          onClick={() => navigate('/atharva-veda/manager/queue')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: 'var(--vyasa-navy, #0f2b48)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Grievance Manager Desk
+        </button>
+        <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
+        <span style={{ color: '#64748b', fontWeight: 500 }}>
+          Case Review #{dossier.grievance_id}
+        </span>
+      </nav>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -156,7 +222,7 @@ export const ManagerGrievanceReviewPage: React.FC = () => {
             Confirm or update the category and assign the case to the responsible Assistant Dean.
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/modules/atharva-veda/nivaran/manager/queue')}>
+        <Button variant="outline" onClick={() => navigate('/atharva-veda/manager/queue')}>
           &larr; Back to Queue
         </Button>
       </div>

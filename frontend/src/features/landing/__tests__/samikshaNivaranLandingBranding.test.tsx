@@ -34,7 +34,7 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     const instIdentity = screen.getByTestId('hero-institution-identity');
     expect(instIdentity).toBeInTheDocument();
     expect(instIdentity).toHaveTextContent('Chhatrapati Shahu Ji Maharaj University, Kanpur');
-    expect(instIdentity).toHaveTextContent(/State University of Uttar Pradesh/i);
+    expect(instIdentity).toHaveTextContent(/Uttar Pradesh State University \(Formerly Kanpur University,Kanpur\)/i);
 
     // CSJMU & VYASA seals
     expect(screen.getByTestId('hero-institutional-seals')).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     renderLandingPage();
 
     const sections = Array.from(document.querySelectorAll('section'));
-    expect(sections.length).toBe(11);
+    expect(sections.length).toBe(12);
 
     // 1. VYASA Main Branding & Hero
     expect(sections[0].className).toContain('vyasa-landing-hero');
@@ -175,25 +175,28 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     // 4. The Four Domains of VYASA (Institutional Architecture)
     expect(sections[3].id).toBe('domains');
 
-    // 5. SAMIKSHA (Detailed Branding & Research Services)
-    expect(sections[4].id).toBe('samiksha');
+    // 5. ANUDAAN (Dedicated Showcase & Incentive Processing)
+    expect(sections[4].id).toBe('anudaan');
 
-    // 6. NIVARAN (Detailed Branding & Grievance Flow)
-    expect(sections[5].id).toBe('nivaran');
+    // 6. SAMIKSHA (Detailed Branding & Research Services)
+    expect(sections[5].id).toBe('samiksha');
 
-    // 7. From Fragmented Processes to an Integrated Ecosystem
-    expect(sections[6].id).toBe('why-vyasa');
+    // 7. NIVARAN (Detailed Branding & Grievance Flow)
+    expect(sections[6].id).toBe('nivaran');
 
-    // 8. Designed, Developed & Evolved at CSJMU Kanpur
-    expect(sections[7].id).toBe('csjmu');
+    // 8. From Fragmented Processes to an Integrated Ecosystem
+    expect(sections[7].id).toBe('why-vyasa');
 
-    // 9. One Step Toward Institutional Innovation
-    expect(sections[8].id).toBe('innovation');
+    // 9. Designed, Developed & Evolved at CSJMU Kanpur
+    expect(sections[8].id).toBe('csjmu');
 
-    // 10. Institutional Access Gateways
-    expect(sections[9].id).toBe('entry-gateways');
+    // 10. One Step Toward Institutional Innovation
+    expect(sections[9].id).toBe('innovation');
 
-    // 11. The Vision Continues
-    expect(sections[10].id).toBe('closing');
+    // 11. Institutional Access Gateways
+    expect(sections[10].id).toBe('entry-gateways');
+
+    // 12. The Vision Continues
+    expect(sections[11].id).toBe('closing');
   });
 });

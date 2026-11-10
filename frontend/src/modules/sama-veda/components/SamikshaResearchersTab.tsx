@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Badge, Button, Input, Select, EmptyState } from '@vyasa/ui';
+import { Badge, Button, Input, Select, EmptyState, AppIcon } from '@vyasa/ui';
 import { PublicAuthor, PublicPublication } from '../services/samaVedaService';
 
 interface SamikshaResearchersTabProps {
@@ -9,6 +9,7 @@ interface SamikshaResearchersTabProps {
   onAuthorSearchChange: (val: string) => void;
   publications?: PublicPublication[];
   onSelectAuthorPublications?: (authorName: string) => void;
+  onSelectAuthorCertificates?: (authorName: string) => void;
 }
 
 export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
@@ -18,6 +19,7 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
   onAuthorSearchChange,
   publications = [],
   onSelectAuthorPublications,
+  onSelectAuthorCertificates,
 }) => {
   const [selectedDept, setSelectedDept] = useState('');
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'provisional'>('all');
@@ -68,19 +70,21 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
   const verifiedCount = authors.filter((a) => a.is_verified).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
       {/* Header Summary */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #091e33 0%, #0f2b48 100%)',
-          borderRadius: '14px',
-          padding: '24px 28px',
+          background: 'linear-gradient(135deg, #061325 0%, #0a1f3d 60%, #0d3852 100%)',
+          borderRadius: '16px',
+          padding: '28px 32px',
           color: '#ffffff',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '20px',
+          boxShadow: '0 8px 24px -4px rgba(6, 19, 37, 0.25)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
         <div>
@@ -92,62 +96,59 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               color: '#38bdf8',
               letterSpacing: '0.08em',
               marginBottom: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            Academic Directory
+            <AppIcon name="users" size={13} color="#38bdf8" />
+            <span>Academic Directory</span>
           </div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
             Faculty &amp; Scholar Directory
           </h2>
-          <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: '4px 0 0 0' }}>
+          <p style={{ fontSize: '14px', color: '#cbd5e1', margin: '4px 0 0 0', lineHeight: 1.5 }}>
             Official register of university researchers, faculty investigators, and Scopus-indexed authors.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
           <div
             style={{
               background: 'rgba(255, 255, 255, 0.08)',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              backdropFilter: 'blur(8px)',
+              padding: '12px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
               textAlign: 'center',
+              minWidth: '110px',
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#38bdf8' }}>{totalAuthors}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Total Researchers</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: '#38bdf8' }}>{totalAuthors}</div>
+            <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>Total Researchers</div>
           </div>
           <div
             style={{
               background: 'rgba(255, 255, 255, 0.08)',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              backdropFilter: 'blur(8px)',
+              padding: '12px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
               textAlign: 'center',
+              minWidth: '110px',
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--vyasa-teal-border, #99f6e4)' }}>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: '#2dd4bf' }}>
               {verifiedCount}
             </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Verified Faculty</div>
+            <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>Verified Faculty</div>
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div
-        style={{
-          background: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          gap: '12px',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: '240px' }}>
+      <div className="samiksha-filter-bar">
+        <div style={{ flex: 1, minWidth: '260px' }}>
           <Input
             placeholder="Search researchers by name, department, or Scopus ID..."
             value={authorSearch}
@@ -214,40 +215,74 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '16px',
+            gap: '20px',
           }}
         >
           {filteredAuthors.map((auth) => {
             const pubCount = authorPubCounts[auth.id] || authorPubCounts[auth.full_name?.toLowerCase()] || 0;
+            const initials = auth.full_name
+              ? auth.full_name
+                  .replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s*/i, '')
+                  .split(' ')
+                  .map((n) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()
+              : 'RS';
 
             return (
               <div
                 key={auth.id}
+                className="samiksha-card samiksha-interactive-lift"
                 style={{
-                  background: '#ffffff',
-                  padding: '22px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  gap: '12px',
-                  boxShadow: '0 2px 8px rgba(15, 43, 72, 0.03)',
-                  transition: 'all 0.15s ease',
+                  gap: '16px',
+                  padding: '24px',
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                    <h3
-                      style={{
-                        fontSize: '16.5px',
-                        fontWeight: 700,
-                        color: '#0f2b48',
-                        margin: 0,
-                      }}
-                    >
-                      {auth.full_name}
-                    </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: auth.is_verified
+                            ? 'linear-gradient(135deg, #0d9488 0%, #06b6d4 100%)'
+                            : 'linear-gradient(135deg, #475569 0%, #64748b 100%)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '14px',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div>
+                        <h3
+                          style={{
+                            fontSize: '16.5px',
+                            fontWeight: 700,
+                            color: '#0f2b48',
+                            margin: 0,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {auth.full_name}
+                        </h3>
+                        <div style={{ fontSize: '12.5px', color: '#0d766e', fontWeight: 600, marginTop: '2px' }}>
+                          {auth.department || 'Department of Research & Development'}
+                        </div>
+                      </div>
+                    </div>
                     {auth.is_verified ? (
                       <Badge variant="teal">Verified</Badge>
                     ) : (
@@ -255,39 +290,33 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
                     )}
                   </div>
 
-                  <div style={{ fontSize: '13px', color: '#0d766e', fontWeight: 600, marginTop: '4px' }}>
-                    {auth.department || 'Department of Research & Development'}
-                  </div>
-
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', paddingLeft: '54px' }}>
                     {auth.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
                   </div>
 
                   {auth.scopus_id && (
-                    <div
-                      style={{
-                        marginTop: '10px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '11.5px',
-                        color: '#0d766e',
-                        fontFamily: 'monospace',
-                        background: '#f0fdfa',
-                        border: '1px solid #99f6e4',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                      }}
-                    >
-                      <span>Scopus ID:</span>
+                    <div style={{ paddingLeft: '54px', marginTop: '10px' }}>
                       <a
                         href={`https://www.scopus.com/authid/detail.uri?authorId=${auth.scopus_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#0d766e', fontWeight: 700, textDecoration: 'none' }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11.5px',
+                          color: '#0d766e',
+                          fontFamily: 'monospace',
+                          background: '#f0fdfa',
+                          border: '1px solid #99f6e4',
+                          padding: '4px 9px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                        }}
                         title="View Scopus Author Profile"
                       >
-                        {auth.scopus_id} &nearr;
+                        <span>Scopus ID: {auth.scopus_id} &nearr;</span>
                       </a>
                     </div>
                   )}
@@ -298,9 +327,9 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    paddingTop: '10px',
+                    paddingTop: '12px',
                     borderTop: '1px solid #f1f5f9',
-                    fontSize: '12px',
+                    fontSize: '12.5px',
                   }}
                 >
                   <span style={{ color: '#64748b' }}>
@@ -311,22 +340,43 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
                     )}
                   </span>
 
-                  {onSelectAuthorPublications && (
-                    <button
-                      type="button"
-                      onClick={() => onSelectAuthorPublications(auth.full_name)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#0d766e',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        padding: 0,
-                      }}
-                    >
-                      View Works &rarr;
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {onSelectAuthorCertificates && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectAuthorCertificates(auth.full_name)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#b45309',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontSize: '12px',
+                        }}
+                        title="Search Certificates for this author"
+                      >
+                        Certificates &rarr;
+                      </button>
+                    )}
+                    {onSelectAuthorPublications && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectAuthorPublications(auth.full_name)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#0d766e',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontSize: '12px',
+                        }}
+                      >
+                        Works &rarr;
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

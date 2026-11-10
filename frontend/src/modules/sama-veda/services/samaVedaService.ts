@@ -78,12 +78,45 @@ export interface PublicSpotlight {
   display_order: number;
 }
 
+export interface CertificateAuthorPublic {
+  author_name: string;
+  academic_title?: string | null;
+  scopus_id?: string | null;
+  department?: string | null;
+  affiliation?: string | null;
+  author_order?: number;
+  author_role?: string;
+  is_verified?: boolean;
+}
+
+export interface CertificateApprovalPublic {
+  authority_type: string;
+  signatory_name: string;
+  designation: string;
+  status: string;
+  decided_at?: string | null;
+}
+
 export interface CertificateVerificationResult {
   certificate_number: string;
+  certificate_type?: string;
+  status?: string;
+  title?: string;
+  presentation_statement?: string;
+  research_contribution_statement?: string;
+  research_title?: string;
+  congratulatory_statement?: string;
+  publication_details?: Record<string, any>;
+  verification_token?: string;
   issued_at?: string | null;
+  approved_at?: string | null;
   is_revoked: boolean;
   revoked_at?: string | null;
   revocation_reason?: string | null;
+  reissued_from_number?: string | null;
+  reissued_reason?: string | null;
+  authors: CertificateAuthorPublic[];
+  approvals: CertificateApprovalPublic[];
   bulletin?: {
     volume_number: number;
     issue_number: number;

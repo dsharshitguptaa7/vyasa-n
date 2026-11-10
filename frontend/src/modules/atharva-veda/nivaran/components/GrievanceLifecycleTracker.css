@@ -1,0 +1,589 @@
+/**
+ * NIVARAN Grievance Lifecycle Tracker & Status History Styles
+ * Modern, Executive Academic Governance & Evidentiary Tracking UI
+ */
+
+/* 1. Tracker Card Container */
+.nivaran-tracker-card {
+  position: relative;
+  background-color: var(--vyasa-surface, #ffffff);
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: var(--vyasa-radius-lg, 12px);
+  box-shadow: 0 2px 8px -2px rgba(15, 43, 72, 0.05), 0 1px 3px 0 rgba(15, 43, 72, 0.03);
+  overflow: hidden;
+  margin-bottom: 24px;
+  transition: box-shadow 0.25s ease;
+}
+
+.nivaran-tracker-card:hover {
+  box-shadow: 0 4px 16px -2px rgba(15, 43, 72, 0.08);
+}
+
+.nivaran-tracker-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #d4a017 0%, #0284c7 50%, #059669 100%);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+/* 2. Header Section */
+.nivaran-tracker-header {
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--vyasa-border-subtle, #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+}
+
+.nivaran-tracker-header__left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.nivaran-tracker-header__icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(212, 160, 23, 0.12) 0%, rgba(2, 132, 199, 0.08) 100%);
+  border: 1px solid rgba(212, 160, 23, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vyasa-navy, #1b2a4a);
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(212, 160, 23, 0.08);
+}
+
+.nivaran-tracker-header__title {
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+  margin: 0;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nivaran-tracker-header__subtitle {
+  font-size: 13px;
+  color: var(--vyasa-text-secondary, #64748b);
+  margin: 3px 0 0;
+}
+
+.nivaran-tracker-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nivaran-tracker-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vyasa-navy, #1b2a4a);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nivaran-tracker-sort-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* 3. Visual Stage Stepper */
+.nivaran-stepper-container {
+  padding: 24px 28px 20px;
+  background: #fafbfc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.nivaran-stepper-track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+}
+
+.nivaran-stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  text-align: center;
+  z-index: 1;
+}
+
+.nivaran-stepper-connector {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background-color: #e2e8f0;
+  z-index: 0;
+  transition: background-color 0.3s ease;
+}
+
+.nivaran-stepper-connector--completed {
+  background: linear-gradient(90deg, #059669 0%, #0d9488 100%);
+}
+
+.nivaran-stepper-connector--active {
+  background: linear-gradient(90deg, #059669 0%, #d4a017 100%);
+}
+
+.nivaran-step-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.25s ease;
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+  color: #64748b;
+  position: relative;
+  z-index: 1;
+}
+
+.nivaran-step-circle--completed {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+.nivaran-step-circle--current {
+  background: #ffffff;
+  border-color: #d4a017;
+  color: #d4a017;
+  box-shadow: 0 0 0 4px rgba(212, 160, 23, 0.2);
+  animation: vyasa-pulse 2s infinite;
+}
+
+.nivaran-step-circle--upcoming {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+@keyframes vyasa-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(212, 160, 23, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(212, 160, 23, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 160, 23, 0);
+  }
+}
+
+.nivaran-step-details {
+  margin-top: 10px;
+  max-width: 130px;
+}
+
+.nivaran-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.25;
+}
+
+.nivaran-step-title--active {
+  color: var(--vyasa-navy, #1b2a4a);
+  font-weight: 700;
+}
+
+.nivaran-step-title--completed {
+  color: #059669;
+}
+
+.nivaran-step-sub {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+/* 4. Active Status Callout */
+.nivaran-status-live-banner {
+  margin: 16px 28px 0;
+  padding: 12px 18px;
+  background: #ffffff;
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-left: 4px solid #d4a017;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.nivaran-status-live-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nivaran-status-live-banner__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: rgba(212, 160, 23, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b45309;
+  flex-shrink: 0;
+}
+
+.nivaran-status-live-banner__text {
+  font-size: 13px;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.nivaran-status-live-banner__status-name {
+  font-weight: 700;
+  color: var(--vyasa-navy, #1b2a4a);
+}
+
+/* 5. Modern Audit Timeline */
+.nivaran-timeline-body {
+  padding: 28px;
+}
+
+.nivaran-modern-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Continuous vertical track rail */
+.nivaran-modern-timeline::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  bottom: 24px;
+  left: 20px;
+  width: 2px;
+  background: linear-gradient(180deg, #d4a017 0%, #0284c7 40%, #059669 100%);
+  z-index: 0;
+  opacity: 0.7;
+}
+
+.nivaran-modern-timeline-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  z-index: 1;
+}
+
+/* Left Icon Bullet */
+.nivaran-modern-bullet {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 43, 72, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 2;
+}
+
+.nivaran-modern-timeline-row:hover .nivaran-modern-bullet {
+  transform: scale(1.08);
+  box-shadow: 0 3px 10px rgba(15, 43, 72, 0.12);
+}
+
+/* Bullet Color Variants */
+.nivaran-modern-bullet--submitted {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.nivaran-modern-bullet--review {
+  background: #fffbeb;
+  border-color: #d4a017;
+  color: #b45309;
+}
+
+.nivaran-modern-bullet--assigned {
+  background: #f0fdfa;
+  border-color: #0d9488;
+  color: #0d9488;
+}
+
+.nivaran-modern-bullet--escalated {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.nivaran-modern-bullet--resolved {
+  background: #ecfdf5;
+  border-color: #059669;
+  color: #059669;
+}
+
+.nivaran-modern-bullet--ai {
+  background: #eef2ff;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+/* Right Content Box */
+.nivaran-modern-event-card {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--vyasa-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+
+.nivaran-modern-timeline-row:hover .nivaran-modern-event-card {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 43, 72, 0.06);
+}
+
+.nivaran-modern-event-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.nivaran-transition-flow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nivaran-status-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nivaran-status-pill--source {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.nivaran-status-pill--target {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.nivaran-status-pill--gold {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.nivaran-status-pill--emerald {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.nivaran-status-pill--rose {
+  background: #ffe4e6;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+.nivaran-transition-arrow {
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Actor Badge */
+.nivaran-actor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nivaran-actor-pill--user {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.nivaran-actor-pill--system {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.nivaran-actor-pill--authority {
+  background: #fdf4ff;
+  color: #86198f;
+  border: 1px solid #f5d0fe;
+}
+
+/* Timestamp */
+.nivaran-event-timestamp {
+  font-size: 12px;
+  color: var(--vyasa-text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Remarks Bubble */
+.nivaran-event-remarks {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-left: 3px solid #0284c7;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.55;
+  margin-top: 6px;
+}
+
+.nivaran-event-remarks--ai {
+  border-left-color: #6366f1;
+  background: #fbfbfe;
+}
+
+.nivaran-event-remarks--user {
+  border-left-color: #059669;
+}
+
+/* Evidentiary Footer */
+.nivaran-event-footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.nivaran-event-footer__seq {
+  font-weight: 600;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nivaran-event-footer__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #059669;
+  font-weight: 500;
+}
+
+/* Empty State */
+.nivaran-tracker-empty {
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.nivaran-tracker-empty__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.nivaran-tracker-empty__text {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .nivaran-stepper-track {
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+
+  .nivaran-stepper-step {
+    min-width: 90px;
+  }
+
+  .nivaran-modern-timeline::before {
+    left: 15px;
+  }
+
+  .nivaran-modern-bullet {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nivaran-modern-timeline-row {
+    gap: 12px;
+  }
+}

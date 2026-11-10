@@ -22,7 +22,7 @@ export const UniversityBrand: React.FC<UniversityBrandProps> = ({
   theme = 'dark',
   className = '',
 }) => {
-  const logoSize = size === 'lg' ? 48 : size === 'sm' ? 28 : 36;
+  const logoSize = size === 'lg' ? 42 : size === 'sm' ? 26 : 32;
   const isLight = theme === 'light';
   const primaryTextColor = isLight ? 'var(--vyasa-primary, #0f2b48)' : '#ffffff';
   const hindiTextColor = isLight ? 'var(--vyasa-text-muted, #6b7280)' : 'var(--vyasa-gold-border, #ecdfba)';

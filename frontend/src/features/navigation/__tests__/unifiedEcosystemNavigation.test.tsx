@@ -375,7 +375,7 @@ describe('Unified VYASA-n Ecosystem Navigation Architecture Suite', () => {
     expect(subjectsLink).toHaveAttribute('href', '/admin/atharva/subjects');
     expect(grievanceClustersLink).toHaveAttribute('href', '/admin/atharva/grievance-clusters');
     expect(auditLink).toHaveAttribute('href', '/admin/atharva/audit-logs');
-    expect(efilesLink).toHaveAttribute('href', '/modules/atharva-veda/nivaran/e-files');
+    expect(efilesLink).toHaveAttribute('href', '/atharva-veda/e-files');
 
     // Verify ordering
     const links = [

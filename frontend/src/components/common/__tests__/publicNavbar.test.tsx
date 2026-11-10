@@ -63,6 +63,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
             <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div data-testid="dean-dashboard-page">Dean Dashboard</div>} />
             <Route path="/modules/atharva-veda/nivaran/my-grievances" element={<div data-testid="applicant-grievances-page">Applicant Grievances</div>} />
             <Route path="/modules/sama-veda" element={<div data-testid="samiksha-destination">SAMIKSHA Portal</div>} />
+            <Route path="/modules/yajur-veda/anudaan" element={<div data-testid="anudaan-destination">ANUDAAN Portal</div>} />
           </Routes>
         </AuthProvider>
       </MemoryRouter>
@@ -249,6 +250,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
         <AuthProvider>
           <Routes>
             <Route path="/" element={<PublicNavbar />} />
+            <Route path="/atharva-veda/dean/dashboard" element={<div data-testid="dean-destination">Dean Exec</div>} />
             <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<div data-testid="dean-destination">Dean Exec</div>} />
           </Routes>
         </AuthProvider>
@@ -313,11 +315,13 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
     const nivaranIdx = linkLabels.findIndex((l) => l?.startsWith('NIVARAN'));
     const samikshaIdx = linkLabels.indexOf('SAMIKSHA');
+    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('ANUDAAN'));
     const innovationIdx = linkLabels.indexOf('Research & Innovation');
 
     expect(nivaranIdx).toBeGreaterThan(-1);
     expect(samikshaIdx).toBe(nivaranIdx + 1);
-    expect(innovationIdx).toBe(samikshaIdx + 1);
+    expect(anudaanIdx).toBe(samikshaIdx + 1);
+    expect(innovationIdx).toBe(anudaanIdx + 1);
   });
 
   it('21. Clicking SAMIKSHA navigates directly to the SAMIKSHA research portal', async () => {
@@ -368,5 +372,64 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     fireEvent.click(mobileSamikshaLink);
 
     expect(await screen.findByTestId('samiksha-destination')).toBeInTheDocument();
+  });
+
+  it('24. ANUDAAN navigation link renders in navbar between SAMIKSHA and Research & Innovation', () => {
+    renderNavbar();
+    const navList = screen.getByRole('navigation', { name: /Ecosystem section navigation/i });
+    const links = Array.from(navList.querySelectorAll('button'));
+    const linkLabels = links.map((l) => l.textContent);
+
+    expect(linkLabels).toContain('SAMIKSHA');
+    expect(linkLabels.some((l) => l?.startsWith('ANUDAAN'))).toBe(true);
+
+    const samikshaIdx = linkLabels.indexOf('SAMIKSHA');
+    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('ANUDAAN'));
+    const innovationIdx = linkLabels.indexOf('Research & Innovation');
+
+    expect(anudaanIdx).toBe(samikshaIdx + 1);
+    expect(innovationIdx).toBe(anudaanIdx + 1);
+  });
+
+  it('25. Clicking ANUDAAN navigates directly to the ANUDAAN portal', async () => {
+    renderNavbar();
+    const anudaanBtn = screen.getAllByRole('button', { name: /^ANUDAAN/i })[0];
+    expect(anudaanBtn).toBeInTheDocument();
+    fireEvent.click(anudaanBtn);
+
+    expect(await screen.findByTestId('anudaan-destination')).toBeInTheDocument();
+  });
+
+  it('26. ANUDAAN reflects active state when currentTab is anudaan or on anudaan route', () => {
+    render(
+      <MemoryRouter initialEntries={['/modules/yajur-veda/anudaan']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/modules/yajur-veda/anudaan" element={<PublicNavbar currentTab="anudaan" />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const anudaanBtn = screen.getAllByRole('button', { name: /^ANUDAAN/i })[0];
+    expect(anudaanBtn.className).toContain('is-active');
+    expect(anudaanBtn.className).toContain('vyasa-public-nav-link--anudaan');
+  });
+
+  it('27. Mobile navigation drawer includes ANUDAAN navigation link and routes to portal', async () => {
+    renderNavbar();
+    const mobileToggle = screen.getByLabelText(/Toggle navigation menu/i);
+    fireEvent.click(mobileToggle);
+
+    const drawer = screen.getByTestId('mobile-nav-drawer');
+    expect(drawer.className).toContain('is-open');
+
+    const mobileAnudaanBtn = Array.from(drawer.querySelectorAll('button')).find((b) =>
+      b.textContent?.startsWith('ANUDAAN')
+    );
+    expect(mobileAnudaanBtn).toBeDefined();
+
+    fireEvent.click(mobileAnudaanBtn!);
+    expect(await screen.findByTestId('anudaan-destination')).toBeInTheDocument();
   });
 });

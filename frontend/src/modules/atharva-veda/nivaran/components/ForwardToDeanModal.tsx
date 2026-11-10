@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Button, Badge } from '@vyasa/ui';
+import { Badge } from '@vyasa/ui';
+import { WorkflowActionModal } from '../../../../components/common/WorkflowActionModal';
 import { AssociateDeanForwardRequest } from '../types/grievance';
 
 interface ForwardToDeanModalProps {
@@ -30,8 +31,8 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
 
   const isValid = reason.trim().length >= 5;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
     if (!isValid) {
       setErrorMsg('Institutional justification is required (minimum 5 characters).');
       return;
@@ -49,42 +50,26 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
   };
 
   return (
-    <Modal
+    <WorkflowActionModal
       isOpen={isOpen}
       onClose={onClose}
       title={`Escalate Grievance to Dean R&D • ${grievanceId || 'Case'}`}
-      className="vyasa-modal--md"
-      footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', width: '100%' }}>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={!isValid || loading}
-          >
-            {loading ? 'Submitting Escalation...' : 'Confirm Escalation to Dean \u2192'}
-          </Button>
-        </div>
-      }
+      size="md"
+      errorMsg={errorMsg}
+      primaryAction={{
+        label: 'Confirm Escalation to Dean \u2192',
+        onClick: handleSubmit,
+        disabled: !isValid || loading,
+        loading,
+        loadingText: 'Submitting Escalation...',
+      }}
+      secondaryAction={{
+        label: 'Cancel',
+        onClick: onClose,
+        disabled: loading,
+      }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {errorMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: '6px',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#b91c1c',
-              fontSize: '13px',
-            }}
-          >
-            {errorMsg}
-          </div>
-        )}
-
         {/* Target Destination Card */}
         <div
           style={{
@@ -165,6 +150,6 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
           />
         </div>
       </div>
-    </Modal>
+    </WorkflowActionModal>
   );
 };

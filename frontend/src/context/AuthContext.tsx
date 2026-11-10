@@ -51,10 +51,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return isSuperAdmin;
   }, [isSuperAdmin]);
 
-  // Requirement 4: ONLY check generic VYASA role 'authority'.
+  // Appointed institutional authority profiles or generic platform role 'authority'
   const isAuthority = useMemo(() => {
-    if (!user || !user.roles) return false;
-    return user.roles.some((r) => r.toLowerCase() === 'authority');
+    if (!user) return false;
+    if (user.roles && user.roles.some((r) => r.toLowerCase() === 'authority')) {
+      return true;
+    }
+    if (user.authority_role || user.authority_id) {
+      return true;
+    }
+    return false;
   }, [user]);
 
   // Check generic VYASA role 'applicant'.

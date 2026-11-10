@@ -21,6 +21,7 @@ import { SamikshaResearchersTab } from '../components/SamikshaResearchersTab';
 import { SamikshaFelicitationTab } from '../components/SamikshaFelicitationTab';
 import { SamikshaCamProjectsTab } from '../components/SamikshaCamProjectsTab';
 import { SamikshaFellowshipsTab } from '../components/SamikshaFellowshipsTab';
+import '../styles/samiksha.css';
 
 type ActiveTab =
   | 'overview'
@@ -401,27 +402,17 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
   // Tab Navigation List (strictly preserving all 7 canonical tabs & exact labels)
   const tabsList = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'publications', label: 'Publications Archive' },
-    { id: 'bulletins', label: 'Research Bulletins' },
-    { id: 'authors', label: 'Researcher Directory' },
-    { id: 'certificates', label: 'Certificate Verification' },
-    { id: 'cam-projects', label: 'CAM-AI Projects' },
-    { id: 'fellowships', label: 'Fellowship Schemes' },
+    { id: 'overview', label: 'Overview', icon: 'grid' as const },
+    { id: 'publications', label: 'Publications Archive', icon: 'book-open' as const },
+    { id: 'bulletins', label: 'Research Bulletins', icon: 'file-text' as const },
+    { id: 'authors', label: 'Researcher Directory', icon: 'users' as const },
+    { id: 'certificates', label: 'Certificate Verification', icon: 'shield' as const },
+    { id: 'cam-projects', label: 'CAM-AI Projects', icon: 'layers' as const },
+    { id: 'fellowships', label: 'Fellowship Schemes', icon: 'graduation-cap' as const },
   ];
 
   return (
-    <div
-      style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '24px 20px 48px 20px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '24px',
-      }}
-    >
+    <div className="samiksha-root-container">
       {/* 0. Clean Institutional Breadcrumb for Authenticated Workspaces */}
       {isAuthenticated && (
         <nav
@@ -446,7 +437,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '5px',
+              gap: '6px',
             }}
           >
             <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
@@ -491,15 +482,16 @@ export const SamaVedaDashboardPage: React.FC = () => {
         <div
           style={{
             fontSize: '12.5px',
-            color: 'var(--vyasa-teal, #0d766e)',
+            color: '#0d766e',
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'var(--vyasa-teal-light, #f0fdfa)',
-            padding: '8px 14px',
-            borderRadius: '8px',
-            border: '1px solid var(--vyasa-teal-border, #99f6e4)',
+            background: '#f0fdfa',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            border: '1px solid #99f6e4',
+            boxShadow: '0 2px 6px rgba(13, 118, 110, 0.05)',
           }}
         >
           <span
@@ -509,6 +501,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
               height: '8px',
               borderRadius: '50%',
               background: '#0d766e',
+              boxShadow: '0 0 6px #0d766e',
             }}
           />
           <span>Synchronizing research records...</span>
@@ -521,26 +514,31 @@ export const SamaVedaDashboardPage: React.FC = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '12px 16px',
-            background: 'var(--vyasa-warning-light, #fffbeb)',
-            border: '1px solid var(--vyasa-warning-border, #fde68a)',
-            borderRadius: '8px',
-            color: 'var(--vyasa-warning, #b45309)',
+            padding: '14px 18px',
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '10px',
+            color: '#b45309',
             fontSize: '13px',
+            boxShadow: '0 2px 6px rgba(180, 83, 9, 0.06)',
           }}
         >
-          <span>{errorMsg}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AppIcon name="alert-circle" size={16} color="#b45309" />
+            <span>{errorMsg}</span>
+          </div>
           <button
             type="button"
             onClick={() => setErrorMsg(null)}
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--vyasa-warning, #b45309)',
+              color: '#b45309',
               cursor: 'pointer',
               fontWeight: 700,
-              fontSize: '16px',
+              fontSize: '18px',
               lineHeight: 1,
+              padding: '0 4px',
             }}
             aria-label="Dismiss alert"
           >
@@ -552,13 +550,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
       {/* 3. Navigation Tabs Bar */}
       <nav
         aria-label="SAMIKSHA Sections"
-        style={{
-          display: 'flex',
-          gap: '6px',
-          borderBottom: '2px solid var(--vyasa-border, #e2e8f0)',
-          overflowX: 'auto',
-          paddingBottom: '0px',
-        }}
+        className="samiksha-nav-bar"
       >
         {tabsList.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -568,21 +560,14 @@ export const SamaVedaDashboardPage: React.FC = () => {
               type="button"
               onClick={() => handleTabChange(tab.id as ActiveTab)}
               aria-current={isActive ? 'page' : undefined}
-              style={{
-                padding: '10px 18px',
-                fontSize: '13.5px',
-                fontWeight: isActive ? 700 : 600,
-                border: 'none',
-                background: isActive ? 'var(--vyasa-teal-light, #f0fdfa)' : 'transparent',
-                color: isActive ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-text-secondary, #475569)',
-                borderBottom: isActive ? '2px solid #0d766e' : '2px solid transparent',
-                borderRadius: '6px 6px 0 0',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-              }}
+              className={`samiksha-nav-btn ${isActive ? 'is-active' : ''}`}
             >
-              {tab.label}
+              <AppIcon
+                name={tab.icon}
+                size={15}
+                color={isActive ? '#0d766e' : '#64748b'}
+              />
+              <span>{tab.label}</span>
             </button>
           );
         })}
@@ -612,12 +597,10 @@ export const SamaVedaDashboardPage: React.FC = () => {
                 {spotlights.map((spot) => (
                   <div
                     key={spot.id}
+                    className="samiksha-card samiksha-interactive-lift"
                     style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
+                      padding: 0,
                       overflow: 'hidden',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                     }}
                   >
                     {spot.video_embed_url && (
@@ -635,11 +618,11 @@ export const SamaVedaDashboardPage: React.FC = () => {
                         </video>
                       </div>
                     )}
-                    <div style={{ padding: '16px' }}>
-                      <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#0f2b48', margin: '0 0 6px 0' }}>
+                    <div style={{ padding: '20px' }}>
+                      <h4 style={{ fontSize: '16.5px', fontWeight: 800, color: '#0f2b48', margin: '0 0 8px 0', lineHeight: 1.35 }}>
                         {spot.headline}
                       </h4>
-                      <p style={{ fontSize: '13px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                      <p style={{ fontSize: '13px', color: '#64748b', margin: 0, lineHeight: 1.55 }}>
                         {spot.summary}
                       </p>
                     </div>
@@ -706,6 +689,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           bulletins={bulletins}
           onDownloadBulletin={handleDownloadBulletin}
           downloadingId={downloadingBulletinId}
+          publications={publications}
         />
       )}
 
@@ -720,6 +704,10 @@ export const SamaVedaDashboardPage: React.FC = () => {
           onSelectAuthorPublications={(authorName) => {
             setPubSearch(authorName);
             handleTabChange('publications');
+          }}
+          onSelectAuthorCertificates={(authorName) => {
+            setCertQuery(authorName);
+            handleTabChange('certificates');
           }}
         />
       )}

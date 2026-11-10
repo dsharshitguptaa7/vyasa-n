@@ -37,21 +37,25 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
   authenticatedMode = false,
 }) => {
   const isCompact = applicantMode || authenticatedMode;
+  const ContainerTag = authenticatedMode ? 'div' : 'header';
 
   return (
-    <header className={`vyasa-institutional-header ${className}`} style={{ position: 'sticky', top: 0, zIndex: 60, width: '100%' }}>
+    <ContainerTag className={`vyasa-institutional-header ${className}`} style={{ position: 'sticky', top: 0, zIndex: 60, width: '100%' }}>
       {/* Tier 1: CSJMU Institutional Affiliation Bar */}
       <div
         className="csjmu-top-bar"
         style={{
           backgroundColor: '#081726',
           color: '#ffffff',
-          padding: '8px 0',
+          padding: '0 20px',
           fontSize: '12px',
-          minHeight: isCompact ? '48px' : undefined,
-          display: isCompact ? 'flex' : undefined,
-          alignItems: isCompact ? 'center' : undefined,
+          height: isCompact ? '52px' : undefined,
+          minHeight: isCompact ? '52px' : undefined,
+          maxHeight: isCompact ? '52px' : undefined,
+          display: 'flex',
+          alignItems: 'center',
           transition: 'all 0.25s ease',
+          boxSizing: 'border-box',
         }}
       >
         <div
@@ -60,16 +64,20 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
             gap: '12px',
             width: '100%',
+            height: '100%',
+            paddingTop: 0,
+            paddingBottom: 0,
+            boxSizing: 'border-box',
           }}
         >
           <div
             onClick={onLogoClick}
             role={onLogoClick ? "button" : undefined}
             tabIndex={onLogoClick ? 0 : undefined}
-            style={{ cursor: onLogoClick ? 'pointer' : 'default', display: 'inline-flex' }}
+            style={{ cursor: onLogoClick ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center' }}
             onKeyDown={(e) => {
               if (onLogoClick && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
@@ -77,7 +85,24 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
               }
             }}
           >
-            <UniversityBrand size="md" showAccreditation={true} theme="dark" />
+            <UniversityBrand size={isCompact ? "sm" : "md"} showAccreditation={true} theme="dark" />
+            {isCompact && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '14px', gap: '8px' }}>
+                <div style={{ width: '1px', height: '22px', backgroundColor: 'rgba(236, 223, 186, 0.25)', marginRight: '6px' }} />
+                <VyasaLogo size={26} />
+                <span
+                  style={{
+                    fontFamily: "var(--vyasa-font-scholarly), 'Cinzel', serif",
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: 'var(--vyasa-gold, #c89528)',
+                  }}
+                >
+                  VYASAᴺ
+                </span>
+              </div>
+            )}
           </div>
           <div
             className="csjmu-top-bar__meta"
@@ -246,6 +271,6 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
       )}
       </>
       )}
-    </header>
+    </ContainerTag>
   );
 };

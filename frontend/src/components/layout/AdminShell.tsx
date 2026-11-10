@@ -37,7 +37,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
       <div
         className="vyasa-admin-canvas-inner"
         style={{
-          padding: '20px 24px 48px 24px',
+          width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
         }}

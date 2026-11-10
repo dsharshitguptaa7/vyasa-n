@@ -88,7 +88,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         key: 'verified_faculty',
         label: 'Verified Faculty',
         count: verifiedAuthorsCount,
-        color: '#0d766e', // Teal
+        color: '#0d9488', // Electric Teal
       });
     }
     if (provisionalAuthorsCount > 0) {
@@ -104,7 +104,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         key: 'doi_indexed',
         label: 'Scopus / DOI Indexed',
         count: withDoiCount,
-        color: '#b2811a', // Gold
+        color: '#f59e0b', // Amber Gold
       });
     }
     if (directCitationCount > 0) {
@@ -112,7 +112,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         key: 'journal_works',
         label: 'Peer-Reviewed Works',
         count: directCitationCount,
-        color: '#0284c7', // Sky blue
+        color: '#06b6d4', // Cyan
       });
     }
     if (camProjects && camProjects.length > 0) {
@@ -120,7 +120,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         key: 'cam_grants',
         label: 'CAM-AI Innovation Grants',
         count: camProjects.length,
-        color: '#8b5cf6', // Purple
+        color: '#8b5cf6', // Violet
       });
     }
 
@@ -188,7 +188,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   const totalRecognitionItems = recognitionData.reduce((acc, s) => acc + s.count, 0);
   const donutSize = 160;
   const donutCenter = donutSize / 2;
-  const donutRadius = 64;
+  const donutRadius = 66;
   const donutInnerRadius = 42;
 
   let cumulativeAngle = 0;
@@ -236,18 +236,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   const maxBulletinCount = Math.max(1, ...bulletinData.map((b) => b.count));
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '24px',
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: '16px',
-        padding: '24px 28px',
-        boxShadow: '0 4px 16px rgba(15, 43, 72, 0.04)',
-      }}
-    >
+    <div className="samiksha-card" style={{ padding: '26px 28px' }}>
       {/* Section Header */}
       <div
         style={{
@@ -257,35 +246,16 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
           flexWrap: 'wrap',
           gap: '12px',
           borderBottom: '1px solid #f1f5f9',
-          paddingBottom: '16px',
+          paddingBottom: '18px',
+          marginBottom: '24px',
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              color: '#0d766e',
-              letterSpacing: '0.08em',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '4px',
-            }}
-          >
+          <div className="samiksha-eyebrow">
             <AppIcon name="bar-chart" size={13} color="#0d766e" />
             <span>Research Intelligence &amp; Analytics</span>
           </div>
-          <h2
-            style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: '#0f2b48',
-              margin: 0,
-              letterSpacing: '-0.01em',
-            }}
-          >
+          <h2 className="samiksha-section-title">
             Scholarly Output &amp; Recognition Metrics
           </h2>
         </div>
@@ -297,6 +267,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               height: '8px',
               borderRadius: '50%',
               background: '#10b981',
+              boxShadow: '0 0 6px #10b981',
             }}
           />
           <span>Telemetry derived from verified CSJMU institutional records</span>
@@ -314,23 +285,24 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         {/* CHART 1: Research Publication Trends */}
         <div
           style={{
-            background: '#fcfaf7',
-            border: '1px solid #ede8e1',
-            borderRadius: '12px',
-            padding: '18px 20px',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '14px',
+            padding: '20px 22px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
           }}
         >
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
                 1. Publication Growth Trends
               </h3>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>By Year</span>
+              <span className="samiksha-pill-badge cyan" style={{ padding: '2px 8px', fontSize: '10.5px' }}>By Year</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
               Scholarly works verified and cataloged across academic years. Click a year to filter archive.
             </p>
           </div>
@@ -348,8 +320,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               >
                 <defs>
                   <linearGradient id="samikshaTrendGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0d766e" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#0d766e" stopOpacity="0.0" />
+                    <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.32" />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
 
@@ -388,7 +360,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                   <path
                     d={trendLinePath}
                     fill="none"
-                    stroke="#0d766e"
+                    stroke="#0d9488"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -403,8 +375,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       <circle
                         cx={p.x}
                         cy={p.y}
-                        r={isHovered ? 6 : 4}
-                        fill={isHovered ? '#b2811a' : '#0d766e'}
+                        r={isHovered ? 6.5 : 4.5}
+                        fill={isHovered ? '#f59e0b' : '#0d9488'}
                         stroke="#ffffff"
                         strokeWidth={isHovered ? 2.5 : 1.5}
                         style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -436,13 +408,14 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                     position: 'absolute',
                     top: '8px',
                     right: '10px',
-                    background: '#0f2b48',
+                    background: '#0a1f3d',
                     color: '#ffffff',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    fontSize: '11.5px',
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
                     pointerEvents: 'none',
+                    border: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <div style={{ fontWeight: 700, color: '#f59e0b' }}>Year {points[hoveredTrendIdx].year}</div>
@@ -462,23 +435,24 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         {/* CHART 2: Output Distribution by Category */}
         <div
           style={{
-            background: '#fcfaf7',
-            border: '1px solid #ede8e1',
-            borderRadius: '12px',
-            padding: '18px 20px',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '14px',
+            padding: '20px 22px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
           }}
         >
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
                 2. Output by Research Category
               </h3>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Categorical</span>
+              <span className="samiksha-pill-badge teal" style={{ padding: '2px 8px', fontSize: '10.5px' }}>Categorical</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
               Distribution across articles, reviews, chapters, and papers. Click a bar to filter catalog.
             </p>
           </div>
@@ -488,7 +462,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               {loading ? 'Evaluating research categories...' : 'No category records currently available.'}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {categoryData.map((cat) => {
                 const isHovered = hoveredCat === cat.name;
                 const pct = totalPublications > 0 ? Math.round((cat.count / totalPublications) * 100) : 0;
@@ -510,10 +484,11 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                     }}
                     style={{
                       cursor: 'pointer',
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      background: isHovered ? 'rgba(13, 118, 110, 0.08)' : 'transparent',
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      background: isHovered ? 'rgba(20, 184, 166, 0.1)' : 'transparent',
                       transition: 'all 0.15s ease',
+                      border: isHovered ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid transparent',
                     }}
                     title={`Filter publications by ${cat.name}`}
                   >
@@ -521,8 +496,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: '12px',
-                        marginBottom: '4px',
+                        fontSize: '12.5px',
+                        marginBottom: '5px',
                         color: isHovered ? '#0f2b48' : '#334155',
                         fontWeight: isHovered ? 700 : 600,
                       }}
@@ -536,7 +511,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       style={{
                         height: '8px',
                         background: '#e2e8f0',
-                        borderRadius: '4px',
+                        borderRadius: '6px',
                         overflow: 'hidden',
                       }}
                     >
@@ -544,9 +519,11 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                         style={{
                           height: '100%',
                           width: `${barWidth}%`,
-                          background: isHovered ? '#b2811a' : '#0d766e',
-                          borderRadius: '4px',
-                          transition: 'width 0.4s ease, background-color 0.15s ease',
+                          background: isHovered
+                            ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                            : 'linear-gradient(90deg, #0d9488, #06b6d4)',
+                          borderRadius: '6px',
+                          transition: 'width 0.4s ease, background 0.15s ease',
                         }}
                       />
                     </div>
@@ -560,23 +537,24 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         {/* CHART 3: Recognition & Verification Overview */}
         <div
           style={{
-            background: '#fcfaf7',
-            border: '1px solid #ede8e1',
-            borderRadius: '12px',
-            padding: '18px 20px',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '14px',
+            padding: '20px 22px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
           }}
         >
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
                 3. Recognition &amp; Verification
               </h3>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Authenticity</span>
+              <span className="samiksha-pill-badge amber" style={{ padding: '2px 8px', fontSize: '10.5px' }}>Authenticity</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
               Breakdown of {totalAuthors > 0 ? `${totalAuthors} researchers, ` : ''}verified faculty authors, DOI-registered works, and grants.
             </p>
           </div>
@@ -610,7 +588,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                         d={arc.pathData}
                         fill={arc.color}
                         stroke="#ffffff"
-                        strokeWidth="2"
+                        strokeWidth="2.5"
                         opacity={isHovered ? 1 : 0.9}
                         style={{
                           cursor: 'pointer',
@@ -636,10 +614,10 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                     pointerEvents: 'none',
                   }}
                 >
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f2b48', lineHeight: 1 }}>
+                  <div style={{ fontSize: '17px', fontWeight: 800, color: '#0f2b48', lineHeight: 1 }}>
                     {totalRecognitionItems}
                   </div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>
                     Records
                   </div>
                 </div>
@@ -666,10 +644,11 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                         fontSize: '11.5px',
                         color: isHovered ? '#0f2b48' : '#475569',
                         fontWeight: isHovered ? 700 : 500,
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        background: isHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+                        padding: '3px 6px',
+                        borderRadius: '6px',
+                        background: isHovered ? 'rgba(15, 43, 72, 0.05)' : 'transparent',
                         cursor: arc.key.includes('faculty') ? 'pointer' : 'default',
+                        transition: 'all 0.15s ease',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -696,23 +675,24 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         {/* CHART 4: Bulletin Publishing Volumes */}
         <div
           style={{
-            background: '#fcfaf7',
-            border: '1px solid #ede8e1',
-            borderRadius: '12px',
-            padding: '18px 20px',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '14px',
+            padding: '20px 22px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
           }}
         >
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
                 4. Research Bulletin Volumes
               </h3>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Archival</span>
+              <span className="samiksha-pill-badge navy" style={{ padding: '2px 8px', fontSize: '10.5px' }}>Archival</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
               Publications compiled per published institutional bulletin issue. Click to inspect bulletin.
             </p>
           </div>
@@ -743,10 +723,11 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                     }}
                     style={{
                       cursor: 'pointer',
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      background: isHovered ? 'rgba(13, 118, 110, 0.08)' : 'transparent',
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      background: isHovered ? 'rgba(20, 184, 166, 0.1)' : 'transparent',
                       transition: 'all 0.15s ease',
+                      border: isHovered ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid transparent',
                     }}
                     title={`View ${b.title} (${b.period})`}
                   >
@@ -754,8 +735,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        fontSize: '12px',
-                        marginBottom: '4px',
+                        fontSize: '12.5px',
+                        marginBottom: '5px',
                         color: isHovered ? '#0f2b48' : '#334155',
                         fontWeight: isHovered ? 700 : 600,
                       }}
@@ -769,7 +750,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       style={{
                         height: '8px',
                         background: '#e2e8f0',
-                        borderRadius: '4px',
+                        borderRadius: '6px',
                         overflow: 'hidden',
                       }}
                     >
@@ -777,9 +758,11 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                         style={{
                           height: '100%',
                           width: `${barWidth}%`,
-                          background: isHovered ? '#0d766e' : '#b2811a',
-                          borderRadius: '4px',
-                          transition: 'width 0.4s ease, background-color 0.15s ease',
+                          background: isHovered
+                            ? 'linear-gradient(90deg, #0d9488, #14b8a6)'
+                            : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                          borderRadius: '6px',
+                          transition: 'width 0.4s ease, background 0.15s ease',
                         }}
                       />
                     </div>

@@ -1,6 +1,6 @@
 import React from 'react';
+import { WorkspaceShell } from '../../../components/layout/WorkspaceShell';
 import { UnifiedSidebar } from '../../../components/layout/UnifiedSidebar';
-import { Navbar } from '../../../components/common/Navbar';
 
 export interface VyasaPortalLayoutProps {
   children: React.ReactNode;
@@ -13,8 +13,8 @@ export interface VyasaPortalLayoutProps {
 
 /**
  * VyasaPortalLayout (WorkspaceShell): Authenticated portal workspace layout.
- * Provides a fixed 100vh application shell with stable Navbar and UnifiedSidebar,
- * and an independently scrolling main content canvas. No marketing footer.
+ * Standardized on the global WorkspaceShell architecture with UnifiedSidebar
+ * and fluid canvas scrolling. No duplicate shells or marketing footers.
  */
 export const VyasaPortalLayout: React.FC<VyasaPortalLayoutProps> = ({
   children,
@@ -25,34 +25,10 @@ export const VyasaPortalLayout: React.FC<VyasaPortalLayoutProps> = ({
   className = '',
 }) => {
   return (
-    <div
-      className={`vyasa-portal-workspace-layout ${className}`}
-      style={{
-        height: '100vh',
-        maxHeight: '100vh',
-        width: '100%',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: 'var(--vyasa-ivory, #faf7f2)',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* 1. Universal Top Header (Fixed at top) */}
-      <header style={{ flexShrink: 0, zIndex: 50 }}>
-        <Navbar currentTab="governance" />
-      </header>
-
-      {/* 2. Portal Workspace Body */}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: 'flex',
-          overflow: 'hidden',
-          width: '100%',
-        }}
-      >
+    <WorkspaceShell
+      currentTab="governance"
+      className={`vyasa-portal-workspace-layout ${className}`.trim()}
+      sidebar={
         <UnifiedSidebar
           activeItem={activeItem}
           activeTab={activeItem}
@@ -62,19 +38,17 @@ export const VyasaPortalLayout: React.FC<VyasaPortalLayoutProps> = ({
           onOpenHelp={onSelectHelp}
           onSelectSettings={onSelectSettings}
         />
-        <main
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: '100%',
-            padding: '24px 28px',
-            boxSizing: 'border-box',
-            overflowY: 'auto',
-          }}
-        >
-          {children}
-        </main>
+      }
+    >
+      <div
+        style={{
+          boxSizing: 'border-box',
+          minWidth: 0,
+          width: '100%',
+        }}
+      >
+        {children}
       </div>
-    </div>
+    </WorkspaceShell>
   );
 };

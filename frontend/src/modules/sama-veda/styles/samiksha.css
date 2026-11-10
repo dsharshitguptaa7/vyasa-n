@@ -1,0 +1,578 @@
+/**
+ * SAMIKSHA Premium Research Intelligence Design System
+ * Domain: Sama Veda • Research Recognition & Communication
+ * Theme: Midnight Navy + Electric Teal + Refined Cyan + Warm Amber
+ */
+
+:root {
+  --samiksha-navy-deep: #051329;
+  --samiksha-navy-dark: #0a1f3d;
+  --samiksha-navy-surface: #0f2b48;
+  --samiksha-navy-card: #132f50;
+  --samiksha-teal-electric: #0d9488;
+  --samiksha-teal-bright: #14b8a6;
+  --samiksha-teal-glow: rgba(20, 184, 166, 0.25);
+  --samiksha-cyan-bright: #06b6d4;
+  --samiksha-cyan-sky: #38bdf8;
+  --samiksha-amber-bright: #f59e0b;
+  --samiksha-amber-gold: #d97706;
+  --samiksha-gold-accent: #b2811a;
+  --samiksha-surface-light: #ffffff;
+  --samiksha-surface-muted: #f8fafc;
+  --samiksha-border-light: #e2e8f0;
+  --samiksha-border-dark: rgba(255, 255, 255, 0.12);
+  --samiksha-text-main: #0f172a;
+  --samiksha-text-muted: #64748b;
+  --samiksha-text-inverse: #f8fafc;
+}
+
+/* Animations */
+@keyframes samiksha-pulse-slow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.95;
+  }
+}
+
+@keyframes samiksha-node-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(20, 184, 166, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8));
+  }
+}
+
+@keyframes samiksha-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes samiksha-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Base Wrapper */
+.samiksha-root-container {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 64px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* Navigation Segmented Bar */
+.samiksha-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--samiksha-border-light);
+  border-radius: 14px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  box-shadow: 0 2px 10px rgba(15, 43, 72, 0.04);
+}
+
+.samiksha-nav-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.samiksha-nav-bar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.samiksha-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--samiksha-text-muted);
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+}
+
+.samiksha-nav-btn:hover {
+  color: var(--samiksha-navy-surface);
+  background: #f1f5f9;
+}
+
+.samiksha-nav-btn:focus-visible {
+  outline: 2px solid var(--samiksha-teal-bright);
+  outline-offset: 2px;
+}
+
+.samiksha-nav-btn.is-active {
+  color: #0d766e;
+  background: #f0fdfa;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(13, 118, 110, 0.12);
+}
+
+.samiksha-nav-btn.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: 20%;
+  right: 20%;
+  height: 2.5px;
+  background: linear-gradient(90deg, #0d9488, #06b6d4);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Glass Card */
+.samiksha-card {
+  background: #ffffff;
+  border: 1px solid var(--samiksha-border-light);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(15, 43, 72, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.samiksha-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 43, 72, 0.08);
+}
+
+.samiksha-interactive-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.samiksha-interactive-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -4px rgba(15, 43, 72, 0.1);
+  border-color: rgba(20, 184, 166, 0.45);
+}
+
+/* Hero Network Canvas */
+.samiksha-hero-wrapper {
+  background: linear-gradient(135deg, #051329 0%, #0a1f3d 45%, #0d3852 100%);
+  border-radius: 20px;
+  padding: 38px 36px;
+  color: #ffffff;
+  box-shadow: 0 16px 40px -8px rgba(5, 19, 41, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.samiksha-hero-bg-network {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 580px;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.85;
+  user-select: none;
+}
+
+.samiksha-hero-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.samiksha-hero-glow-teal {
+  top: -40px;
+  right: 180px;
+  width: 280px;
+  height: 280px;
+  background: rgba(20, 184, 166, 0.18);
+}
+
+.samiksha-hero-glow-cyan {
+  bottom: -60px;
+  right: 20px;
+  width: 320px;
+  height: 320px;
+  background: rgba(6, 182, 212, 0.15);
+}
+
+.samiksha-hero-glow-amber {
+  top: 40px;
+  left: 20%;
+  width: 220px;
+  height: 220px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* Metric Telemetry Tile */
+.samiksha-metric-tile {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  min-height: 82px;
+}
+
+.samiksha-metric-tile.is-interactive {
+  cursor: pointer;
+}
+
+.samiksha-metric-tile.is-interactive:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(56, 189, 248, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.samiksha-metric-tile:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+/* Section Header Bar */
+.samiksha-section-header {
+  display: flex;
+  justifyContent: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.samiksha-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #0d766e;
+  margin-bottom: 4px;
+}
+
+.samiksha-eyebrow.gold {
+  color: #b2811a;
+}
+
+.samiksha-eyebrow.cyan {
+  color: #0284c7;
+}
+
+.samiksha-section-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f2b48;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.samiksha-section-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+  line-height: 1.5;
+  max-width: 680px;
+}
+
+/* Filter Controls Bar */
+.samiksha-filter-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--samiksha-border-light);
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(15, 43, 72, 0.03);
+}
+
+/* Badges & Tags */
+.samiksha-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.samiksha-pill-badge.teal {
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+}
+
+.samiksha-pill-badge.cyan {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.samiksha-pill-badge.amber {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.samiksha-pill-badge.navy {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.samiksha-pill-badge.verified {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12), rgba(6, 182, 212, 0.12));
+  color: #0f766e;
+  border: 1px solid #5eead4;
+}
+
+/* Cryptographic Certificate Shield Box */
+.samiksha-cert-box {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 2px solid #10b981;
+  padding: 30px;
+  box-shadow: 0 12px 32px -4px rgba(16, 185, 129, 0.12), 0 4px 12px rgba(15, 43, 72, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.samiksha-cert-box.is-revoked {
+  border-color: #ef4444;
+  box-shadow: 0 12px 32px -4px rgba(239, 68, 68, 0.12), 0 4px 12px rgba(15, 43, 72, 0.04);
+}
+
+.samiksha-cert-watermark {
+  position: absolute;
+  right: -25px;
+  bottom: -25px;
+  font-size: 160px;
+  font-weight: 900;
+  color: rgba(16, 185, 129, 0.04);
+  pointer-events: none;
+  user-select: none;
+  font-family: serif;
+}
+
+.samiksha-cert-box.is-revoked .samiksha-cert-watermark {
+  color: rgba(239, 68, 68, 0.04);
+}
+
+/* Modal Overlay */
+.samiksha-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 19, 41, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: samiksha-fade-in 0.18s ease-out;
+}
+
+@keyframes samiksha-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.samiksha-modal-content {
+  background: #ffffff;
+  border-radius: 20px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 34px;
+  box-shadow: 0 25px 50px -12px rgba(5, 19, 41, 0.35);
+  position: relative;
+  border: 1px solid var(--samiksha-border-light);
+  animation: samiksha-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes samiksha-slide-up {
+  from {
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Research Bulletin Digital Journal & Volume Architecture */
+.samiksha-volume-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.samiksha-volume-card {
+  background: #ffffff;
+  border: 1.5px solid var(--samiksha-border-light);
+  border-radius: 14px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.samiksha-volume-card:hover {
+  transform: translateY(-2px);
+  border-color: #0d9488;
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.12);
+}
+
+.samiksha-volume-card.is-active {
+  background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+  border-color: #0d9488;
+  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.16);
+}
+
+.samiksha-volume-card.is-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0d9488, #06b6d4);
+}
+
+.samiksha-journal-cover {
+  background: linear-gradient(145deg, #061325 0%, #0c2344 60%, #113c5d 100%);
+  border-radius: 12px 12px 0 0;
+  padding: 22px 20px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 2px solid rgba(245, 158, 11, 0.5);
+}
+
+.samiksha-journal-cover-watermark {
+  position: absolute;
+  right: -15px;
+  bottom: -20px;
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+}
+
+.samiksha-toc-item {
+  background: #ffffff;
+  border: 1px solid var(--samiksha-border-light);
+  border-radius: 12px;
+  padding: 18px 20px;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.samiksha-toc-item:hover {
+  border-color: #99f6e4;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.06);
+}
+
+.samiksha-pdf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 19, 41, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justifyContent: center;
+  z-index: 10000;
+  padding: 24px;
+}
+
+.samiksha-pdf-modal-container {
+  background: #ffffff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 1000px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .samiksha-hero-wrapper {
+    padding: 26px 20px;
+  }
+  .samiksha-hero-bg-network {
+    display: none;
+  }
+  .samiksha-root-container {
+    padding: 16px 12px 48px 12px;
+    gap: 20px;
+  }
+  .samiksha-filter-bar {
+    padding: 14px 16px;
+  }
+  .samiksha-modal-content {
+    padding: 24px 20px;
+  }
+}
+
+/* Accessibility / Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

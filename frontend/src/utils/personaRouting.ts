@@ -19,25 +19,25 @@ export function getNivaranDestination(auth: PersonaAuthContext): string {
     return '/applicant/login';
   }
   if (auth.isDean) {
-    return '/modules/atharva-veda/nivaran/dean/dashboard';
+    return '/atharva-veda/dean/dashboard';
   }
   if (auth.isAssociateDean) {
-    return '/modules/atharva-veda/nivaran/associate-dean/dashboard';
+    return '/atharva-veda/associate-dean/dashboard';
   }
   if (auth.isAssistantDean) {
-    return '/modules/atharva-veda/nivaran/assistant-dean/dashboard';
+    return '/atharva-veda/assistant-dean/dashboard';
   }
   if (auth.isManager) {
-    return '/modules/atharva-veda/nivaran/manager/queue';
+    return '/atharva-veda/manager/queue';
   }
   if (auth.isAdmin && !auth.authorityRole) {
     return '/admin';
   }
   if (auth.isApplicant) {
-    return '/modules/atharva-veda/nivaran/my-grievances';
+    return '/atharva-veda/my-grievances';
   }
   if (auth.isAuthority) {
     return '/authority';
   }
-  return '/modules/atharva-veda/nivaran/my-grievances';
+  return '/atharva-veda/my-grievances';
 }

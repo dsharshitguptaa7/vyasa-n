@@ -260,11 +260,13 @@ def get_public_bulletin(
 @router.get("/bulletins/{bulletin_id}/download")
 def download_public_bulletin(
     bulletin_id: uuid.UUID,
+    inline: bool = Query(False, description="Whether to stream inline in browser or trigger file download"),
     db: Session = Depends(get_db),
 ):
     """
     Stream full bulletin PDF to public researchers.
     STRICT FILTER: Only accessible if bulletin is published and active.
+    Supports inline=true for in-browser PDF reader without download.
     """
     try:
         bulletin = db.get(ResearchBulletin, bulletin_id)
@@ -287,7 +289,19 @@ def download_public_bulletin(
         path=str(file_path),
         media_type="application/pdf",
         filename=safe_name,
+        content_disposition_type="inline" if inline else "attachment",
     )
+
+
+@router.get("/bulletins/{bulletin_id}/view")
+def view_public_bulletin(
+    bulletin_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Direct inline view endpoint for reading bulletin PDFs in-browser without downloading.
+    """
+    return download_public_bulletin(bulletin_id=bulletin_id, inline=True, db=db)
 
 
 # ============================================================================
@@ -503,11 +517,19 @@ def verify_certificate(
     stmt = (
         select(FelicitationCertificate)
         .options(
+            joinedload(FelicitationCertificate.authors),
+            joinedload(FelicitationCertificate.approvals),
+            joinedload(FelicitationCertificate.template),
             joinedload(FelicitationCertificate.author),
             joinedload(FelicitationCertificate.bulletin),
             joinedload(FelicitationCertificate.publication),
         )
-        .where(FelicitationCertificate.certificate_number == clean_number)
+        .where(
+            or_(
+                FelicitationCertificate.certificate_number == clean_number,
+                FelicitationCertificate.verification_token == clean_number,
+            )
+        )
     )
     try:
         cert = db.scalar(stmt)
@@ -535,25 +557,74 @@ def verify_certificate(
         logger.warning("Failed to record CertificateVerificationEvent: %s", exc)
         db.rollback()
 
+    # Map authors list
+    authors_out = [
+        {
+            "id": str(a.id),
+            "author_name": a.author_name_snapshot,
+            "academic_title": a.academic_title_snapshot,
+            "scopus_id": a.scopus_id_snapshot,
+            "affiliation": a.affiliation_snapshot,
+            "department": a.department_snapshot,
+            "author_order": a.author_order,
+            "author_role": a.author_role,
+        }
+        for a in cert.authors
+    ]
+
+    approvals_out = [
+        {
+            "authority_type": ap.authority_type,
+            "signatory_name": ap.signatory_name_snapshot,
+            "designation": ap.designation_snapshot,
+            "status": ap.status,
+            "decided_at": ap.decided_at.isoformat() if ap.decided_at else None,
+        }
+        for ap in cert.approvals
+    ]
+
+    effective_research_title = cert.research_title or (cert.publication.title if cert.publication else None)
+    is_valid = (not cert.is_revoked) and (cert.status not in ["REVOKED", "REJECTED"])
+
+    msg = "Certificate verified successfully."
+    if cert.is_revoked or cert.status == "REVOKED":
+        msg = "Certificate has been REVOKED."
+    elif cert.status == "SUPERSEDED":
+        msg = "Certificate has been SUPERSEDED by a reissued document."
+
     return ApiResponse(
         success=True,
-        message="Certificate verified successfully." if not cert.is_revoked else "Certificate has been REVOKED.",
+        message=msg,
         data={
             "id": str(cert.id),
             "certificate_number": cert.certificate_number,
+            "certificate_type": cert.certificate_type,
+            "status": cert.status,
+            "title": cert.title,
+            "presentation_statement": cert.presentation_statement,
+            "research_contribution_statement": cert.research_contribution_statement,
+            "research_title": effective_research_title,
+            "congratulatory_statement": cert.congratulatory_statement,
+            "publication_details": cert.publication_details,
+            "verification_token": cert.verification_token,
             "issued_at": cert.issued_at.isoformat() if cert.issued_at else None,
+            "approved_at": cert.approved_at.isoformat() if cert.approved_at else None,
             "is_revoked": cert.is_revoked,
             "revoked_at": cert.revoked_at.isoformat() if cert.revoked_at else None,
             "revocation_reason": cert.revocation_reason if cert.is_revoked else None,
+            "reissued_from_id": str(cert.reissued_from_id) if cert.reissued_from_id else None,
+            "reissued_reason": cert.reissued_reason,
             "sha256_checksum": cert.checksum_sha256 or "",
-            "is_download_allowed": not cert.is_revoked,
+            "is_download_allowed": is_valid,
+            "authors": authors_out,
+            "approvals": approvals_out,
             "author": {
                 "id": str(cert.author.id),
                 "full_name": cert.author.full_name,
                 "department": cert.author.department,
                 "scopus_id": cert.author.scopus_id,
                 "is_verified": cert.author.is_verified,
-            } if cert.author else None,
+            } if cert.author else (authors_out[0] if authors_out else None),
             "bulletin": {
                 "id": str(cert.bulletin.id),
                 "title": cert.bulletin.title,
@@ -584,7 +655,10 @@ def download_public_certificate(
     """
     clean_number = certificate_number.strip()
     stmt = select(FelicitationCertificate).where(
-        FelicitationCertificate.certificate_number == clean_number
+        or_(
+            FelicitationCertificate.certificate_number == clean_number,
+            FelicitationCertificate.verification_token == clean_number,
+        )
     )
     try:
         cert = db.scalar(stmt)
