@@ -2296,8 +2296,8 @@
 
 .vyasa-signature-pillars__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
   align-items: stretch;
 }
 
@@ -2305,7 +2305,7 @@
   background: var(--vyasa-surface-warm, #fdfbf7);
   border: 1px solid var(--vyasa-border, #e3dcd1);
   border-radius: var(--vyasa-radius-xl, 14px);
-  padding: 36px 32px 32px;
+  padding: 32px 26px 28px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -2334,6 +2334,10 @@
   background: linear-gradient(90deg, var(--vyasa-gold, #b2811a), #d4a017);
 }
 
+.vyasa-pillar-card--anudaan::before {
+  background: linear-gradient(90deg, var(--vyasa-saffron, #c85602), #ea580c);
+}
+
 .vyasa-pillar-card:hover {
   transform: translateY(-4px);
 }
@@ -2346,6 +2350,11 @@
 .vyasa-pillar-card--nivaran:hover {
   border-color: var(--vyasa-gold, #b2811a);
   box-shadow: 0 16px 36px -6px rgba(178, 129, 26, 0.18), 0 2px 8px rgba(15, 43, 72, 0.04);
+}
+
+.vyasa-pillar-card--anudaan:hover {
+  border-color: var(--vyasa-saffron, #c85602);
+  box-shadow: 0 16px 36px -6px rgba(200, 86, 2, 0.18), 0 2px 8px rgba(15, 43, 72, 0.04);
 }
 
 .vyasa-pillar-card__meta-bar {
@@ -2370,16 +2379,26 @@
   color: var(--vyasa-gold, #b2811a);
 }
 
+.vyasa-pillar-card__domain--anudaan {
+  color: var(--vyasa-saffron, #c85602);
+}
+
 .vyasa-pillar-card__brand {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 18px;
+  min-height: 90px;
+}
+
+.vyasa-pillar-card__brand-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .vyasa-pillar-card__icon-box {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -2402,19 +2421,26 @@
   border: 1px solid rgba(178, 129, 26, 0.25);
 }
 
+.vyasa-pillar-card__icon-box--anudaan {
+  background: rgba(200, 86, 2, 0.08);
+  border: 1px solid rgba(200, 86, 2, 0.22);
+}
+
 .vyasa-pillar-card__name {
   font-family: var(--vyasa-font-scholarly), 'Cinzel', serif;
-  font-size: 26px;
+  font-size: clamp(22px, 1.8vw, 25px);
   font-weight: 800;
   color: var(--vyasa-primary, #0f2b48);
   letter-spacing: 0.06em;
   margin: 0 0 4px;
+  line-height: 1.2;
 }
 
 .vyasa-pillar-card__pillar {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1.35;
 }
 
 .vyasa-pillar-card__pillar--samiksha {
@@ -2425,28 +2451,45 @@
   color: var(--vyasa-gold, #b2811a);
 }
 
+.vyasa-pillar-card__pillar--anudaan {
+  color: var(--vyasa-saffron, #c85602);
+}
+
+.vyasa-pillar-card__subtitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+.vyasa-pillar-card__subtitle--anudaan {
+  color: var(--vyasa-saffron, #c85602);
+}
+
 .vyasa-pillar-card__desc {
-  font-size: 14.5px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--vyasa-text-secondary, #4b5565);
-  margin-bottom: 22px;
-  min-height: 72px;
+  margin-bottom: 20px;
+  min-height: 86px;
 }
 
 .vyasa-pillar-card__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 26px;
+  gap: 7px;
+  margin-bottom: 24px;
+  min-height: 68px;
+  align-content: flex-start;
 }
 
 .vyasa-pillar-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  padding: 5px 11px;
+  padding: 5px 10px;
   border-radius: 6px;
   white-space: nowrap;
 }
@@ -2463,12 +2506,23 @@
   border: 1px solid rgba(178, 129, 26, 0.18);
 }
 
+.vyasa-pillar-chip--anudaan {
+  background: rgba(200, 86, 2, 0.06);
+  color: #7c2d12;
+  border: 1px solid rgba(200, 86, 2, 0.18);
+}
+
+.vyasa-pillar-card__bottom {
+  display: flex;
+  flex-direction: column;
+}
+
 .vyasa-pillar-card__cta {
   width: 100%;
   justify-content: center;
-  font-size: 15px !important;
+  font-size: 14.5px !important;
   font-weight: 600 !important;
-  padding: 12px 24px !important;
+  padding: 11px 20px !important;
   border-radius: 8px !important;
 }
 
@@ -2484,6 +2538,58 @@
 
 .vyasa-pillar-card:hover .vyasa-pillar-card__cta-arrow {
   transform: translateX(4px);
+}
+
+.vyasa-pillar-card__secondary-wrap {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vyasa-pillar-card__secondary-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.vyasa-pillar-card__secondary-link--samiksha {
+  color: var(--vyasa-teal, #0d766e);
+}
+.vyasa-pillar-card__secondary-link--samiksha:hover {
+  color: #0a5c55;
+  background: rgba(13, 118, 110, 0.06);
+}
+
+.vyasa-pillar-card__secondary-link--nivaran {
+  color: var(--vyasa-gold, #b2811a);
+}
+.vyasa-pillar-card__secondary-link--nivaran:hover {
+  color: #8c6412;
+  background: rgba(178, 129, 26, 0.06);
+}
+
+.vyasa-pillar-card__secondary-link--anudaan {
+  color: var(--vyasa-saffron, #c85602);
+}
+.vyasa-pillar-card__secondary-link--anudaan:hover {
+  color: #a54400;
+  background: rgba(200, 86, 2, 0.06);
+}
+
+.vyasa-pillar-card__secondary-arrow {
+  transition: transform 0.2s ease;
+}
+
+.vyasa-pillar-card__secondary-link:hover .vyasa-pillar-card__secondary-arrow {
+  transform: translateX(3px);
 }
 
 /* ==========================================================================
@@ -2798,15 +2904,28 @@
 }
 
 /* Responsive Rules for Operational Pillars & Highlights */
-@media (max-width: 960px) {
+@media (max-width: 1040px) {
   .vyasa-signature-pillars__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px;
+  }
+  .vyasa-signature-pillars__grid > :last-child:nth-child(odd) {
+    grid-column: span 2;
+    max-width: 580px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
   }
   .vyasa-pillar-card {
     padding: 28px 24px 24px;
   }
   .vyasa-pillar-card__desc {
+    min-height: auto;
+  }
+  .vyasa-pillar-card__brand {
+    min-height: auto;
+  }
+  .vyasa-pillar-card__tags {
     min-height: auto;
   }
   .vyasa-samiksha-banner {
@@ -2817,9 +2936,17 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 680px) {
   .vyasa-signature-pillars {
     margin: 24px 0 36px;
+  }
+  .vyasa-signature-pillars__grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .vyasa-signature-pillars__grid > :last-child:nth-child(odd) {
+    grid-column: auto;
+    max-width: 100%;
   }
   .vyasa-pillar-card {
     padding: 22px 18px 20px;
@@ -2828,8 +2955,8 @@
     font-size: 22px;
   }
   .vyasa-pillar-chip {
-    font-size: 11.5px;
-    padding: 4px 9px;
+    font-size: 11px;
+    padding: 4px 8px;
   }
   .vyasa-samiksha-grid {
     grid-template-columns: 1fr;

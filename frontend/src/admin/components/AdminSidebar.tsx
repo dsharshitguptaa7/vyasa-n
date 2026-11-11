@@ -43,9 +43,27 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const { user, isSuperAdmin, logout } = useAuth();
   const userRoles = useMemo(() => (user?.roles || []).map((r) => r.toLowerCase()), [user]);
+  const userPermissions = useMemo(
+    () => (((user as any)?.permissions as string[]) || []).map((p) => p.toLowerCase()),
+    [user]
+  );
   const isAdministrator = isSuperAdmin || userRoles.includes('super_admin') || userRoles.includes('administrator');
   const isSamaAdmin = isAdministrator || userRoles.includes('sama_content_admin');
   const isSamaEditor = isSamaAdmin || userRoles.includes('sama_content_editor');
+
+  // ANUDAAN Granular RBAC Permissions
+  const isAnudaanAdmin = isAdministrator || userRoles.includes('anudaan_admin');
+  const isAnudaanFinance =
+    isAnudaanAdmin ||
+    userRoles.includes('anudaan_finance_officer') ||
+    userPermissions.includes('anudaan:finance:manage');
+  const isAnudaanGallery =
+    isAnudaanAdmin ||
+    userRoles.includes('anudaan_gallery_editor') ||
+    userPermissions.includes('anudaan:gallery:edit');
+  const isAnudaanConfig =
+    isAnudaanAdmin ||
+    userPermissions.includes('anudaan:config:manage');
 
   const navSections: NavSection[] = useMemo(() => {
     const sections: NavSection[] = [];
@@ -194,8 +212,36 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       });
     }
 
+    // 4. ANUDAAN MANAGEMENT (Yajur Veda)
+    if (isAnudaanFinance || isAnudaanGallery || isAnudaanConfig) {
+      const anudaanItems: NavItem[] = [];
+      if (isAnudaanFinance) {
+        anudaanItems.push({
+          id: 'anudaan-impact',
+          label: 'Incentive Sanction Register',
+          path: '/admin/anudaan',
+          icon: 'layout-dashboard',
+        });
+      }
+      if (isAnudaanGallery) {
+        anudaanItems.push({
+          id: 'anudaan-gallery',
+          label: 'Researcher Gallery',
+          path: '/admin/anudaan/gallery',
+          icon: 'layers',
+        });
+      }
+
+      sections.push({
+        id: 'anudaan-management',
+        title: 'ANUDAAN MANAGEMENT',
+        badge: 'Incentive CMS',
+        items: anudaanItems,
+      });
+    }
+
     return sections;
-  }, [isAdministrator, isSamaAdmin, isSamaEditor]);
+  }, [isAdministrator, isSamaAdmin, isSamaEditor, isAnudaanFinance, isAnudaanGallery, isAnudaanConfig]);
 
   const handleSubitemClick = (sub: { id: string; path: string; action?: string }, e: React.MouseEvent) => {
     if (sub.action === 'add-authority' && onAddAuthority) {
@@ -206,7 +252,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const isCurrentActive = (item: NavItem) => {
     if (activeTab && activeTab === item.id) return true;
-    if (item.path === '/admin' || item.path === '/admin/sama') {
+    if (item.path === '/admin' || item.path === '/admin/sama' || item.path === '/admin/anudaan') {
       return location.pathname === item.path;
     }
     return location.pathname.startsWith(item.path);

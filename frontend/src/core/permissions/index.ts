@@ -15,6 +15,10 @@ export const VYASA_PERMISSIONS = {
   SAMA_CERTIFICATE_MANAGE: 'sama:certificate:manage',
   SAMA_CERTIFICATE_REVOKE: 'sama:certificate:revoke',
   SAMA_CONTENT_IMPORT: 'sama:content:import',
+  ANUDAAN_READ: 'anudaan:read',
+  ANUDAAN_FINANCE_MANAGE: 'anudaan:finance:manage',
+  ANUDAAN_GALLERY_EDIT: 'anudaan:gallery:edit',
+  ANUDAAN_CONFIG_MANAGE: 'anudaan:config:manage',
 } as const;
 
 export type VyasaPermission = (typeof VYASA_PERMISSIONS)[keyof typeof VYASA_PERMISSIONS];

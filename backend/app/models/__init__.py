@@ -12,6 +12,7 @@ from app.models.notification import (
 from app.models.applicant_profile import ApplicantProfile
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
+from app.models.visitor import PublicVisitor, PublicDailyVisit
 from app.models.two_factor import (
     UserTwoFactorAuth,
     TwoFactorRecoveryCode,
@@ -138,6 +139,10 @@ from app.modules.yajur_veda.models import (
     AnudaanDeclaration,
     AnudaanAnnualLimitPolicy,
     AnudaanVerification,
+    AnudaanDisbursement,
+    AnudaanGalleryItem,
+    AnudaanGalleryImage,
+    AnudaanPublicConfig,
 )
 
 __all__ = [
@@ -243,4 +248,7 @@ __all__ = [
     "AnudaanDeclaration",
     "AnudaanAnnualLimitPolicy",
     "AnudaanVerification",
+    # Main Website Visitor Counter
+    "PublicVisitor",
+    "PublicDailyVisit",
 ]

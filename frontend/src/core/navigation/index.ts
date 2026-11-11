@@ -19,11 +19,11 @@ export const VEDA_MODULE_NAV: ModuleNavItem[] = [
   },
   {
     key: 'yajur-veda',
-    name: 'Yajur Veda',
-    path: '/modules/yajur-veda',
+    name: 'Yajur Veda (ANUDAAN)',
+    path: '/admin/anudaan',
     vedaDomain: 'yajur-veda',
-    description: 'Research Administration & Incentives',
-    isEnabled: false,
+    description: 'Research Administration & Publication Incentives',
+    isEnabled: true,
   },
   {
     key: 'sama-veda',
@@ -31,7 +31,7 @@ export const VEDA_MODULE_NAV: ModuleNavItem[] = [
     path: '/modules/sama-veda',
     vedaDomain: 'sama-veda',
     description: 'Research Recognition & Communication',
-    isEnabled: false,
+    isEnabled: true,
   },
   {
     key: 'atharva-veda',

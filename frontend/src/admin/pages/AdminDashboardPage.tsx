@@ -183,6 +183,22 @@ export const AdminDashboardPage: React.FC = () => {
             >
               System Audit Trail
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<AppIcon name="layout-dashboard" size={14} />}
+              onClick={() => navigate('/admin/anudaan')}
+            >
+              Incentive Sanctions
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<AppIcon name="layers" size={14} />}
+              onClick={() => navigate('/admin/anudaan/gallery')}
+            >
+              Researcher Gallery
+            </Button>
           </div>
         </div>
 
@@ -796,6 +812,120 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Section: ANUDAAN (Yajur Veda) Research Publication Incentive & Finance */}
+        <div>
+          <div style={{ marginBottom: '16px' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--vyasa-gold, #b2811a)',
+                marginBottom: '4px',
+              }}
+            >
+              Yajur Veda • Research Administration &amp; Incentive Governance
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '8px' }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: 'var(--vyasa-primary, #0f2b48)',
+                  fontFamily: 'var(--vyasa-font-scholarly, serif)',
+                }}
+              >
+                ANUDAAN Incentive Impact &amp; Ceremonial Recognition Console
+              </h2>
+              <span style={{ fontSize: '12px', color: 'var(--vyasa-text-muted, #64748b)' }}>
+                Audited financial disbursements, researcher ceremonies, and showcase configuration
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '18px',
+            }}
+          >
+            {/* Card 1: Incentive Sanction Register */}
+            <Card
+              variant="default"
+              title="Incentive Sanction Register"
+              subtitle="Official Publication Sanctions &amp; Quartile Register"
+              headerAction={<Badge variant="teal">Sanction Register</Badge>}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.5 }}>
+                  Record official university publication incentive sanctions awarded to campus scholars by quartile and department.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<AppIcon name="layout-dashboard" size={14} />}
+                    onClick={() => navigate('/admin/anudaan')}
+                  >
+                    Open Sanction Register &rarr;
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 2: Researcher Recognition Gallery CMS */}
+            <Card
+              variant="default"
+              title="Researcher Recognition Gallery"
+              subtitle="Ceremony Showcases &amp; Photo Archives"
+              headerAction={<Badge variant="gold">Media Gallery</Badge>}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.5 }}>
+                  Curate institutional photo galleries of research incentive distribution ceremonies, recipient spotlights, and authorized ceremony photography.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<AppIcon name="layers" size={14} />}
+                    onClick={() => navigate('/admin/anudaan/gallery')}
+                  >
+                    Manage Gallery &rarr;
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 3: Showcase Configuration */}
+            <Card
+              variant="default"
+              title="Showcase Configuration"
+              subtitle="Public Visibility &amp; Advisory Controls"
+              headerAction={<Badge variant="neutral">Settings</Badge>}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.5 }}>
+                  Toggle public visibility of institutional impact metrics, ceremony showcases, default reporting academic years, and statutory notices.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<AppIcon name="settings" size={14} />}
+                    onClick={() => navigate('/admin/anudaan/config')}
+                  >
+                    Configure &rarr;
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
 
         {/* Section 3: Module Registry Toggle Card */}
         <AdminModuleToggleCard />

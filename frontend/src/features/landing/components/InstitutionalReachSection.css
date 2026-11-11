@@ -1,0 +1,278 @@
+/**
+ * VYASA Institutional Reach - Production Visitor Counter Styling
+ * Institutional aesthetic: Cream/off-white base, deep navy typography,
+ * subtle gold/teal accents, refined borders, and zero layout shift.
+ */
+
+.vyasa-institutional-reach {
+  width: 100%;
+  max-width: 1100px;
+  margin: 48px auto;
+  padding: 40px 32px;
+  background: linear-gradient(180deg, #fdfcf9 0%, #f7f5ed 100%);
+  border: 1px solid rgba(178, 129, 26, 0.22);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px -2px rgba(13, 27, 42, 0.05), 0 1px 3px rgba(13, 27, 42, 0.02);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.vyasa-institutional-reach__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Header */
+.vyasa-institutional-reach__header {
+  text-align: center;
+  margin-bottom: 36px;
+  max-width: 720px;
+}
+
+.vyasa-reach-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(178, 129, 26, 0.09);
+  border: 1px solid rgba(178, 129, 26, 0.28);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8c6412;
+  margin-bottom: 14px;
+}
+
+.vyasa-reach-eyebrow__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #0f766e;
+  box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.7);
+  animation: vyasaReachPulse 2s infinite;
+}
+
+@keyframes vyasaReachPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 7px rgba(15, 118, 110, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0);
+  }
+}
+
+.vyasa-reach-title {
+  font-family: var(--vyasa-font-scholarly, 'Cinzel', 'Merriweather', Georgia, serif);
+  font-size: clamp(1.65rem, 3.2vw, 2.25rem);
+  font-weight: 700;
+  color: #0b2545;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.vyasa-reach-subtitle {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0;
+}
+
+/* Grid Layout */
+.vyasa-reach-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+/* Cards */
+.vyasa-reach-card {
+  background: #ffffff;
+  border: 1px solid rgba(13, 27, 42, 0.08);
+  border-radius: 12px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 10px rgba(13, 27, 42, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.vyasa-reach-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(13, 27, 42, 0.08);
+}
+
+.vyasa-reach-card--total {
+  border-top: 3.5px solid #b2811a;
+}
+
+.vyasa-reach-card--today {
+  border-top: 3.5px solid #0f766e;
+}
+
+.vyasa-reach-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.vyasa-reach-card__icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.vyasa-reach-card__icon-badge--gold {
+  background: rgba(178, 129, 26, 0.1);
+  color: #b2811a;
+}
+
+.vyasa-reach-card__icon-badge--teal {
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+}
+
+.vyasa-reach-card__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+}
+
+.vyasa-reach-card__badge--gold {
+  background: rgba(178, 129, 26, 0.08);
+  color: #8c6412;
+  border: 1px solid rgba(178, 129, 26, 0.2);
+}
+
+.vyasa-reach-card__badge--teal {
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+}
+
+.vyasa-reach-card__stat-wrapper {
+  margin-bottom: 12px;
+}
+
+.vyasa-reach-card__value {
+  display: block;
+  font-family: var(--vyasa-font-scholarly, 'Cinzel', 'Merriweather', Georgia, serif);
+  font-size: clamp(2.2rem, 3.8vw, 3rem);
+  font-weight: 800;
+  color: #0b2545;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  min-height: 52px;
+}
+
+.vyasa-reach-card__value--fallback {
+  color: #94a3b8;
+}
+
+.vyasa-reach-card__skeleton-value {
+  height: 48px;
+  width: 140px;
+  margin-bottom: 4px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: vyasaReachSkeletonShimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes vyasaReachSkeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.vyasa-reach-card__label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 6px 0 0;
+  letter-spacing: -0.01em;
+}
+
+.vyasa-reach-card__desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Footer strip */
+.vyasa-reach-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(13, 27, 42, 0.08);
+  width: 100%;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.vyasa-reach-footer__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vyasa-reach-footer__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #b2811a;
+}
+
+.vyasa-reach-footer__sep {
+  color: #cbd5e1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .vyasa-institutional-reach {
+    padding: 28px 18px;
+    margin: 32px auto;
+  }
+
+  .vyasa-reach-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .vyasa-reach-footer {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .vyasa-reach-footer__sep {
+    display: none;
+  }
+}

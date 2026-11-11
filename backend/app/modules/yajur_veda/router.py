@@ -634,3 +634,164 @@ def get_verified_bank_accounts(
         success=True,
         data=accounts,
     )
+
+
+# =============================================================================
+# ANUDAAN: Public Showcase, Impact Dashboard & Recognition Gallery
+# =============================================================================
+
+from fastapi.responses import FileResponse
+from app.core.storage import storage_service
+from app.modules.yajur_veda.services.showcase_service import anudaan_showcase_service
+from app.modules.yajur_veda.models.showcase import AnudaanGalleryImage
+from app.modules.yajur_veda.schemas.showcase import (
+    AnudaanPublicImpactStats,
+    AnudaanGalleryListResponse,
+    AnudaanGalleryItemOut,
+    AnudaanPublicConfigOut,
+    AnudaanPublicSanctionOut,
+    AnudaanPublicSanctionsResponse,
+)
+
+
+@router.get(
+    "/anudaan/public/impact",
+    response_model=ApiResponse[AnudaanPublicImpactStats],
+    summary="Get Public Institutional Incentive Impact Statistics",
+)
+def get_public_impact_statistics(
+    academic_year: Optional[str] = Query(None, description="Academic year filter (e.g. '2025-2026' or 'ALL')"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns aggregated public institutional incentive impact statistics.
+    Checks public configuration to ensure impact section is enabled.
+    Returns safe aggregate totals without exposing researcher PII.
+    """
+    cfg = anudaan_showcase_service.get_public_config(db)
+    effective_year = academic_year or cfg.active_academic_year or "ALL"
+    stats = anudaan_showcase_service.get_public_impact_stats(db, academic_year=effective_year)
+    return ApiResponse(
+        success=True,
+        message="Public incentive impact statistics retrieved successfully.",
+        data=stats,
+    )
+
+
+@router.get(
+    "/anudaan/public/sanctions",
+    response_model=ApiResponse[AnudaanPublicSanctionsResponse],
+    summary="Get Public Institutional Incentive Sanction Register",
+)
+def get_public_sanction_register(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    academic_year: Optional[str] = Query(None),
+    quartile: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves published institutional incentive sanction records.
+    Strictly excludes sensitive identity, registration, employee, or financial details.
+    """
+    items, total = anudaan_showcase_service.get_public_sanction_entries(
+        db, skip=skip, limit=limit, academic_year=academic_year, quartile=quartile, search=search
+    )
+    return ApiResponse(
+        success=True,
+        message="Public incentive sanction register retrieved.",
+        data=AnudaanPublicSanctionsResponse(
+            total=total,
+            items=[
+                AnudaanPublicSanctionOut(
+                    id=item.id,
+                    researcher_name=item.researcher_name,
+                    department_name=item.department_name,
+                    publication_title=item.publication_title,
+                    quartile=item.quartile,
+                    sanctioned_amount=item.sanctioned_amount,
+                    academic_year=item.academic_year,
+                )
+                for item in items
+            ],
+        ),
+    )
+
+
+@router.get(
+    "/anudaan/public/gallery",
+    response_model=ApiResponse[AnudaanGalleryListResponse],
+    summary="Get Public Researcher Recognition & Distribution Gallery",
+)
+def get_public_recognition_gallery(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    academic_year: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves published ceremony and researcher recognition items with researcher consent.
+    Respects public configuration and orders featured items prominently.
+    """
+    total, items = anudaan_showcase_service.list_public_gallery_items(
+        db, skip=skip, limit=limit, academic_year=academic_year
+    )
+    return ApiResponse(
+        success=True,
+        message="Public researcher recognition gallery retrieved successfully.",
+        data=AnudaanGalleryListResponse(
+            total=total,
+            items=[AnudaanGalleryItemOut.model_validate(item) for item in items],
+        ),
+    )
+
+
+@router.get(
+    "/anudaan/public/config",
+    response_model=ApiResponse[AnudaanPublicConfigOut],
+    summary="Get Public ANUDAAN Showcase Display Configuration",
+)
+def get_public_showcase_configuration(
+    db: Session = Depends(get_db),
+):
+    """
+    Returns public display visibility flags for Impact Dashboard and Recognition Gallery.
+    """
+    cfg = anudaan_showcase_service.get_public_config(db)
+    return ApiResponse(
+        success=True,
+        message="Public showcase display configuration retrieved.",
+        data=AnudaanPublicConfigOut.model_validate(cfg),
+    )
+
+
+@router.get(
+    "/anudaan/public/gallery/images/{image_id}/file",
+    summary="Stream Public Recognition Gallery Photograph Asset",
+)
+def stream_gallery_image(
+    image_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Streams public gallery photograph file asset with caching and verified content-type.
+    """
+    img = db.get(AnudaanGalleryImage, image_id)
+    if not img or not img.gallery_item.is_published:
+        raise HTTPException(status_code=404, detail="Photograph asset not found or not published.")
+
+    try:
+        file_path = storage_service.get_file_path(img.storage_key)
+        return FileResponse(
+            path=str(file_path),
+            media_type=img.mime_type,
+            headers={
+                "Cache-Control": "public, max-age=86400, immutable",
+                "Content-Disposition": f'inline; filename="{img.original_filename}"',
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to stream gallery image {image_id}: {e}")
+        raise HTTPException(status_code=404, detail="Photograph storage asset could not be accessed.")
+

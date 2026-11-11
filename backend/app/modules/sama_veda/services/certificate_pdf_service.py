@@ -245,7 +245,7 @@ class CertificatePDFEngine:
         # Location & Foundation
         c.setFont("Times-Roman", 9.5)
         c.setFillColor(COLOR_MUTED)
-        c.drawCentredString(center_x, top_y - 17, "Kanpur, Uttar Pradesh, India • Established 1966 • Uttar Pradesh State University (Formerly Kanpur University,Kanpur)")
+        c.drawCentredString(center_x, top_y - 17, "Kanpur, Uttar Pradesh, India • Established 1966 • Uttar Pradesh State University (Formerly Kanpur University, Kanpur)")
 
         # Research & Development Governance Header
         c.setFont("Helvetica-Bold", 9.0)

@@ -11,6 +11,7 @@ import { IntegratedEcosystemSection } from './components/IntegratedEcosystemSect
 import { BuiltAtCsjmuSection } from './components/BuiltAtCsjmuSection';
 import { ResearchInnovationSection } from './components/ResearchInnovationSection';
 import { EntryGatewaySection } from './components/EntryGatewaySection';
+import { InstitutionalReachSection } from './components/InstitutionalReachSection';
 import { FinalVisionSection } from './components/FinalVisionSection';
 import './LandingPage.css';
 
@@ -38,7 +39,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterEcosystem }) =>
       {/* 2. THE VISION BEHIND VYASAⁿ (Institutional Purpose & Leadership) */}
       <VisionSection />
 
-      {/* 3. TWO OPERATIONAL PILLARS (SAMIKSHA & NIVARAN) */}
+      {/* 3. THREE OPERATIONAL PILLARS (SAMIKSHA, NIVARAN & ANUDAAN) */}
       <SignaturePillarsSection />
 
       {/* 4. THE FOUR DOMAINS OF VYASAⁿ (Institutional Architecture) */}
@@ -65,7 +66,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterEcosystem }) =>
       {/* 10. Institutional Access Gateways (Scholar & Authority Access) */}
       <EntryGatewaySection />
 
-      {/* 11. The Vision Continues */}
+      {/* 11. Institutional Reach (Live Main Website Visitor Counter) */}
+      <InstitutionalReachSection />
+
+      {/* 12. The Vision Continues */}
       <FinalVisionSection onEnterEcosystem={handleEnterEcosystem} />
     </PageContainer>
   );

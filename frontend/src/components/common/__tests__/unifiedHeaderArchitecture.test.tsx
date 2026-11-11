@@ -70,7 +70,7 @@ describe('Unified VYASA Header System - Cross-Pillar Architecture Suite', () => 
       expect(screen.getByText('छत्रपति शाहू जी महाराज विश्वविद्यालय, कानपुर')).toBeInTheDocument();
 
       // Accreditation & State metadata
-      expect(screen.getByText(/Uttar Pradesh State University \(Formerly Kanpur University,Kanpur\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Uttar Pradesh State University \(Formerly Kanpur University,\s*Kanpur\)/i)).toBeInTheDocument();
     });
   });
 

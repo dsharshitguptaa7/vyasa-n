@@ -98,7 +98,15 @@ export const AdminModuleToggleCard: React.FC = () => {
               accessLevel: 'Institutional Admins',
             };
 
-            const isAtharva = mod.key === 'atharva-veda' || mod.isEnabled;
+            const isActive = mod.key === 'atharva-veda' || mod.isEnabled;
+            const portalLabel =
+              mod.key === 'atharva-veda'
+                ? '{portalLabel}'
+                : mod.key === 'yajur-veda'
+                ? 'ANUDAAN Console'
+                : mod.key === 'sama-veda'
+                ? 'SAMIKSHA Portal'
+                : 'PRAMAAN Portal';
 
             return (
               <div
@@ -106,17 +114,17 @@ export const AdminModuleToggleCard: React.FC = () => {
                 style={{
                   padding: '18px 16px',
                   borderRadius: '8px',
-                  border: isAtharva
+                  border: isActive
                     ? '1.5px solid var(--vyasa-teal, #0d766e)'
                     : '1px solid var(--vyasa-border, #e3dcd1)',
-                  backgroundColor: isAtharva
+                  backgroundColor: isActive
                     ? '#f0fdfa'
                     : 'var(--vyasa-surface-warm, #fdfbf7)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: '14px',
-                  boxShadow: isAtharva
+                  boxShadow: isActive
                     ? '0 2px 10px rgba(13, 118, 110, 0.1)'
                     : 'var(--vyasa-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))',
                   position: 'relative',
@@ -131,7 +139,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                     left: 0,
                     right: 0,
                     height: '3px',
-                    backgroundColor: isAtharva
+                    backgroundColor: isActive
                       ? 'var(--vyasa-teal, #0d766e)'
                       : 'var(--vyasa-border, #cbd5e1)',
                   }}
@@ -155,7 +163,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                           width: '34px',
                           height: '34px',
                           borderRadius: '6px',
-                          backgroundColor: isAtharva ? '#ccfbf1' : '#f1f5f9',
+                          backgroundColor: isActive ? '#ccfbf1' : '#f1f5f9',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -165,7 +173,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                         <AppIcon
                           name={meta.icon}
                           size={16}
-                          color={isAtharva ? '#0d766e' : '#64748b'}
+                          color={isActive ? '#0d766e' : '#64748b'}
                         />
                       </div>
                       <div style={{ minWidth: 0 }}>
@@ -185,7 +193,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                             style={{
                               fontSize: '11px',
                               fontFamily: 'var(--vyasa-font-devanagari, sans-serif)',
-                              color: isAtharva ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-gold, #b2811a)',
+                              color: isActive ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-gold, #b2811a)',
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                             }}
@@ -193,7 +201,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                             {meta.sanskrit}
                           </span>
                         </div>
-                        {isAtharva && (
+                        {isActive && (
                           <div
                             style={{
                               fontSize: '10.5px',
@@ -204,14 +212,14 @@ export const AdminModuleToggleCard: React.FC = () => {
                               marginTop: '1px',
                             }}
                           >
-                            NIVARAN Portal
+                            {portalLabel}
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <Badge variant={isAtharva ? 'teal' : 'neutral'} size="sm">
-                      {isAtharva ? 'Active' : 'Planned'}
+                    <Badge variant={isActive ? 'teal' : 'neutral'} size="sm">
+                      {isActive ? 'Active' : 'Planned'}
                     </Badge>
                   </div>
 
@@ -220,7 +228,7 @@ export const AdminModuleToggleCard: React.FC = () => {
                     style={{
                       fontSize: '12.5px',
                       fontWeight: 600,
-                      color: isAtharva ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-primary, #0f2b48)',
+                      color: isActive ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-primary, #0f2b48)',
                       marginBottom: '6px',
                       lineHeight: 1.35,
                     }}
@@ -286,13 +294,13 @@ export const AdminModuleToggleCard: React.FC = () => {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      color: isAtharva ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-text-muted, #64748b)',
+                      color: isActive ? 'var(--vyasa-teal, #0d766e)' : 'var(--vyasa-text-muted, #64748b)',
                       fontSize: '11px',
                       fontWeight: 600,
                       flexShrink: 0,
                     }}
                   >
-                    <AppIcon name="shield" size={12} color={isAtharva ? '#0d766e' : '#94a3b8'} />
+                    <AppIcon name="shield" size={12} color={isActive ? '#0d766e' : '#94a3b8'} />
                     <span>RBAC Guard</span>
                   </div>
                 </div>

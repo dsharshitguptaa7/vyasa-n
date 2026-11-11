@@ -36,6 +36,13 @@ from app.modules.yajur_veda.models.anudaan import (
     AnudaanAnnualLimitPolicy,
     AnudaanVerification,
 )
+from app.modules.yajur_veda.models.showcase import (
+    AnudaanDisbursement,
+    AnudaanGalleryItem,
+    AnudaanGalleryImage,
+    AnudaanPublicConfig,
+    AnudaanSanctionEntry,
+)
 
 __all__ = [
     # Enums
@@ -68,4 +75,9 @@ __all__ = [
     "AnudaanDeclaration",
     "AnudaanAnnualLimitPolicy",
     "AnudaanVerification",
+    "AnudaanDisbursement",
+    "AnudaanGalleryItem",
+    "AnudaanGalleryImage",
+    "AnudaanPublicConfig",
+    "AnudaanSanctionEntry",
 ]

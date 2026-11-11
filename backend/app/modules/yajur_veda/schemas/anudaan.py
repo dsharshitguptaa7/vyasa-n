@@ -49,7 +49,7 @@ class AnudaanBankAccountInput(BaseModel):
     account_holder_name: str = Field(..., min_length=2, max_length=255, description="Full name on bank account")
     bank_name: str = Field(..., min_length=2, max_length=255, description="Bank institution name")
     account_number: str = Field(..., min_length=6, max_length=30, description="Full bank account number")
-    confirm_account_number: str = Field(..., min_length=6, max_length=30, description="Confirmation account number")
+    confirm_account_number: Optional[str] = Field(None, min_length=6, max_length=30, description="Confirmation account number (optional in API, frontend-only validation preferred)")
     ifsc_code: str = Field(..., min_length=11, max_length=11, description="11-character IFSC code")
     branch_name: str = Field(..., min_length=2, max_length=255, description="Branch location/name")
     account_type: AnudaanBankAccountType = Field(default=AnudaanBankAccountType.SAVINGS)
@@ -76,8 +76,9 @@ class AnudaanBankAccountInput(BaseModel):
 
     @model_validator(mode="after")
     def verify_account_numbers_match(self) -> "AnudaanBankAccountInput":
-        if self.account_number.strip() != self.confirm_account_number.strip():
-            raise ValueError("Account numbers do not match.")
+        if self.confirm_account_number is not None:
+            if self.account_number.strip() != self.confirm_account_number.strip():
+                raise ValueError("Account numbers do not match.")
         return self
 
 

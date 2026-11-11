@@ -27,7 +27,7 @@ export const CSJMU_INSTITUTION: InstitutionDetails = {
   nameHindi: 'छत्रपति शाहू जी महाराज विश्वविद्यालय, कानपुर',
   shortName: 'CSJMU',
   location: 'Kanpur, Uttar Pradesh',
-  accreditation: 'State University of Uttar Pradesh',
+  accreditation: 'Uttar Pradesh State University (Formerly Kanpur University, Kanpur)',
   logoPath: '/assets/branding/csjmu/csjmu-logo.png',
 };
 

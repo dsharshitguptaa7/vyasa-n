@@ -317,8 +317,20 @@ export function getNivaranNavItems(auth: any): NavItemConfig[] {
 /**
  * Returns canonical Yajur Veda (ANUDAAN) navigation items.
  */
-export function getAnudaanNavItems(_auth?: any): NavItemConfig[] {
-  return [
+export function getAnudaanNavItems(auth?: any): NavItemConfig[] {
+  const user = auth?.user;
+  const userRoles = ((user?.roles as string[]) || []).map((r: string) => r.toLowerCase());
+  const userPermissions = (((user?.permissions as string[]) || []).map((p: string) => p.toLowerCase()));
+  const isSuperAdmin = !!auth?.isSuperAdmin;
+  const isAdmin = !!auth?.isAdmin;
+  const isAdministrator =
+    isSuperAdmin || isAdmin || userRoles.includes('super_admin') || userRoles.includes('administrator');
+  const isAnudaanAdmin = isAdministrator || userRoles.includes('anudaan_admin');
+  const isAnudaanFinance = isAnudaanAdmin || userRoles.includes('anudaan_finance_officer') || userPermissions.includes('anudaan:finance:manage');
+  const isAnudaanGallery = isAnudaanAdmin || userRoles.includes('anudaan_gallery_editor') || userPermissions.includes('anudaan:gallery:edit');
+  const isAnudaanConfig = isAnudaanAdmin || userPermissions.includes('anudaan:config:manage');
+
+  const items: NavItemConfig[] = [
     {
       id: 'anudaan-portal',
       label: 'Incentive Portal',
@@ -338,6 +350,35 @@ export function getAnudaanNavItems(_auth?: any): NavItemConfig[] {
       icon: 'search',
     },
   ];
+
+  if (isAnudaanFinance) {
+    items.push({
+      id: 'anudaan-admin-impact',
+      label: 'Incentive Impact & Finance',
+      path: '/admin/anudaan',
+      icon: 'layout-dashboard',
+    });
+  }
+
+  if (isAnudaanGallery) {
+    items.push({
+      id: 'anudaan-admin-gallery',
+      label: 'Researcher Gallery CMS',
+      path: '/admin/anudaan/gallery',
+      icon: 'layers',
+    });
+  }
+
+  if (isAnudaanConfig) {
+    items.push({
+      id: 'anudaan-admin-config',
+      label: 'Showcase Configuration',
+      path: '/admin/anudaan/config',
+      icon: 'settings',
+    });
+  }
+
+  return items;
 }
 
 /**

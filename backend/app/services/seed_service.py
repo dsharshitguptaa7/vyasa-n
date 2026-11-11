@@ -41,6 +41,10 @@ INITIAL_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "sama:certificate:manage", "resource": "sama_veda", "action": "manage", "description": "Upload, generate, and issue research felicitation certificates"},
     {"name": "sama:certificate:revoke", "resource": "sama_veda", "action": "revoke", "description": "Revoke issued felicitation certificates with audited justification"},
     {"name": "sama:content:import", "resource": "sama_veda", "action": "import", "description": "Import and reconcile historical research records via batch CMS"},
+    {"name": "anudaan:read", "resource": "anudaan", "action": "read", "description": "View institutional incentive claims, impact metrics, and disbursement records"},
+    {"name": "anudaan:finance:manage", "resource": "anudaan", "action": "finance:manage", "description": "Record, verify, and reverse financial incentive disbursements"},
+    {"name": "anudaan:gallery:edit", "resource": "anudaan", "action": "gallery:edit", "description": "Manage researcher recognition gallery items, photos, and consent flags"},
+    {"name": "anudaan:config:manage", "resource": "anudaan", "action": "config:manage", "description": "Configure public showcase visibility, reporting years, and advisories"},
 ]
 
 INITIAL_ROLES: List[Dict[str, str]] = [
@@ -70,6 +74,21 @@ INITIAL_ROLES: List[Dict[str, str]] = [
         "is_system": True,
     },
     {
+        "name": "anudaan_admin",
+        "description": "Delegated ANUDAAN administrator with full incentive, finance, gallery, and configuration rights",
+        "is_system": True,
+    },
+    {
+        "name": "anudaan_finance_officer",
+        "description": "Finance officer authorized to record and verify incentive bank disbursements",
+        "is_system": True,
+    },
+    {
+        "name": "anudaan_gallery_editor",
+        "description": "Content editor authorized to manage researcher recognition gallery items",
+        "is_system": True,
+    },
+    {
         "name": "applicant",
         "description": "Student, scholar, or applicant accessing ecosystem services and tracking submissions",
         "is_system": True,
@@ -95,6 +114,26 @@ ROLE_PERMISSION_MAP: Dict[str, List[str]] = {
     "sama_content_editor": [
         "sama:read",
         "sama:content:edit",
+        "pillars:read",
+        "notifications:read",
+    ],
+    "anudaan_admin": [
+        "anudaan:read",
+        "anudaan:finance:manage",
+        "anudaan:gallery:edit",
+        "anudaan:config:manage",
+        "pillars:read",
+        "notifications:read",
+    ],
+    "anudaan_finance_officer": [
+        "anudaan:read",
+        "anudaan:finance:manage",
+        "pillars:read",
+        "notifications:read",
+    ],
+    "anudaan_gallery_editor": [
+        "anudaan:read",
+        "anudaan:gallery:edit",
         "pillars:read",
         "notifications:read",
     ],

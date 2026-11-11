@@ -16,6 +16,12 @@ export { CamProjectsPage } from './pages/sama/CamProjectsPage';
 export { SpotlightsPage } from './pages/sama/SpotlightsPage';
 export { ImportPage } from './pages/sama/ImportPage';
 
+// Yajur Veda / ANUDAAN CMS Pages
+export { AnudaanImpactPage } from './pages/anudaan/AnudaanImpactPage';
+export { AnudaanSanctionRegisterPage } from './pages/anudaan/AnudaanSanctionRegisterPage';
+export { AnudaanGalleryPage } from './pages/anudaan/AnudaanGalleryPage';
+export { AnudaanConfigPage } from './pages/anudaan/AnudaanConfigPage';
+
 export { AdminNav } from './components/AdminNav';
 export { AdminSidebar } from './components/AdminSidebar';
 export { AdminLayout } from './components/AdminLayout';
@@ -24,7 +30,8 @@ export { adminRoutes } from './routes';
 export { adminService } from './services/adminService';
 export { atharvaAdminService } from './services/atharvaAdminService';
 export { samaAdminService } from './services/samaAdminService';
+export { anudaanAdminService } from './services/anudaanAdminService';
 export type { ModuleRegistryItem, AdminStats } from './types';
 export * from './types/atharva';
 export * from './types/sama';
-
+export * from './types/anudaan';

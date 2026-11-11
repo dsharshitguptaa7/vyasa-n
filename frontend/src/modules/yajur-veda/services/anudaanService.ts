@@ -8,6 +8,7 @@
  * /api/modules/yajur-veda/anudaan/...
  */
 
+import { config } from '../../../config';
 import { apiClient, ApiError } from '../../../services/apiClient';
 import { ApiResponse } from '../../../types/api';
 import {
@@ -26,6 +27,10 @@ import {
   AnudaanApplicationSubmitRequest,
   AnudaanTrackingRequest,
   AnudaanTrackingStatusResponse,
+  AnudaanPublicImpactStats,
+  AnudaanGalleryListResponse,
+  AnudaanPublicConfigOut,
+  AnudaanPublicSanctionsResponse,
 } from '../types/anudaan';
 import { getDraftSession, saveDraftSession } from './anudaanSession';
 
@@ -279,6 +284,66 @@ export const anudaanService = {
       `${ANUDAAN_API_BASE}/track`,
       data
     );
+  },
+
+  /**
+   * 14. Get Public Institutional Incentive Impact Statistics
+   */
+  async getPublicImpactStats(
+    academicYear?: string
+  ): Promise<ApiResponse<AnudaanPublicImpactStats>> {
+    const query = academicYear ? `?academic_year=${encodeURIComponent(academicYear)}` : '';
+    return apiClient.get<AnudaanPublicImpactStats>(`${ANUDAAN_API_BASE}/public/impact${query}`);
+  },
+
+  /**
+   * 15. Get Public Researcher Recognition & Ceremony Gallery
+   */
+  async getPublicGallery(params?: {
+    skip?: number;
+    limit?: number;
+    academic_year?: string;
+  }): Promise<ApiResponse<AnudaanGalleryListResponse>> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    if (params?.academic_year) q.append('academic_year', params.academic_year);
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return apiClient.get<AnudaanGalleryListResponse>(`${ANUDAAN_API_BASE}/public/gallery${queryStr}`);
+  },
+
+  /**
+   * 16. Get Public Showcase Display Configuration
+   */
+  async getPublicConfig(): Promise<ApiResponse<AnudaanPublicConfigOut>> {
+    return apiClient.get<AnudaanPublicConfigOut>(`${ANUDAAN_API_BASE}/public/config`);
+  },
+
+  /**
+   * 17. Helper to resolve image file streaming URL
+   */
+  getGalleryImageUrl(imageId: string): string {
+    return `${config.apiBaseUrl}${ANUDAAN_API_BASE}/public/gallery/images/${imageId}/file`;
+  },
+
+  /**
+   * 18. Get Public Institutional Incentive Sanction Register
+   */
+  async getPublicSanctions(params?: {
+    skip?: number;
+    limit?: number;
+    academic_year?: string;
+    quartile?: string;
+    search?: string;
+  }): Promise<ApiResponse<AnudaanPublicSanctionsResponse>> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    if (params?.academic_year) q.append('academic_year', params.academic_year);
+    if (params?.quartile) q.append('quartile', params.quartile);
+    if (params?.search) q.append('search', params.search);
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return apiClient.get<AnudaanPublicSanctionsResponse>(`${ANUDAAN_API_BASE}/public/sanctions${queryStr}`);
   },
 };
 

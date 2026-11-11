@@ -19,6 +19,7 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
             <Route path="/modules/sama-veda/certificates" element={<div data-testid="sama-cert-dest">SAMIKSHA Certificates</div>} />
             <Route path="/modules/sama-veda/cam-projects" element={<div data-testid="sama-proj-dest">SAMIKSHA Projects</div>} />
             <Route path="/modules/atharva-veda/nivaran" element={<div data-testid="nivaran-dest">NIVARAN Module Home</div>} />
+            <Route path="/modules/yajur-veda/anudaan" element={<div data-testid="anudaan-dest">ANUDAAN Module Home</div>} />
             <Route path="/applicant/login" element={<div data-testid="applicant-login-dest">Applicant Login Page</div>} />
             <Route path="/phd-admission" element={<div data-testid="phd-assistant-dest">VYASA Assistant Page</div>} />
           </Routes>
@@ -34,7 +35,7 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     const instIdentity = screen.getByTestId('hero-institution-identity');
     expect(instIdentity).toBeInTheDocument();
     expect(instIdentity).toHaveTextContent('Chhatrapati Shahu Ji Maharaj University, Kanpur');
-    expect(instIdentity).toHaveTextContent(/Uttar Pradesh State University \(Formerly Kanpur University,Kanpur\)/i);
+    expect(instIdentity).toHaveTextContent(/Uttar Pradesh State University \(Formerly Kanpur University,\s*Kanpur\)/i);
 
     // CSJMU & VYASA seals
     expect(screen.getByTestId('hero-institutional-seals')).toBeInTheDocument();
@@ -47,14 +48,16 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     expect(document.querySelector('.vyasa-landing-hero__floating-badge')).toBeNull();
   });
 
-  it('2. Signature Operational Pillars: SAMIKSHA and NIVARAN side-by-side cards', () => {
+  it('2. Signature Operational Pillars: SAMIKSHA, NIVARAN, and ANUDAAN three-pillar cards', () => {
     renderLandingPage();
 
     const samikshaCard = screen.getByTestId('service-card-samiksha');
     const nivaranCard = screen.getByTestId('service-card-nivaran');
+    const anudaanCard = screen.getByTestId('service-card-anudaan');
 
     expect(samikshaCard).toBeInTheDocument();
     expect(nivaranCard).toBeInTheDocument();
+    expect(anudaanCard).toBeInTheDocument();
 
     // SAMIKSHA card content
     expect(samikshaCard).toHaveTextContent('SAMA VEDA');
@@ -67,6 +70,14 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
     expect(nivaranCard).toHaveTextContent('NIVARAN');
     expect(nivaranCard).toHaveTextContent('Grievance Redressal & Institutional Well-Being');
     expect(nivaranCard).toHaveTextContent(/Access the university['’]s grievance redressal service/i);
+
+    // ANUDAAN card content
+    expect(anudaanCard).toHaveTextContent('YAJUR VEDA');
+    expect(anudaanCard).toHaveTextContent('ANUDAAN');
+    expect(anudaanCard).toHaveTextContent('Research Administration & Incentives');
+    expect(anudaanCard).toHaveTextContent(/An institutional initiative for eligible CSJMU Campus Faculty/i);
+    expect(anudaanCard).toHaveTextContent('ANUDAAN – Research Publication Incentive Management System');
+    expect(anudaanCard).toHaveTextContent('Portal: ANUDAAN');
   });
 
   it('3. SAMIKSHA Primary CTA routes to verified /modules/sama-veda route', () => {
@@ -89,6 +100,17 @@ describe('VYASA Landing Page — SAMIKSHA × NIVARAN Brand Architecture Suite', 
 
     fireEvent.click(cta);
     expect(screen.getByTestId('nivaran-dest')).toBeInTheDocument();
+  });
+
+  it('4b. ANUDAAN Primary CTA and secondary link route to verified /modules/yajur-veda/anudaan route', () => {
+    renderLandingPage();
+
+    const anudaanCard = screen.getByTestId('service-card-anudaan');
+    const cta = anudaanCard.querySelector('button')!;
+    expect(cta).toHaveTextContent('Explore ANUDAAN');
+
+    fireEvent.click(cta);
+    expect(screen.getByTestId('anudaan-dest')).toBeInTheDocument();
   });
 
   it('5. Four Vedic Domains Architecture preserves Rig, Yajur, Sama, and Atharva', () => {

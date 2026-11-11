@@ -381,3 +381,234 @@ export interface AnudaanTrackingStatusResponse {
   last_updated: string;
   status_description: string;
 }
+
+// =============================================================================
+// 9. Institutional Showcase & Public Impact Types
+// =============================================================================
+
+export interface AnudaanPublicImpactStats {
+  reporting_academic_year: string;
+  total_researchers_recognised?: number;
+  total_incentive_sanctioned_inr?: string | number;
+  total_sanction_entries?: number;
+  quartile_breakdown?: Record<string, number>;
+  total_claims_received: number;
+  claims_approved: number;
+  claims_under_review: number;
+  claims_rejected: number;
+  researchers_benefited: number;
+  total_incentive_disbursed_inr: string | number;
+  disbursement_status: 'VERIFIED' | 'AWAITING_VERIFIED_DISBURSEMENTS' | 'SANCTIONED' | string;
+  last_updated_at?: string | null;
+  academic_years_available: string[];
+}
+
+export interface AnudaanGalleryImageOut {
+  id: string;
+  gallery_item_id: string;
+  storage_key: string;
+  original_filename: string;
+  mime_type: string;
+  file_size_bytes: number;
+  caption?: string | null;
+  is_cover: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface AnudaanGalleryItemOut {
+  id: string;
+  title: string;
+  event_name: string;
+  event_date: string;
+  academic_year: string;
+  description: string;
+  researcher_name?: string | null;
+  researcher_designation?: string | null;
+  department_name?: string | null;
+  has_consent: boolean;
+  is_featured: boolean;
+  is_published: boolean;
+  display_order: number;
+  images: AnudaanGalleryImageOut[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnudaanGalleryListResponse {
+  total: number;
+  items: AnudaanGalleryItemOut[];
+}
+
+export interface AnudaanPublicConfigOut {
+  impact_section_enabled: boolean;
+  gallery_section_enabled: boolean;
+  active_academic_year?: string | null;
+  custom_banner_note?: string | null;
+  updated_at?: string | null;
+}
+
+export interface AnudaanPublicConfigUpdate {
+  impact_section_enabled?: boolean;
+  gallery_section_enabled?: boolean;
+  active_academic_year?: string | null;
+  custom_banner_note?: string | null;
+}
+
+export interface AnudaanDisbursementCreate {
+  application_id: string;
+  author_id?: string | null;
+  disbursement_reference: string;
+  amount: number;
+  disbursement_date: string;
+  academic_year: string;
+  payment_method?: string;
+  notes?: string | null;
+}
+
+export interface AnudaanDisbursementOut {
+  id: string;
+  application_id: string;
+  application_number: string;
+  applicant_name: string;
+  author_id?: string | null;
+  author_name?: string | null;
+  disbursement_reference: string;
+  amount: number | string;
+  disbursement_date: string;
+  academic_year: string;
+  payment_method: string;
+  verification_status: 'RECORDED' | 'VERIFIED' | 'REVERSED' | string;
+  reversal_reason?: string | null;
+  notes?: string | null;
+  recorded_by_email?: string | null;
+  verified_by_email?: string | null;
+  verified_at?: string | null;
+  created_at: string;
+}
+
+export interface AnudaanDisbursementListResponse {
+  total: number;
+  items: AnudaanDisbursementOut[];
+  total_amount_inr: number | string;
+}
+
+export interface AnudaanGalleryItemCreate {
+  title: string;
+  event_name: string;
+  event_date: string;
+  academic_year: string;
+  description: string;
+  researcher_name?: string | null;
+  researcher_designation?: string | null;
+  department_name?: string | null;
+  has_consent?: boolean;
+  is_featured?: boolean;
+  is_published?: boolean;
+  display_order?: number;
+}
+
+export interface AnudaanGalleryItemUpdate {
+  title?: string;
+  event_name?: string;
+  event_date?: string;
+  academic_year?: string;
+  description?: string;
+  researcher_name?: string | null;
+  researcher_designation?: string | null;
+  department_name?: string | null;
+  has_consent?: boolean;
+  is_featured?: boolean;
+  is_published?: boolean;
+  display_order?: number;
+}
+
+// =============================================================================
+// 10. Simplified Sadmin Incentive Sanction Register Types
+// =============================================================================
+
+export interface AnudaanSanctionEntryCreate {
+  researcher_name: string;
+  department_name: string;
+  publication_title: string;
+  publication_doi?: string | null;
+  quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  sanctioned_amount: number;
+  academic_year: string;
+  sanction_date: string;
+  remarks?: string | null;
+  is_published?: boolean;
+  application_id?: string | null;
+  author_id?: string | null;
+}
+
+export interface AnudaanSanctionEntryUpdate {
+  researcher_name?: string;
+  department_name?: string;
+  publication_title?: string;
+  publication_doi?: string | null;
+  quartile?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  sanctioned_amount?: number;
+  academic_year?: string;
+  sanction_date?: string;
+  remarks?: string | null;
+  is_published?: boolean;
+  application_id?: string | null;
+  author_id?: string | null;
+}
+
+export interface AnudaanSanctionEntryOut {
+  id: string;
+  researcher_name: string;
+  department_name: string;
+  publication_title: string;
+  publication_doi?: string | null;
+  quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  sanctioned_amount: number | string;
+  academic_year: string;
+  sanction_date: string;
+  remarks?: string | null;
+  is_published: boolean;
+  application_id?: string | null;
+  application_number?: string | null;
+  author_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnudaanSanctionListResponse {
+  total: number;
+  items: AnudaanSanctionEntryOut[];
+  total_sanctioned_inr: number | string;
+}
+
+export interface AnudaanPublicSanctionOut {
+  id: string;
+  researcher_name: string;
+  department_name: string;
+  publication_title: string;
+  quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4' | string;
+  sanctioned_amount: number | string;
+  academic_year: string;
+}
+
+export interface AnudaanPublicSanctionsResponse {
+  total: number;
+  items: AnudaanPublicSanctionOut[];
+}
+
+export interface AnudaanApplicationLookupItem {
+  application_id: string;
+  application_number: string;
+  applicant_name: string;
+  department_name: string;
+  publication_title?: string | null;
+  publication_doi?: string | null;
+  quartile?: string | null;
+  authors: Array<{
+    author_id: string;
+    name: string;
+    role: string;
+    is_payable: boolean;
+  }>;
+}

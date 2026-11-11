@@ -61,6 +61,9 @@ import {
   CamProjectsPage,
   SpotlightsPage,
   ImportPage,
+  AnudaanSanctionRegisterPage,
+  AnudaanGalleryPage,
+  AnudaanConfigPage,
 } from './admin';
 import { PhdAssistantPage } from './features/phd-rag';
 import { NotificationCenterPage } from './features/notifications';
@@ -357,6 +360,7 @@ export const AppRoutes: React.FC = () => {
         element={<DynamicParamRedirect to={({ id }) => `/modules/yajur-veda/anudaan/sanction/${id || ''}`} />}
       />
       <Route path="/anudaan" element={<Navigate to="/modules/yajur-veda/anudaan" replace />} />
+      <Route path="/research/anudaan" element={<Navigate to="/modules/yajur-veda/anudaan" replace />} />
       <Route path="/anudaan/apply" element={<Navigate to="/modules/yajur-veda/anudaan/apply" replace />} />
       <Route path="/anudaan/track" element={<Navigate to="/modules/yajur-veda/anudaan/track" replace />} />
 
@@ -898,6 +902,41 @@ export const AppRoutes: React.FC = () => {
         element={
           <AdminRoute allowedRoles={['super_admin', 'administrator', 'sama_content_admin']}>
             <ImportPage />
+          </AdminRoute>
+        }
+      />
+
+      {/* ANUDAAN (Yajur Veda) Administration Routes */}
+      <Route
+        path="/admin/anudaan"
+        element={
+          <AdminRoute
+            allowedRoles={['super_admin', 'administrator', 'anudaan_admin', 'anudaan_finance_officer']}
+            requiredPermission="anudaan:finance:manage"
+          >
+            <AnudaanSanctionRegisterPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/anudaan/gallery"
+        element={
+          <AdminRoute
+            allowedRoles={['super_admin', 'administrator', 'anudaan_admin', 'anudaan_gallery_editor']}
+            requiredPermission="anudaan:gallery:edit"
+          >
+            <AnudaanGalleryPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/anudaan/config"
+        element={
+          <AdminRoute
+            allowedRoles={['super_admin', 'administrator', 'anudaan_admin']}
+            requiredPermission="anudaan:config:manage"
+          >
+            <AnudaanConfigPage />
           </AdminRoute>
         }
       />

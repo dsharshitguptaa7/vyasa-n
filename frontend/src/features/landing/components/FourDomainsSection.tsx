@@ -177,9 +177,6 @@ export const FourDomainsSection: React.FC = () => {
                 <Badge variant="saffron" size="sm">Operational Domain</Badge>
               </div>
               <div className="vyasa-domain-dimension">Research Administration &amp; Incentives</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--vyasa-saffron, #c85602)', marginBottom: '8px', lineHeight: 1.35 }}>
-                ANUDAAN &ndash; Research Publication Incentive Management System
-              </div>
               <p className="vyasa-domain-role">
                 An institutional initiative for eligible CSJMU Campus Faculty, Registered Research Scholars and Post-Doctoral Researchers to submit research publication incentive claims.
               </p>

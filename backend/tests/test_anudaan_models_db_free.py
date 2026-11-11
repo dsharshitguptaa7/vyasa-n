@@ -40,6 +40,11 @@ from app.modules.yajur_veda.models import (
     AnudaanDeclaration,
     AnudaanAnnualLimitPolicy,
     AnudaanVerification,
+    AnudaanDisbursement,
+    AnudaanGalleryItem,
+    AnudaanGalleryImage,
+    AnudaanPublicConfig,
+    AnudaanSanctionEntry,
 )
 
 
@@ -54,6 +59,11 @@ EXPECTED_ANUDAAN_TABLES = [
     "yajur_anudaan_declarations",
     "yajur_anudaan_annual_limit_policies",
     "yajur_anudaan_verifications",
+    "yajur_anudaan_disbursements",
+    "yajur_anudaan_gallery_items",
+    "yajur_anudaan_gallery_images",
+    "yajur_anudaan_public_config",
+    "yajur_anudaan_sanction_entries",
 ]
 
 
@@ -63,14 +73,14 @@ EXPECTED_ANUDAAN_TABLES = [
 
 @pytest.mark.parametrize("table_name", EXPECTED_ANUDAAN_TABLES)
 def test_anudaan_tables_registered_in_metadata(table_name):
-    """Verifies that all 10 ANUDAAN tables are registered in Base.metadata."""
+    """Verifies that all ANUDAAN tables are registered in Base.metadata."""
     assert table_name in Base.metadata.tables, f"Table '{table_name}' was not found in Base.metadata"
 
 
 def test_anudaan_table_count():
-    """Verifies exactly 10 tables exist under yajur_anudaan_ prefix."""
+    """Verifies exactly 15 tables exist under yajur_anudaan_ prefix."""
     registered = [t for t in Base.metadata.tables.keys() if t.startswith("yajur_anudaan_")]
-    assert len(registered) == 10
+    assert len(registered) == 15
     assert set(registered) == set(EXPECTED_ANUDAAN_TABLES)
 
 
@@ -497,3 +507,40 @@ def test_anudaan_alembic_migration_metadata():
     assert getattr(module, "down_revision", None) == "8b29c54e1018"
     assert hasattr(module, "upgrade") and callable(module.upgrade)
     assert hasattr(module, "downgrade") and callable(module.downgrade)
+
+
+# =============================================================================
+# 16. AnudaanSanctionEntry Model & Migration 8b29c54e1022 Tests
+# =============================================================================
+
+def test_anudaan_sanction_entry_schema():
+    """Verifies AnudaanSanctionEntry columns, non-negative amount constraint, and indexes."""
+    table = AnudaanSanctionEntry.__table__
+    assert table.c.id.primary_key is True
+    assert table.c.researcher_name.nullable is False
+    assert table.c.department_name.nullable is False
+    assert table.c.publication_title.nullable is False
+    assert table.c.publication_doi.nullable is True
+    assert table.c.quartile.nullable is False
+    assert table.c.sanctioned_amount.nullable is False
+    assert table.c.academic_year.nullable is False
+    assert table.c.sanction_date.nullable is False
+    assert table.c.is_published.nullable is False
+
+    # Check non-negative constraint
+    ck_names = [ck.name for ck in table.constraints if hasattr(ck, "name")]
+    assert "ck_anudaan_sanction_amount_non_negative" in ck_names
+
+
+def test_anudaan_sanction_migration_metadata():
+    """Verifies the Alembic migration script 8b29c54e1022."""
+    migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "8b29c54e1022_anudaan_sanction_register.py"
+    assert migration_path.exists(), f"Migration file {migration_path} does not exist"
+
+    spec = importlib.util.spec_from_file_location("sanction_migration", str(migration_path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert getattr(module, "revision", None) == "8b29c54e1022"
+    assert getattr(module, "down_revision", None) == "8b29c54e1021"
+

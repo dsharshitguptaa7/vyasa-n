@@ -17,3 +17,11 @@ export interface HealthCheckData {
   environment: string;
   version: string;
 }
+
+export interface VisitorStats {
+  total_visitors: number;
+  today_visitors: number;
+  date: string;
+  timezone: string;
+}
+

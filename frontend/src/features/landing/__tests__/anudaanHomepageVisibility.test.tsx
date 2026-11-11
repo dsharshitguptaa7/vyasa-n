@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LandingPage } from '../LandingPage';
 import { PublicNavbar } from '../../../components/common/PublicNavbar';
@@ -168,7 +168,8 @@ describe('ANUDAAN Complete Homepage Visibility & Navbar Integration Suite', () =
     it('2.5 Primary CTA "Explore ANUDAAN" navigates to /modules/yajur-veda/anudaan', () => {
       renderLanding();
 
-      const primaryCta = screen.getByRole('button', { name: /^Explore ANUDAAN$/i });
+      const anudaanSection = document.getElementById('anudaan')!;
+      const primaryCta = within(anudaanSection).getByRole('button', { name: /^Explore ANUDAAN$/i });
       expect(primaryCta).toBeInTheDocument();
 
       fireEvent.click(primaryCta);
@@ -187,7 +188,7 @@ describe('ANUDAAN Complete Homepage Visibility & Navbar Integration Suite', () =
   });
 
   describe('3. Institutional Architecture & Hierarchy Invariants', () => {
-    it('3.1 Two Operational Pillars section remains unchanged with SAMIKSHA and NIVARAN', () => {
+    it('3.1 Three Operational Pillars section renders SAMIKSHA, NIVARAN, and ANUDAAN', () => {
       renderLanding();
 
       const pillarsSection = document.getElementById('operational-pillars')!;
@@ -195,13 +196,14 @@ describe('ANUDAAN Complete Homepage Visibility & Navbar Integration Suite', () =
       expect(
         screen.getByRole('heading', {
           level: 2,
-          name: /Two Operational Pillars\. One Unified Ecosystem\./i,
+          name: /Three Operational Pillars\. One Unified Ecosystem\./i,
         })
       ).toBeInTheDocument();
 
-      // Exactly two signature pillar cards
+      // Three signature pillar cards
       expect(document.querySelector('.vyasa-pillar-card--samiksha')).toBeInTheDocument();
       expect(document.querySelector('.vyasa-pillar-card--nivaran')).toBeInTheDocument();
+      expect(document.querySelector('.vyasa-pillar-card--anudaan')).toBeInTheDocument();
     });
 
     it('3.2 Four Domains section preserves all four Vedas with ANUDAAN Yajur Veda card intact', () => {

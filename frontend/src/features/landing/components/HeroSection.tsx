@@ -135,7 +135,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 {CSJMU_INSTITUTION.nameEnglish}
               </span>
               <span className="vyasa-landing-hero__inst-badge">
-                Formerly Known as Kanpur University
+                {CSJMU_INSTITUTION.accreditation}
               </span>
             </div>
           </div>

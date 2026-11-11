@@ -60,6 +60,10 @@ router.include_router(atharva_admin_router)
 from app.admin.sama_admin_router import sama_admin_router
 router.include_router(sama_admin_router)
 
+# Mount Yajur Veda / ANUDAAN Administration & Showcase Subsystem
+from app.admin.anudaan_admin_router import anudaan_admin_router
+router.include_router(anudaan_admin_router)
+
 # Top-level platform audit logs route alias
 router.add_api_route(
     "/audit-logs",
@@ -68,4 +72,3 @@ router.add_api_route(
     response_model=ApiResponse,
     summary="Platform-wide Audit Log Explorer",
 )
-

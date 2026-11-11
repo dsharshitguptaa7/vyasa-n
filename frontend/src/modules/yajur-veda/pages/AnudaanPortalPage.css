@@ -1,0 +1,750 @@
+/**
+ * VYASA ANUDAAN - Premium Institutional Research Recognition Experience
+ * Design system: CSJMU Navy (#0B2545), Ivory (#FAFAF9), Gold/Amber (#B45309, #D97706),
+ * Editorial typography (Cinzel & Inter), high-contrast accessibility.
+ */
+
+.anudaan-portal-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+/* =========================================================================
+   1. HERO — ANUDAAN INSTITUTIONAL IDENTITY
+   ========================================================================= */
+.anudaan-hero {
+  position: relative;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 0%, rgba(180, 83, 9, 0.08) 0%, rgba(255, 255, 255, 0.8) 55%, #FFFFFF 100%);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  box-shadow: 0 10px 30px -5px rgba(11, 37, 69, 0.06), 0 1px 3px rgba(11, 37, 69, 0.04);
+  padding: 48px 36px 44px;
+  text-align: center;
+  margin-bottom: 40px;
+  overflow: hidden;
+}
+
+.anudaan-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #0B2545 0%, #B45309 50%, #0B2545 100%);
+}
+
+.anudaan-hero__inner {
+  max-width: 860px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.anudaan-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  background-color: rgba(180, 83, 9, 0.09);
+  border: 1px solid rgba(180, 83, 9, 0.2);
+  color: #92400E;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.anudaan-hero__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.anudaan-hero__system-name {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: #0B2545;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+
+.anudaan-hero__system-sub {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #B45309;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.anudaan-hero__headline {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 1.65rem;
+  font-weight: 600;
+  color: #1E293B;
+  margin: 16px 0 14px;
+  line-height: 1.35;
+}
+
+.anudaan-hero__copy {
+  font-size: 1.05rem;
+  color: #475569;
+  line-height: 1.65;
+  margin: 0 auto 32px;
+  max-width: 720px;
+}
+
+.anudaan-hero__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.anudaan-hero__sub-action {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: #64748B;
+}
+
+.anudaan-hero__sub-action-link {
+  background: none;
+  border: none;
+  color: #0B2545;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.anudaan-hero__sub-action-link:hover {
+  color: #B45309;
+}
+
+/* Active Session Banner */
+.anudaan-active-session-banner {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border: 1px solid #F59E0B;
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.15);
+}
+
+.anudaan-active-session-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.anudaan-active-session-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #B45309;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   2. SECTION HEADERS
+   ========================================================================= */
+.anudaan-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.anudaan-section-title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.anudaan-section-badge-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.anudaan-section-badge-icon--claims {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.anudaan-section-badge-icon--impact {
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.anudaan-section-badge-icon--gallery {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+
+.anudaan-section-badge-icon--guidelines {
+  background-color: #F8FAFC;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+.anudaan-section-title {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0B2545;
+  margin: 0 0 4px;
+}
+
+.anudaan-section-subtitle {
+  font-size: 0.925rem;
+  color: #64748B;
+  margin: 0;
+}
+
+.anudaan-filter-select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background-color: #FFFFFF;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0B2545;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: border-color 0.2s ease;
+}
+
+.anudaan-filter-select:focus {
+  outline: none;
+  border-color: #B45309;
+}
+
+/* =========================================================================
+   3. INCENTIVE CLAIMS ACTION CARDS
+   ========================================================================= */
+.anudaan-claims-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 56px;
+}
+
+.anudaan-action-card {
+  background-color: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.anudaan-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(11, 37, 69, 0.09);
+}
+
+.anudaan-action-card--primary {
+  border: 1.5px solid #D97706;
+  background: linear-gradient(180deg, #FFFCF7 0%, #FFFFFF 100%);
+  position: relative;
+}
+
+.anudaan-action-card__badge-top {
+  position: absolute;
+  top: -11px;
+  right: 20px;
+  background: linear-gradient(90deg, #B45309, #D97706);
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.3);
+}
+
+.anudaan-action-card__icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.anudaan-action-card__icon-box--gold {
+  background: rgba(180, 83, 9, 0.1);
+  color: #B45309;
+}
+
+.anudaan-action-card__icon-box--blue {
+  background: rgba(30, 58, 138, 0.08);
+  color: #1E3A8A;
+}
+
+.anudaan-action-card__icon-box--teal {
+  background: rgba(13, 148, 136, 0.08);
+  color: #0D9488;
+}
+
+.anudaan-action-card__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0B2545;
+  margin: 0 0 8px;
+}
+
+.anudaan-action-card__desc {
+  font-size: 0.925rem;
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+
+/* =========================================================================
+   4. IMPACT DASHBOARD METRICS
+   ========================================================================= */
+.anudaan-impact-section {
+  margin-bottom: 56px;
+}
+
+.anudaan-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.anudaan-stat-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 22px 18px;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.anudaan-stat-card:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-2px);
+}
+
+.anudaan-stat-card--disbursed {
+  border-color: #FCD34D;
+  background: linear-gradient(180deg, #FFFDF8 0%, #FFFFFF 100%);
+}
+
+.anudaan-stat-card__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.anudaan-stat-card__value {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: #0B2545;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.anudaan-stat-card__value--approved {
+  color: #047857;
+}
+
+.anudaan-stat-card__value--review {
+  color: #D97706;
+}
+
+.anudaan-stat-card__value--disbursed {
+  color: #B45309;
+}
+
+.anudaan-stat-card__foot {
+  font-size: 0.75rem;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anudaan-stat-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.anudaan-stat-card__badge--verified {
+  background-color: #DEF7EC;
+  color: #03543F;
+}
+
+.anudaan-stat-card__badge--pending {
+  background-color: #FEF3C7;
+  color: #92400E;
+}
+
+/* =========================================================================
+   5. RESEARCHER RECOGNITION GALLERY
+   ========================================================================= */
+.anudaan-gallery-section {
+  margin-bottom: 56px;
+}
+
+.anudaan-featured-gallery-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px -2px rgba(11, 37, 69, 0.06);
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  margin-bottom: 24px;
+}
+
+.anudaan-featured-img-wrap {
+  position: relative;
+  min-height: 320px;
+  background-color: #0F172A;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.anudaan-featured-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anudaan-featured-img-wrap:hover img {
+  transform: scale(1.03);
+}
+
+.anudaan-featured-content {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.anudaan-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.anudaan-gallery-card {
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.anudaan-gallery-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -3px rgba(11, 37, 69, 0.08);
+}
+
+.anudaan-gallery-thumb {
+  height: 200px;
+  background-color: #0F172A;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anudaan-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.anudaan-gallery-thumb:hover img {
+  transform: scale(1.04);
+}
+
+.anudaan-empty-gallery {
+  background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+  border: 1px dashed #CBD5E1;
+  border-radius: 16px;
+  padding: 56px 32px;
+  text-align: center;
+}
+
+.anudaan-empty-gallery__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #B45309;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* =========================================================================
+   6. ELIGIBILITY & PUBLICATION GUIDELINES
+   ========================================================================= */
+.anudaan-guidelines-section {
+  margin-bottom: 56px;
+}
+
+.anudaan-guidelines-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.anudaan-guideline-card {
+  background-color: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+  padding: 28px;
+}
+
+.anudaan-guideline-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.anudaan-guideline-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.anudaan-guideline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.925rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.anudaan-guideline-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.anudaan-guideline-icon--check {
+  background-color: #DEF7EC;
+  color: #03543F;
+}
+
+.anudaan-guideline-icon--cross {
+  background-color: #FEE2E2;
+  color: #991B1B;
+}
+
+.anudaan-guideline-icon--gold {
+  background-color: #FEF3C7;
+  color: #B45309;
+}
+
+.anudaan-exclusion-box {
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-left: 3px solid #DC2626;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #64748B;
+  line-height: 1.5;
+}
+
+/* =========================================================================
+   7. FINAL APPLICATION CTA BANNER
+   ========================================================================= */
+.anudaan-final-cta {
+  background: linear-gradient(135deg, #0B2545 0%, #133E68 60%, #1A4D7E 100%);
+  border-radius: 16px;
+  padding: 44px 36px;
+  text-align: center;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 36px -8px rgba(11, 37, 69, 0.3);
+}
+
+.anudaan-final-cta::before {
+  content: "";
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(217, 119, 6, 0.25) 0%, transparent 70%);
+}
+
+.anudaan-final-cta__content {
+  max-width: 680px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.anudaan-final-cta__title {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0 0 12px;
+}
+
+.anudaan-final-cta__text {
+  font-size: 1rem;
+  color: #CBD5E1;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+/* =========================================================================
+   8. RESPONSIVE BREAKPOINTS (1440, 1024, 768, 454, 375)
+   ========================================================================= */
+@media (max-width: 1024px) {
+  .anudaan-impact-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .anudaan-claims-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .anudaan-featured-gallery-card {
+    grid-template-columns: 1fr;
+  }
+
+  .anudaan-featured-img-wrap {
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .anudaan-portal-container {
+    padding: 20px 16px 48px;
+  }
+
+  .anudaan-hero {
+    padding: 36px 20px 32px;
+  }
+
+  .anudaan-hero__system-name {
+    font-size: 2.1rem;
+  }
+
+  .anudaan-hero__headline {
+    font-size: 1.35rem;
+  }
+
+  .anudaan-impact-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .anudaan-guidelines-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .anudaan-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .anudaan-hero__system-name {
+    font-size: 1.75rem;
+  }
+
+  .anudaan-hero__headline {
+    font-size: 1.15rem;
+  }
+
+  .anudaan-hero__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .anudaan-hero__actions button {
+    width: 100%;
+  }
+
+  .anudaan-impact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .anudaan-stat-card__value {
+    font-size: 1.75rem;
+  }
+}

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import health, pillars, users, roles, permissions, notifications, auth, applicant
+from app.api.routes import health, pillars, users, roles, permissions, notifications, auth, applicant, visitor
 from app.modules import modules_router
 from app.admin import router as admin_router
 from app.watchdog import router as watchdog_router
@@ -10,6 +10,9 @@ api_router = APIRouter()
 
 # Public Ph.D. Admission RAG Assistant (No login required)
 api_router.include_router(phd_rag_router)
+
+# Public Main Website Visitor Counter (No login required)
+api_router.include_router(visitor.router)
 
 # Core API routes
 api_router.include_router(health.router)
