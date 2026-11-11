@@ -200,7 +200,12 @@ def create_authority(
             data=created_out.model_dump(),
         )
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create authority: {e}", exc_info=True)
+        raise
 
 
 @atharva_admin_router.patch("/authorities/{authority_id}", response_model=ApiResponse)
@@ -229,7 +234,12 @@ def update_authority(
             data=AuthorityOut.model_validate(updated).model_dump(),
         )
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update authority: {e}", exc_info=True)
+        raise
 
 
 @atharva_admin_router.post("/authorities/{authority_id}/transfer", response_model=ApiResponse)

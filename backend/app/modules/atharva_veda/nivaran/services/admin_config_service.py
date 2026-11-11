@@ -90,26 +90,45 @@ class AdminConfigService:
             if auth_role:
                 role_records = [auth_role]
 
-        existing_role_ids = set()
-        if getattr(user, "roles", None):
-            existing_role_ids = {r.id for r in user.roles if getattr(r, "id", None)}
+        if getattr(user, "roles", None) is None:
+            user.roles = []
 
+        existing_role_ids = {r.id for r in user.roles if getattr(r, "id", None)}
+
+        db_assigned_role_ids = set()
         try:
-            db_assigned_role_ids = {
-                r[0] for r in db.execute(
-                    select(user_roles.c.role_id).where(user_roles.c.user_id == user.id)
-                ).all()
-            }
-            existing_role_ids.update(db_assigned_role_ids)
+            if hasattr(db, "execute") and hasattr(user, "id") and user.id:
+                db_assigned_role_ids = {
+                    r[0] for r in db.execute(
+                        select(user_roles.c.role_id).where(user_roles.c.user_id == user.id)
+                    ).all()
+                }
         except Exception:
             pass
 
         for role_rec in role_records:
-            if role_rec and getattr(role_rec, "id", None) and role_rec.id not in existing_role_ids:
-                db.execute(user_roles.insert().values(user_id=user.id, role_id=role_rec.id))
+            if not role_rec or not getattr(role_rec, "id", None):
+                continue
+            if role_rec.id in existing_role_ids:
+                continue
+
+            if role_rec.id in db_assigned_role_ids:
+                # Role already persisted in DB association table; synchronize ORM collection
+                try:
+                    from sqlalchemy import inspect as sa_inspect
+                    insp = sa_inspect(user, raise_errors=False)
+                    if insp is not None and getattr(insp, "persistent", False) and hasattr(db, "refresh"):
+                        db.refresh(user, attribute_names=["roles"])
+                        existing_role_ids = {r.id for r in user.roles if getattr(r, "id", None)}
+                        if role_rec.id in existing_role_ids:
+                            continue
+                except Exception:
+                    pass
+
+            # Safe ORM-level association: SQLAlchemy unit-of-work flushes to user_roles exactly once
+            if hasattr(user, "roles") and hasattr(user.roles, "append"):
+                user.roles.append(role_rec)
                 existing_role_ids.add(role_rec.id)
-                if hasattr(user, "roles") and isinstance(user.roles, list):
-                    user.roles.append(role_rec)
 
     @staticmethod
     def create_authority(
@@ -130,90 +149,94 @@ class AdminConfigService:
         clean_email = email.strip().lower()
         clean_name = name.strip()
 
-        # Check existing authority by email snapshot
-        existing_auth = db.scalar(
-            select(NivaranAuthority).where(func.lower(NivaranAuthority.email_snapshot) == clean_email)
-        )
-        if existing_auth:
-            raise ValueError(f"Authority with email '{clean_email}' already exists (ID: {existing_auth.id}).")
-
-        # Resolve or create User account
-        user = db.scalar(
-            select(User).options(joinedload(User.roles)).where(func.lower(User.email) == clean_email)
-        )
-
-        if user:
-            # Check if this user is already tied to another authority
-            auth_by_user = db.scalar(
-                select(NivaranAuthority).where(NivaranAuthority.vyasa_user_id == user.id)
+        try:
+            # Check existing authority by email snapshot
+            existing_auth = db.scalar(
+                select(NivaranAuthority).where(func.lower(NivaranAuthority.email_snapshot) == clean_email)
             )
-            if auth_by_user:
-                raise ValueError(
-                    f"User account '{clean_email}' is already associated with authority '{auth_by_user.name_snapshot}'."
+            if existing_auth:
+                raise ValueError(f"Authority with email '{clean_email}' already exists (ID: {existing_auth.id}).")
+
+            # Resolve or create User account
+            user = db.scalar(
+                select(User).options(joinedload(User.roles)).where(func.lower(User.email) == clean_email)
+            )
+
+            if user:
+                # Check if this user is already tied to another authority
+                auth_by_user = db.scalar(
+                    select(NivaranAuthority).where(NivaranAuthority.vyasa_user_id == user.id)
                 )
-            vyasa_user_id = user.id
-            temp_password = None
-        else:
-            # Create user account with a secure generated temporary credential
-            name_parts = clean_name.split()
-            first_name = name_parts[0]
-            last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "-"
+                if auth_by_user:
+                    raise ValueError(
+                        f"User account '{clean_email}' is already associated with authority '{auth_by_user.name_snapshot}'."
+                    )
+                vyasa_user_id = user.id
+                temp_password = None
+            else:
+                # Create user account with a secure generated temporary credential
+                name_parts = clean_name.split()
+                first_name = name_parts[0]
+                last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "-"
 
-            temp_password = generate_temporary_password(16)
-            new_user = User(
+                temp_password = generate_temporary_password(16)
+                new_user = User(
+                    id=uuid.uuid4(),
+                    email=clean_email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=phone.strip() if phone else None,
+                    password_hash=hash_password(temp_password),
+                    is_active=True,
+                    is_verified=True,
+                    must_change_password=True,
+                )
+                db.add(new_user)
+                db.flush()
+                vyasa_user_id = new_user.id
+                user = new_user
+
+            # Ensure canonical user has generic platform role 'authority'
+            AdminConfigService._ensure_user_platform_authority_roles(db, user, role)
+
+            # Create NivaranAuthority
+            authority = NivaranAuthority(
                 id=uuid.uuid4(),
-                email=clean_email,
-                first_name=first_name,
-                last_name=last_name,
-                phone=phone.strip() if phone else None,
-                password_hash=hash_password(temp_password),
-                is_active=True,
-                is_verified=True,
-                must_change_password=True,
+                vyasa_user_id=vyasa_user_id,
+                role=role,
+                name_snapshot=clean_name,
+                email_snapshot=clean_email,
+                designation=designation.strip() if designation else None,
+                department=department.strip() if department else None,
+                is_active=is_active,
             )
-            db.add(new_user)
+            db.add(authority)
             db.flush()
-            vyasa_user_id = new_user.id
-            user = new_user
 
-        # Ensure canonical user has generic platform role 'authority'
-        AdminConfigService._ensure_user_platform_authority_roles(db, user, role)
-
-        # Create NivaranAuthority
-        authority = NivaranAuthority(
-            id=uuid.uuid4(),
-            vyasa_user_id=vyasa_user_id,
-            role=role,
-            name_snapshot=clean_name,
-            email_snapshot=clean_email,
-            designation=designation.strip() if designation else None,
-            department=department.strip() if department else None,
-            is_active=is_active,
-        )
-        db.add(authority)
-        db.flush()
-
-        AdminConfigService.log_config_audit(
-            db=db,
-            actor_user_id=actor_user_id,
-            action="authority.create",
-            entity_name="NivaranAuthority",
-            entity_id=str(authority.id),
-            details={
-                "name": authority.name_snapshot,
-                "email": authority.email_snapshot,
-                "role": str(authority.role),
-                "designation": authority.designation,
-                "department": authority.department,
-                "is_active": authority.is_active,
-                "must_change_password": True if temp_password else False,
-            },
-        )
-        db.commit()
-        db.refresh(authority)
-        # Attach transient temporary password for one-time API exposure by caller
-        authority.temporary_password = temp_password
-        return authority
+            AdminConfigService.log_config_audit(
+                db=db,
+                actor_user_id=actor_user_id,
+                action="authority.create",
+                entity_name="NivaranAuthority",
+                entity_id=str(authority.id),
+                details={
+                    "name": authority.name_snapshot,
+                    "email": authority.email_snapshot,
+                    "role": str(authority.role),
+                    "designation": authority.designation,
+                    "department": authority.department,
+                    "is_active": authority.is_active,
+                    "must_change_password": True if temp_password else False,
+                },
+            )
+            db.commit()
+            db.refresh(authority)
+            # Attach transient temporary password for one-time API exposure by caller
+            authority.temporary_password = temp_password
+            return authority
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def update_authority(
@@ -231,89 +254,93 @@ class AdminConfigService:
         """
         Updates institutional authority attributes with conflict and jurisdiction validation.
         """
-        authority = db.scalar(
-            select(NivaranAuthority).where(NivaranAuthority.id == authority_id)
-        )
-        if not authority:
-            raise ValueError(f"Authority '{authority_id}' not found.")
-
-        changes: Dict[str, Any] = {}
-
-        if email is not None:
-            clean_email = email.strip().lower()
-            if clean_email != authority.email_snapshot.lower():
-                existing = db.scalar(
-                    select(NivaranAuthority).where(
-                        func.lower(NivaranAuthority.email_snapshot) == clean_email,
-                        NivaranAuthority.id != authority.id,
-                    )
-                )
-                if existing:
-                    raise ValueError(f"Email '{clean_email}' is already assigned to authority '{existing.name_snapshot}'.")
-                changes["email"] = {"old": authority.email_snapshot, "new": clean_email}
-                authority.email_snapshot = clean_email
-
-        if name is not None and name.strip() != authority.name_snapshot:
-            changes["name"] = {"old": authority.name_snapshot, "new": name.strip()}
-            authority.name_snapshot = name.strip()
-
-        if designation is not None and designation.strip() != (authority.designation or ""):
-            changes["designation"] = {"old": authority.designation, "new": designation.strip() or None}
-            authority.designation = designation.strip() or None
-
-        if department is not None and department.strip() != (authority.department or ""):
-            changes["department"] = {"old": authority.department, "new": department.strip() or None}
-            authority.department = department.strip() or None
-
-        if role is not None and role != authority.role:
-            # Check jurisdiction conflict if changing role
-            if authority.role == NivaranRole.ASSISTANT_DEAN:
-                active_sc = db.scalar(
-                    select(SubjectCluster).where(
-                        SubjectCluster.assistant_dean_id == authority.id,
-                        SubjectCluster.is_active == True,
-                    )
-                )
-                if active_sc:
-                    raise ValueError(
-                        f"Cannot change role of '{authority.name_snapshot}': actively assigned as Assistant Dean to Subject Cluster '{active_sc.name}'. Reassign cluster first."
-                    )
-            elif authority.role == NivaranRole.ASSOCIATE_DEAN:
-                active_gc = db.scalar(
-                    select(GrievanceCluster).where(
-                        GrievanceCluster.associate_dean_id == authority.id,
-                        GrievanceCluster.is_active == True,
-                    )
-                )
-                if active_gc:
-                    raise ValueError(
-                        f"Cannot change role of '{authority.name_snapshot}': actively assigned as Associate Dean to Grievance Cluster '{active_gc.name}'. Reassign cluster first."
-                    )
-
-            changes["role"] = {"old": str(authority.role), "new": str(role)}
-            authority.role = role
-
-        if is_active is not None and is_active != authority.is_active:
-            changes["is_active"] = {"old": authority.is_active, "new": is_active}
-            authority.is_active = is_active
-
-        if changes:
-            # Ensure canonical user preserves generic platform role 'authority'
-            user = db.scalar(select(User).options(joinedload(User.roles)).where(User.id == authority.vyasa_user_id))
-            if user:
-                AdminConfigService._ensure_user_platform_authority_roles(db, user, authority.role)
-
-            AdminConfigService.log_config_audit(
-                db=db,
-                actor_user_id=actor_user_id,
-                action="authority.update",
-                entity_name="NivaranAuthority",
-                entity_id=str(authority.id),
-                details=changes,
+        try:
+            authority = db.scalar(
+                select(NivaranAuthority).where(NivaranAuthority.id == authority_id)
             )
-            db.commit()
-            db.refresh(authority)
-        return authority
+            if not authority:
+                raise ValueError(f"Authority '{authority_id}' not found.")
+
+            changes: Dict[str, Any] = {}
+
+            if email is not None:
+                clean_email = email.strip().lower()
+                if clean_email != authority.email_snapshot.lower():
+                    existing = db.scalar(
+                        select(NivaranAuthority).where(
+                            func.lower(NivaranAuthority.email_snapshot) == clean_email,
+                            NivaranAuthority.id != authority.id,
+                        )
+                    )
+                    if existing:
+                        raise ValueError(f"Email '{clean_email}' is already assigned to authority '{existing.name_snapshot}'.")
+                    changes["email"] = {"old": authority.email_snapshot, "new": clean_email}
+                    authority.email_snapshot = clean_email
+
+            if name is not None and name.strip() != authority.name_snapshot:
+                changes["name"] = {"old": authority.name_snapshot, "new": name.strip()}
+                authority.name_snapshot = name.strip()
+
+            if designation is not None and designation.strip() != (authority.designation or ""):
+                changes["designation"] = {"old": authority.designation, "new": designation.strip() or None}
+                authority.designation = designation.strip() or None
+
+            if department is not None and department.strip() != (authority.department or ""):
+                changes["department"] = {"old": authority.department, "new": department.strip() or None}
+                authority.department = department.strip() or None
+
+            if role is not None and role != authority.role:
+                # Check jurisdiction conflict if changing role
+                if authority.role == NivaranRole.ASSISTANT_DEAN:
+                    active_sc = db.scalar(
+                        select(SubjectCluster).where(
+                            SubjectCluster.assistant_dean_id == authority.id,
+                            SubjectCluster.is_active == True,
+                        )
+                    )
+                    if active_sc:
+                        raise ValueError(
+                            f"Cannot change role of '{authority.name_snapshot}': actively assigned as Assistant Dean to Subject Cluster '{active_sc.name}'. Reassign cluster first."
+                        )
+                elif authority.role == NivaranRole.ASSOCIATE_DEAN:
+                    active_gc = db.scalar(
+                        select(GrievanceCluster).where(
+                            GrievanceCluster.associate_dean_id == authority.id,
+                            GrievanceCluster.is_active == True,
+                        )
+                    )
+                    if active_gc:
+                        raise ValueError(
+                            f"Cannot change role of '{authority.name_snapshot}': actively assigned as Associate Dean to Grievance Cluster '{active_gc.name}'. Reassign cluster first."
+                        )
+
+                changes["role"] = {"old": str(authority.role), "new": str(role)}
+                authority.role = role
+
+            if is_active is not None and is_active != authority.is_active:
+                changes["is_active"] = {"old": authority.is_active, "new": is_active}
+                authority.is_active = is_active
+
+            if changes:
+                # Ensure canonical user preserves generic platform role 'authority'
+                user = db.scalar(select(User).options(joinedload(User.roles)).where(User.id == authority.vyasa_user_id))
+                if user:
+                    AdminConfigService._ensure_user_platform_authority_roles(db, user, authority.role)
+
+                AdminConfigService.log_config_audit(
+                    db=db,
+                    actor_user_id=actor_user_id,
+                    action="authority.update",
+                    entity_name="NivaranAuthority",
+                    entity_id=str(authority.id),
+                    details=changes,
+                )
+                db.commit()
+                db.refresh(authority)
+            return authority
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def transfer_authority_assignments(
