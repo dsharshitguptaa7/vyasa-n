@@ -13,3 +13,4 @@ __pycache__/
 !config/authorities_manifest.example.json
 /storage/
 *.pdf
+production-migrate.ps1
