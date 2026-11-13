@@ -212,8 +212,16 @@ class NotificationEngine:
 
             # Email Delivery
             if NotificationChannel.EMAIL.value in channels_to_dispatch:
-                email_res = self.email_adapter.deliver(db, notif, target_user, user_pref)
+                email_delivery_id = uuid.uuid4()
+                email_res = self.email_adapter.deliver(
+                    db=db,
+                    notification=notif,
+                    user=target_user,
+                    preference=user_pref,
+                    delivery_id=email_delivery_id,
+                )
                 delivery_log = NotificationDelivery(
+                    id=email_delivery_id,
                     notification_id=notif.id,
                     channel=email_res.channel.value,
                     status=email_res.status.value,

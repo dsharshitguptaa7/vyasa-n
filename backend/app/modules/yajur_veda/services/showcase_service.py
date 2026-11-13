@@ -25,6 +25,7 @@ from app.modules.yajur_veda.models.showcase import (
     AnudaanGalleryImage,
     AnudaanPublicConfig,
     AnudaanSanctionEntry,
+    AnudaanFelicitationCycle,
 )
 from app.modules.yajur_veda.schemas.showcase import (
     AnudaanPublicImpactStats,
@@ -35,6 +36,14 @@ from app.modules.yajur_veda.schemas.showcase import (
     AnudaanPublicConfigUpdate,
     AnudaanSanctionEntryCreate,
     AnudaanSanctionEntryUpdate,
+    AnudaanFelicitationCycleCreate,
+    AnudaanFelicitationCycleUpdate,
+    AnudaanFelicitationCycleOut,
+    AnudaanPublicFelicitationCycleOut,
+    AnudaanPublicShowcaseCyclesResponse,
+    AnudaanPublicSanctionOut,
+    AnudaanGalleryItemOut,
+    AnudaanGalleryImageOut,
 )
 
 
@@ -49,6 +58,8 @@ class AnudaanShowcaseService:
         self,
         db: Session,
         academic_year: Optional[str] = None,
+        volume_number: Optional[int] = None,
+        issue_number: Optional[int] = None,
     ) -> AnudaanPublicImpactStats:
         """
         Derives aggregated institutional metrics derived strictly from published sanction entries.
@@ -73,6 +84,15 @@ class AnudaanShowcaseService:
             sanctions_base = sanctions_base.where(
                 AnudaanSanctionEntry.academic_year == academic_year
             )
+        if volume_number is not None or issue_number is not None:
+            sanctions_base = sanctions_base.join(
+                AnudaanFelicitationCycle,
+                AnudaanSanctionEntry.felicitation_cycle_id == AnudaanFelicitationCycle.id,
+            )
+            if volume_number is not None:
+                sanctions_base = sanctions_base.where(AnudaanFelicitationCycle.volume_number == volume_number)
+            if issue_number is not None:
+                sanctions_base = sanctions_base.where(AnudaanFelicitationCycle.issue_number == issue_number)
 
         # 1. Total Distinct Researchers Recognised
         researchers_recognised = db.scalar(
@@ -144,6 +164,11 @@ class AnudaanShowcaseService:
         clean_title = payload.publication_title.strip()
         clean_year = payload.academic_year.strip()
 
+        # Validate felicitation cycle exists
+        cycle = db.get(AnudaanFelicitationCycle, payload.felicitation_cycle_id)
+        if not cycle:
+            raise ValueError(f"Felicitation cycle with ID '{payload.felicitation_cycle_id}' does not exist.")
+
         # Prevent duplicate entry for same researcher, publication, and academic year
         existing = db.scalar(
             select(AnudaanSanctionEntry).where(
@@ -163,13 +188,15 @@ class AnudaanShowcaseService:
         entry = AnudaanSanctionEntry(
             id=uuid.uuid4(),
             researcher_name=clean_name,
-            department_name=payload.department_name.strip(),
+            department_name=payload.department_name.strip() if payload.department_name else None,
+            project_title=payload.project_title.strip() if payload.project_title else None,
             publication_title=clean_title,
             publication_doi=payload.publication_doi.strip() if payload.publication_doi else None,
             quartile=payload.quartile.upper().strip(),
             sanctioned_amount=payload.sanctioned_amount,
             academic_year=clean_year,
             sanction_date=payload.sanction_date,
+            felicitation_cycle_id=payload.felicitation_cycle_id,
             remarks=payload.remarks.strip() if payload.remarks else None,
             is_published=payload.is_published,
             application_id=payload.application_id,
@@ -196,7 +223,9 @@ class AnudaanShowcaseService:
         if payload.researcher_name is not None:
             entry.researcher_name = payload.researcher_name.strip()
         if payload.department_name is not None:
-            entry.department_name = payload.department_name.strip()
+            entry.department_name = payload.department_name.strip() if payload.department_name else None
+        if payload.project_title is not None:
+            entry.project_title = payload.project_title.strip() if payload.project_title else None
         if payload.publication_title is not None:
             entry.publication_title = payload.publication_title.strip()
         if payload.publication_doi is not None:
@@ -211,6 +240,11 @@ class AnudaanShowcaseService:
             entry.academic_year = payload.academic_year.strip()
         if payload.sanction_date is not None:
             entry.sanction_date = payload.sanction_date
+        if payload.felicitation_cycle_id is not None:
+            cycle = db.get(AnudaanFelicitationCycle, payload.felicitation_cycle_id)
+            if not cycle:
+                raise ValueError(f"Felicitation cycle with ID '{payload.felicitation_cycle_id}' does not exist.")
+            entry.felicitation_cycle_id = payload.felicitation_cycle_id
         if payload.remarks is not None:
             entry.remarks = payload.remarks.strip() if payload.remarks else None
         if payload.is_published is not None:
@@ -268,16 +302,33 @@ class AnudaanShowcaseService:
         academic_year: Optional[str] = None,
         quartile: Optional[str] = None,
         department: Optional[str] = None,
+        cycle_id: Optional[uuid.UUID] = None,
+        volume_number: Optional[int] = None,
+        issue_number: Optional[int] = None,
         is_published: Optional[bool] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[AnudaanSanctionEntry], int, Decimal]:
-        query = select(AnudaanSanctionEntry)
+        query = select(AnudaanSanctionEntry).options(
+            joinedload(AnudaanSanctionEntry.felicitation_cycle),
+            joinedload(AnudaanSanctionEntry.application),
+        )
         if academic_year and academic_year.upper() != "ALL":
             query = query.where(AnudaanSanctionEntry.academic_year == academic_year)
         if quartile and quartile.upper() != "ALL":
             query = query.where(AnudaanSanctionEntry.quartile == quartile.upper())
         if department and department.upper() != "ALL":
             query = query.where(func.lower(AnudaanSanctionEntry.department_name) == department.lower().strip())
+        if cycle_id is not None:
+            query = query.where(AnudaanSanctionEntry.felicitation_cycle_id == cycle_id)
+        if volume_number is not None or issue_number is not None:
+            query = query.join(
+                AnudaanFelicitationCycle,
+                AnudaanSanctionEntry.felicitation_cycle_id == AnudaanFelicitationCycle.id,
+            )
+            if volume_number is not None:
+                query = query.where(AnudaanFelicitationCycle.volume_number == volume_number)
+            if issue_number is not None:
+                query = query.where(AnudaanFelicitationCycle.issue_number == issue_number)
         if is_published is not None:
             query = query.where(AnudaanSanctionEntry.is_published.is_(is_published))
         if search:
@@ -286,7 +337,8 @@ class AnudaanShowcaseService:
                 or_(
                     func.lower(AnudaanSanctionEntry.researcher_name).like(s),
                     func.lower(AnudaanSanctionEntry.publication_title).like(s),
-                    func.lower(AnudaanSanctionEntry.department_name).like(s),
+                    func.lower(func.coalesce(AnudaanSanctionEntry.department_name, "")).like(s),
+                    func.lower(func.coalesce(AnudaanSanctionEntry.project_title, "")).like(s),
                 )
             )
 
@@ -300,7 +352,7 @@ class AnudaanShowcaseService:
             query.order_by(desc(AnudaanSanctionEntry.sanction_date), desc(AnudaanSanctionEntry.created_at))
             .offset(skip)
             .limit(limit)
-        ).all()
+        ).unique().all()
         return list(items), total, Decimal(str(total_amount))
 
     def get_public_sanction_entries(
@@ -310,20 +362,39 @@ class AnudaanShowcaseService:
         limit: int = 50,
         academic_year: Optional[str] = None,
         quartile: Optional[str] = None,
+        cycle_id: Optional[uuid.UUID] = None,
+        volume_number: Optional[int] = None,
+        issue_number: Optional[int] = None,
         search: Optional[str] = None,
     ) -> Tuple[List[AnudaanSanctionEntry], int]:
-        query = select(AnudaanSanctionEntry).where(AnudaanSanctionEntry.is_published.is_(True))
+        query = (
+            select(AnudaanSanctionEntry)
+            .options(joinedload(AnudaanSanctionEntry.felicitation_cycle))
+            .where(AnudaanSanctionEntry.is_published.is_(True))
+        )
         if academic_year and academic_year.upper() != "ALL":
             query = query.where(AnudaanSanctionEntry.academic_year == academic_year)
         if quartile and quartile.upper() != "ALL":
             query = query.where(AnudaanSanctionEntry.quartile == quartile.upper())
+        if cycle_id is not None:
+            query = query.where(AnudaanSanctionEntry.felicitation_cycle_id == cycle_id)
+        if volume_number is not None or issue_number is not None:
+            query = query.join(
+                AnudaanFelicitationCycle,
+                AnudaanSanctionEntry.felicitation_cycle_id == AnudaanFelicitationCycle.id,
+            )
+            if volume_number is not None:
+                query = query.where(AnudaanFelicitationCycle.volume_number == volume_number)
+            if issue_number is not None:
+                query = query.where(AnudaanFelicitationCycle.issue_number == issue_number)
         if search:
             s = f"%{search.strip().lower()}%"
             query = query.where(
                 or_(
                     func.lower(AnudaanSanctionEntry.researcher_name).like(s),
                     func.lower(AnudaanSanctionEntry.publication_title).like(s),
-                    func.lower(AnudaanSanctionEntry.department_name).like(s),
+                    func.lower(func.coalesce(AnudaanSanctionEntry.department_name, "")).like(s),
+                    func.lower(func.coalesce(AnudaanSanctionEntry.project_title, "")).like(s),
                 )
             )
         total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
@@ -331,7 +402,7 @@ class AnudaanShowcaseService:
             query.order_by(desc(AnudaanSanctionEntry.sanction_date), desc(AnudaanSanctionEntry.created_at))
             .offset(skip)
             .limit(limit)
-        ).all()
+        ).unique().all()
         return list(items), total
 
     def lookup_applications_for_sanction(
@@ -386,6 +457,402 @@ class AnudaanShowcaseService:
                 "authors": authors_list,
             })
         return results
+
+    # -------------------------------------------------------------------------
+    # 1.2 Felicitation / Recognition Cycle Management (Volume & Issue)
+    # -------------------------------------------------------------------------
+
+    def create_felicitation_cycle(
+        self,
+        db: Session,
+        payload: AnudaanFelicitationCycleCreate,
+        created_by_id: Optional[uuid.UUID] = None,
+    ) -> AnudaanFelicitationCycle:
+        """Creates a new institutional Volume & Issue felicitation cycle."""
+        existing = db.scalar(
+            select(AnudaanFelicitationCycle).where(
+                AnudaanFelicitationCycle.volume_number == payload.volume_number,
+                AnudaanFelicitationCycle.issue_number == payload.issue_number,
+            )
+        )
+        if existing:
+            raise ValueError(
+                f"A felicitation cycle for Volume {payload.volume_number}, Issue {payload.issue_number} already exists."
+            )
+
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=payload.volume_number,
+            issue_number=payload.issue_number,
+            display_title=payload.display_title.strip() if payload.display_title else None,
+            status=payload.status.upper().strip(),
+            felicitation_date=payload.felicitation_date,
+            academic_year=payload.academic_year.strip() if payload.academic_year else None,
+            description=payload.description.strip() if payload.description else None,
+            is_published=payload.is_published,
+            is_archived=payload.is_archived,
+            created_by_id=created_by_id,
+            updated_by_id=created_by_id,
+        )
+        db.add(cycle)
+        db.commit()
+        db.refresh(cycle)
+        return cycle
+
+    def update_felicitation_cycle(
+        self,
+        db: Session,
+        cycle_id: uuid.UUID,
+        payload: AnudaanFelicitationCycleUpdate,
+        updated_by_id: Optional[uuid.UUID] = None,
+    ) -> AnudaanFelicitationCycle:
+        """Updates attributes of an existing felicitation cycle."""
+        cycle = db.get(AnudaanFelicitationCycle, cycle_id)
+        if not cycle:
+            raise KeyError("Felicitation cycle not found")
+
+        new_vol = payload.volume_number if payload.volume_number is not None else cycle.volume_number
+        new_iss = payload.issue_number if payload.issue_number is not None else cycle.issue_number
+        if new_vol != cycle.volume_number or new_iss != cycle.issue_number:
+            conflict = db.scalar(
+                select(AnudaanFelicitationCycle).where(
+                    AnudaanFelicitationCycle.volume_number == new_vol,
+                    AnudaanFelicitationCycle.issue_number == new_iss,
+                    AnudaanFelicitationCycle.id != cycle_id,
+                )
+            )
+            if conflict:
+                raise ValueError(f"Volume {new_vol}, Issue {new_iss} already exists.")
+
+        if payload.volume_number is not None:
+            cycle.volume_number = payload.volume_number
+        if payload.issue_number is not None:
+            cycle.issue_number = payload.issue_number
+        if payload.display_title is not None:
+            cycle.display_title = payload.display_title.strip() if payload.display_title else None
+        if payload.status is not None:
+            cycle.status = payload.status.upper().strip()
+        if payload.felicitation_date is not None:
+            cycle.felicitation_date = payload.felicitation_date
+        if payload.academic_year is not None:
+            cycle.academic_year = payload.academic_year.strip() if payload.academic_year else None
+        if payload.description is not None:
+            cycle.description = payload.description.strip() if payload.description else None
+        if payload.is_published is not None:
+            cycle.is_published = payload.is_published
+        if payload.is_archived is not None:
+            cycle.is_archived = payload.is_archived
+
+        cycle.updated_by_id = updated_by_id
+        db.commit()
+        db.refresh(cycle)
+        return cycle
+
+    def delete_felicitation_cycle(
+        self,
+        db: Session,
+        cycle_id: uuid.UUID,
+    ) -> bool:
+        """Deletes a felicitation cycle."""
+        cycle = db.get(AnudaanFelicitationCycle, cycle_id)
+        if not cycle:
+            raise KeyError("Felicitation cycle not found")
+        db.delete(cycle)
+        db.commit()
+        return True
+
+    def toggle_cycle_publication(
+        self,
+        db: Session,
+        cycle_id: uuid.UUID,
+        is_published: bool,
+        updated_by_id: Optional[uuid.UUID] = None,
+    ) -> AnudaanFelicitationCycle:
+        cycle = db.get(AnudaanFelicitationCycle, cycle_id)
+        if not cycle:
+            raise KeyError("Felicitation cycle not found")
+        cycle.is_published = is_published
+        cycle.updated_by_id = updated_by_id
+        db.commit()
+        db.refresh(cycle)
+        return cycle
+
+    def toggle_cycle_archive(
+        self,
+        db: Session,
+        cycle_id: uuid.UUID,
+        is_archived: bool,
+        updated_by_id: Optional[uuid.UUID] = None,
+    ) -> AnudaanFelicitationCycle:
+        cycle = db.get(AnudaanFelicitationCycle, cycle_id)
+        if not cycle:
+            raise KeyError("Felicitation cycle not found")
+        cycle.is_archived = is_archived
+        cycle.updated_by_id = updated_by_id
+        db.commit()
+        db.refresh(cycle)
+        return cycle
+
+    def get_felicitation_cycle(
+        self,
+        db: Session,
+        cycle_id: uuid.UUID,
+    ) -> Optional[dict]:
+        cycle = db.get(AnudaanFelicitationCycle, cycle_id)
+        if not cycle:
+            return None
+        s_count = db.scalar(
+            select(func.count(AnudaanSanctionEntry.id)).where(
+                AnudaanSanctionEntry.felicitation_cycle_id == cycle.id
+            )
+        ) or 0
+        s_total = db.scalar(
+            select(func.coalesce(func.sum(AnudaanSanctionEntry.sanctioned_amount), Decimal("0.00"))).where(
+                AnudaanSanctionEntry.felicitation_cycle_id == cycle.id
+            )
+        ) or Decimal("0.00")
+        return {
+            "id": cycle.id,
+            "volume_number": cycle.volume_number,
+            "issue_number": cycle.issue_number,
+            "display_title": cycle.display_title,
+            "status": cycle.status,
+            "felicitation_date": cycle.felicitation_date,
+            "academic_year": cycle.academic_year,
+            "description": cycle.description,
+            "is_published": cycle.is_published,
+            "is_archived": cycle.is_archived,
+            "sanction_count": s_count,
+            "total_sanctioned_amount": Decimal(str(s_total)),
+            "created_at": cycle.created_at,
+            "updated_at": cycle.updated_at,
+        }
+
+    def list_felicitation_cycles(
+        self,
+        db: Session,
+        skip: int = 0,
+        limit: int = 50,
+        status: Optional[str] = None,
+        academic_year: Optional[str] = None,
+        is_published: Optional[bool] = None,
+        is_archived: Optional[bool] = None,
+        search: Optional[str] = None,
+    ) -> Tuple[List[dict], int]:
+        """Lists cycles with computed sanction counts and total sanctioned INR."""
+        query = select(AnudaanFelicitationCycle)
+        if status and status.upper() != "ALL":
+            query = query.where(AnudaanFelicitationCycle.status == status.upper().strip())
+        if academic_year and academic_year.upper() != "ALL":
+            query = query.where(AnudaanFelicitationCycle.academic_year == academic_year)
+        if is_published is not None:
+            query = query.where(AnudaanFelicitationCycle.is_published.is_(is_published))
+        if is_archived is not None:
+            query = query.where(AnudaanFelicitationCycle.is_archived.is_(is_archived))
+        if search:
+            s = f"%{search.strip().lower()}%"
+            query = query.where(
+                or_(
+                    func.lower(AnudaanFelicitationCycle.display_title).like(s),
+                    func.lower(AnudaanFelicitationCycle.description).like(s),
+                )
+            )
+
+        total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        cycles = db.scalars(
+            query.order_by(
+                desc(AnudaanFelicitationCycle.volume_number),
+                desc(AnudaanFelicitationCycle.issue_number),
+            )
+            .offset(skip)
+            .limit(limit)
+        ).all()
+
+        results = []
+        for c in cycles:
+            s_count = db.scalar(
+                select(func.count(AnudaanSanctionEntry.id)).where(
+                    AnudaanSanctionEntry.felicitation_cycle_id == c.id
+                )
+            ) or 0
+            s_total = db.scalar(
+                select(func.coalesce(func.sum(AnudaanSanctionEntry.sanctioned_amount), Decimal("0.00"))).where(
+                    AnudaanSanctionEntry.felicitation_cycle_id == c.id
+                )
+            ) or Decimal("0.00")
+
+            results.append({
+                "id": c.id,
+                "volume_number": c.volume_number,
+                "issue_number": c.issue_number,
+                "display_title": c.display_title,
+                "status": c.status,
+                "felicitation_date": c.felicitation_date,
+                "academic_year": c.academic_year,
+                "description": c.description,
+                "is_published": c.is_published,
+                "is_archived": c.is_archived,
+                "sanction_count": s_count,
+                "total_sanctioned_amount": Decimal(str(s_total)),
+                "created_at": c.created_at,
+                "updated_at": c.updated_at,
+            })
+        return results, total
+
+    def get_public_showcase_cycles(
+        self,
+        db: Session,
+        academic_year: Optional[str] = None,
+    ) -> AnudaanPublicShowcaseCyclesResponse:
+        """
+        Organizes published sanction records by Volume and Issue for the public showcase.
+        Separates completed cycles (with associated published sanction records and gallery items)
+        from upcoming cycles (which display event metadata without fabricated amounts or records).
+        """
+        stmt = (
+            select(AnudaanFelicitationCycle)
+            .where(
+                AnudaanFelicitationCycle.is_published.is_(True),
+                AnudaanFelicitationCycle.is_archived.is_(False),
+            )
+            .order_by(
+                desc(AnudaanFelicitationCycle.volume_number),
+                desc(AnudaanFelicitationCycle.issue_number),
+            )
+        )
+        if academic_year and academic_year.upper() != "ALL":
+            stmt = stmt.where(AnudaanFelicitationCycle.academic_year == academic_year)
+
+        cycles = db.scalars(stmt).all()
+
+        completed_cycles = []
+        upcoming_cycles = []
+
+        for c in cycles:
+            gal_items = db.scalars(
+                select(AnudaanGalleryItem)
+                .options(joinedload(AnudaanGalleryItem.images))
+                .where(
+                    AnudaanGalleryItem.felicitation_cycle_id == c.id,
+                    AnudaanGalleryItem.is_published.is_(True),
+                    AnudaanGalleryItem.has_consent.is_(True),
+                )
+                .order_by(AnudaanGalleryItem.display_order.asc())
+            ).unique().all()
+
+            gal_out = []
+            for g in gal_items:
+                gal_out.append(
+                    AnudaanGalleryItemOut(
+                        id=g.id,
+                        title=g.title,
+                        event_name=g.event_name,
+                        event_date=g.event_date,
+                        academic_year=g.academic_year,
+                        description=g.description,
+                        researcher_name=g.researcher_name,
+                        researcher_designation=g.researcher_designation,
+                        department_name=g.department_name,
+                        has_consent=g.has_consent,
+                        is_featured=g.is_featured,
+                        is_published=g.is_published,
+                        display_order=g.display_order,
+                        felicitation_cycle_id=c.id,
+                        felicitation_cycle_volume=c.volume_number,
+                        felicitation_cycle_issue=c.issue_number,
+                        images=[
+                            AnudaanGalleryImageOut(
+                                id=img.id,
+                                gallery_item_id=img.gallery_item_id,
+                                storage_key=img.storage_key,
+                                original_filename=img.original_filename,
+                                mime_type=img.mime_type,
+                                file_size_bytes=img.file_size_bytes,
+                                caption=img.caption,
+                                is_cover=img.is_cover,
+                                display_order=img.display_order,
+                                created_at=img.created_at,
+                            )
+                            for img in g.images
+                        ],
+                        created_at=g.created_at,
+                        updated_at=g.updated_at,
+                    )
+                )
+
+            if c.status == "COMPLETED":
+                sanctions = db.scalars(
+                    select(AnudaanSanctionEntry)
+                    .where(
+                        AnudaanSanctionEntry.felicitation_cycle_id == c.id,
+                        AnudaanSanctionEntry.is_published.is_(True),
+                    )
+                    .order_by(desc(AnudaanSanctionEntry.sanction_date))
+                ).all()
+
+                s_out = [
+                    AnudaanPublicSanctionOut(
+                        id=s.id,
+                        researcher_name=s.researcher_name,
+                        department_name=s.department_name,
+                        project_title=s.project_title,
+                        publication_title=s.publication_title,
+                        quartile=s.quartile,
+                        sanctioned_amount=s.sanctioned_amount,
+                        academic_year=s.academic_year,
+                        felicitation_cycle_id=c.id,
+                        volume_number=c.volume_number,
+                        issue_number=c.issue_number,
+                        cycle_display_title=c.display_title,
+                        cycle_status=c.status,
+                        felicitation_date=c.felicitation_date,
+                    )
+                    for s in sanctions
+                ]
+                total_sanctioned = sum((s.sanctioned_amount for s in sanctions), Decimal("0.00"))
+                distinct_researchers = len(set(s.researcher_name.lower().strip() for s in sanctions))
+
+                completed_cycles.append(
+                    AnudaanPublicFelicitationCycleOut(
+                        id=c.id,
+                        volume_number=c.volume_number,
+                        issue_number=c.issue_number,
+                        display_title=c.display_title,
+                        status=c.status,
+                        felicitation_date=c.felicitation_date,
+                        academic_year=c.academic_year,
+                        description=c.description,
+                        sanctions=s_out,
+                        total_sanctioned_amount=total_sanctioned,
+                        total_researchers=distinct_researchers,
+                        sanction_count=len(s_out),
+                        gallery_items=gal_out,
+                    )
+                )
+            else:
+                upcoming_cycles.append(
+                    AnudaanPublicFelicitationCycleOut(
+                        id=c.id,
+                        volume_number=c.volume_number,
+                        issue_number=c.issue_number,
+                        display_title=c.display_title,
+                        status=c.status,
+                        felicitation_date=c.felicitation_date,
+                        academic_year=c.academic_year,
+                        description=c.description,
+                        sanctions=[],
+                        total_sanctioned_amount=Decimal("0.00"),
+                        total_researchers=0,
+                        sanction_count=0,
+                        gallery_items=gal_out,
+                    )
+                )
+
+        return AnudaanPublicShowcaseCyclesResponse(
+            total_cycles=len(completed_cycles) + len(upcoming_cycles),
+            completed_cycles=completed_cycles,
+            upcoming_cycles=upcoming_cycles,
+        )
 
     # -------------------------------------------------------------------------
     # 2. Public Display Configuration
@@ -686,6 +1153,7 @@ class AnudaanShowcaseService:
             is_featured=payload.is_featured,
             is_published=payload.is_published,
             display_order=payload.display_order,
+            felicitation_cycle_id=payload.felicitation_cycle_id,
             created_by_id=user_id,
             updated_by_id=user_id,
         )
@@ -736,6 +1204,8 @@ class AnudaanShowcaseService:
             item.is_published = payload.is_published
         if payload.display_order is not None:
             item.display_order = payload.display_order
+        if payload.felicitation_cycle_id is not None:
+            item.felicitation_cycle_id = payload.felicitation_cycle_id
 
         if user_id:
             item.updated_by_id = user_id

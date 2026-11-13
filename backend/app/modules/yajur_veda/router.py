@@ -651,6 +651,7 @@ from app.modules.yajur_veda.schemas.showcase import (
     AnudaanPublicConfigOut,
     AnudaanPublicSanctionOut,
     AnudaanPublicSanctionsResponse,
+    AnudaanPublicShowcaseCyclesResponse,
 )
 
 
@@ -661,6 +662,8 @@ from app.modules.yajur_veda.schemas.showcase import (
 )
 def get_public_impact_statistics(
     academic_year: Optional[str] = Query(None, description="Academic year filter (e.g. '2025-2026' or 'ALL')"),
+    volume_number: Optional[int] = Query(None, description="Volume number filter"),
+    issue_number: Optional[int] = Query(None, description="Issue number filter"),
     db: Session = Depends(get_db),
 ):
     """
@@ -670,7 +673,12 @@ def get_public_impact_statistics(
     """
     cfg = anudaan_showcase_service.get_public_config(db)
     effective_year = academic_year or cfg.active_academic_year or "ALL"
-    stats = anudaan_showcase_service.get_public_impact_stats(db, academic_year=effective_year)
+    stats = anudaan_showcase_service.get_public_impact_stats(
+        db,
+        academic_year=effective_year,
+        volume_number=volume_number,
+        issue_number=issue_number,
+    )
     return ApiResponse(
         success=True,
         message="Public incentive impact statistics retrieved successfully.",
@@ -688,6 +696,9 @@ def get_public_sanction_register(
     limit: int = Query(50, ge=1, le=100),
     academic_year: Optional[str] = Query(None),
     quartile: Optional[str] = Query(None),
+    cycle_id: Optional[uuid.UUID] = Query(None),
+    volume_number: Optional[int] = Query(None),
+    issue_number: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -696,26 +707,77 @@ def get_public_sanction_register(
     Strictly excludes sensitive identity, registration, employee, or financial details.
     """
     items, total = anudaan_showcase_service.get_public_sanction_entries(
-        db, skip=skip, limit=limit, academic_year=academic_year, quartile=quartile, search=search
+        db,
+        skip=skip,
+        limit=limit,
+        academic_year=academic_year,
+        quartile=quartile,
+        cycle_id=cycle_id,
+        volume_number=volume_number,
+        issue_number=issue_number,
+        search=search,
     )
+    out_items = []
+    for item in items:
+        vol = None
+        iss = None
+        c_title = None
+        c_status = None
+        f_date = None
+        if getattr(item, "felicitation_cycle", None):
+            vol = item.felicitation_cycle.volume_number
+            iss = item.felicitation_cycle.issue_number
+            c_title = item.felicitation_cycle.display_title
+            c_status = item.felicitation_cycle.status
+            f_date = item.felicitation_cycle.felicitation_date
+
+        out_items.append(
+            AnudaanPublicSanctionOut(
+                id=item.id,
+                researcher_name=item.researcher_name,
+                department_name=item.department_name,
+                project_title=item.project_title,
+                publication_title=item.publication_title,
+                quartile=item.quartile,
+                sanctioned_amount=item.sanctioned_amount,
+                academic_year=item.academic_year,
+                felicitation_cycle_id=item.felicitation_cycle_id,
+                volume_number=vol,
+                issue_number=iss,
+                cycle_display_title=c_title,
+                cycle_status=c_status,
+                felicitation_date=f_date,
+            )
+        )
+
     return ApiResponse(
         success=True,
         message="Public incentive sanction register retrieved.",
         data=AnudaanPublicSanctionsResponse(
             total=total,
-            items=[
-                AnudaanPublicSanctionOut(
-                    id=item.id,
-                    researcher_name=item.researcher_name,
-                    department_name=item.department_name,
-                    publication_title=item.publication_title,
-                    quartile=item.quartile,
-                    sanctioned_amount=item.sanctioned_amount,
-                    academic_year=item.academic_year,
-                )
-                for item in items
-            ],
+            items=out_items,
         ),
+    )
+
+
+@router.get(
+    "/anudaan/public/cycles",
+    response_model=ApiResponse[AnudaanPublicShowcaseCyclesResponse],
+    summary="Get Public Volume & Issue Felicitation Showcase",
+)
+def get_public_showcase_cycles(
+    academic_year: Optional[str] = Query(None, description="Academic year filter"),
+    db: Session = Depends(get_db),
+):
+    """
+    Organizes published sanction records by Volume and Issue for the public showcase.
+    Separates completed cycles with sanctions/gallery from upcoming recognition events.
+    """
+    data = anudaan_showcase_service.get_public_showcase_cycles(db, academic_year=academic_year)
+    return ApiResponse(
+        success=True,
+        message="Public felicitation cycles showcase retrieved.",
+        data=data,
     )
 
 

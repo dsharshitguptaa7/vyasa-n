@@ -14,7 +14,7 @@ import {
   AnudaanPublicImpactStats,
   AnudaanGalleryItemOut,
   AnudaanPublicConfigOut,
-  AnudaanPublicSanctionOut,
+  AnudaanPublicShowcaseCyclesResponse,
 } from '../types/anudaan';
 import './AnudaanPortalPage.css';
 
@@ -72,9 +72,10 @@ export const AnudaanPortalPage: React.FC = () => {
   const [galleryLoading, setGalleryLoading] = useState(true);
   const [galleryYear, setGalleryYear] = useState<string>('ALL');
 
-  // Public Sanctions Register State
-  const [publicSanctions, setPublicSanctions] = useState<AnudaanPublicSanctionOut[]>([]);
-  const [sanctionsLoading, setSanctionsLoading] = useState(true);
+  // Felicitation Showcase Cycles State (Volume & Issue)
+  const [showcaseCycles, setShowcaseCycles] = useState<AnudaanPublicShowcaseCyclesResponse | null>(null);
+  const [cyclesLoading, setCyclesLoading] = useState(true);
+  const [selectedCycleTab, setSelectedCycleTab] = useState<string>('ALL');
   const [sanctionQuartile, setSanctionQuartile] = useState<string>('ALL');
 
   // Lightbox State
@@ -132,31 +133,29 @@ export const AnudaanPortalPage: React.FC = () => {
     }
   }, [galleryYear]);
 
-  // Fetch Public Sanctions Register
-  const fetchPublicSanctions = useCallback(async () => {
+  // Fetch Volume & Issue Felicitation Showcase
+  const fetchShowcaseCycles = useCallback(async () => {
     try {
-      setSanctionsLoading(true);
-      const res = await anudaanService.getPublicSanctions({
+      setCyclesLoading(true);
+      const res = await anudaanService.getPublicShowcaseCycles({
         academic_year: selectedYear === 'ALL' ? undefined : selectedYear,
-        quartile: sanctionQuartile === 'ALL' ? undefined : sanctionQuartile,
-        limit: 50,
       });
       if (res.success && res.data) {
-        setPublicSanctions(res.data.items);
+        setShowcaseCycles(res.data);
       }
     } catch (err) {
-      console.error('Failed to load public sanctions register:', err);
+      console.error('Failed to load felicitation showcase cycles:', err);
     } finally {
-      setSanctionsLoading(false);
+      setCyclesLoading(false);
     }
-  }, [selectedYear, sanctionQuartile]);
+  }, [selectedYear]);
 
   useEffect(() => {
     if (publicConfig.impact_section_enabled) {
       fetchImpactStats();
-      fetchPublicSanctions();
+      fetchShowcaseCycles();
     }
-  }, [fetchImpactStats, fetchPublicSanctions, publicConfig.impact_section_enabled]);
+  }, [fetchImpactStats, fetchShowcaseCycles, publicConfig.impact_section_enabled]);
 
   useEffect(() => {
     if (publicConfig.gallery_section_enabled) {
@@ -664,15 +663,17 @@ export const AnudaanPortalPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Public Sanctions Register Table */}
-            <div style={{ marginTop: 28 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+            {/* ============================================================= */}
+            {/* VOLUME & ISSUE FELICITATION SHOWCASE */}
+            {/* ============================================================= */}
+            <div style={{ marginTop: 32 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0B2545', margin: 0 }}>
-                    Published Sanctions Register
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B2545', margin: 0 }}>
+                    Institutional Felicitation Showcase (Volume &amp; Issue)
                   </h3>
-                  <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: 2 }}>
-                    Public directory of officially sanctioned research incentive awards.
+                  <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: 3 }}>
+                    Official research publication incentive sanctions organized by university ceremonial recognition cycles.
                   </div>
                 </div>
 
@@ -684,7 +685,7 @@ export const AnudaanPortalPage: React.FC = () => {
                     onChange={(e) => setSanctionQuartile(e.target.value)}
                   >
                     <option value="ALL">All Quartiles</option>
-                    <option value="Q1">Q1</option>
+                    <option value="Q1">Q1 (Highest Impact)</option>
                     <option value="Q2">Q2</option>
                     <option value="Q3">Q3</option>
                     <option value="Q4">Q4</option>
@@ -692,69 +693,399 @@ export const AnudaanPortalPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-                {sanctionsLoading ? (
-                  <div style={{ padding: '36px 0', textAlign: 'center', color: '#64748B' }}>
-                    Loading sanctions register...
-                  </div>
-                ) : publicSanctions.length === 0 ? (
-                  <div style={{ padding: '36px 0', textAlign: 'center', color: '#64748B' }}>
-                    No published incentive sanctions found for this selection.
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569' }}>
-                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Researcher</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Department</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Publication Title</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Quartile</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Sanctioned (INR)</th>
-                          <th style={{ padding: '12px 16px', fontWeight: 600 }}>Academic Year</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {publicSanctions.map((entry) => (
-                          <tr key={entry.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                            <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0B2545' }}>
-                              {entry.researcher_name}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#475569' }}>
-                              {entry.department_name}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#1E293B', maxWidth: 360, lineHeight: 1.4 }}>
-                              {entry.publication_title}
-                            </td>
-                            <td style={{ padding: '12px 16px' }}>
+              {/* Cycle Quick Tabs */}
+              {showcaseCycles && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                  <button
+                    onClick={() => setSelectedCycleTab('ALL')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 20,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selectedCycleTab === 'ALL' ? '1px solid #0B2545' : '1px solid #CBD5E1',
+                      backgroundColor: selectedCycleTab === 'ALL' ? '#0B2545' : '#FFFFFF',
+                      color: selectedCycleTab === 'ALL' ? '#FFFFFF' : '#475569',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    All Cycles ({showcaseCycles.total_cycles})
+                  </button>
+
+                  {showcaseCycles.completed_cycles.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCycleTab(c.id)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        border: selectedCycleTab === c.id ? '1px solid #1E40AF' : '1px solid #CBD5E1',
+                        backgroundColor: selectedCycleTab === c.id ? '#EFF6FF' : '#FFFFFF',
+                        color: selectedCycleTab === c.id ? '#1E40AF' : '#475569',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10B981' }} />
+                      Vol {c.volume_number} — Iss {c.issue_number}
+                    </button>
+                  ))}
+
+                  {showcaseCycles.upcoming_cycles.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCycleTab(c.id)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        border: selectedCycleTab === c.id ? '1px solid #B45309' : '1px solid #CBD5E1',
+                        backgroundColor: selectedCycleTab === c.id ? '#FFFBEB' : '#FFFFFF',
+                        color: selectedCycleTab === c.id ? '#B45309' : '#475569',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                      Vol {c.volume_number} — Iss {c.issue_number} (Upcoming)
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {cyclesLoading ? (
+                <div style={{ padding: '36px 0', textAlign: 'center', color: '#64748B', backgroundColor: '#FFFFFF', borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                  Loading felicitation showcase cycles...
+                </div>
+              ) : !showcaseCycles || showcaseCycles.total_cycles === 0 ? (
+                <div style={{ padding: '36px 0', textAlign: 'center', color: '#64748B', backgroundColor: '#FFFFFF', borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                  No published felicitation cycles found for this period.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  {/* COMPLETED CYCLES */}
+                  {showcaseCycles.completed_cycles
+                    .filter((c) => selectedCycleTab === 'ALL' || selectedCycleTab === c.id)
+                    .map((c) => {
+                      const filteredSanctions = c.sanctions.filter(
+                        (s) => sanctionQuartile === 'ALL' || s.quartile === sanctionQuartile
+                      );
+
+                      return (
+                        <div
+                          key={c.id}
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: 14,
+                            border: '1px solid #CBD5E1',
+                            boxShadow: '0 2px 8px rgba(11, 37, 69, 0.05)',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {/* Cycle Header */}
+                          <div
+                            style={{
+                              backgroundColor: '#F8FAFC',
+                              borderBottom: '1px solid #E2E8F0',
+                              padding: '18px 24px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap',
+                              gap: 16,
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span
+                                  style={{
+                                    backgroundColor: '#0B2545',
+                                    color: '#FFFFFF',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    padding: '4px 10px',
+                                    borderRadius: 6,
+                                    letterSpacing: '0.04em',
+                                  }}
+                                >
+                                  VOLUME {c.volume_number} — ISSUE {c.issue_number}
+                                </span>
+                                <span
+                                  style={{
+                                    backgroundColor: '#ECFDF5',
+                                    color: '#065F46',
+                                    border: '1px solid #A7F3D0',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    padding: '3px 8px',
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  COMPLETED
+                                </span>
+                                {c.academic_year && (
+                                  <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
+                                    {c.academic_year}
+                                  </span>
+                                )}
+                              </div>
+
+                              <h4 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0B2545', margin: '8px 0 4px' }}>
+                                {c.display_title || `Annual Research Felicitation Ceremony (Vol. ${c.volume_number}, Iss. ${c.issue_number})`}
+                              </h4>
+                              {c.description && (
+                                <p style={{ fontSize: '0.875rem', color: '#475569', margin: 0, maxWidth: 680, lineHeight: 1.5 }}>
+                                  {c.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                Amount Sanctioned
+                              </div>
+                              <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#065F46', marginTop: 2 }}>
+                                ₹ {Number(c.total_sanctioned_amount).toLocaleString('en-IN')}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 4 }}>
+                                {c.total_researchers} Researchers · {c.sanction_count} Sanctions
+                              </div>
+                              {c.felicitation_date && (
+                                <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: 2 }}>
+                                  Felicitation Date: {c.felicitation_date}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Cycle Sanction Entries Table */}
+                          {filteredSanctions.length === 0 ? (
+                            <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: '0.875rem' }}>
+                              No sanction records match the selected quartile filter for this cycle.
+                            </div>
+                          ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                                <thead>
+                                  <tr style={{ backgroundColor: '#F1F5F9', borderBottom: '1px solid #E2E8F0', color: '#475569' }}>
+                                    <th style={{ padding: '10px 16px', fontWeight: 600 }}>Researcher</th>
+                                    <th style={{ padding: '10px 16px', fontWeight: 600 }}>Publication &amp; Project Details</th>
+                                    <th style={{ padding: '10px 16px', fontWeight: 600 }}>Quartile</th>
+                                    <th style={{ padding: '10px 16px', fontWeight: 600, textAlign: 'right' }}>Amount Sanctioned (INR)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {filteredSanctions.map((entry) => (
+                                    <tr key={entry.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                      <td style={{ padding: '12px 16px', verticalAlign: 'top', width: '25%' }}>
+                                        <div style={{ fontWeight: 600, color: '#0B2545' }}>{entry.researcher_name}</div>
+                                        {/* Render department ONLY when provided */}
+                                        {entry.department_name && (
+                                          <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
+                                            {entry.department_name}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
+                                        <div style={{ color: '#1E293B', fontWeight: 500, lineHeight: 1.45 }}>
+                                          {entry.publication_title}
+                                        </div>
+                                        {/* Render project title ONLY when provided */}
+                                        {entry.project_title && (
+                                          <div style={{ fontSize: '0.75rem', color: '#0369A1', marginTop: 4, fontWeight: 500 }}>
+                                            Project: {entry.project_title}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', verticalAlign: 'top', width: '12%' }}>
+                                        <span
+                                          style={{
+                                            padding: '2px 8px',
+                                            borderRadius: 6,
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            backgroundColor:
+                                              entry.quartile === 'Q1' ? '#ECFDF5' : entry.quartile === 'Q2' ? '#EFF6FF' : entry.quartile === 'Q3' ? '#FEF3C7' : '#F1F5F9',
+                                            color:
+                                              entry.quartile === 'Q1' ? '#047857' : entry.quartile === 'Q2' ? '#1D4ED8' : entry.quartile === 'Q3' ? '#B45309' : '#475569',
+                                          }}
+                                        >
+                                          {entry.quartile}
+                                        </span>
+                                      </td>
+                                      <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'right', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', width: '18%' }}>
+                                        ₹ {Number(entry.sanctioned_amount).toLocaleString('en-IN')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Associated Ceremony Photos */}
+                          {c.gallery_items && c.gallery_items.length > 0 && (
+                            <div style={{ backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', padding: '16px 24px' }}>
+                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                                Ceremony &amp; Felicitation Photos (Vol {c.volume_number}, Iss {c.issue_number})
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                                {c.gallery_items.map((g) => {
+                                  const cover = g.images.find((img) => img.is_cover) || g.images[0];
+                                  return (
+                                    <div
+                                      key={g.id}
+                                      onClick={() => {
+                                        setActiveLightboxItem(g);
+                                        setLightboxActiveIndex(0);
+                                      }}
+                                      style={{
+                                        cursor: 'pointer',
+                                        borderRadius: 8,
+                                        overflow: 'hidden',
+                                        border: '1px solid #CBD5E1',
+                                        backgroundColor: '#FFFFFF',
+                                        transition: 'transform 0.15s ease',
+                                      }}
+                                    >
+                                      {cover ? (
+                                        <img
+                                          src={cover.storage_key}
+                                          alt={g.title}
+                                          style={{ width: '100%', height: 110, objectFit: 'cover' }}
+                                        />
+                                      ) : (
+                                        <div style={{ height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E2E8F0', color: '#64748B', fontSize: '0.75rem' }}>
+                                          Ceremony Photo
+                                        </div>
+                                      )}
+                                      <div style={{ padding: '6px 8px' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0B2545', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {g.title}
+                                        </div>
+                                        {g.researcher_name && (
+                                          <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 2 }}>
+                                            {g.researcher_name}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                  {/* UPCOMING CYCLES */}
+                  {showcaseCycles.upcoming_cycles
+                    .filter((c) => selectedCycleTab === 'ALL' || selectedCycleTab === c.id)
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        style={{
+                          backgroundColor: '#FFFDF7',
+                          borderRadius: 14,
+                          border: '1px solid #FCD34D',
+                          boxShadow: '0 2px 8px rgba(180, 83, 9, 0.05)',
+                          overflow: 'hidden',
+                          padding: 24,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                               <span
                                 style={{
-                                  padding: '2px 8px',
-                                  borderRadius: 6,
-                                  fontSize: '0.75rem',
+                                  backgroundColor: '#B45309',
+                                  color: '#FFFFFF',
+                                  fontSize: '0.8rem',
                                   fontWeight: 700,
-                                  backgroundColor:
-                                    entry.quartile === 'Q1' ? '#ECFDF5' : entry.quartile === 'Q2' ? '#EFF6FF' : entry.quartile === 'Q3' ? '#FEF3C7' : '#F1F5F9',
-                                  color:
-                                    entry.quartile === 'Q1' ? '#047857' : entry.quartile === 'Q2' ? '#1D4ED8' : entry.quartile === 'Q3' ? '#B45309' : '#475569',
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  letterSpacing: '0.04em',
                                 }}
                               >
-                                {entry.quartile}
+                                VOLUME {c.volume_number} — ISSUE {c.issue_number}
                               </span>
-                            </td>
-                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                              ₹ {Number(entry.sanctioned_amount).toLocaleString('en-IN')}
-                            </td>
-                            <td style={{ padding: '12px 16px', color: '#64748B', whiteSpace: 'nowrap' }}>
-                              {entry.academic_year}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                              <span
+                                style={{
+                                  backgroundColor: '#FEF3C7',
+                                  color: '#92400E',
+                                  border: '1px solid #FDE68A',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                }}
+                              >
+                                UPCOMING CEREMONY
+                              </span>
+                              {c.academic_year && (
+                                <span style={{ fontSize: '0.8rem', color: '#78350F', fontWeight: 500 }}>
+                                  {c.academic_year}
+                                </span>
+                              )}
+                            </div>
+
+                            <h4 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#78350F', margin: '10px 0 6px' }}>
+                              {c.display_title || `Upcoming Research Felicitation Ceremony (Vol. ${c.volume_number}, Iss. ${c.issue_number})`}
+                            </h4>
+                            <p style={{ fontSize: '0.9rem', color: '#92400E', margin: 0, maxWidth: 720, lineHeight: 1.5 }}>
+                              {c.description || 'Institutional research incentive felicitation ceremony scheduled for eligible campus researchers.'}
+                            </p>
+                          </div>
+
+                          {c.felicitation_date && (
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                                Scheduled Date
+                              </div>
+                              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#78350F', marginTop: 2 }}>
+                                {c.felicitation_date}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Clean Institutional Notice Box - Strict constraint: NO fabricated sanction records or placeholder amounts */}
+                        <div
+                          style={{
+                            marginTop: 18,
+                            padding: '14px 18px',
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: 8,
+                            border: '1px solid #FDE68A',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                          }}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B45309" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                          </svg>
+                          <span style={{ fontSize: '0.875rem', color: '#78350F' }}>
+                            <strong>Institutional Notice:</strong> Nominations / sanctions for this cycle are currently being finalized. Sanction details will be published following the felicitation ceremony.
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         )}

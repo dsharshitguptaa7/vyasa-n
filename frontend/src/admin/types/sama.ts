@@ -322,6 +322,7 @@ export interface CertificateSignatoryItem {
   signature_asset_version: number;
   is_active: boolean;
   effective_date?: string | null;
+  deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

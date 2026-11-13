@@ -430,6 +430,9 @@ export interface AnudaanGalleryItemOut {
   is_featured: boolean;
   is_published: boolean;
   display_order: number;
+  felicitation_cycle_id?: string | null;
+  felicitation_cycle_volume?: number | null;
+  felicitation_cycle_issue?: number | null;
   images: AnudaanGalleryImageOut[];
   created_at: string;
   updated_at: string;
@@ -506,6 +509,7 @@ export interface AnudaanGalleryItemCreate {
   is_featured?: boolean;
   is_published?: boolean;
   display_order?: number;
+  felicitation_cycle_id?: string | null;
 }
 
 export interface AnudaanGalleryItemUpdate {
@@ -521,6 +525,7 @@ export interface AnudaanGalleryItemUpdate {
   is_featured?: boolean;
   is_published?: boolean;
   display_order?: number;
+  felicitation_cycle_id?: string | null;
 }
 
 // =============================================================================
@@ -529,13 +534,15 @@ export interface AnudaanGalleryItemUpdate {
 
 export interface AnudaanSanctionEntryCreate {
   researcher_name: string;
-  department_name: string;
+  department_name?: string | null;
+  project_title?: string | null;
   publication_title: string;
   publication_doi?: string | null;
   quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4';
   sanctioned_amount: number;
   academic_year: string;
   sanction_date: string;
+  felicitation_cycle_id: string;
   remarks?: string | null;
   is_published?: boolean;
   application_id?: string | null;
@@ -544,13 +551,15 @@ export interface AnudaanSanctionEntryCreate {
 
 export interface AnudaanSanctionEntryUpdate {
   researcher_name?: string;
-  department_name?: string;
+  department_name?: string | null;
+  project_title?: string | null;
   publication_title?: string;
   publication_doi?: string | null;
   quartile?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
   sanctioned_amount?: number;
   academic_year?: string;
   sanction_date?: string;
+  felicitation_cycle_id?: string | null;
   remarks?: string | null;
   is_published?: boolean;
   application_id?: string | null;
@@ -560,13 +569,22 @@ export interface AnudaanSanctionEntryUpdate {
 export interface AnudaanSanctionEntryOut {
   id: string;
   researcher_name: string;
-  department_name: string;
+  department_name?: string | null;
+  project_title?: string | null;
   publication_title: string;
   publication_doi?: string | null;
   quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4';
   sanctioned_amount: number | string;
   academic_year: string;
   sanction_date: string;
+  felicitation_cycle_id?: string | null;
+  felicitation_cycle_volume?: number | null;
+  felicitation_cycle_issue?: number | null;
+  felicitation_cycle_status?: string | null;
+  felicitation_cycle_title?: string | null;
+  volume_number?: number | null;
+  issue_number?: number | null;
+  cycle_status?: string | null;
   remarks?: string | null;
   is_published: boolean;
   application_id?: string | null;
@@ -585,16 +603,95 @@ export interface AnudaanSanctionListResponse {
 export interface AnudaanPublicSanctionOut {
   id: string;
   researcher_name: string;
-  department_name: string;
+  department_name?: string | null;
+  project_title?: string | null;
   publication_title: string;
   quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4' | string;
   sanctioned_amount: number | string;
   academic_year: string;
+  felicitation_cycle_id?: string | null;
+  volume_number?: number | null;
+  issue_number?: number | null;
+  cycle_display_title?: string | null;
+  cycle_status?: string | null;
+  felicitation_date?: string | null;
 }
 
 export interface AnudaanPublicSanctionsResponse {
   total: number;
   items: AnudaanPublicSanctionOut[];
+}
+
+// =============================================================================
+// 11. Felicitation / Recognition Cycle Types (Volume & Issue)
+// =============================================================================
+
+export interface AnudaanFelicitationCycleCreate {
+  volume_number: number;
+  issue_number: number;
+  display_title?: string | null;
+  status: 'UPCOMING' | 'COMPLETED';
+  felicitation_date?: string | null;
+  academic_year?: string | null;
+  description?: string | null;
+  is_published?: boolean;
+  is_archived?: boolean;
+}
+
+export interface AnudaanFelicitationCycleUpdate {
+  volume_number?: number;
+  issue_number?: number;
+  display_title?: string | null;
+  status?: 'UPCOMING' | 'COMPLETED';
+  felicitation_date?: string | null;
+  academic_year?: string | null;
+  description?: string | null;
+  is_published?: boolean;
+  is_archived?: boolean;
+}
+
+export interface AnudaanFelicitationCycleOut {
+  id: string;
+  volume_number: number;
+  issue_number: number;
+  display_title?: string | null;
+  status: 'UPCOMING' | 'COMPLETED';
+  felicitation_date?: string | null;
+  academic_year?: string | null;
+  description?: string | null;
+  is_published: boolean;
+  is_archived: boolean;
+  sanction_count: number;
+  total_sanctioned_amount: number | string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnudaanFelicitationCycleListResponse {
+  total: number;
+  items: AnudaanFelicitationCycleOut[];
+}
+
+export interface AnudaanPublicFelicitationCycleOut {
+  id: string;
+  volume_number: number;
+  issue_number: number;
+  display_title?: string | null;
+  status: 'UPCOMING' | 'COMPLETED';
+  felicitation_date?: string | null;
+  academic_year?: string | null;
+  description?: string | null;
+  sanctions: AnudaanPublicSanctionOut[];
+  total_sanctioned_amount: number | string;
+  total_researchers: number;
+  sanction_count: number;
+  gallery_items: AnudaanGalleryItemOut[];
+}
+
+export interface AnudaanPublicShowcaseCyclesResponse {
+  total_cycles: number;
+  completed_cycles: AnudaanPublicFelicitationCycleOut[];
+  upcoming_cycles: AnudaanPublicFelicitationCycleOut[];
 }
 
 export interface AnudaanApplicationLookupItem {

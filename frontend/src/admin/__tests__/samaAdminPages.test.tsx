@@ -231,6 +231,24 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       skip: 0,
       limit: 15,
     });
+    vi.spyOn(samaAdminService, 'getCertificateStats').mockResolvedValue({
+      total: 1,
+      draft: 0,
+      in_review: 0,
+      approved: 0,
+      issued: 1,
+      revoked: 0,
+      superseded: 0,
+      verified_lookups: 10,
+    });
+    vi.spyOn(samaAdminService, 'getTemplates').mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.spyOn(samaAdminService, 'getSignatories').mockResolvedValue({
+      items: [],
+      total: 0,
+    });
     vi.spyOn(samaAdminService, 'downloadCertificate').mockResolvedValue(new Blob());
   });
 
@@ -730,7 +748,7 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
         expect(screen.getByText('CSJMU/RD/2026/V2-I1/001')).toBeInTheDocument();
       });
 
-      const pdfBtn = screen.getByTitle('Download Certificate PDF');
+      const pdfBtn = screen.getByTitle('Download Official PDF');
       fireEvent.click(pdfBtn);
 
       await waitFor(() => {
@@ -772,14 +790,14 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       fireEvent.click(revokeBtn);
 
       await waitFor(() => {
-        expect(screen.getByText('Important Institutional Action:')).toBeInTheDocument();
+        expect(screen.getByText(/Permanent Action:/i)).toBeInTheDocument();
       });
 
-      const submitRevokeBtn = screen.getByRole('button', { name: /Confirm Revocation/i });
-      expect(submitRevokeBtn).toBeDisabled(); // Disabled until reason is typed
+      const submitRevokeBtn = screen.getByRole('button', { name: /Permanently Revoke/i });
+      expect(submitRevokeBtn).toBeDisabled(); // Disabled until reason is typed (min 5 chars)
 
       const reasonInput = screen.getByPlaceholderText(
-        'Provide detailed institutional justification for this revocation...'
+        'e.g. Journal retraction or institutional correction'
       );
       fireEvent.change(reasonInput, {
         target: { value: 'Publication retracted due to duplicate submission.' },
@@ -814,10 +832,7 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
         expect(screen.getByText('CSJMU/RD/2026/V2-I1/001')).toBeInTheDocument();
       });
 
-      const revokeBtn = screen.getByTitle(
-        'Revocation is strictly restricted to Super Administrators'
-      );
-      expect(revokeBtn).toBeDisabled();
+      expect(screen.queryByRole('button', { name: /Revoke/i })).not.toBeInTheDocument();
     });
   });
 

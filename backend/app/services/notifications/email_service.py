@@ -19,6 +19,7 @@ import json
 import logging
 import re
 import smtplib
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional, Dict, Any, Tuple, Union
@@ -47,6 +48,42 @@ def sanitize_email_error(error_msg: str) -> str:
     return first_line[:250]
 
 
+class EmailDispatchResult(tuple):
+    """
+    Result tuple for email dispatch operations.
+    Subclasses 2-tuple (success: bool, error_message: Optional[str]) for 100% backward
+    compatibility with callers unpacking `success, err = provider.send_email(...)`.
+    Exposes message_id, retry_after, and is_permanent_error for advanced outbox queue handling.
+    """
+
+    def __new__(
+        cls,
+        success: bool,
+        error_message: Optional[str] = None,
+        message_id: Optional[str] = None,
+        retry_after: Optional[int] = None,
+        is_permanent_error: bool = False,
+    ):
+        return super().__new__(cls, (success, error_message))
+
+    def __init__(
+        self,
+        success: bool,
+        error_message: Optional[str] = None,
+        message_id: Optional[str] = None,
+        retry_after: Optional[int] = None,
+        is_permanent_error: bool = False,
+    ):
+        self.success = success
+        self.error_message = error_message
+        self.message_id = message_id
+        self.retry_after = retry_after
+        self.is_permanent_error = is_permanent_error
+
+    def __bool__(self) -> bool:
+        return self.success
+
+
 class BaseEmailProvider(ABC):
     """Abstract interface for all institutional email delivery transports."""
 
@@ -57,10 +94,10 @@ class BaseEmailProvider(ABC):
         subject: str,
         html_content: str,
         text_content: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         """
         Dispatches an email.
-        Returns: (success: bool, error_message: Optional[str])
+        Returns: EmailDispatchResult (unpacks as (success: bool, error_message: Optional[str]))
         """
         pass
 
@@ -71,13 +108,17 @@ class BrevoEmailProvider(BaseEmailProvider):
     Endpoint: POST https://api.brevo.com/v3/smtp/email
     Header: api-key: <BREVO_API_KEY>
 
+    Resource & Connection Management:
+    - Maintains a worker-scoped, reusable HTTP client with connection pooling.
+    - Limits: max_connections=20, max_keepalive_connections=10.
+    - Supports explicit close() and context manager usage (with provider:).
+
     Idempotency & Retry Considerations:
-    Brevo's v3 transactional email API does not support client-side idempotency keys.
-    To prevent duplicate sends:
     - Retries are only attempted on initial network connection establishment failures (ConnectError).
     - Read timeouts or server responses are NOT automatically retried, as the email
       may have already been enqueued on Brevo's mail servers.
-    - Idempotency across business transactions is enforced by NotificationEngine.event_id.
+    - Idempotency across business transactions is enforced by NotificationEngine.event_id
+      and the transactional email_outbox.
     """
 
     def __init__(
@@ -88,18 +129,47 @@ class BrevoEmailProvider(BaseEmailProvider):
         from_name: Optional[str] = None,
         timeout: Optional[int] = None,
         http_client: Optional[httpx.Client] = None,
+        limits: Optional[httpx.Limits] = None,
     ):
         self.api_key = (api_key or settings.BREVO_API_KEY or "").strip()
         self.api_url = (api_url or settings.BREVO_API_URL).strip()
         self.from_address = (from_address or settings.EMAIL_FROM_ADDRESS).strip()
         self.from_name = (from_name or settings.EMAIL_FROM_NAME).strip()
-        self.timeout = timeout or settings.BREVO_TIMEOUT_SECONDS
+        self.timeout = timeout if timeout is not None else settings.BREVO_TIMEOUT_SECONDS
         self._custom_http_client = http_client
+        self._limits = limits or httpx.Limits(max_connections=20, max_keepalive_connections=10)
+        self._managed_client: Optional[httpx.Client] = None
 
     def _get_client(self) -> httpx.Client:
         if self._custom_http_client is not None:
             return self._custom_http_client
-        return httpx.Client(timeout=self.timeout)
+        if self._managed_client is None or self._managed_client.is_closed:
+            self._managed_client = httpx.Client(
+                timeout=self.timeout,
+                limits=self._limits,
+            )
+        return self._managed_client
+
+    def close(self) -> None:
+        """Closes internal managed HTTP client session."""
+        if self._managed_client is not None and not self._managed_client.is_closed:
+            try:
+                self._managed_client.close()
+            except Exception:
+                pass
+            self._managed_client = None
+
+    def __enter__(self) -> "BrevoEmailProvider":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def send_email(
         self,
@@ -107,11 +177,15 @@ class BrevoEmailProvider(BaseEmailProvider):
         subject: str,
         html_content: str,
         text_content: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         if not self.api_key:
             err = "Brevo configuration error: BREVO_API_KEY is not configured"
             logger.error(f"[Brevo Provider] Refusing dispatch: {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                is_permanent_error=True,
+            )
 
         headers = {
             "accept": "application/json",
@@ -154,69 +228,123 @@ class BrevoEmailProvider(BaseEmailProvider):
                     continue
                 sanitized = sanitize_email_error(str(conn_err))
                 logger.error(f"[Brevo Provider Error] Connection failed to {recipient_email}: {sanitized}")
-                return False, f"Brevo network connection failed: {sanitized}"
+                return EmailDispatchResult(
+                    success=False,
+                    error_message=f"Brevo network connection failed: {sanitized}",
+                    is_permanent_error=False,
+                )
 
             except httpx.TimeoutException as timeout_err:
                 sanitized = sanitize_email_error(str(timeout_err))
                 logger.error(
                     f"[Brevo Provider Timeout] Request timed out after {self.timeout}s to {recipient_email} (no retry to avoid duplicates)"
                 )
-                return False, f"Brevo API request timed out after {self.timeout}s"
+                return EmailDispatchResult(
+                    success=False,
+                    error_message=f"Brevo API request timed out after {self.timeout}s",
+                    is_permanent_error=True,  # Prevent automated duplicate dispatch on uncertain outcome
+                )
 
             except Exception as exc:
                 sanitized = sanitize_email_error(str(exc))
                 logger.error(f"[Brevo Provider Error] Unexpected error to {recipient_email}: {sanitized}")
-                return False, f"Brevo dispatch error: {sanitized}"
+                return EmailDispatchResult(
+                    success=False,
+                    error_message=f"Brevo dispatch error: {sanitized}",
+                    is_permanent_error=False,
+                )
 
-        return False, "Brevo dispatch failed after retries"
+        return EmailDispatchResult(
+            success=False,
+            error_message="Brevo dispatch failed after retries",
+            is_permanent_error=False,
+        )
 
     def _handle_response(
         self,
         response: httpx.Response,
         recipient_email: str,
         subject: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         if response.status_code in (200, 201):
             try:
                 res_data = response.json()
-                msg_id = res_data.get("messageId", "ok")
+                msg_id = res_data.get("messageId", "ok") if isinstance(res_data, dict) else "ok"
             except Exception:
                 msg_id = "ok"
             logger.info(
                 f"[Brevo Provider] Successfully delivered email to {recipient_email} | MessageID: {msg_id} | Subject: '{subject}'"
             )
-            return True, None
+            return EmailDispatchResult(
+                success=True,
+                error_message=None,
+                message_id=msg_id,
+            )
 
         status = response.status_code
         error_detail = ""
         try:
             res_json = response.json()
-            error_detail = res_json.get("message") or res_json.get("code") or response.text[:200]
+            if isinstance(res_json, dict):
+                error_detail = res_json.get("message") or res_json.get("code") or response.text[:200]
+            else:
+                error_detail = response.text[:200]
         except Exception:
             error_detail = response.text[:200]
 
         sanitized_detail = sanitize_email_error(error_detail)
 
+        # Parse Retry-After header if present
+        retry_after = None
+        resp_headers = getattr(response, "headers", None) or {}
+        if "retry-after" in resp_headers:
+            try:
+                retry_after = int(resp_headers["retry-after"])
+            except Exception:
+                pass
+
         if status == 400:
             err = f"Brevo client error (400): {sanitized_detail}"
             logger.warning(f"[Brevo Provider] Bad request for {recipient_email}: {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                is_permanent_error=True,
+            )
         elif status == 401:
             err = "Brevo authentication failed: Invalid or unauthorized API key"
             logger.error(f"[Brevo Provider] {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                is_permanent_error=True,
+            )
         elif status == 402:
             err = "Brevo account error: Sending quota exceeded or account payment required"
             logger.error(f"[Brevo Provider] {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                is_permanent_error=True,
+            )
         elif status == 429:
             err = "Brevo rate limit exceeded: Too many requests"
             logger.warning(f"[Brevo Provider] {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                retry_after=retry_after,
+                is_permanent_error=False,
+            )
         else:
             err = f"Brevo gateway error ({status}): {sanitized_detail}"
             logger.error(f"[Brevo Provider] {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                retry_after=retry_after,
+                is_permanent_error=False,
+            )
 
 
 class SmtpEmailProvider(BaseEmailProvider):
@@ -252,7 +380,7 @@ class SmtpEmailProvider(BaseEmailProvider):
         text_content: str,
     ) -> MIMEMultipart:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
+        msg["Subject"] = re.sub(r"[\r\n]+", " ", subject).strip()
         msg["From"] = email.utils.formataddr((self.from_name, self.from_address))
         msg["To"] = recipient_email
         msg["Date"] = email.utils.formatdate(localtime=True)
@@ -270,9 +398,13 @@ class SmtpEmailProvider(BaseEmailProvider):
         subject: str,
         html_content: str,
         text_content: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         if not self.smtp_host:
-            return False, "SMTP configuration error: SMTP_HOST is not configured"
+            return EmailDispatchResult(
+                success=False,
+                error_message="SMTP configuration error: SMTP_HOST is not configured",
+                is_permanent_error=True,
+            )
 
         msg = self._build_mime_message(recipient_email, subject, html_content, text_content)
 
@@ -314,11 +446,19 @@ class SmtpEmailProvider(BaseEmailProvider):
         try:
             _attempt_send()
             logger.info(f"[SMTP Provider] Successfully delivered email to {recipient_email} | Subject: '{subject}'")
-            return True, None
+            return EmailDispatchResult(
+                success=True,
+                error_message=None,
+                message_id=msg["Message-ID"],
+            )
         except Exception as exc:
             sanitized = sanitize_email_error(str(exc))
             logger.error(f"[SMTP Provider Error] Delivery failed to {recipient_email}: {sanitized}")
-            return False, sanitized
+            return EmailDispatchResult(
+                success=False,
+                error_message=sanitized,
+                is_permanent_error=False,
+            )
 
 
 class SimulationEmailProvider(BaseEmailProvider):
@@ -330,11 +470,15 @@ class SimulationEmailProvider(BaseEmailProvider):
         subject: str,
         html_content: str,
         text_content: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         logger.info(
             f"[Email Sender Simulated] To: {recipient_email} | Subject: '{subject}' | (Simulated / EMAIL_ENABLED=False)"
         )
-        return True, None
+        return EmailDispatchResult(
+            success=True,
+            error_message=None,
+            message_id=f"<sim-{recipient_email.split('@')[0]}-{int(time.time())}@simulation.vyasa>",
+        )
 
 
 # =============================================================================
@@ -421,16 +565,20 @@ class EmailSenderService:
         subject: str,
         html_content: str,
         text_content: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> EmailDispatchResult:
         """
         Dispatches email through the active provider.
-        Returns: (success: bool, error_message: Optional[str])
+        Returns: EmailDispatchResult (unpacks as (success: bool, error_message: Optional[str]))
         """
         cleaned_recipient = (recipient_email or "").strip()
         if not self.validate_recipient_email(cleaned_recipient):
             err = f"Invalid recipient email address: '{cleaned_recipient}'"
             logger.warning(f"[Email Sender] Refusing dispatch: {err}")
-            return False, err
+            return EmailDispatchResult(
+                success=False,
+                error_message=err,
+                is_permanent_error=True,
+            )
 
         # If live dispatch is disabled globally and no custom provider is injected, run safe simulation
         if not self.email_enabled and self._custom_provider is None:

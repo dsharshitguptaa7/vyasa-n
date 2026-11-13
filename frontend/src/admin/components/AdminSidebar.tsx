@@ -222,6 +222,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           path: '/admin/anudaan',
           icon: 'layout-dashboard',
         });
+        anudaanItems.push({
+          id: 'anudaan-felicitations',
+          label: 'Felicitation Management',
+          path: '/admin/anudaan/felicitations',
+          icon: 'grid',
+        });
       }
       if (isAnudaanGallery) {
         anudaanItems.push({

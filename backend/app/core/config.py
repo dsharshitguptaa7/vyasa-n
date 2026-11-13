@@ -166,6 +166,36 @@ class Settings(BaseSettings):
                     "Production configuration error: TOTP_ENCRYPTION_KEY is not a valid 32-byte URL-safe base64 Fernet key."
                 )
 
+            # 3. Validate Email Provider in Production
+            if self.EMAIL_ENABLED:
+                provider = (self.EMAIL_PROVIDER or "simulation").strip().lower()
+                if provider == "brevo":
+                    key = (self.BREVO_API_KEY or "").strip()
+                    if not key or any(p in key.lower() for p in ["placeholder", "example", "your_", "todo"]):
+                        raise ValueError(
+                            "Production configuration error: BREVO_API_KEY must be configured when EMAIL_ENABLED=True and EMAIL_PROVIDER='brevo' in production."
+                        )
+                elif provider == "smtp":
+                    if not self.SMTP_HOST or not self.SMTP_HOST.strip():
+                        raise ValueError(
+                            "Production configuration error: SMTP_HOST must be configured when EMAIL_ENABLED=True and EMAIL_PROVIDER='smtp' in production."
+                        )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_worker_settings(self) -> "Settings":
+        """Validate background email queue worker configuration."""
+        if self.EMAIL_WORKER_POLL_INTERVAL_SECONDS <= 0:
+            raise ValueError("EMAIL_WORKER_POLL_INTERVAL_SECONDS must be greater than 0.")
+        if self.EMAIL_WORKER_BATCH_SIZE <= 0:
+            raise ValueError("EMAIL_WORKER_BATCH_SIZE must be greater than 0.")
+        if self.EMAIL_WORKER_MAX_RETRIES <= 0:
+            raise ValueError("EMAIL_WORKER_MAX_RETRIES must be greater than 0.")
+        if self.BREVO_TIMEOUT_SECONDS <= 0:
+            raise ValueError("BREVO_TIMEOUT_SECONDS must be greater than 0.")
+        if self.EMAIL_WORKER_ABANDONED_TIMEOUT_SECONDS <= 0:
+            raise ValueError("EMAIL_WORKER_ABANDONED_TIMEOUT_SECONDS must be greater than 0.")
         return self
 
     # Institutional Authority Seed Configuration
@@ -228,7 +258,7 @@ class Settings(BaseSettings):
     EMAIL_PROVIDER: str = Field(default="brevo", description="Active email provider: brevo, smtp, or simulation")
     BREVO_API_KEY: Optional[str] = Field(default=None, description="Brevo API key for transactional email delivery")
     BREVO_API_URL: str = Field(default="https://api.brevo.com/v3/smtp/email", description="Brevo v3 transactional email API endpoint")
-    BREVO_TIMEOUT_SECONDS: int = Field(default=10, description="HTTP timeout for Brevo API calls in seconds")
+    BREVO_TIMEOUT_SECONDS: int = Field(default=5, description="HTTP timeout for Brevo API calls in seconds")
     SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
     SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
     SMTP_USERNAME: Optional[str] = Field(default=None, description="SMTP authentication username")
@@ -241,6 +271,36 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = Field(default="VYASAᴺ — CSJMU Kanpur", description="Institutional sender display name")
     PORTAL_BASE_URL: str = Field(default="https://vyasa.csjmu.ac.in", description="Institutional portal base URL for secure deep links")
     SUPPORT_CONTACT_EMAIL: str = Field(default="grievance.support@csjmu.ac.in", description="Institutional support contact email")
+
+    # Asynchronous Email Outbox & Background Worker Settings (Phase 1 Hardening)
+    EMAIL_ASYNC_DISPATCH: bool = Field(
+        default=True,
+        description="When True, emails are queued in durable email_outbox for background worker processing instead of blocking HTTP requests",
+    )
+    EMAIL_WORKER_POLL_INTERVAL_SECONDS: float = Field(
+        default=2.0,
+        description="Polling interval in seconds for email outbox background worker",
+    )
+    EMAIL_WORKER_BATCH_SIZE: int = Field(
+        default=10,
+        description="Batch size for email outbox processing per poll iteration",
+    )
+    EMAIL_WORKER_MAX_RETRIES: int = Field(
+        default=3,
+        description="Maximum retry attempts for transient email dispatch failures",
+    )
+    EMAIL_WORKER_ABANDONED_TIMEOUT_SECONDS: int = Field(
+        default=300,
+        description="Seconds before an unfinished PROCESSING job is considered abandoned and recovered",
+    )
+    EMAIL_WORKER_BACKOFF_BASE_SECONDS: float = Field(
+        default=5.0,
+        description="Base seconds for exponential backoff retry calculation",
+    )
+    EMAIL_WORKER_MAX_BACKOFF_SECONDS: float = Field(
+        default=300.0,
+        description="Maximum backoff ceiling in seconds for retries",
+    )
 
     @property
     def sync_database_url(self) -> str:

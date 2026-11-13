@@ -6,6 +6,7 @@ import type {
   AnudaanPublicImpactStats,
   AnudaanSanctionEntryOut,
   AnudaanApplicationLookupItem,
+  AnudaanFelicitationCycleOut,
 } from '../../types/anudaan';
 
 export const AnudaanSanctionRegisterPage: React.FC = () => {
@@ -13,7 +14,11 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
   const [selectedQuartile, setSelectedQuartile] = useState<string>('ALL');
   const [selectedVisibility, setSelectedVisibility] = useState<string>('ALL');
+  const [selectedCycleId, setSelectedCycleId] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Cycles state
+  const [cycles, setCycles] = useState<AnudaanFelicitationCycleOut[]>([]);
 
   // Stats state
   const [stats, setStats] = useState<AnudaanPublicImpactStats | null>(null);
@@ -38,6 +43,8 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
   // Form states
   const [formResearcher, setFormResearcher] = useState('');
   const [formDept, setFormDept] = useState('');
+  const [formProjectTitle, setFormProjectTitle] = useState('');
+  const [formCycleId, setFormCycleId] = useState('');
   const [formTitle, setFormTitle] = useState('');
   const [formDoi, setFormDoi] = useState('');
   const [formQuartile, setFormQuartile] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4'>('Q1');
@@ -52,6 +59,16 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
   // Feedback & Action Loading
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch cycles
+  const fetchCycles = useCallback(async () => {
+    try {
+      const res = await anudaanAdminService.getFelicitationCycles({ limit: 100 });
+      setCycles(res.items);
+    } catch (err: any) {
+      console.error('Failed to load felicitation cycles:', err);
+    }
+  }, []);
 
   // Fetch summary stats
   const fetchStats = useCallback(async () => {
@@ -76,6 +93,7 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
         academic_year: selectedYear === 'ALL' ? undefined : selectedYear,
         quartile: selectedQuartile === 'ALL' ? undefined : selectedQuartile,
         is_published: isPubParam,
+        cycle_id: selectedCycleId === 'ALL' ? undefined : selectedCycleId,
         search: searchTerm.trim() || undefined,
         limit: 100,
       });
@@ -86,12 +104,13 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear, selectedQuartile, selectedVisibility, searchTerm]);
+  }, [selectedYear, selectedQuartile, selectedVisibility, selectedCycleId, searchTerm]);
 
   useEffect(() => {
+    fetchCycles();
     fetchStats();
     fetchSanctions();
-  }, [fetchStats, fetchSanctions]);
+  }, [fetchCycles, fetchStats, fetchSanctions]);
 
   // Application lookup search
   const handleLookupSearch = async () => {
@@ -128,6 +147,8 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
     setEditingEntry(null);
     setFormResearcher('');
     setFormDept('');
+    setFormProjectTitle('');
+    setFormCycleId(cycles.length > 0 ? cycles[0].id : '');
     setFormTitle('');
     setFormDoi('');
     setFormQuartile('Q1');
@@ -150,7 +171,9 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
   const openEditModal = (entry: AnudaanSanctionEntryOut) => {
     setEditingEntry(entry);
     setFormResearcher(entry.researcher_name);
-    setFormDept(entry.department_name);
+    setFormDept(entry.department_name || '');
+    setFormProjectTitle(entry.project_title || '');
+    setFormCycleId(entry.felicitation_cycle_id || '');
     setFormTitle(entry.publication_title);
     setFormDoi(entry.publication_doi || '');
     setFormQuartile(entry.quartile as 'Q1' | 'Q2' | 'Q3' | 'Q4');
@@ -166,8 +189,15 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formResearcher.trim() || !formDept.trim() || !formTitle.trim()) {
-      setFeedback({ type: 'error', message: 'Please provide researcher name, department, and publication title.' });
+    // Mandatory fields per institutional policy:
+    // Researcher Name, Publication Title, Quartile, Sanctioned Amount, Academic Year, Sanction Date, Felicitation Cycle
+    // Optional: Department / School, Project Title, Publication DOI, Remarks / Order Number
+    if (!formResearcher.trim() || !formTitle.trim()) {
+      setFeedback({ type: 'error', message: 'Researcher Name and Publication Title are strictly mandatory.' });
+      return;
+    }
+    if (!formCycleId) {
+      setFeedback({ type: 'error', message: 'Please select a Felicitation / Recognition Cycle for this sanction record.' });
       return;
     }
     const parsedAmount = Number(formAmount);
@@ -181,13 +211,15 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
       if (editingEntry) {
         await anudaanAdminService.updateSanction(editingEntry.id, {
           researcher_name: formResearcher.trim(),
-          department_name: formDept.trim(),
+          department_name: formDept.trim() || undefined,
+          project_title: formProjectTitle.trim() || null,
           publication_title: formTitle.trim(),
           publication_doi: formDoi.trim() || null,
           quartile: formQuartile,
           sanctioned_amount: parsedAmount,
           academic_year: formAcademicYear,
           sanction_date: formDate,
+          felicitation_cycle_id: formCycleId,
           remarks: formRemarks.trim() || null,
           is_published: formIsPublished,
           application_id: formAppId,
@@ -197,13 +229,15 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
       } else {
         await anudaanAdminService.createSanction({
           researcher_name: formResearcher.trim(),
-          department_name: formDept.trim(),
+          department_name: formDept.trim() || undefined,
+          project_title: formProjectTitle.trim() || null,
           publication_title: formTitle.trim(),
           publication_doi: formDoi.trim() || null,
           quartile: formQuartile,
           sanctioned_amount: parsedAmount,
           academic_year: formAcademicYear,
           sanction_date: formDate,
+          felicitation_cycle_id: formCycleId,
           remarks: formRemarks.trim() || null,
           is_published: formIsPublished,
           application_id: formAppId,
@@ -444,6 +478,22 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
           {/* Filters */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <div>
+              <span style={{ fontSize: '0.8rem', color: '#64748B', marginRight: 6, fontWeight: 600 }}>Cycle:</span>
+              <select
+                value={selectedCycleId}
+                onChange={(e) => setSelectedCycleId(e.target.value)}
+                style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+              >
+                <option value="ALL">All Cycles</option>
+                {cycles.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    Vol {c.volume_number} · Iss {c.issue_number} ({c.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <span style={{ fontSize: '0.8rem', color: '#64748B', marginRight: 6, fontWeight: 600 }}>Quartile:</span>
               <select
                 value={selectedQuartile}
@@ -505,7 +555,8 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569' }}>
                     <th style={{ padding: '12px 16px', fontWeight: 600 }}>Researcher &amp; Dept</th>
-                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Publication Title</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Felicitation Cycle</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Publication &amp; Project</th>
                     <th style={{ padding: '12px 16px', fontWeight: 600 }}>Quartile</th>
                     <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Sanctioned (INR)</th>
                     <th style={{ padding: '12px 16px', fontWeight: 600 }}>Period &amp; Date</th>
@@ -518,17 +569,51 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
                     <tr key={s.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ fontWeight: 600, color: '#0B2545' }}>{s.researcher_name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>{s.department_name}</div>
+                        {s.department_name ? (
+                          <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>{s.department_name}</div>
+                        ) : (
+                          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 2, fontStyle: 'italic' }}>Dept not specified</div>
+                        )}
                         {s.application_number && (
                           <div style={{ fontSize: '0.7rem', color: '#0284C7', marginTop: 2 }}>
                             Linked App: {s.application_number}
                           </div>
                         )}
                       </td>
+                      <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                        {s.volume_number && s.issue_number ? (
+                          <div>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                backgroundColor: s.cycle_status === 'COMPLETED' ? '#EEF2FF' : '#FEF3C7',
+                                color: s.cycle_status === 'COMPLETED' ? '#3730A3' : '#92400E',
+                                border: `1px solid ${s.cycle_status === 'COMPLETED' ? '#C7D2FE' : '#FDE68A'}`,
+                              }}
+                            >
+                              Vol {s.volume_number} · Iss {s.issue_number}
+                            </span>
+                            <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 3 }}>
+                              {s.cycle_status || 'ASSIGNED'}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic' }}>Historical / Unassigned</span>
+                        )}
+                      </td>
                       <td style={{ padding: '14px 16px', maxWidth: 320 }}>
                         <div style={{ color: '#1E293B', fontWeight: 500, lineHeight: 1.4 }}>{s.publication_title}</div>
+                        {s.project_title && (
+                          <div style={{ fontSize: '0.75rem', color: '#0369A1', marginTop: 3, fontWeight: 500 }}>
+                            Project: {s.project_title}
+                          </div>
+                        )}
                         {s.publication_doi && (
-                          <div style={{ fontSize: '0.75rem', color: '#2563EB', marginTop: 4 }}>DOI: {s.publication_doi}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#2563EB', marginTop: 3 }}>DOI: {s.publication_doi}</div>
                         )}
                       </td>
                       <td style={{ padding: '14px 16px' }}>
@@ -706,6 +791,48 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
               </div>
             )}
 
+            {/* Felicitation Cycle Selection */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                Felicitation / Recognition Cycle *
+              </label>
+              <select
+                required
+                value={formCycleId}
+                onChange={(e) => setFormCycleId(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+              >
+                <option value="">-- Select Felicitation Cycle --</option>
+                {cycles.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    Vol {c.volume_number} — Iss {c.issue_number} ({c.status}){c.display_title ? ` · ${c.display_title}` : ''}
+                  </option>
+                ))}
+              </select>
+              {(() => {
+                const selectedC = cycles.find((c) => c.id === formCycleId);
+                if (!selectedC) return null;
+                const isUpcoming = selectedC.status === 'UPCOMING';
+                return (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.75rem',
+                      backgroundColor: isUpcoming ? '#FFFBEB' : '#ECFDF5',
+                      border: `1px solid ${isUpcoming ? '#FDE68A' : '#A7F3D0'}`,
+                      color: isUpcoming ? '#92400E' : '#065F46',
+                    }}
+                  >
+                    {isUpcoming
+                      ? 'ℹ Note: This is an UPCOMING cycle. Sanction details will remain institutional records and become publicly visible once the felicitation ceremony is completed or published.'
+                      : '✓ Active / Completed Cycle: Sanctions linked here appear under this Volume & Issue on the public showcase.'}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Researcher Name */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: 4 }}>
@@ -724,14 +851,27 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
             {/* Department */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: 4 }}>
-                Department / School *
+                Department / School (Optional)
               </label>
               <input
                 type="text"
-                required
                 value={formDept}
                 onChange={(e) => setFormDept(e.target.value)}
-                placeholder="e.g. Department of Physical Sciences"
+                placeholder="e.g. Department of Physical Sciences (Optional)"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+              />
+            </div>
+
+            {/* Project Title */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                Project Title (Optional)
+              </label>
+              <input
+                type="text"
+                value={formProjectTitle}
+                onChange={(e) => setFormProjectTitle(e.target.value)}
+                placeholder="e.g. DST-SERB Core Research Grant on Advanced 2D Semiconductors"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
               />
             </div>

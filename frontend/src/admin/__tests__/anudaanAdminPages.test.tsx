@@ -16,6 +16,7 @@ vi.mock('../components/AdminLayout', () => ({
 describe('ANUDAAN Phase 4.3.5 — Admin Management Screens Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(anudaanAdminService, 'getFelicitationCycles').mockResolvedValue({ total: 0, items: [] });
   });
 
   const mockImpactStats = {

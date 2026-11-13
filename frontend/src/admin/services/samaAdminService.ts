@@ -466,6 +466,20 @@ export const samaAdminService = {
     return res.data!;
   },
 
+  async toggleSignatoryActive(id: string): Promise<CertificateSignatoryItem> {
+    const res = await apiClient.patch<CertificateSignatoryItem>(`/admin/sama/signatories/${id}/toggle-active`, {});
+    return res.data!;
+  },
+
+  async deleteSignatory(id: string): Promise<{ action: string; message: string; referenced_approvals: number }> {
+    const res = await apiClient.delete<{ action: string; message: string; referenced_approvals: number }>(`/admin/sama/signatories/${id}`);
+    return res.data!;
+  },
+
+  getSignatorySignatureUrl(id: string): string {
+    return `${config.apiBaseUrl}/admin/sama/signatories/${id}/signature`;
+  },
+
   // =========================================================================
   // 6. SPOTLIGHTS
   // =========================================================================

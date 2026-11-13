@@ -194,6 +194,14 @@ export const AdminDashboardPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
+              leftIcon={<AppIcon name="clock" size={14} />}
+              onClick={() => navigate('/admin/anudaan/felicitations')}
+            >
+              Felicitation Cycles
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               leftIcon={<AppIcon name="layers" size={14} />}
               onClick={() => navigate('/admin/anudaan/gallery')}
             >
@@ -872,6 +880,30 @@ export const AdminDashboardPage: React.FC = () => {
                     onClick={() => navigate('/admin/anudaan')}
                   >
                     Open Sanction Register &rarr;
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Card 2: Felicitation Management */}
+            <Card
+              variant="default"
+              title="Felicitation Cycles"
+              subtitle="Volume &amp; Issue Ceremony Management"
+              headerAction={<Badge variant="saffron">Volume / Issue</Badge>}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary, #4b5565)', lineHeight: 1.5 }}>
+                  Manage institutional recognition cycles (Volume &amp; Issue numbers), upcoming ceremonies, and historical archives.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<AppIcon name="clock" size={14} />}
+                    onClick={() => navigate('/admin/anudaan/felicitations')}
+                  >
+                    Manage Cycles &rarr;
                   </Button>
                 </div>
               </div>

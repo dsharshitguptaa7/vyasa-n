@@ -42,6 +42,7 @@ from app.modules.yajur_veda.models.showcase import (
     AnudaanGalleryImage,
     AnudaanPublicConfig,
     AnudaanSanctionEntry,
+    AnudaanFelicitationCycle,
 )
 
 __all__ = [
@@ -80,4 +81,5 @@ __all__ = [
     "AnudaanGalleryImage",
     "AnudaanPublicConfig",
     "AnudaanSanctionEntry",
+    "AnudaanFelicitationCycle",
 ]

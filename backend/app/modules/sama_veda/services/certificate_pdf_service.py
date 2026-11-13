@@ -46,13 +46,39 @@ class CertificatePDFEngine:
     """
 
     def __init__(self, assets_dir: Optional[str] = None):
-        # Resolve assets directory
+        # Resolve assets directory by walking up directory hierarchy
         if assets_dir:
             self.assets_dir = Path(assets_dir)
         else:
-            base_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
-            self.assets_dir = base_dir / "assets"
+            root_assets = next(
+                (p / "assets" for p in Path(__file__).resolve().parents if (p / "assets").is_dir()),
+                None
+            )
+            self.assets_dir = root_assets if root_assets else Path("assets")
         self.csjmu_logo_path = self.assets_dir / "branding" / "csjmu" / "csjmu-logo.png"
+        self.naac_logo_path = self.assets_dir / "branding" / "naac-A-Plus-Plus.png"
+
+    def _resolve_signature_path(self, sig_ref: Optional[Any]) -> Optional[Path]:
+        """
+        Resolves signature asset storage key or filesystem path to an absolute Path.
+        Uses storage_service.get_file_path abstraction for relative keys.
+        """
+        if not sig_ref:
+            return None
+        try:
+            from app.core.storage import storage_service, StorageFileNotFoundError
+            try:
+                resolved = storage_service.get_file_path(str(sig_ref))
+                if resolved and resolved.is_file():
+                    return resolved
+            except (StorageFileNotFoundError, Exception):
+                pass
+            p = Path(sig_ref)
+            if p.is_file():
+                return p
+        except Exception:
+            pass
+        return None
 
     def render_certificate_pdf(
         self,
@@ -97,7 +123,7 @@ class CertificatePDFEngine:
         self._draw_ornamental_borders(c, width, height)
 
         # 3. Official University Header
-        header_bottom = self._draw_header(c, width, height)
+        header_bottom = self._draw_header(c, width, height, template_config=template_config)
 
         # 4. Certificate Title
         title_bottom = self._draw_certificate_title(c, width, header_bottom, title)
@@ -203,36 +229,66 @@ class CertificatePDFEngine:
             p.close()
             c.drawPath(p, fill=1, stroke=1)
 
-    def _draw_header(self, c: canvas.Canvas, width: float, height: float) -> float:
-        """Draws official CSJMU emblem on left, university typography in center, NAAC badge on right."""
+    def _draw_header(
+        self,
+        c: canvas.Canvas,
+        width: float,
+        height: float,
+        template_config: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        """Draws official CSJMU emblem on left, university typography in center, NAAC logo on right."""
         top_y = height - 42
+        show_emblem = template_config.get("show_university_emblem", True) if template_config else True
+        show_naac = template_config.get("show_naac_badge", True) if template_config else True
+        accreditation_text = (
+            template_config.get("accreditation_text")
+            if template_config and template_config.get("accreditation_text")
+            else "Kanpur, Uttar Pradesh, India • Established 1966 • (Accredited A++ by NAAC)"
+        )
 
         # 1. Official CSJMU Emblem on Left
-        logo_w, logo_h = 58, 62
+        logo_w, logo_h = 56, 60
         logo_x = 45
-        logo_y = top_y - logo_h + 8
+        logo_y = top_y - logo_h + 6
 
-        if self.csjmu_logo_path.exists():
-            try:
-                c.drawImage(
-                    str(self.csjmu_logo_path),
-                    logo_x,
-                    logo_y,
-                    width=logo_w,
-                    height=logo_h,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
+        if show_emblem:
+            if self.csjmu_logo_path.exists():
+                try:
+                    c.drawImage(
+                        str(self.csjmu_logo_path),
+                        logo_x,
+                        logo_y,
+                        width=logo_w,
+                        height=logo_h,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                except Exception:
+                    self._draw_fallback_emblem(c, logo_x + logo_w / 2, logo_y + logo_h / 2)
+            else:
                 self._draw_fallback_emblem(c, logo_x + logo_w / 2, logo_y + logo_h / 2)
-        else:
-            self._draw_fallback_emblem(c, logo_x + logo_w / 2, logo_y + logo_h / 2)
 
-        # 2. Official NAAC Accreditation Badge on Right
-        badge_w = 64
-        badge_x = width - 45 - badge_w
-        badge_y = top_y - logo_h + 8
-        self._draw_naac_badge(c, badge_x + badge_w / 2, badge_y + logo_h / 2)
+        # 2. Official NAAC Accreditation Logo on Right
+        naac_w, naac_h = 78, 50
+        naac_x = width - 45 - naac_w
+        naac_y = top_y - naac_h + 1
+
+        if show_naac:
+            if self.naac_logo_path.exists():
+                try:
+                    c.drawImage(
+                        str(self.naac_logo_path),
+                        naac_x,
+                        naac_y,
+                        width=naac_w,
+                        height=naac_h,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                except Exception:
+                    self._draw_naac_badge(c, naac_x + naac_w / 2, naac_y + naac_h / 2)
+            else:
+                self._draw_naac_badge(c, naac_x + naac_w / 2, naac_y + naac_h / 2)
 
         # 3. Center University Identity Typography
         center_x = width / 2.0
@@ -242,10 +298,10 @@ class CertificatePDFEngine:
         c.setFillColor(COLOR_MAROON)
         c.drawCentredString(center_x, top_y - 2, "CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR")
 
-        # Location & Foundation
+        # Location & Official NAAC Accreditation
         c.setFont("Times-Roman", 9.5)
         c.setFillColor(COLOR_MUTED)
-        c.drawCentredString(center_x, top_y - 17, "Kanpur, Uttar Pradesh, India • Established 1966 • Uttar Pradesh State University (Formerly Kanpur University, Kanpur)")
+        c.drawCentredString(center_x, top_y - 17, accreditation_text)
 
         # Research & Development Governance Header
         c.setFont("Helvetica-Bold", 9.0)
@@ -573,11 +629,11 @@ class CertificatePDFEngine:
 
         # Authority 1: Dean - R&D (Left)
         left_x = 135
-        # Signature Asset or Stylized Script
-        if dean_sig_path and os.path.exists(dean_sig_path):
+        resolved_dean_sig = self._resolve_signature_path(dean_sig_path)
+        if resolved_dean_sig:
             try:
                 c.drawImage(
-                    dean_sig_path,
+                    str(resolved_dean_sig),
                     left_x - 50,
                     sig_y - 12,
                     width=100,
@@ -586,9 +642,8 @@ class CertificatePDFEngine:
                     mask="auto",
                 )
             except Exception:
-                self._draw_stylized_signature(c, left_x, sig_y, dean_name)
-        else:
-            self._draw_stylized_signature(c, left_x, sig_y, dean_name)
+                # Strictly reject artificial signature fallback
+                pass
 
         # Signature Line
         c.setStrokeColor(COLOR_GOLD)
@@ -606,10 +661,11 @@ class CertificatePDFEngine:
 
         # Authority 2: Vice Chancellor (Right)
         right_x = width - 135
-        if vc_sig_path and os.path.exists(vc_sig_path):
+        resolved_vc_sig = self._resolve_signature_path(vc_sig_path)
+        if resolved_vc_sig:
             try:
                 c.drawImage(
-                    vc_sig_path,
+                    str(resolved_vc_sig),
                     right_x - 50,
                     sig_y - 12,
                     width=100,
@@ -618,9 +674,8 @@ class CertificatePDFEngine:
                     mask="auto",
                 )
             except Exception:
-                self._draw_stylized_signature(c, right_x, sig_y, vc_name)
-        else:
-            self._draw_stylized_signature(c, right_x, sig_y, vc_name)
+                # Strictly reject artificial signature fallback
+                pass
 
         # Signature Line
         c.setStrokeColor(COLOR_GOLD)
@@ -635,12 +690,6 @@ class CertificatePDFEngine:
         c.setFont("Times-Roman", 9.0)
         c.setFillColor(COLOR_MUTED)
         c.drawCentredString(right_x, line_y - 23, vc_designation)
-
-    def _draw_stylized_signature(self, c: canvas.Canvas, cx: float, cy: float, name: str):
-        """Renders formal script facsimile signature for official digital verification."""
-        c.setFont("Times-BoldItalic", 13.5)
-        c.setFillColor(COLOR_MAROON_DEEP)
-        c.drawCentredString(cx, cy - 2, name)
 
     def _draw_security_footer(
         self,

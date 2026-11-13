@@ -19,6 +19,7 @@ export { ImportPage } from './pages/sama/ImportPage';
 // Yajur Veda / ANUDAAN CMS Pages
 export { AnudaanImpactPage } from './pages/anudaan/AnudaanImpactPage';
 export { AnudaanSanctionRegisterPage } from './pages/anudaan/AnudaanSanctionRegisterPage';
+export { AnudaanFelicitationPage } from './pages/anudaan/AnudaanFelicitationPage';
 export { AnudaanGalleryPage } from './pages/anudaan/AnudaanGalleryPage';
 export { AnudaanConfigPage } from './pages/anudaan/AnudaanConfigPage';
 

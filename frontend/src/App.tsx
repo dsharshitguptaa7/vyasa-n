@@ -62,6 +62,7 @@ import {
   SpotlightsPage,
   ImportPage,
   AnudaanSanctionRegisterPage,
+  AnudaanFelicitationPage,
   AnudaanGalleryPage,
   AnudaanConfigPage,
 } from './admin';
@@ -915,6 +916,17 @@ export const AppRoutes: React.FC = () => {
             requiredPermission="anudaan:finance:manage"
           >
             <AnudaanSanctionRegisterPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/anudaan/felicitations"
+        element={
+          <AdminRoute
+            allowedRoles={['super_admin', 'administrator', 'anudaan_admin', 'anudaan_finance_officer']}
+            requiredPermission="anudaan:finance:manage"
+          >
+            <AnudaanFelicitationPage />
           </AdminRoute>
         }
       />

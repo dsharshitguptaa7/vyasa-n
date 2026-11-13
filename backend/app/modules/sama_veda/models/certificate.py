@@ -182,6 +182,11 @@ class CertificateSignatory(Base):
         nullable=True,
         comment="Date from which this authority signature became official",
     )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when authority was soft-deleted / deactivated",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -598,6 +603,18 @@ class CertificateApproval(Base):
         String(255),
         nullable=False,
         comment="Snapshot of official designation",
+    )
+    signature_image_path_snapshot: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Immutable snapshot of signature image storage key at approval time",
+    )
+    signature_asset_version_snapshot: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        default=1,
+        server_default="1",
+        nullable=True,
+        comment="Snapshot of signature asset version number at approval time",
     )
     status: Mapped[str] = mapped_column(
         String(50),

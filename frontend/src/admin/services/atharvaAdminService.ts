@@ -80,6 +80,23 @@ export const atharvaAdminService = {
     return res.data!;
   },
 
+  async reissuePassword(authorityId: string): Promise<{
+    authority_id: string;
+    name: string;
+    email: string;
+    delivery_status: 'SENT' | 'FAILED';
+    delivery_error?: string | null;
+  }> {
+    const res = await apiClient.post<{
+      authority_id: string;
+      name: string;
+      email: string;
+      delivery_status: 'SENT' | 'FAILED';
+      delivery_error?: string | null;
+    }>(`/admin/atharva/authorities/${authorityId}/reissue-password`);
+    return res.data!;
+  },
+
   // =========================================================================
   // SUBJECT CLUSTERS
   // =========================================================================

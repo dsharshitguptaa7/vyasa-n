@@ -45,6 +45,7 @@ from app.modules.yajur_veda.models import (
     AnudaanGalleryImage,
     AnudaanPublicConfig,
     AnudaanSanctionEntry,
+    AnudaanFelicitationCycle,
 )
 
 
@@ -64,6 +65,7 @@ EXPECTED_ANUDAAN_TABLES = [
     "yajur_anudaan_gallery_images",
     "yajur_anudaan_public_config",
     "yajur_anudaan_sanction_entries",
+    "yajur_anudaan_felicitation_cycles",
 ]
 
 
@@ -78,9 +80,9 @@ def test_anudaan_tables_registered_in_metadata(table_name):
 
 
 def test_anudaan_table_count():
-    """Verifies exactly 15 tables exist under yajur_anudaan_ prefix."""
+    """Verifies exactly 16 tables exist under yajur_anudaan_ prefix."""
     registered = [t for t in Base.metadata.tables.keys() if t.startswith("yajur_anudaan_")]
-    assert len(registered) == 15
+    assert len(registered) == 16
     assert set(registered) == set(EXPECTED_ANUDAAN_TABLES)
 
 
@@ -518,7 +520,9 @@ def test_anudaan_sanction_entry_schema():
     table = AnudaanSanctionEntry.__table__
     assert table.c.id.primary_key is True
     assert table.c.researcher_name.nullable is False
-    assert table.c.department_name.nullable is False
+    assert table.c.department_name.nullable is True
+    assert table.c.project_title.nullable is True
+    assert table.c.felicitation_cycle_id.nullable is True
     assert table.c.publication_title.nullable is False
     assert table.c.publication_doi.nullable is True
     assert table.c.quartile.nullable is False
@@ -532,8 +536,30 @@ def test_anudaan_sanction_entry_schema():
     assert "ck_anudaan_sanction_amount_non_negative" in ck_names
 
 
+def test_anudaan_felicitation_cycle_schema():
+    """Verifies AnudaanFelicitationCycle columns, volume/issue constraints, and status."""
+    table = AnudaanFelicitationCycle.__table__
+    assert table.c.id.primary_key is True
+    assert table.c.volume_number.nullable is False
+    assert table.c.issue_number.nullable is False
+    assert table.c.display_title.nullable is True
+    assert table.c.status.nullable is False
+    assert table.c.felicitation_date.nullable is True
+    assert table.c.academic_year.nullable is True
+    assert table.c.description.nullable is True
+    assert table.c.is_published.nullable is False
+    assert table.c.is_archived.nullable is False
+
+    ck_names = [ck.name for ck in table.constraints if hasattr(ck, "name")]
+    assert "ck_anudaan_cycle_vol_issue_pos" in ck_names
+    assert "ck_anudaan_cycle_status" in ck_names
+
+    uq_names = [uq.name for uq in table.constraints if hasattr(uq, "name") and isinstance(uq, UniqueConstraint)]
+    assert "uq_anudaan_cycle_volume_issue" in uq_names
+
+
 def test_anudaan_sanction_migration_metadata():
-    """Verifies the Alembic migration script 8b29c54e1022."""
+    """Verifies the Alembic migration scripts 8b29c54e1022 and 8b29c54e1023."""
     migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "8b29c54e1022_anudaan_sanction_register.py"
     assert migration_path.exists(), f"Migration file {migration_path} does not exist"
 
@@ -542,5 +568,15 @@ def test_anudaan_sanction_migration_metadata():
     spec.loader.exec_module(module)
 
     assert getattr(module, "revision", None) == "8b29c54e1022"
+
+    cycle_migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "8b29c54e1023_anudaan_felicitation_cycles.py"
+    assert cycle_migration_path.exists(), f"Migration file {cycle_migration_path} does not exist"
+
+    spec2 = importlib.util.spec_from_file_location("cycle_migration", str(cycle_migration_path))
+    module2 = importlib.util.module_from_spec(spec2)
+    spec2.loader.exec_module(module2)
+
+    assert getattr(module2, "revision", None) == "8b29c54e1023"
+    assert getattr(module2, "down_revision", None) == "8b29c54e1022"
     assert getattr(module, "down_revision", None) == "8b29c54e1021"
 

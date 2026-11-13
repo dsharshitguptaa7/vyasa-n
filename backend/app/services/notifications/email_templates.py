@@ -505,3 +505,57 @@ def build_grievance_closed_email(
         support_email=support_email,
     )
     return subject, html_body, text_body
+
+
+def build_authority_temporary_password_reissued_email(
+    recipient_name: str,
+    recipient_email: str,
+    temporary_password: str,
+    portal_url: Optional[str] = None,
+    support_email: str = "grievance.support@csjmu.ac.in",
+) -> Tuple[str, str, str]:
+    """
+    Renders an institutional email notifying an authority that their temporary password
+    has been reissued by Super Admin.
+    Returns (subject, html_body, text_body).
+    """
+    subject = "VYASA\u1d3a: Your New Temporary Authority Credentials"
+    headline = "New Temporary Password Issued"
+    preheader = f"New temporary credentials generated for authority account {recipient_email}."
+
+    paragraphs = [
+        f"Dear {recipient_name},",
+        "An authorized Super Administrator has reissued a new temporary password for your VYASA\u1d3a Institutional Authority account. Any prior temporary credentials or in-flight login sessions have been invalidated immediately.",
+        "To access your account, use the temporary credentials below. Upon your next successful sign-in, you will be required to configure a permanent personal password before accessing the authority dashboard.",
+    ]
+
+    key_values = [
+        ("Authority Name", recipient_name),
+        ("Registered Email", recipient_email),
+        ("Temporary Password", temporary_password),
+        ("Action Required", "Mandatory permanent password change upon next sign-in"),
+    ]
+
+    security_notice = (
+        "Security Advisory: This temporary password is single-use and will expire once your permanent password is created. "
+        "Never share your credentials with anyone. CSJMU administration will never ask for your password. "
+        f"If you did not expect or request a credential reissue, please report this immediately to {support_email}."
+    )
+
+    action_url = portal_url or "https://vyasa.csjmu.ac.in/auth/authority/login"
+    action_button = ("Sign In to Authority Portal", action_url)
+
+    html_body, text_body = render_email_layout(
+        title=subject,
+        preheader=preheader,
+        headline=headline,
+        body_paragraphs=paragraphs,
+        key_values=key_values,
+        action_button=action_button,
+        security_notice=security_notice,
+        pillar_label="Institutional Authority Administration",
+        is_alert=False,
+        support_email=support_email,
+    )
+    return subject, html_body, text_body
+

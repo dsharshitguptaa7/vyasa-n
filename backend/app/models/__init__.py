@@ -9,6 +9,7 @@ from app.models.notification import (
     NotificationTemplate,
     NotificationDelivery,
 )
+from app.models.email_outbox import EmailOutbox, EmailOutboxStatus
 from app.models.applicant_profile import ApplicantProfile
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
@@ -251,4 +252,7 @@ __all__ = [
     # Main Website Visitor Counter
     "PublicVisitor",
     "PublicDailyVisit",
+    # Core Asynchronous Email Outbox
+    "EmailOutbox",
+    "EmailOutboxStatus",
 ]

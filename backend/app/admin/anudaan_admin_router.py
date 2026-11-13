@@ -45,6 +45,10 @@ from app.modules.yajur_veda.schemas.showcase import (
     AnudaanSanctionEntryOut,
     AnudaanSanctionListResponse,
     AnudaanApplicationLookupItem,
+    AnudaanFelicitationCycleCreate,
+    AnudaanFelicitationCycleUpdate,
+    AnudaanFelicitationCycleOut,
+    AnudaanFelicitationCycleListResponse,
 )
 
 anudaan_admin_router = APIRouter(prefix="/anudaan", tags=["ANUDAAN Administration & Showcase CMS"])
@@ -54,10 +58,20 @@ def _to_sanction_out(entry) -> AnudaanSanctionEntryOut:
     app_num = None
     if getattr(entry, "application", None):
         app_num = entry.application.application_number
+    vol = None
+    iss = None
+    status = None
+    title = None
+    if getattr(entry, "felicitation_cycle", None):
+        vol = entry.felicitation_cycle.volume_number
+        iss = entry.felicitation_cycle.issue_number
+        status = entry.felicitation_cycle.status
+        title = entry.felicitation_cycle.display_title
     return AnudaanSanctionEntryOut(
         id=entry.id,
         researcher_name=entry.researcher_name,
         department_name=entry.department_name,
+        project_title=entry.project_title,
         publication_title=entry.publication_title,
         publication_doi=entry.publication_doi,
         quartile=entry.quartile,
@@ -66,6 +80,11 @@ def _to_sanction_out(entry) -> AnudaanSanctionEntryOut:
         sanction_date=entry.sanction_date,
         remarks=entry.remarks,
         is_published=entry.is_published,
+        felicitation_cycle_id=entry.felicitation_cycle_id,
+        felicitation_cycle_volume=vol,
+        felicitation_cycle_issue=iss,
+        felicitation_cycle_status=status,
+        felicitation_cycle_title=title,
         application_id=entry.application_id,
         application_number=app_num,
         author_id=entry.author_id,
@@ -144,6 +163,9 @@ def list_admin_sanctions(
     academic_year: Optional[str] = Query(None),
     quartile: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
+    cycle_id: Optional[uuid.UUID] = Query(None),
+    volume_number: Optional[int] = Query(None),
+    issue_number: Optional[int] = Query(None),
     is_published: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
@@ -157,6 +179,9 @@ def list_admin_sanctions(
         academic_year=academic_year,
         quartile=quartile,
         department=department,
+        cycle_id=cycle_id,
+        volume_number=volume_number,
+        issue_number=issue_number,
         is_published=is_published,
         search=search,
     )
@@ -345,6 +370,221 @@ def delete_sanction_entry(
         success=True,
         message="Sanction entry deleted successfully.",
         data={"id": str(sanction_id)},
+    )
+
+
+# =============================================================================
+# 1.2 Felicitation / Recognition Cycle Management (Volume & Issue)
+# =============================================================================
+
+@anudaan_admin_router.get("/felicitations", response_model=ApiResponse)
+def list_admin_felicitation_cycles(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    academic_year: Optional[str] = Query(None),
+    is_published: Optional[bool] = Query(None),
+    is_archived: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:read")),
+):
+    """Lists Volume & Issue felicitation cycles with computed metrics."""
+    items, total = anudaan_showcase_service.list_felicitation_cycles(
+        db,
+        skip=skip,
+        limit=limit,
+        status=status,
+        academic_year=academic_year,
+        is_published=is_published,
+        is_archived=is_archived,
+        search=search,
+    )
+    return ApiResponse(
+        success=True,
+        message="Felicitation cycles retrieved successfully.",
+        data=AnudaanFelicitationCycleListResponse(
+            total=total,
+            items=[AnudaanFelicitationCycleOut(**item) for item in items],
+        ).model_dump(),
+    )
+
+
+@anudaan_admin_router.post("/felicitations", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+def create_felicitation_cycle(
+    payload: AnudaanFelicitationCycleCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:finance:manage")),
+):
+    """Creates a new Volume & Issue felicitation cycle."""
+    try:
+        cycle = anudaan_showcase_service.create_felicitation_cycle(
+            db,
+            payload=payload,
+            created_by_id=current_user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    audit_service.log_action(
+        db=db,
+        action="CREATE",
+        entity_type="ANUDAAN_FELICITATION_CYCLE",
+        entity_id=str(cycle.id),
+        actor_id=current_user.id,
+        actor_email=current_user.email,
+        details={"volume_number": cycle.volume_number, "issue_number": cycle.issue_number, "status": cycle.status},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
+    return ApiResponse(
+        success=True,
+        message="Felicitation cycle created successfully.",
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+    )
+
+
+@anudaan_admin_router.get("/felicitations/{cycle_id}", response_model=ApiResponse)
+def get_felicitation_cycle_detail(
+    cycle_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:read")),
+):
+    """Retrieves a single felicitation cycle with aggregated counters."""
+    detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle_id)
+    if not detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
+    return ApiResponse(
+        success=True,
+        message="Felicitation cycle details retrieved.",
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+    )
+
+
+@anudaan_admin_router.put("/felicitations/{cycle_id}", response_model=ApiResponse)
+def update_felicitation_cycle(
+    cycle_id: uuid.UUID,
+    payload: AnudaanFelicitationCycleUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:finance:manage")),
+):
+    """Updates attributes of an existing felicitation cycle."""
+    try:
+        cycle = anudaan_showcase_service.update_felicitation_cycle(
+            db,
+            cycle_id=cycle_id,
+            payload=payload,
+            updated_by_id=current_user.id,
+        )
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    audit_service.log_action(
+        db=db,
+        action="UPDATE",
+        entity_type="ANUDAAN_FELICITATION_CYCLE",
+        entity_id=str(cycle.id),
+        actor_id=current_user.id,
+        actor_email=current_user.email,
+        details=payload.model_dump(exclude_unset=True),
+        ip_address=request.client.host if request.client else None,
+    )
+
+    detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
+    return ApiResponse(
+        success=True,
+        message="Felicitation cycle updated successfully.",
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+    )
+
+
+@anudaan_admin_router.patch("/felicitations/{cycle_id}/publish", response_model=ApiResponse)
+def toggle_cycle_publication(
+    cycle_id: uuid.UUID,
+    is_published: bool = Query(...),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:finance:manage")),
+):
+    """Toggles publication visibility of a felicitation cycle."""
+    try:
+        cycle = anudaan_showcase_service.toggle_cycle_publication(
+            db,
+            cycle_id=cycle_id,
+            is_published=is_published,
+            updated_by_id=current_user.id,
+        )
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
+
+    detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
+    return ApiResponse(
+        success=True,
+        message=f"Felicitation cycle {'published' if is_published else 'unpublished'} successfully.",
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+    )
+
+
+@anudaan_admin_router.patch("/felicitations/{cycle_id}/archive", response_model=ApiResponse)
+def toggle_cycle_archive(
+    cycle_id: uuid.UUID,
+    is_archived: bool = Query(...),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:finance:manage")),
+):
+    """Toggles archive status of a felicitation cycle."""
+    try:
+        cycle = anudaan_showcase_service.toggle_cycle_archive(
+            db,
+            cycle_id=cycle_id,
+            is_archived=is_archived,
+            updated_by_id=current_user.id,
+        )
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
+
+    detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
+    return ApiResponse(
+        success=True,
+        message=f"Felicitation cycle {'archived' if is_archived else 'unarchived'} successfully.",
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+    )
+
+
+@anudaan_admin_router.delete("/felicitations/{cycle_id}", response_model=ApiResponse)
+def delete_felicitation_cycle(
+    cycle_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("anudaan:finance:manage")),
+):
+    """Deletes a felicitation cycle with audit logging."""
+    try:
+        anudaan_showcase_service.delete_felicitation_cycle(db, cycle_id)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
+
+    audit_service.log_action(
+        db=db,
+        action="DELETE",
+        entity_type="ANUDAAN_FELICITATION_CYCLE",
+        entity_id=str(cycle_id),
+        actor_id=current_user.id,
+        actor_email=current_user.email,
+        details={"deleted_id": str(cycle_id)},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return ApiResponse(
+        success=True,
+        message="Felicitation cycle deleted successfully.",
+        data={"id": str(cycle_id)},
     )
 
 

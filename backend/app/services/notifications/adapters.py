@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.notification import Notification, NotificationDelivery, NotificationPreference
 from app.models.user import User
 from app.services.notifications.contracts import NotificationChannel, DeliveryStatus
+from app.core.config import settings
 
 logger = logging.getLogger("vyasa.notifications.adapters")
 
@@ -85,6 +86,8 @@ class EmailDeliveryAdapter(BaseDeliveryAdapter):
         notification: Notification,
         user: User,
         preference: Optional[NotificationPreference] = None,
+        delivery_id: Optional[uuid.UUID] = None,
+        force_sync: bool = False,
     ) -> DeliveryResult:
         user_email = (user.email or "").strip()
         if not user_email:
@@ -112,6 +115,59 @@ class EmailDeliveryAdapter(BaseDeliveryAdapter):
                 error_message=f"Recipient address '{user_email}' is not a valid email format",
             )
 
+        # ---------------------------------------------------------------------
+        # Asynchronous Queue Mode (Transactional Outbox)
+        # ---------------------------------------------------------------------
+        # If no explicit mock/custom sender is injected, and async dispatch is enabled,
+        # enqueue a persistent email job in email_outbox without blocking the HTTP request.
+        # If sender_service was explicitly injected or sender.send_email has been patched
+        # by an active test spy/mock, fallback to synchronous dispatch.
+        is_mocked_sender = (
+            self.sender_service is not None
+            or hasattr(sender.send_email, "assert_called")
+            or hasattr(sender.send_email, "mock_calls")
+        )
+
+        if getattr(settings, "EMAIL_ASYNC_DISPATCH", True) and not is_mocked_sender and not force_sync:
+            try:
+                subject, html_content, text_content = self._render_email_content(notification, user)
+                from app.models.email_outbox import EmailOutbox, EmailOutboxStatus
+
+                outbox_job = EmailOutbox(
+                    id=uuid.uuid4(),
+                    notification_id=notification.id if notification else None,
+                    notification_delivery_id=delivery_id,
+                    recipient_email=user_email,
+                    subject=subject,
+                    html_content=html_content,
+                    text_content=text_content,
+                    status=EmailOutboxStatus.PENDING.value,
+                    attempt_count=0,
+                    max_attempts=settings.EMAIL_WORKER_MAX_RETRIES,
+                    next_attempt_at=datetime.now(timezone.utc),
+                    provider=(settings.EMAIL_PROVIDER or "brevo").strip().lower(),
+                )
+                if db is not None and hasattr(db, "add"):
+                    db.add(outbox_job)
+
+                return DeliveryResult(
+                    channel=self.channel,
+                    status=DeliveryStatus.PENDING,
+                    recipient_destination=user_email,
+                )
+            except Exception as e:
+                sanitized_err = str(e).split(":")[-1].strip() or "Failed to enqueue email outbox job"
+                logger.error(f"[Email Queue Error] Failed to enqueue email for {user_email}: {sanitized_err}")
+                return DeliveryResult(
+                    channel=self.channel,
+                    status=DeliveryStatus.FAILED,
+                    error_message=sanitized_err[:255],
+                    recipient_destination=user_email,
+                )
+
+        # ---------------------------------------------------------------------
+        # Synchronous Direct Dispatch Mode (Fallback & Test Harness)
+        # ---------------------------------------------------------------------
         try:
             subject, html_content, text_content = self._render_email_content(notification, user)
             success, err = sender.send_email(

@@ -51,6 +51,17 @@ class AuthorityStatusUpdate(BaseModel):
     is_active: bool
 
 
+class AuthorityPasswordReissueOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    authority_id: uuid.UUID
+    name: str
+    email: str
+    delivery_status: str = Field(..., description="Delivery status: SENT or FAILED")
+    delivery_error: Optional[str] = Field(None, description="Sanitized error description if delivery failed")
+
+
+
 class SubjectClusterOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

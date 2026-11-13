@@ -19,6 +19,10 @@ import {
   AnudaanSanctionEntryOut,
   AnudaanSanctionListResponse,
   AnudaanApplicationLookupItem,
+  AnudaanFelicitationCycleCreate,
+  AnudaanFelicitationCycleUpdate,
+  AnudaanFelicitationCycleOut,
+  AnudaanFelicitationCycleListResponse,
 } from '../types/anudaan';
 
 function requireData<T>(res: ApiResponse<T>): T {
@@ -47,6 +51,9 @@ export const anudaanAdminService = {
     academic_year?: string;
     quartile?: string;
     department?: string;
+    cycle_id?: string;
+    volume_number?: number;
+    issue_number?: number;
     is_published?: boolean;
     search?: string;
   }): Promise<AnudaanSanctionListResponse> {
@@ -56,6 +63,9 @@ export const anudaanAdminService = {
     if (params?.academic_year) q.append('academic_year', params.academic_year);
     if (params?.quartile) q.append('quartile', params.quartile);
     if (params?.department) q.append('department', params.department);
+    if (params?.cycle_id) q.append('cycle_id', params.cycle_id);
+    if (params?.volume_number !== undefined) q.append('volume_number', String(params.volume_number));
+    if (params?.issue_number !== undefined) q.append('issue_number', String(params.issue_number));
     if (params?.is_published !== undefined) q.append('is_published', String(params.is_published));
     if (params?.search) q.append('search', params.search);
     const queryStr = q.toString() ? `?${q.toString()}` : '';
@@ -86,6 +96,60 @@ export const anudaanAdminService = {
 
   async deleteSanction(id: string): Promise<void> {
     await apiClient.delete(`/admin/anudaan/sanctions/${id}`);
+  },
+
+  // =========================================================================
+  // 1.2 FELICITATION / RECOGNITION CYCLE MANAGEMENT (VOLUME & ISSUE)
+  // =========================================================================
+  async getFelicitationCycles(params?: {
+    skip?: number;
+    limit?: number;
+    status?: string;
+    academic_year?: string;
+    is_published?: boolean;
+    is_archived?: boolean;
+    search?: string;
+  }): Promise<AnudaanFelicitationCycleListResponse> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    if (params?.status) q.append('status', params.status);
+    if (params?.academic_year) q.append('academic_year', params.academic_year);
+    if (params?.is_published !== undefined) q.append('is_published', String(params.is_published));
+    if (params?.is_archived !== undefined) q.append('is_archived', String(params.is_archived));
+    if (params?.search) q.append('search', params.search);
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    const res = await apiClient.get<AnudaanFelicitationCycleListResponse>(`/admin/anudaan/felicitations${queryStr}`);
+    return requireData(res);
+  },
+
+  async getFelicitationCycle(id: string): Promise<AnudaanFelicitationCycleOut> {
+    const res = await apiClient.get<AnudaanFelicitationCycleOut>(`/admin/anudaan/felicitations/${id}`);
+    return requireData(res);
+  },
+
+  async createFelicitationCycle(payload: AnudaanFelicitationCycleCreate): Promise<AnudaanFelicitationCycleOut> {
+    const res = await apiClient.post<AnudaanFelicitationCycleOut>('/admin/anudaan/felicitations', payload);
+    return requireData(res);
+  },
+
+  async updateFelicitationCycle(id: string, payload: AnudaanFelicitationCycleUpdate): Promise<AnudaanFelicitationCycleOut> {
+    const res = await apiClient.put<AnudaanFelicitationCycleOut>(`/admin/anudaan/felicitations/${id}`, payload);
+    return requireData(res);
+  },
+
+  async toggleFelicitationPublish(id: string, isPublished: boolean): Promise<AnudaanFelicitationCycleOut> {
+    const res = await apiClient.patch<AnudaanFelicitationCycleOut>(`/admin/anudaan/felicitations/${id}/publish?is_published=${isPublished}`, {});
+    return requireData(res);
+  },
+
+  async toggleFelicitationArchive(id: string, isArchived: boolean): Promise<AnudaanFelicitationCycleOut> {
+    const res = await apiClient.patch<AnudaanFelicitationCycleOut>(`/admin/anudaan/felicitations/${id}/archive?is_archived=${isArchived}`, {});
+    return requireData(res);
+  },
+
+  async deleteFelicitationCycle(id: string): Promise<void> {
+    await apiClient.delete(`/admin/anudaan/felicitations/${id}`);
   },
 
   // =========================================================================

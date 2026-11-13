@@ -7,19 +7,30 @@ Every modification generates an immutable record in Core audit_logs.
 """
 import uuid
 import secrets
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 
+from app.core.config import settings
 from app.core.security import hash_password, generate_temporary_password
 from app.models.audit import AuditLog
 from app.models.user import User
 from app.models.role import Role, user_roles
 from app.models.applicant_profile import ApplicantProfile
+from app.models.two_factor import AuthenticationChallenge
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.taxonomy import SubjectCluster, Subject, GrievanceCluster, Category
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryRoutingType
 from app.modules.atharva_veda.nivaran.models.grievance import Grievance, StudentMasterRecord
+from app.services.notifications.email_service import email_sender_service, sanitize_email_error
+from app.services.notifications.email_templates import build_authority_temporary_password_reissued_email
+
+
+class PasswordReissueRateLimitError(ValueError):
+    """Raised when temporary password reissuance exceeds rate limits for an authority."""
+    pass
+
 
 
 # Centralized Mapping: Institutional Authority Roles -> Platform Generic Roles
@@ -341,6 +352,188 @@ class AdminConfigService:
         except Exception:
             db.rollback()
             raise
+
+    @staticmethod
+    def reissue_temporary_password(
+        db: Session,
+        authority_id: uuid.UUID,
+        actor_user_id: Optional[uuid.UUID] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        email_service: Optional[Any] = None,
+        rate_limit_max_attempts: int = 3,
+        rate_limit_window_minutes: int = 15,
+    ) -> Dict[str, Any]:
+        """
+        Reissues a secure temporary password for an eligible institutional authority.
+        - Validates authority existence, active status, and active user account.
+        - Enforces rate limiting against repeated password reissuance.
+        - Generates a cryptographically secure random temporary password.
+        - Hashes using PBKDF2 and updates the user credential.
+        - Invalidates previous temporary password and pending pre-auth challenges immediately.
+        - Sets must_change_password=True for mandatory password change upon next login.
+        - Preserves authority roles, permissions, designation, department, and account status.
+        - Dispatches the new temporary password to the authority's registered email via Brevo.
+        - Records audit log with action TEMPORARY_PASSWORD_REISSUED without credential leakage.
+        - Accurately tracks and reports email delivery status (SENT or FAILED).
+        """
+        authority = db.scalar(
+            select(NivaranAuthority)
+            .options(joinedload(NivaranAuthority.user))
+            .where(NivaranAuthority.id == authority_id)
+        )
+        if not authority:
+            raise ValueError(f"Authority with ID '{authority_id}' does not exist.")
+
+        if not authority.is_active:
+            raise ValueError(
+                f"Cannot reissue temporary password for inactive authority '{authority.name_snapshot}'. "
+                "Please activate the authority first."
+            )
+
+        user = getattr(authority, "user", None)
+        if not user:
+            user = db.scalar(select(User).where(User.id == authority.vyasa_user_id))
+        if not user:
+            raise ValueError(
+                f"Associated user identity for authority '{authority.name_snapshot}' does not exist."
+            )
+        if not user.is_active:
+            raise ValueError(
+                f"Associated user account '{user.email}' is deactivated. Reissuance not permitted."
+            )
+
+        recipient_email = (authority.email_snapshot or user.email or "").strip().lower()
+        if not recipient_email or "@" not in recipient_email:
+            raise ValueError(
+                f"Authority '{authority.name_snapshot}' does not have a valid registered email address."
+            )
+
+        # Rate limiting check against recent reissuance audit logs
+        now_utc = datetime.now(timezone.utc)
+        window_cutoff = now_utc - timedelta(minutes=rate_limit_window_minutes)
+
+        recent_logs = []
+        try:
+            recent_logs = db.scalars(
+                select(AuditLog)
+                .where(
+                    AuditLog.entity_name == "NivaranAuthority",
+                    AuditLog.entity_id == str(authority.id),
+                    AuditLog.action == "TEMPORARY_PASSWORD_REISSUED",
+                    AuditLog.created_at >= window_cutoff,
+                )
+            ).all()
+        except Exception:
+            try:
+                res = db.execute(
+                    select(AuditLog).where(
+                        AuditLog.entity_name == "NivaranAuthority",
+                        AuditLog.entity_id == str(authority.id),
+                        AuditLog.action == "TEMPORARY_PASSWORD_REISSUED",
+                        AuditLog.created_at >= window_cutoff,
+                    )
+                )
+                recent_logs = res.scalars().all() if hasattr(res, "scalars") else []
+            except Exception:
+                recent_logs = []
+
+        if len(recent_logs) >= rate_limit_max_attempts:
+            raise PasswordReissueRateLimitError(
+                f"Password reissuance rate limit exceeded ({rate_limit_max_attempts} requests per "
+                f"{rate_limit_window_minutes} minutes). Please wait before retrying."
+            )
+
+        # Generate new cryptographically secure temporary password (16 chars, meets complexity)
+        new_temp_password = generate_temporary_password(16)
+
+        # Hash and securely update the user credential
+        user.password_hash = hash_password(new_temp_password)
+        user.must_change_password = True
+
+        # Invalidate any in-flight pre-authentication challenges / sessions
+        try:
+            db.execute(
+                update(AuthenticationChallenge)
+                .where(
+                    AuthenticationChallenge.user_id == user.id,
+                    AuthenticationChallenge.consumed_at.is_(None),
+                )
+                .values(consumed_at=func.now())
+            )
+        except Exception:
+            pass
+
+        # Persist credential update immediately to guarantee previous password cannot authenticate
+        db.add(user)
+        db.commit()
+        if hasattr(db, "refresh"):
+            try:
+                db.refresh(user)
+            except Exception:
+                pass
+
+        # Email dispatch via Brevo integration
+        subject, html_body, text_body = build_authority_temporary_password_reissued_email(
+            recipient_name=authority.name_snapshot,
+            recipient_email=recipient_email,
+            temporary_password=new_temp_password,
+        )
+
+        active_email_service = email_service or email_sender_service
+        try:
+            dispatch_res = active_email_service.send_email(
+                recipient_email=recipient_email,
+                subject=subject,
+                html_content=html_body,
+                text_content=text_body,
+            )
+            email_delivered = bool(dispatch_res.success)
+            email_error = (
+                sanitize_email_error(getattr(dispatch_res, "error_message", None))
+                if not email_delivered
+                else None
+            )
+        except Exception as exc:
+            email_delivered = False
+            email_error = sanitize_email_error(str(exc))
+
+        delivery_status = "SENT" if email_delivered else "FAILED"
+
+        # Record immutable audit log
+        audit_entry = AuditLog(
+            user_id=actor_user_id,
+            module="atharva_veda",
+            action="TEMPORARY_PASSWORD_REISSUED",
+            entity_name="NivaranAuthority",
+            entity_id=str(authority.id),
+            details={
+                "authority_id": str(authority.id),
+                "authority_name": authority.name_snapshot,
+                "authority_email": recipient_email,
+                "email_delivery_status": delivery_status,
+                "failure_reason": email_error,
+                "actor_user_id": str(actor_user_id) if actor_user_id else None,
+                "provider": getattr(settings, "EMAIL_PROVIDER", "brevo"),
+            },
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        db.add(audit_entry)
+        db.commit()
+
+        return {
+            "authority_id": authority.id,
+            "name": authority.name_snapshot,
+            "email": recipient_email,
+            "delivery_status": delivery_status,
+            "delivery_error": email_error,
+            "message": (
+                f"Temporary password reissued successfully and sent to {recipient_email}."
+                if email_delivered
+                else f"Temporary password was generated and updated, but email delivery via Brevo failed ({email_error}). Please retry delivery."
+            ),
+        }
 
     @staticmethod
     def transfer_authority_assignments(

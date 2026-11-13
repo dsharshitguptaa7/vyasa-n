@@ -326,6 +326,8 @@ class CertificateApprovalOut(BaseModel):
     signatory_id: Optional[uuid.UUID] = None
     signatory_name_snapshot: str
     designation_snapshot: str
+    signature_image_path_snapshot: Optional[str] = None
+    signature_asset_version_snapshot: Optional[int] = 1
     status: str
     remarks: Optional[str] = None
     decided_by_user_id: Optional[uuid.UUID] = None
@@ -370,6 +372,7 @@ class CertificateSignatoryOut(BaseModel):
     signature_asset_version: Optional[int] = 1
     is_active: Optional[bool] = True
     effective_date: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

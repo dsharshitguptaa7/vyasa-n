@@ -147,6 +147,7 @@ class AnudaanGalleryItemCreate(BaseModel):
     is_featured: bool = False
     is_published: bool = False
     display_order: int = 0
+    felicitation_cycle_id: Optional[uuid.UUID] = Field(None, description="Optional link to felicitation cycle")
 
 
 class AnudaanGalleryItemUpdate(BaseModel):
@@ -162,6 +163,7 @@ class AnudaanGalleryItemUpdate(BaseModel):
     is_featured: Optional[bool] = None
     is_published: Optional[bool] = None
     display_order: Optional[int] = None
+    felicitation_cycle_id: Optional[uuid.UUID] = None
 
 
 class AnudaanGalleryItemOut(BaseModel):
@@ -180,6 +182,9 @@ class AnudaanGalleryItemOut(BaseModel):
     is_featured: bool
     is_published: bool
     display_order: int
+    felicitation_cycle_id: Optional[uuid.UUID] = None
+    felicitation_cycle_volume: Optional[int] = None
+    felicitation_cycle_issue: Optional[int] = None
     images: List[AnudaanGalleryImageOut] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -218,13 +223,15 @@ class AnudaanPublicConfigUpdate(BaseModel):
 class AnudaanSanctionEntryCreate(BaseModel):
     """Input payload to record an official university incentive sanction."""
     researcher_name: str = Field(..., min_length=2, max_length=255, description="Full name of researcher")
-    department_name: str = Field(..., min_length=2, max_length=255, description="Department / School")
-    publication_title: str = Field(..., min_length=3, max_length=500, description="Paper / publication title")
+    department_name: Optional[str] = Field(None, max_length=255, description="Department / School (optional)")
+    project_title: Optional[str] = Field(None, max_length=500, description="Optional project or grant title")
+    publication_title: str = Field(..., min_length=3, max_length=500, description="Paper / publication title (mandatory)")
     publication_doi: Optional[str] = Field(None, max_length=255, description="Optional publication DOI")
     quartile: str = Field(..., pattern=r"^(Q1|Q2|Q3|Q4)$", description="Quartile tier: Q1, Q2, Q3, Q4")
     sanctioned_amount: Decimal = Field(..., ge=0, description="Sanctioned amount in INR (non-negative)")
     academic_year: str = Field(..., min_length=4, max_length=20, description="Academic year (e.g. '2025-2026')")
     sanction_date: date = Field(..., description="Official sanction approval date")
+    felicitation_cycle_id: uuid.UUID = Field(..., description="Mandatory association with a Felicitation Cycle")
     remarks: Optional[str] = Field(None, description="Optional administrative remarks or sanction order notes")
     is_published: bool = Field(True, description="Visible on public portal when True")
     application_id: Optional[uuid.UUID] = Field(None, description="Optional link to submitted application")
@@ -234,13 +241,15 @@ class AnudaanSanctionEntryCreate(BaseModel):
 class AnudaanSanctionEntryUpdate(BaseModel):
     """Payload to update an existing sanction register entry."""
     researcher_name: Optional[str] = Field(None, min_length=2, max_length=255)
-    department_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    department_name: Optional[str] = Field(None, max_length=255)
+    project_title: Optional[str] = Field(None, max_length=500)
     publication_title: Optional[str] = Field(None, min_length=3, max_length=500)
     publication_doi: Optional[str] = None
     quartile: Optional[str] = Field(None, pattern=r"^(Q1|Q2|Q3|Q4)$")
     sanctioned_amount: Optional[Decimal] = Field(None, ge=0)
     academic_year: Optional[str] = Field(None, min_length=4, max_length=20)
     sanction_date: Optional[date] = None
+    felicitation_cycle_id: Optional[uuid.UUID] = None
     remarks: Optional[str] = None
     is_published: Optional[bool] = None
     application_id: Optional[uuid.UUID] = None
@@ -253,7 +262,8 @@ class AnudaanSanctionEntryOut(BaseModel):
 
     id: uuid.UUID
     researcher_name: str
-    department_name: str
+    department_name: Optional[str] = None
+    project_title: Optional[str] = None
     publication_title: str
     publication_doi: Optional[str] = None
     quartile: str
@@ -262,6 +272,11 @@ class AnudaanSanctionEntryOut(BaseModel):
     sanction_date: date
     remarks: Optional[str] = None
     is_published: bool
+    felicitation_cycle_id: Optional[uuid.UUID] = None
+    felicitation_cycle_volume: Optional[int] = None
+    felicitation_cycle_issue: Optional[int] = None
+    felicitation_cycle_status: Optional[str] = None
+    felicitation_cycle_title: Optional[str] = None
     application_id: Optional[uuid.UUID] = None
     application_number: Optional[str] = None
     author_id: Optional[uuid.UUID] = None
@@ -281,16 +296,103 @@ class AnudaanPublicSanctionOut(BaseModel):
 
     id: uuid.UUID
     researcher_name: str
-    department_name: str
+    department_name: Optional[str] = None
+    project_title: Optional[str] = None
     publication_title: str
     quartile: str
     sanctioned_amount: Decimal
     academic_year: str
+    felicitation_cycle_id: Optional[uuid.UUID] = None
+    volume_number: Optional[int] = None
+    issue_number: Optional[int] = None
+    cycle_display_title: Optional[str] = None
+    cycle_status: Optional[str] = None
+    felicitation_date: Optional[date] = None
 
 
 class AnudaanPublicSanctionsResponse(BaseModel):
     total: int
     items: List[AnudaanPublicSanctionOut]
+
+
+# =============================================================================
+# 6. Felicitation / Recognition Cycle Schemas
+# =============================================================================
+
+class AnudaanFelicitationCycleCreate(BaseModel):
+    """Input payload to create a new Volume & Issue felicitation cycle."""
+    volume_number: int = Field(..., gt=0, description="Volume number (e.g. 1, 2, 3)")
+    issue_number: int = Field(..., gt=0, description="Issue number within volume (e.g. 1, 2, 3)")
+    display_title: Optional[str] = Field(None, max_length=255, description="Ceremonial title")
+    status: str = Field("UPCOMING", pattern=r"^(UPCOMING|COMPLETED)$", description="UPCOMING or COMPLETED")
+    felicitation_date: Optional[date] = Field(None, description="Felicitation ceremony date")
+    academic_year: Optional[str] = Field(None, min_length=4, max_length=20, description="Academic year")
+    description: Optional[str] = Field(None, description="Event description")
+    is_published: bool = Field(True, description="Publicly visible when True")
+    is_archived: bool = Field(False, description="Archived when True")
+
+
+class AnudaanFelicitationCycleUpdate(BaseModel):
+    """Payload to update an existing felicitation cycle."""
+    volume_number: Optional[int] = Field(None, gt=0)
+    issue_number: Optional[int] = Field(None, gt=0)
+    display_title: Optional[str] = Field(None, max_length=255)
+    status: Optional[str] = Field(None, pattern=r"^(UPCOMING|COMPLETED)$")
+    felicitation_date: Optional[date] = None
+    academic_year: Optional[str] = Field(None, min_length=4, max_length=20)
+    description: Optional[str] = None
+    is_published: Optional[bool] = None
+    is_archived: Optional[bool] = None
+
+
+class AnudaanFelicitationCycleOut(BaseModel):
+    """Detailed administrative view of a felicitation cycle with aggregated counters."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    volume_number: int
+    issue_number: int
+    display_title: Optional[str] = None
+    status: str
+    felicitation_date: Optional[date] = None
+    academic_year: Optional[str] = None
+    description: Optional[str] = None
+    is_published: bool
+    is_archived: bool
+    sanction_count: int = 0
+    total_sanctioned_amount: Decimal = Decimal("0.00")
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnudaanFelicitationCycleListResponse(BaseModel):
+    total: int
+    items: List[AnudaanFelicitationCycleOut]
+
+
+class AnudaanPublicFelicitationCycleOut(BaseModel):
+    """Public showcase view of a felicitation cycle, grouping published sanction entries."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    volume_number: int
+    issue_number: int
+    display_title: Optional[str] = None
+    status: str
+    felicitation_date: Optional[date] = None
+    academic_year: Optional[str] = None
+    description: Optional[str] = None
+    sanctions: List[AnudaanPublicSanctionOut] = Field(default_factory=list)
+    total_sanctioned_amount: Decimal = Decimal("0.00")
+    total_researchers: int = 0
+    sanction_count: int = 0
+    gallery_items: List[AnudaanGalleryItemOut] = Field(default_factory=list)
+
+
+class AnudaanPublicShowcaseCyclesResponse(BaseModel):
+    total_cycles: int
+    completed_cycles: List[AnudaanPublicFelicitationCycleOut]
+    upcoming_cycles: List[AnudaanPublicFelicitationCycleOut]
 
 
 class AnudaanApplicationLookupItem(BaseModel):

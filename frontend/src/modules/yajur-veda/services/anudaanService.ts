@@ -31,6 +31,7 @@ import {
   AnudaanGalleryListResponse,
   AnudaanPublicConfigOut,
   AnudaanPublicSanctionsResponse,
+  AnudaanPublicShowcaseCyclesResponse,
 } from '../types/anudaan';
 import { getDraftSession, saveDraftSession } from './anudaanSession';
 
@@ -334,6 +335,9 @@ export const anudaanService = {
     limit?: number;
     academic_year?: string;
     quartile?: string;
+    cycle_id?: string;
+    volume_number?: number;
+    issue_number?: number;
     search?: string;
   }): Promise<ApiResponse<AnudaanPublicSanctionsResponse>> {
     const q = new URLSearchParams();
@@ -341,9 +345,24 @@ export const anudaanService = {
     if (params?.limit !== undefined) q.append('limit', String(params.limit));
     if (params?.academic_year) q.append('academic_year', params.academic_year);
     if (params?.quartile) q.append('quartile', params.quartile);
+    if (params?.cycle_id) q.append('cycle_id', params.cycle_id);
+    if (params?.volume_number !== undefined) q.append('volume_number', String(params.volume_number));
+    if (params?.issue_number !== undefined) q.append('issue_number', String(params.issue_number));
     if (params?.search) q.append('search', params.search);
     const queryStr = q.toString() ? `?${q.toString()}` : '';
     return apiClient.get<AnudaanPublicSanctionsResponse>(`${ANUDAAN_API_BASE}/public/sanctions${queryStr}`);
+  },
+
+  /**
+   * 19. Get Public Volume & Issue Felicitation Showcase
+   */
+  async getPublicShowcaseCycles(params?: {
+    academic_year?: string;
+  }): Promise<ApiResponse<AnudaanPublicShowcaseCyclesResponse>> {
+    const q = new URLSearchParams();
+    if (params?.academic_year) q.append('academic_year', params.academic_year);
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return apiClient.get<AnudaanPublicShowcaseCyclesResponse>(`${ANUDAAN_API_BASE}/public/cycles${queryStr}`);
   },
 };
 

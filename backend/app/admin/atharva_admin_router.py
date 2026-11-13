@@ -1,6 +1,7 @@
+import logging
 import uuid
 from typing import Optional, List, Dict
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,7 +11,10 @@ from app.models.audit import AuditLog
 from app.modules.atharva_veda.nivaran.models.authority import NivaranAuthority
 from app.modules.atharva_veda.nivaran.models.taxonomy import SubjectCluster, Subject, GrievanceCluster, Category
 from app.modules.atharva_veda.nivaran.models.enums import NivaranRole, CategoryRoutingType
-from app.modules.atharva_veda.nivaran.services.admin_config_service import AdminConfigService
+from app.modules.atharva_veda.nivaran.services.admin_config_service import (
+    AdminConfigService,
+    PasswordReissueRateLimitError,
+)
 from app.schemas.response import ApiResponse
 from app.admin.schemas.atharva_config import (
     AuthorityOut,
@@ -18,6 +22,7 @@ from app.admin.schemas.atharva_config import (
     AuthorityUpdate,
     AuthorityTransfer,
     AuthorityStatusUpdate,
+    AuthorityPasswordReissueOut,
     SubjectClusterOut,
     SubjectClusterCreate,
     SubjectClusterUpdate,
@@ -44,6 +49,8 @@ from app.admin.schemas.atharva_config import (
     AuditLogOut,
     PaginatedAuditLogs,
 )
+
+logger = logging.getLogger(__name__)
 
 atharva_admin_router = APIRouter(prefix="/atharva", tags=["Atharva Veda Admin Configuration"])
 
@@ -307,6 +314,68 @@ def update_authority_status(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@atharva_admin_router.post("/authorities/{authority_id}/reissue-password", response_model=ApiResponse)
+@atharva_admin_router.post("/authorities/{authority_id}/reissue-temporary-password", response_model=ApiResponse)
+def reissue_authority_temporary_password(
+    authority_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_super_admin_user),
+):
+    """
+    Reissues a secure temporary password for an eligible authority.
+    Restricted to Super Admin.
+    Generates new credentials, invalidates previous passwords, sets mandatory change flag,
+    and dispatches via Brevo email without exposing plaintext passwords.
+    """
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")[:500] if request else None
+
+    try:
+        result = AdminConfigService.reissue_temporary_password(
+            db=db,
+            authority_id=authority_id,
+            actor_user_id=admin_user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+
+        out_data = AuthorityPasswordReissueOut(
+            authority_id=result["authority_id"],
+            name=result["name"],
+            email=result["email"],
+            delivery_status=result["delivery_status"],
+            delivery_error=result["delivery_error"],
+        ).model_dump()
+        out_data["authority_id"] = str(out_data["authority_id"])
+
+        return ApiResponse(
+            success=True,
+            message=result["message"],
+            data=out_data,
+        )
+    except PasswordReissueRateLimitError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e),
+        )
+    except ValueError as e:
+        err_msg = str(e)
+        if "does not exist" in err_msg.lower() or "not found" in err_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+    except Exception as e:
+        logger.error(
+            f"Unexpected error reissuing temporary password for authority {authority_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during temporary password reissuance.",
+        )
+
 
 
 # ==========================================

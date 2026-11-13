@@ -249,6 +249,12 @@ class AnudaanGalleryItem(Base):
         nullable=False,
         comment="Pinned to top showcase carousel / banner",
     )
+    felicitation_cycle_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("yajur_anudaan_felicitation_cycles.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Optional link to specific felicitation cycle",
+    )
     is_published: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -299,6 +305,11 @@ class AnudaanGalleryItem(Base):
     updated_by: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[updated_by_id],
+    )
+    felicitation_cycle: Mapped[Optional["AnudaanFelicitationCycle"]] = relationship(
+        "AnudaanFelicitationCycle",
+        back_populates="gallery_items",
+        foreign_keys=[felicitation_cycle_id],
     )
 
     def __repr__(self) -> str:
@@ -475,6 +486,7 @@ class AnudaanSanctionEntry(Base):
         Index("ix_anudaan_sanction_app", "application_id"),
         Index("ix_anudaan_sanction_researcher", "researcher_name"),
         Index("ix_anudaan_sanction_dept", "department_name"),
+        Index("ix_anudaan_sanction_cycle", "felicitation_cycle_id"),
         CheckConstraint("sanctioned_amount >= 0", name="ck_anudaan_sanction_amount_non_negative"),
     )
 
@@ -488,10 +500,15 @@ class AnudaanSanctionEntry(Base):
         nullable=False,
         comment="Full name of the recognized researcher",
     )
-    department_name: Mapped[str] = mapped_column(
+    department_name: Mapped[Optional[str]] = mapped_column(
         String(255),
-        nullable=False,
-        comment="Department or School name",
+        nullable=True,
+        comment="Department or School name (optional)",
+    )
+    project_title: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Optional research project or grant title",
     )
     publication_title: Mapped[str] = mapped_column(
         String(500),
@@ -534,6 +551,12 @@ class AnudaanSanctionEntry(Base):
         server_default=text("true"),
         nullable=False,
         comment="Visible on public register if True",
+    )
+    felicitation_cycle_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("yajur_anudaan_felicitation_cycles.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Associated felicitation cycle",
     )
     application_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
@@ -586,7 +609,134 @@ class AnudaanSanctionEntry(Base):
         "User",
         foreign_keys=[updated_by_id],
     )
+    felicitation_cycle: Mapped[Optional["AnudaanFelicitationCycle"]] = relationship(
+        "AnudaanFelicitationCycle",
+        back_populates="sanction_entries",
+        foreign_keys=[felicitation_cycle_id],
+    )
 
     def __repr__(self) -> str:
         return f"<AnudaanSanctionEntry(id={self.id}, researcher='{self.researcher_name}', quartile='{self.quartile}', amount={self.sanctioned_amount})>"
+
+
+# =============================================================================
+# 6. AnudaanFelicitationCycle (Volume & Issue Felicitation Cycle)
+# =============================================================================
+
+class AnudaanFelicitationCycle(Base):
+    """
+    Institutional felicitation / recognition cycle (Volume & Issue) governing ANUDAAN
+    publication incentive ceremonies and public showcases.
+    """
+    __tablename__ = "yajur_anudaan_felicitation_cycles"
+    __table_args__ = (
+        Index("ix_anudaan_cycle_year", "academic_year"),
+        Index("ix_anudaan_cycle_status", "status"),
+        Index("ix_anudaan_cycle_published", "is_published"),
+        Index("ix_anudaan_cycle_archived", "is_archived"),
+        Index("ix_anudaan_cycle_date", "felicitation_date"),
+        UniqueConstraint("volume_number", "issue_number", name="uq_anudaan_cycle_volume_issue"),
+        CheckConstraint("volume_number > 0 AND issue_number > 0", name="ck_anudaan_cycle_vol_issue_pos"),
+        CheckConstraint("status IN ('UPCOMING', 'COMPLETED')", name="ck_anudaan_cycle_status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    volume_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Volume number (e.g. 1, 2, 3)",
+    )
+    issue_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Issue number within volume (e.g. 1, 2, 3)",
+    )
+    display_title: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Ceremonial title (e.g. Convocation Felicitation)",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="UPCOMING",
+        server_default="UPCOMING",
+        nullable=False,
+        comment="Status: UPCOMING or COMPLETED",
+    )
+    felicitation_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True,
+        comment="Date of ceremony / felicitation",
+    )
+    academic_year: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Academic year (e.g. 2025-2026)",
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Institutional event description and highlights",
+    )
+    is_published: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+        comment="Visible on public showcase if True",
+    )
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+        comment="Archived if True",
+    )
+    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    updated_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    sanction_entries: Mapped[List["AnudaanSanctionEntry"]] = relationship(
+        "AnudaanSanctionEntry",
+        back_populates="felicitation_cycle",
+    )
+    gallery_items: Mapped[List["AnudaanGalleryItem"]] = relationship(
+        "AnudaanGalleryItem",
+        back_populates="felicitation_cycle",
+    )
+    created_by: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[created_by_id],
+    )
+    updated_by: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[updated_by_id],
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnudaanFelicitationCycle(id={self.id}, vol={self.volume_number}, issue={self.issue_number}, status='{self.status}')>"
+
 

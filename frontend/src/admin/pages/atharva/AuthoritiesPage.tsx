@@ -66,6 +66,17 @@ export const AuthoritiesPage: React.FC = () => {
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Reissue Temporary Password State
+  const [reissuingAuthority, setReissuingAuthority] = useState<Authority | null>(null);
+  const [isReissuing, setIsReissuing] = useState(false);
+  const [reissueError, setReissueError] = useState<string | null>(null);
+  const [reissueResult, setReissueResult] = useState<{
+    authority: Authority;
+    delivery_status: 'SENT' | 'FAILED';
+    delivery_error?: string | null;
+  } | null>(null);
+
+
   const fetchAuthorities = async () => {
     try {
       setLoading(true);
@@ -287,6 +298,37 @@ export const AuthoritiesPage: React.FC = () => {
       setIsUpdating(false);
     }
   };
+
+  const handleConfirmReissuePassword = async () => {
+    if (!reissuingAuthority) return;
+    try {
+      setIsReissuing(true);
+      setReissueError(null);
+      const res = await atharvaAdminService.reissuePassword(reissuingAuthority.id);
+
+      // Update authority state so onboarding status reflects 'PASSWORD_CHANGE_REQUIRED'
+      setAuthorities((prev) =>
+        prev.map((a) =>
+          a.id === reissuingAuthority.id
+            ? { ...a, onboarding_status: 'PASSWORD_CHANGE_REQUIRED' }
+            : a
+        )
+      );
+
+      const target = reissuingAuthority;
+      setReissuingAuthority(null);
+      setReissueResult({
+        authority: target,
+        delivery_status: res.delivery_status,
+        delivery_error: res.delivery_error,
+      });
+    } catch (err: unknown) {
+      setReissueError(err instanceof Error ? err.message : 'Failed to reissue temporary password');
+    } finally {
+      setIsReissuing(false);
+    }
+  };
+
 
   const getInitials = (name: string): string => {
     const cleaned = name.replace(/^(Dr\.|Prof\.|Mr\.|Ms\.|Mrs\.)\s+/i, '').trim();
@@ -1242,6 +1284,45 @@ export const AuthoritiesPage: React.FC = () => {
                               ✎
                             </button>
 
+                            {/* Reissue Temporary Password Action */}
+                            <button
+                              type="button"
+                              title="Reissue Temporary Password"
+                              aria-label={`Reissue Temporary Password for ${auth.name_snapshot}`}
+                              onClick={() => {
+                                setReissuingAuthority(auth);
+                                setReissueError(null);
+                              }}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '6px',
+                                color: '#b45309',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#fffbeb';
+                                e.currentTarget.style.borderColor = '#fde68a';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#ffffff';
+                                e.currentTarget.style.borderColor = '#cbd5e1';
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <circle cx="7.5" cy="15.5" r="5.5" />
+                                <path d="m21 2-9.6 9.6" />
+                                <path d="m15.5 7.5 3 3" />
+                                <path d="m18 5 2 2" />
+                              </svg>
+                            </button>
+
                             {/* Direct Status Toggle (Preserves accessibility for unit tests & instant deactivation) */}
                             <Button
                               variant="outline"
@@ -1310,6 +1391,39 @@ export const AuthoritiesPage: React.FC = () => {
                                     gap: '2px',
                                   }}
                                 >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReissuingAuthority(auth);
+                                      setReissueError(null);
+                                      setOpenMenuId(null);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '7px 10px',
+                                      fontSize: '12px',
+                                      color: '#b45309',
+                                      border: 'none',
+                                      background: 'none',
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      cursor: 'pointer',
+                                      borderRadius: '4px',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fffbeb')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                      <circle cx="7.5" cy="15.5" r="5.5" />
+                                      <path d="m21 2-9.6 9.6" />
+                                      <path d="m15.5 7.5 3 3" />
+                                      <path d="m18 5 2 2" />
+                                    </svg>
+                                    <span>Reissue Password</span>
+                                  </button>
+
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1965,6 +2079,250 @@ export const AuthoritiesPage: React.FC = () => {
                 ⚠️ This credential will never be retrievable from subsequent views or endpoints.
               </span>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Reissue Temporary Password Confirmation Modal */}
+      {reissuingAuthority && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            if (!isReissuing) {
+              setReissuingAuthority(null);
+              setReissueError(null);
+            }
+          }}
+          title="Reissue Temporary Password"
+          footer={
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setReissuingAuthority(null);
+                  setReissueError(null);
+                }}
+                disabled={isReissuing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleConfirmReissuePassword}
+                disabled={isReissuing}
+              >
+                {isReissuing ? 'Generating & Delivering...' : 'Reissue & Send Email'}
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+              }}
+            >
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fef3c7',
+                  color: '#b45309',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="7.5" cy="15.5" r="5.5" />
+                  <path d="m21 2-9.6 9.6" />
+                  <path d="m15.5 7.5 3 3" />
+                  <path d="m18 5 2 2" />
+                </svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#0f2b48' }}>
+                  {reissuingAuthority.name_snapshot}
+                </div>
+                <div style={{ fontSize: '13px', color: '#475569', wordBreak: 'break-all' }}>
+                  {reissuingAuthority.email_snapshot}
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                  Role: {ROLE_DISPLAY_NAMES[reissuingAuthority.role] || reissuingAuthority.role}
+                </div>
+              </div>
+            </div>
+
+            <p style={{ margin: 0, color: '#334155', fontSize: '13px', lineHeight: 1.5 }}>
+              Are you sure you want to reissue a temporary password for <strong>{reissuingAuthority.name_snapshot}</strong>?
+            </p>
+
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '6px',
+                color: '#92400e',
+                fontSize: '12px',
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Security Invariants:</strong>
+              <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+                <li>Any existing temporary password or in-flight pre-auth session will be invalidated immediately.</li>
+                <li>A new cryptographically secure temporary password will be generated and hashed.</li>
+                <li>The new credentials will be dispatched to <strong>{reissuingAuthority.email_snapshot}</strong> via Brevo.</li>
+                <li>The authority will be required to change this temporary password upon next login.</li>
+                <li>Plaintext credentials are never displayed on screen or saved to logs.</li>
+              </ul>
+            </div>
+
+            {reissueError && (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '6px',
+                  color: '#b91c1c',
+                  fontSize: '12px',
+                  lineHeight: 1.4,
+                }}
+              >
+                <strong>Error:</strong> {reissueError}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Reissue Temporary Password Result Modal */}
+      {reissueResult && (
+        <Modal
+          isOpen={true}
+          onClose={() => setReissueResult(null)}
+          title="Temporary Password Reissued"
+          footer={
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              {reissueResult.delivery_status === 'FAILED' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    const auth = reissueResult.authority;
+                    setReissueResult(null);
+                    setReissuingAuthority(auth);
+                    setReissueError(null);
+                  }}
+                >
+                  Retry Reissue
+                </Button>
+              )}
+              <Button
+                variant={reissueResult.delivery_status === 'SENT' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setReissueResult(null)}
+              >
+                {reissueResult.delivery_status === 'SENT' ? 'Done & Close' : 'Close'}
+              </Button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor: reissueResult.delivery_status === 'SENT' ? '#f0fdf4' : '#fff7ed',
+                border: `1px solid ${reissueResult.delivery_status === 'SENT' ? '#bbf7d0' : '#fed7aa'}`,
+                borderRadius: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 600, color: '#0f2b48', fontSize: '13px' }}>
+                  Email Delivery Status:
+                </span>
+                {reissueResult.delivery_status === 'SENT' ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      backgroundColor: '#dcfce7',
+                      color: '#15803d',
+                      border: '1px solid #86efac',
+                    }}
+                  >
+                    ✓ Sent
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      backgroundColor: '#fee2e2',
+                      color: '#b91c1c',
+                      border: '1px solid #fca5a5',
+                    }}
+                  >
+                    ⚠ Failed
+                  </span>
+                )}
+              </div>
+
+              <div style={{ fontSize: '12px', color: '#334155', lineHeight: 1.5 }}>
+                {reissueResult.delivery_status === 'SENT' ? (
+                  <p style={{ margin: 0 }}>
+                    A new temporary password was generated and successfully delivered to{' '}
+                    <strong>{reissueResult.authority.email_snapshot}</strong> via Brevo.
+                  </p>
+                ) : (
+                  <p style={{ margin: 0 }}>
+                    A new temporary password was successfully armed in the database, but email delivery to{' '}
+                    <strong>{reissueResult.authority.email_snapshot}</strong> via Brevo failed ({reissueResult.delivery_error || 'Network error'}). You can retry reissuance.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 12px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: '#475569',
+                lineHeight: 1.5,
+              }}
+            >
+              <div><strong>Authority:</strong> {reissueResult.authority.name_snapshot}</div>
+              <div><strong>Email:</strong> {reissueResult.authority.email_snapshot}</div>
+              <div><strong>Status:</strong> Password Pending (first-login password setup required)</div>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+              Security Note: Plaintext credentials are never logged or exposed in this management interface. The previous credentials will no longer authenticate.
+            </p>
           </div>
         </Modal>
       )}

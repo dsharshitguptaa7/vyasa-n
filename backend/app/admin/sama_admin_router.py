@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -1475,12 +1476,18 @@ def list_admin_signatories(
     limit: int = Query(50, ge=1, le=100),
     is_active: Optional[bool] = None,
     authority_type: Optional[str] = None,
+    include_deleted: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:read")),
 ):
     try:
         total, sigs = sama_cms_service.list_signatories(
-            db, skip=skip, limit=limit, is_active=is_active, authority_type=authority_type
+            db,
+            skip=skip,
+            limit=limit,
+            is_active=is_active,
+            authority_type=authority_type,
+            include_deleted=include_deleted,
         )
     except Exception as exc:
         _handle_db_schema_exception(exc, "Certificate signatories")
@@ -1541,7 +1548,7 @@ def update_admin_signatory(
 
 
 @sama_admin_router.post("/signatories/{signatory_id}/upload-signature", response_model=ApiResponse)
-def upload_signatory_signature(
+async def upload_signatory_signature(
     signatory_id: uuid.UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -1551,15 +1558,40 @@ def upload_signatory_signature(
     if not sig:
         raise HTTPException(status_code=404, detail="Certificate signatory not found.")
 
+    # 1. Read file and validate size ceiling (max 2MB)
+    MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Signature asset size exceeds 2MB limit (received {len(contents) / (1024 * 1024):.2f}MB).",
+        )
+    if len(contents) < 16:
+        raise HTTPException(status_code=400, detail="Signature file is empty or corrupted.")
+
+    # 2. Strict magic bytes inspection (Only genuine PNG or JPEG)
+    is_png = contents.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = contents.startswith(b"\xff\xd8\xff")
+    if not (is_png or is_jpeg):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Genuine PNG (preferred, transparent) or JPEG signature assets required.",
+        )
+
+    ext = ".png" if is_png else ".jpg"
+    mime_type = "image/png" if is_png else "image/jpeg"
+    safe_filename = f"signature_{sig.id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
+
     try:
         result = storage_service.save_file(
-            content=file.file,
-            filename=file.filename or "signature.png",
+            content=contents,
+            filename=safe_filename,
             subfolder="sama_veda/signatures",
             allowed_mime_types=["image/png", "image/jpeg"],
+            mime_type=mime_type,
         )
         sig.signature_image_path = result.storage_key
-        sig.signature_asset_version += 1
+        sig.signature_asset_version = (sig.signature_asset_version or 1) + 1
         db.commit()
         db.refresh(sig)
         return ApiResponse(
@@ -1569,6 +1601,86 @@ def upload_signatory_signature(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to upload signature asset: {e}")
+
+
+@sama_admin_router.get("/signatories/{signatory_id}/signature")
+def get_admin_signatory_signature(
+    signatory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    """
+    Stream signing authority digital signature image for secure preview.
+    Uses storage_service abstraction without revealing private disk paths.
+    """
+    sig = sama_cms_service.get_signatory_by_id(db, signatory_id)
+    if not sig:
+        raise HTTPException(status_code=404, detail="Certificate signatory not found.")
+    if not sig.signature_image_path:
+        raise HTTPException(status_code=404, detail="No signature image asset uploaded for this authority.")
+
+    try:
+        file_path = storage_service.get_file_path(sig.signature_image_path)
+    except StorageFileNotFoundError:
+        raise HTTPException(status_code=404, detail="Signature image file not found in storage.")
+    except StorageError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    media_type = "image/png"
+    if str(file_path).lower().endswith((".jpg", ".jpeg")):
+        media_type = "image/jpeg"
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=f"signature_{sig.id}{os.path.splitext(str(file_path))[1] or '.png'}",
+    )
+
+
+@sama_admin_router.patch("/signatories/{signatory_id}/toggle-active", response_model=ApiResponse)
+def toggle_admin_signatory_active(
+    signatory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    """
+    Toggles the active state of a signing authority.
+    """
+    try:
+        sig = sama_cms_service.toggle_signatory_active(db, signatory_id)
+        return ApiResponse(
+            success=True,
+            message=f"Signatory status updated to {'Active' if sig.is_active else 'Inactive'}.",
+            data=CertificateSignatoryOut.model_validate(sig).model_dump(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to toggle signatory status: {e}")
+
+
+@sama_admin_router.delete("/signatories/{signatory_id}", response_model=ApiResponse)
+def delete_admin_signatory(
+    signatory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    """
+    Safely delete or soft-delete a signing authority.
+    Checks dependencies: If referenced in certificate approvals, softly deactivates
+    and records deleted_at to preserve historical audit trail. If unreferenced, permanently deletes.
+    """
+    try:
+        result = sama_cms_service.delete_signatory(db, signatory_id)
+        return ApiResponse(
+            success=True,
+            message=result["message"],
+            data=result,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to delete signatory: {e}")
 
 
 @sama_admin_router.get("/certificates/{certificate_id}/download")

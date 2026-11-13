@@ -881,6 +881,8 @@ class SamaCmsService:
             signatory_id=dean_sig.id if dean_sig else None,
             signatory_name_snapshot=dean_sig.signatory_name if dean_sig else "Prof. (Dr.) Rajesh Kumar",
             designation_snapshot=dean_sig.designation if dean_sig else "Dean – Research & Development",
+            signature_image_path_snapshot=dean_sig.signature_image_path if dean_sig else None,
+            signature_asset_version_snapshot=dean_sig.signature_asset_version if dean_sig else 1,
             status="APPROVED" if initial_status == "ISSUED" else "PENDING",
             decided_at=datetime.now(timezone.utc) if initial_status == "ISSUED" else None,
         )
@@ -890,6 +892,8 @@ class SamaCmsService:
             signatory_id=vc_sig.id if vc_sig else None,
             signatory_name_snapshot=vc_sig.signatory_name if vc_sig else "Prof. Vinay Kumar Pathak",
             designation_snapshot=vc_sig.designation if vc_sig else "Vice Chancellor",
+            signature_image_path_snapshot=vc_sig.signature_image_path if vc_sig else None,
+            signature_asset_version_snapshot=vc_sig.signature_asset_version if vc_sig else 1,
             status="APPROVED" if initial_status == "ISSUED" else "PENDING",
             decided_at=datetime.now(timezone.utc) if initial_status == "ISSUED" else None,
         )
@@ -913,8 +917,10 @@ class SamaCmsService:
                     issue_date=cert.issued_at,
                     dean_name=appr_dean.signatory_name_snapshot,
                     dean_designation=appr_dean.designation_snapshot,
+                    dean_signature_path=appr_dean.signature_image_path_snapshot,
                     vc_name=appr_vc.signatory_name_snapshot,
                     vc_designation=appr_vc.designation_snapshot,
+                    vc_signature_path=appr_vc.signature_image_path_snapshot,
                 )
                 save_res = storage_service.save_file(
                     content=pdf_bytes,
@@ -962,8 +968,15 @@ class SamaCmsService:
                 signatory_id=sig.id if sig else None,
                 signatory_name_snapshot=sig.signatory_name if sig else authority_type,
                 designation_snapshot=sig.designation if sig else authority_type,
+                signature_image_path_snapshot=sig.signature_image_path if sig else None,
+                signature_asset_version_snapshot=sig.signature_asset_version if sig else 1,
             )
             db.add(appr)
+        elif not appr.signature_image_path_snapshot and appr.signatory_id:
+            sig = db.get(CertificateSignatory, appr.signatory_id)
+            if sig:
+                appr.signature_image_path_snapshot = sig.signature_image_path
+                appr.signature_asset_version_snapshot = sig.signature_asset_version
 
         if action.upper() == "REJECT":
             appr.status = "REJECTED"
@@ -1035,6 +1048,22 @@ class SamaCmsService:
         dean_appr = next((ap for ap in certificate.approvals if ap.authority_type == "DEAN_RD"), None)
         vc_appr = next((ap for ap in certificate.approvals if ap.authority_type == "VICE_CHANCELLOR"), None)
 
+        dean_sig_path = None
+        if dean_appr and dean_appr.signature_image_path_snapshot:
+            dean_sig_path = dean_appr.signature_image_path_snapshot
+        elif dean_appr and dean_appr.signatory_id:
+            dean_sig = db.get(CertificateSignatory, dean_appr.signatory_id)
+            if dean_sig and dean_sig.signature_image_path:
+                dean_sig_path = dean_sig.signature_image_path
+
+        vc_sig_path = None
+        if vc_appr and vc_appr.signature_image_path_snapshot:
+            vc_sig_path = vc_appr.signature_image_path_snapshot
+        elif vc_appr and vc_appr.signatory_id:
+            vc_sig = db.get(CertificateSignatory, vc_appr.signatory_id)
+            if vc_sig and vc_sig.signature_image_path:
+                vc_sig_path = vc_sig.signature_image_path
+
         verify_url = f"{base_verification_url.rstrip('/')}/verify/{certificate.verification_token}"
         pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
             certificate_number=certificate.certificate_number,
@@ -1050,8 +1079,10 @@ class SamaCmsService:
             issue_date=certificate.issued_at or datetime.now(timezone.utc),
             dean_name=dean_appr.signatory_name_snapshot if dean_appr else "Prof. (Dr.) Rajesh Kumar",
             dean_designation=dean_appr.designation_snapshot if dean_appr else "Dean – Research & Development",
+            dean_signature_path=dean_sig_path,
             vc_name=vc_appr.signatory_name_snapshot if vc_appr else "Prof. Vinay Kumar Pathak",
             vc_designation=vc_appr.designation_snapshot if vc_appr else "Vice Chancellor",
+            vc_signature_path=vc_sig_path,
         )
 
         try:
@@ -1213,15 +1244,26 @@ class SamaCmsService:
         limit: int = 50,
         is_active: Optional[bool] = None,
         authority_type: Optional[str] = None,
+        include_deleted: bool = False,
     ) -> Tuple[int, List[CertificateSignatory]]:
         SamaCmsService.seed_default_certificate_infrastructure(db)
         query = select(CertificateSignatory)
+        if not include_deleted:
+            query = query.where(CertificateSignatory.deleted_at.is_(None))
         if is_active is not None:
             query = query.where(CertificateSignatory.is_active == is_active)
         if authority_type:
             query = query.where(CertificateSignatory.authority_type == authority_type.strip().upper())
 
-        total = db.scalar(select(func.count(CertificateSignatory.id))) or 0
+        count_query = select(func.count(CertificateSignatory.id))
+        if not include_deleted:
+            count_query = count_query.where(CertificateSignatory.deleted_at.is_(None))
+        if is_active is not None:
+            count_query = count_query.where(CertificateSignatory.is_active == is_active)
+        if authority_type:
+            count_query = count_query.where(CertificateSignatory.authority_type == authority_type.strip().upper())
+
+        total = db.scalar(count_query) or 0
         items = db.scalars(query.order_by(CertificateSignatory.created_at.asc()).offset(skip).limit(limit)).all()
         return total, list(items)
 
@@ -1236,6 +1278,7 @@ class SamaCmsService:
             .where(
                 CertificateSignatory.authority_type == authority_type.strip().upper(),
                 CertificateSignatory.is_active == True,
+                CertificateSignatory.deleted_at.is_(None),
             )
             .order_by(CertificateSignatory.effective_date.desc().nullslast())
             .limit(1)
@@ -1265,6 +1308,61 @@ class SamaCmsService:
         for field, val in data.model_dump(exclude_unset=True).items():
             setattr(sig, field, val)
         sig.signature_asset_version += 1
+        db.commit()
+        db.refresh(sig)
+        return sig
+
+    @staticmethod
+    def delete_signatory(db: Session, signatory_id: uuid.UUID) -> Dict[str, Any]:
+        """
+        Safely deletes or soft-deletes a signing authority.
+        Checks for dependencies in CertificateApproval.
+        If referenced by any certificate approvals, performs soft deletion (sets is_active=False, deleted_at=now())
+        to strictly preserve all historical references.
+        If unreferenced, performs hard deletion.
+        """
+        sig = db.get(CertificateSignatory, signatory_id)
+        if not sig:
+            raise ValueError("Signing authority not found.")
+
+        approval_count = db.scalar(
+            select(func.count(CertificateApproval.id)).where(
+                CertificateApproval.signatory_id == signatory_id
+            )
+        ) or 0
+
+        if approval_count > 0:
+            sig.is_active = False
+            sig.deleted_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(sig)
+            return {
+                "action": "soft_deleted",
+                "message": f"Signing authority referenced in {approval_count} certificate approval record(s). Deactivated and soft-deleted safely to preserve historical records.",
+                "signatory_id": str(sig.id),
+                "is_active": sig.is_active,
+                "deleted_at": sig.deleted_at.isoformat() if sig.deleted_at else None,
+                "referenced_approvals": approval_count,
+            }
+        else:
+            db.delete(sig)
+            db.commit()
+            return {
+                "action": "deleted",
+                "message": "Signing authority permanently removed (no historical dependencies).",
+                "signatory_id": str(signatory_id),
+                "referenced_approvals": 0,
+            }
+
+    @staticmethod
+    def toggle_signatory_active(db: Session, signatory_id: uuid.UUID) -> CertificateSignatory:
+        """Toggles the active state of a signing authority."""
+        sig = db.get(CertificateSignatory, signatory_id)
+        if not sig:
+            raise ValueError("Signing authority not found.")
+        sig.is_active = not sig.is_active
+        if sig.is_active:
+            sig.deleted_at = None
         db.commit()
         db.refresh(sig)
         return sig
