@@ -167,6 +167,12 @@ def test_successful_password_reissuance(client, super_admin_user):
     assert data["data"]["email"] == "dean.science@csjmu.ac.in"
     assert data["data"]["name"] == "Prof. First Authority"
 
+    # Core Requirement: plaintext temporary password is returned to initiating SADMIN
+    temp_pwd = data["data"]["temporary_password"]
+    assert temp_pwd is not None
+    assert len(temp_pwd) >= 16
+    assert verify_password(temp_pwd, target_user.password_hash) is True
+
     # Verify target user was updated
     assert target_user.must_change_password is True
     # Verify new password is NOT equal to old password
@@ -351,6 +357,10 @@ def test_brevo_delivery_failure_reported_accurately(client, super_admin_user):
     assert "xkeysib" not in str(data)  # Sanitized!
     assert "Brevo" in data["data"]["delivery_error"]
 
+    # Critical requirement: password is STILL returned and visible to SADMIN even if email failed
+    assert data["data"]["temporary_password"] is not None
+    assert len(data["data"]["temporary_password"]) >= 16
+
     # Even though delivery failed, password was updated in DB and must_change_password=True
     assert target_user.must_change_password is True
 
@@ -472,10 +482,10 @@ def test_audit_log_creation_on_reissuance(super_admin_user):
 
 
 # =============================================================================
-# 10. ZERO PLAINTEXT PASSWORD OR HASH LEAKAGE
+# 10. SECURITY CREDENTIAL ISOLATION & NO PERMANENT PLAINTEXT PERSISTENCE
 # =============================================================================
 
-def test_no_plaintext_password_leakage(client, super_admin_user):
+def test_security_credential_isolation_and_no_persistence(client, super_admin_user):
     target_user = _make_user(roles=["authority"], email="security.audit@csjmu.ac.in")
     authority = _make_authority(target_user)
     authority.user = target_user
@@ -499,16 +509,24 @@ def test_no_plaintext_password_leakage(client, super_admin_user):
         res = client.post(f"/api/admin/atharva/authorities/{authority.id}/reissue-password")
 
     assert res.status_code == 200
-    res_text = res.text
+    data = res.json()["data"]
 
-    # Response should NOT contain any password or hash keys
-    assert "temporary_password" not in res_text
-    assert "password_hash" not in res_text
-    assert "pbkdf2" not in res_text
+    # 1. Plaintext temporary password is returned in the immediate response for SADMIN display
+    assert "temporary_password" in data
+    assert len(data["temporary_password"]) >= 16
 
-    # Audit log details should NOT contain any password or hash
+    # 2. Credential hash is NEVER returned in response
+    assert "password_hash" not in data
+    assert "pbkdf2" not in res.text
+
+    # 3. Database user record never persists plaintext password (only pbkdf2 hash)
+    assert target_user.password_hash.startswith("pbkdf2_sha256$")
+
+    # 4. Audit log details strictly never contain plaintext password or pbkdf2 hash
     audit_logs = [obj for obj in added_objects if isinstance(obj, AuditLog)]
     assert len(audit_logs) >= 1
     details_str = str(audit_logs[0].details)
+    assert data["temporary_password"] not in details_str
     assert "pbkdf2" not in details_str
     assert "password" not in details_str.lower() or "status" in details_str.lower()
+

@@ -40,6 +40,12 @@ const mockAuthorities: Authority[] = [
 describe('SADMIN Authority Management: Reissue Temporary Password UI Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock navigator.clipboard
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockImplementation(() => Promise.resolve()),
+      },
+    });
   });
 
   it('1. Renders Reissue Temporary Password action button for each authority in table', async () => {
@@ -122,14 +128,16 @@ describe('SADMIN Authority Management: Reissue Temporary Password UI Suite', () 
     expect(reissueSpy).not.toHaveBeenCalled();
   });
 
-  it('4. Confirming reissuance successfully calls API and displays Sent delivery status', async () => {
+  it('4. Confirming reissuance displays plaintext password, copy button, and Email Sent status', async () => {
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
+    const mockPassword = 'GeneratedSecretPass#2026';
     const reissueSpy = vi.spyOn(atharvaAdminService, 'reissuePassword').mockResolvedValue({
       authority_id: 'auth-101',
       name: 'Prof. Ananya Sen',
       email: 'ananya.sen@csjmu.ac.in',
       delivery_status: 'SENT',
       delivery_error: null,
+      temporary_password: mockPassword,
     });
 
     render(
@@ -155,28 +163,39 @@ describe('SADMIN Authority Management: Reissue Temporary Password UI Suite', () 
       expect(reissueSpy).toHaveBeenCalledWith('auth-101');
       // Result modal opens
       expect(screen.getByText('Temporary Password Reissued')).toBeInTheDocument();
-      // Delivery status Sent badge is displayed
-      expect(screen.getByText('✓ Sent')).toBeInTheDocument();
-      expect(screen.getByText(/successfully delivered to/i)).toBeInTheDocument();
+      // Plaintext password is displayed in readable plaintext
+      expect(screen.getByText(mockPassword)).toBeInTheDocument();
+      // Delivery status Email Sent badge is displayed separately
+      expect(screen.getByText('✓ Email Sent')).toBeInTheDocument();
+      expect(screen.getByText(/successfully dispatched to/i)).toBeInTheDocument();
     });
 
-    // Close result modal
+    // Test Copy Password functionality
+    const copyBtn = screen.getByRole('button', { name: /Copy Password/i });
+    fireEvent.click(copyBtn);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(mockPassword);
+    expect(screen.getByText('Copied!')).toBeInTheDocument();
+
+    // Close result modal and verify password is wiped from state
     const closeBtn = screen.getByRole('button', { name: /Done & Close/i });
     fireEvent.click(closeBtn);
 
     await waitFor(() => {
       expect(screen.queryByText('Temporary Password Reissued')).not.toBeInTheDocument();
+      expect(screen.queryByText(mockPassword)).not.toBeInTheDocument();
     });
   });
 
-  it('5. Handles Brevo email delivery failure and displays Failed status with retry button', async () => {
+  it('5. Handles Brevo delivery failure by still displaying plaintext password and Email Failed status for manual communication', async () => {
     vi.spyOn(atharvaAdminService, 'getAuthorities').mockResolvedValue(mockAuthorities);
+    const manualPassword = 'ManualEmergencyPass#9999';
     vi.spyOn(atharvaAdminService, 'reissuePassword').mockResolvedValue({
       authority_id: 'auth-101',
       name: 'Prof. Ananya Sen',
       email: 'ananya.sen@csjmu.ac.in',
       delivery_status: 'FAILED',
       delivery_error: 'Brevo authentication rejected (401)',
+      temporary_password: manualPassword,
     });
 
     render(
@@ -200,17 +219,25 @@ describe('SADMIN Authority Management: Reissue Temporary Password UI Suite', () 
 
     await waitFor(() => {
       // Result modal displays Failed status
-      expect(screen.getByText('⚠ Failed')).toBeInTheDocument();
+      expect(screen.getByText('⚠ Email Failed')).toBeInTheDocument();
       expect(screen.getByText(/Brevo authentication rejected/i)).toBeInTheDocument();
-      // Prominent Retry Reissue button is available
-      expect(screen.getByRole('button', { name: /Retry Reissue/i })).toBeInTheDocument();
+      // CRITICAL: Plaintext password is STILL clearly visible for manual communication
+      expect(screen.getByText(manualPassword)).toBeInTheDocument();
+      expect(screen.getByText(/manually communicate the temporary password/i)).toBeInTheDocument();
     });
 
-    // Clicking Retry Reissue re-opens the confirmation modal
-    fireEvent.click(screen.getByRole('button', { name: /Retry Reissue/i }));
+    // SADMIN can copy the password even when email delivery failed
+    const copyBtn = screen.getByRole('button', { name: /Copy Password/i });
+    fireEvent.click(copyBtn);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(manualPassword);
+    expect(screen.getByText('Copied!')).toBeInTheDocument();
+
+    // Closing modal removes password from state
+    const closeBtn = screen.getByRole('button', { name: /Done & Close/i });
+    fireEvent.click(closeBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Reissue & Send Email/i })).toBeInTheDocument();
+      expect(screen.queryByText(manualPassword)).not.toBeInTheDocument();
     });
   });
 

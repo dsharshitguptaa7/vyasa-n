@@ -1,17 +1,24 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import logger
-from app.api.dependencies import get_db
+from app.models.user import User
+from app.api.dependencies import get_db, get_optional_current_user
 from app.core.registry import get_module_by_key
 from app.schemas.response import ApiResponse
 from app.core.storage import storage_service, StorageFileNotFoundError, StorageError
+from app.modules.sama_veda.services.certificate_download_service import validate_and_stream_certificate_pdf
+from app.modules.sama_veda.services.researcher_discovery_service import (
+    ResearcherDiscoveryService,
+    mask_email,
+    check_rate_limit,
+)
 from app.modules.sama_veda.models.bulletin import ResearchBulletin
 from app.modules.sama_veda.models.publication import ResearchPublication, PublicationAuthor
 from app.modules.sama_veda.models.author import ResearchAuthor
@@ -29,6 +36,8 @@ from app.modules.sama_veda.schemas.cms import (
     CamProjectListResponse,
     SpotlightOut,
     SpotlightListResponse,
+    ResearcherOtpSendRequest,
+    ResearcherOtpVerifyRequest,
 )
 
 router = APIRouter(prefix="/modules/sama-veda", tags=["Sama Veda: Research Recognition & Communication"])
@@ -499,8 +508,301 @@ def list_public_authors(
 
 
 # ============================================================================
+# 5.5 RESEARCHER CERTIFICATE DISCOVERY & IDENTITY VERIFICATION
+# ============================================================================
+
+@router.get("/certificates/researcher-discovery", response_model=ApiResponse)
+def discover_researcher_certificates(
+    scopus_id: str = Query(..., description="Researcher Scopus Author ID"),
+    request: Request = None,
+    researcher_token: Optional[str] = Header(None, alias="X-Researcher-Token"),
+    authorization: Optional[str] = Header(None),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Discovers all university certificates (Research Work & Incentive) for a verified researcher
+    using their Scopus ID.
+    
+    Security & Access Requirements:
+    1. Scopus ID is validated against the SAMIKSHA Researcher Directory.
+    2. Enforces access control: caller must be authenticated as the researcher, Super Admin,
+       or provide a valid OTP verification token.
+    3. Blocks unauthorized disclosure of private certificate lists.
+    """
+    clean_scopus = scopus_id.strip() if scopus_id else ""
+    if not clean_scopus:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid Scopus Author ID is required.",
+        )
+
+    client_ip = request.client.host if (request and request.client) else "unknown"
+    if not check_rate_limit(f"disc_{client_ip}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many lookup requests. Please wait a few moments before trying again.",
+        )
+
+    author = ResearcherDiscoveryService.find_researcher_by_scopus_id(clean_scopus, db)
+    if not author:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No researcher found with Scopus ID '{clean_scopus}' in the SAMIKSHA directory. Please verify your Scopus ID or contact the R&D Cell.",
+        )
+
+    # Resolve token from either X-Researcher-Token or Authorization Bearer header
+    effective_token = researcher_token
+    if not effective_token and authorization and authorization.lower().startswith("bearer "):
+        effective_token = authorization[7:].strip()
+
+    is_authorized, reason = ResearcherDiscoveryService.evaluate_authorization(
+        author=author,
+        current_user=current_user,
+        researcher_token=effective_token,
+    )
+
+    if not is_authorized:
+        has_user = bool(author.user_id or (author.user and author.user.email))
+        email_str = author.user.email if (author.user and author.user.email) else None
+        masked = mask_email(email_str)
+
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=ApiResponse(
+                success=False,
+                message=(
+                    f"Researcher identified: {author.full_name}. In accordance with university credential security guidelines, "
+                    "please sign in with your university account or verify via registered email OTP to view and download certificates."
+                ),
+                data={
+                    "status": "AUTH_REQUIRED",
+                    "requires_authentication": True,
+                    "researcher": {
+                        "id": str(author.id),
+                        "full_name": author.full_name,
+                        "department": author.department,
+                        "institutional_affiliation": author.institutional_affiliation,
+                        "scopus_id": author.scopus_id,
+                        "has_registered_user": has_user,
+                        "masked_email": masked,
+                    },
+                },
+            ).model_dump(),
+        )
+
+    # Caller is authorized: retrieve all certificates across both categories
+    cert_data = ResearcherDiscoveryService.get_researcher_certificates(author, db)
+
+    return ApiResponse(
+        success=True,
+        message=f"Retrieved {len(cert_data['research_certificates'])} research certificate(s) and {len(cert_data['incentive_certificates'])} incentive certificate(s) for Dr. {author.full_name}.",
+        data=cert_data,
+    )
+
+
+@router.post("/certificates/researcher-discovery/send-otp", response_model=ApiResponse)
+def send_researcher_discovery_otp(
+    payload: ResearcherOtpSendRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Sends a 6-digit verification code to the registered email address of the researcher
+    matching the provided Scopus ID.
+    """
+    clean_scopus = payload.scopus_id.strip() if payload.scopus_id else ""
+    client_ip = request.client.host if (request and request.client) else "unknown"
+
+    if not check_rate_limit(f"otp_send_{client_ip}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many verification attempts. Please wait 5 minutes before trying again.",
+        )
+
+    result = ResearcherDiscoveryService.send_otp(clean_scopus, db)
+    if not result.get("success"):
+        msg = result.get("message", "Failed to dispatch verification code.")
+        status_code = status.HTTP_404_NOT_FOUND if "No researcher found" in msg else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=msg)
+
+    return ApiResponse(
+        success=True,
+        message=result.get("message"),
+        data={"masked_email": result.get("masked_email")},
+    )
+
+
+@router.post("/certificates/researcher-discovery/verify-otp", response_model=ApiResponse)
+def verify_researcher_discovery_otp(
+    payload: ResearcherOtpVerifyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Validates the 6-digit OTP and returns a signed, scoped researcher authorization token
+    for downloading and viewing certificates.
+    """
+    clean_scopus = payload.scopus_id.strip() if payload.scopus_id else ""
+    clean_otp = payload.otp.strip() if payload.otp else ""
+
+    result = ResearcherDiscoveryService.verify_otp(clean_scopus, clean_otp, db)
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("message", "Invalid verification code."),
+        )
+
+    return ApiResponse(
+        success=True,
+        message=result.get("message"),
+        data={"researcher_token": result.get("researcher_token")},
+    )
+
+
+# ============================================================================
 # 6. PUBLIC CERTIFICATE VERIFICATION & DOWNLOAD
 # ============================================================================
+
+@router.get("/certificates/verify/{token}/download")
+def download_certificate_by_token(
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Public secure download of an officially issued certificate PDF using its verification token.
+    Enforces cryptographic SHA-256 seal integrity and blocks revoked or superseded certificates.
+    """
+    clean_token = token.strip()
+    stmt = (
+        select(FelicitationCertificate)
+        .options(
+            joinedload(FelicitationCertificate.authors),
+            joinedload(FelicitationCertificate.author),
+        )
+        .where(FelicitationCertificate.verification_token == clean_token)
+    )
+    try:
+        cert = db.scalar(stmt)
+    except SQLAlchemyError as exc:
+        logger.warning("Database query failed in download_certificate_by_token: %s", exc)
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    return validate_and_stream_certificate_pdf(
+        cert=cert,
+        request=request,
+        db=db,
+        current_user=None,
+        verification_source="PUBLIC_TOKEN",
+        token_context=clean_token,
+    )
+
+
+@router.get("/certificates/{certificate_id}/download")
+def download_authenticated_certificate(
+    certificate_id: uuid.UUID,
+    request: Request,
+    researcher_token: Optional[str] = Header(None, alias="X-Researcher-Token"),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user),
+):
+    """
+    Authenticated certificate download for researchers, faculty authors, and authorized administrators.
+    Respects ownership and RBAC permissions. Supports both session tokens and verified OTP researcher tokens.
+    """
+    effective_token = researcher_token
+    if not effective_token and authorization and authorization.lower().startswith("bearer "):
+        effective_token = authorization[7:].strip()
+
+    token_author_id = None
+    token_scopus_id = None
+    if effective_token:
+        try:
+            payload = decode_access_token(effective_token)
+            token_author_id = payload.get("author_id")
+            token_scopus_id = payload.get("scopus_id")
+        except Exception:
+            pass
+
+    if not current_user and not token_author_id and not token_scopus_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to download certificate document.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    stmt = (
+        select(FelicitationCertificate)
+        .options(
+            joinedload(FelicitationCertificate.authors),
+            joinedload(FelicitationCertificate.author),
+        )
+        .where(FelicitationCertificate.id == certificate_id)
+    )
+    try:
+        cert = db.scalar(stmt)
+    except SQLAlchemyError as exc:
+        logger.warning("Database query failed in download_authenticated_certificate: %s", exc)
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found.")
+
+    is_admin = False
+    is_owner = False
+
+    if current_user:
+        user_roles = [r.name.lower() for r in current_user.roles]
+        is_admin = "super_admin" in user_roles or "admin" in user_roles
+
+        # Check if user is the primary author
+        if cert.author and cert.author.user_id == current_user.id:
+            is_owner = True
+
+        # Check if user is among multi-authors
+        if not is_owner and cert.authors:
+            for ca in cert.authors:
+                if ca.researcher and ca.researcher.user_id == current_user.id:
+                    is_owner = True
+                    break
+
+    # If verified via OTP researcher token:
+    if not is_admin and not is_owner and (token_author_id or token_scopus_id):
+        if cert.author_id and str(cert.author_id) == str(token_author_id):
+            is_owner = True
+        elif cert.author and cert.author.scopus_id and token_scopus_id and cert.author.scopus_id.lower() == token_scopus_id.lower():
+            is_owner = True
+        elif cert.authors:
+            for ca in cert.authors:
+                if ca.researcher_id and str(ca.researcher_id) == str(token_author_id):
+                    is_owner = True
+                    break
+                if ca.scopus_id_snapshot and token_scopus_id and ca.scopus_id_snapshot.lower() == token_scopus_id.lower():
+                    is_owner = True
+                    break
+
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to download this certificate.",
+        )
+
+    return validate_and_stream_certificate_pdf(
+        cert=cert,
+        request=request,
+        db=db,
+        current_user=current_user,
+        verification_source="AUTHENTICATED_USER",
+    )
+
 
 @router.get("/certificates/verify/{certificate_number:path}", response_model=ApiResponse)
 def verify_certificate(
@@ -584,13 +886,27 @@ def verify_certificate(
     ]
 
     effective_research_title = cert.research_title or (cert.publication.title if cert.publication else None)
-    is_valid = (not cert.is_revoked) and (cert.status not in ["REVOKED", "REJECTED"])
+    is_valid = (not cert.is_revoked) and (cert.status == "ISSUED")
 
     msg = "Certificate verified successfully."
+    replacement_cert = None
     if cert.is_revoked or cert.status == "REVOKED":
         msg = "Certificate has been REVOKED."
     elif cert.status == "SUPERSEDED":
         msg = "Certificate has been SUPERSEDED by a reissued document."
+        # Discover the replacement certificate reissued from this document
+        replacement_stmt = (
+            select(FelicitationCertificate)
+            .where(
+                FelicitationCertificate.reissued_from_id == cert.id,
+                FelicitationCertificate.status != "REVOKED",
+            )
+            .order_by(FelicitationCertificate.issued_at.desc())
+        )
+        try:
+            replacement_cert = db.scalar(replacement_stmt)
+        except Exception as exc:
+            logger.warning("Failed to lookup replacement certificate for %s: %s", cert.id, exc)
 
     return ApiResponse(
         success=True,
@@ -616,6 +932,14 @@ def verify_certificate(
             "reissued_reason": cert.reissued_reason,
             "sha256_checksum": cert.checksum_sha256 or "",
             "is_download_allowed": is_valid,
+            "replacement_certificate": {
+                "id": str(replacement_cert.id),
+                "certificate_number": replacement_cert.certificate_number,
+                "verification_token": replacement_cert.verification_token,
+                "status": replacement_cert.status,
+                "issued_at": replacement_cert.issued_at.isoformat() if replacement_cert.issued_at else None,
+                "verification_url": f"/verify/{replacement_cert.verification_token}",
+            } if replacement_cert else None,
             "authors": authors_out,
             "approvals": approvals_out,
             "author": {
@@ -650,14 +974,21 @@ def download_public_certificate(
     db: Session = Depends(get_db),
 ):
     """
-    Public secure download of a verified felicitation certificate PDF.
-    Blocked if the certificate is revoked.
+    Public secure download of a verified felicitation certificate PDF by certificate number or token.
+    Blocked if the certificate is revoked or superseded.
     """
     clean_number = certificate_number.strip()
-    stmt = select(FelicitationCertificate).where(
-        or_(
-            FelicitationCertificate.certificate_number == clean_number,
-            FelicitationCertificate.verification_token == clean_number,
+    stmt = (
+        select(FelicitationCertificate)
+        .options(
+            joinedload(FelicitationCertificate.authors),
+            joinedload(FelicitationCertificate.author),
+        )
+        .where(
+            or_(
+                FelicitationCertificate.certificate_number == clean_number,
+                FelicitationCertificate.verification_token == clean_number,
+            )
         )
     )
     try:
@@ -670,36 +1001,11 @@ def download_public_certificate(
     if not cert:
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
-    if cert.is_revoked:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Certificate {clean_number} is REVOKED and cannot be downloaded. Reason: {cert.revocation_reason}",
-        )
-
-    try:
-        file_path = storage_service.get_file_path(cert.file_storage_path)
-    except StorageFileNotFoundError:
-        raise HTTPException(status_code=404, detail="Certificate document not found in storage.")
-    except StorageError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    cert.download_count += 1
-
-    # Record telemetry
-    client_ip = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent", "")
-    event = CertificateVerificationEvent(
-        certificate_id=cert.id,
-        verification_source="DOWNLOAD",
-        ip_address=client_ip,
-        user_agent=user_agent[:500] if user_agent else None,
-    )
-    db.add(event)
-    db.commit()
-
-    safe_name = cert.certificate_number.replace("/", "_") + ".pdf"
-    return FileResponse(
-        path=str(file_path),
-        media_type="application/pdf",
-        filename=safe_name,
+    return validate_and_stream_certificate_pdf(
+        cert=cert,
+        request=request,
+        db=db,
+        current_user=None,
+        verification_source="PUBLIC_CERT_NUMBER",
+        token_context=clean_number,
     )

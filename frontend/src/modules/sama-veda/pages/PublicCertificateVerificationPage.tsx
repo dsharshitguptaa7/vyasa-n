@@ -13,6 +13,7 @@ export const PublicCertificateVerificationPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [copiedSha, setCopiedSha] = useState(false);
 
   useEffect(() => {
@@ -47,13 +48,16 @@ export const PublicCertificateVerificationPage: React.FC = () => {
     if (!result) return;
     try {
       setDownloading(true);
+      setDownloadError(null);
+      // Use verification_token or certificate_number
+      const tokenOrNumber = result.verification_token || result.certificate_number;
       await samaVedaService.downloadCertificate(
-        result.certificate_number,
+        tokenOrNumber,
         `${result.certificate_number.replace(/[\/\\]/g, '_')}.pdf`
       );
     } catch (err: unknown) {
       const e = err as { message?: string };
-      alert(e.message || 'Failed to download certificate.');
+      setDownloadError(e.message || 'Download temporarily unavailable. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -190,45 +194,218 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {result.is_download_allowed && (
+                  {result.is_download_allowed ? (
                     <Button
                       variant="primary"
                       onClick={handleDownload}
                       disabled={downloading}
-                      style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+                      style={{
+                        backgroundColor: '#B2811A',
+                        borderColor: '#B2811A',
+                        fontWeight: 600,
+                        padding: '10px 20px',
+                        boxShadow: '0 2px 8px rgba(178, 129, 26, 0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
                     >
-                      <span style={{ marginRight: '6px' }}>&darr;</span>
-                      {downloading ? 'Downloading...' : 'Download Official PDF'}
+                      <AppIcon name="file-text" size={16} color="#FFFFFF" />
+                      <span>{downloading ? 'Downloading...' : 'Download Certificate PDF'}</span>
                     </Button>
-                  )}
+                  ) : isSuperseded && result.replacement_certificate ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => navigate(result.replacement_certificate!.verification_url)}
+                      style={{
+                        backgroundColor: '#6D28D9',
+                        borderColor: '#6D28D9',
+                        fontWeight: 600,
+                        padding: '10px 18px',
+                        boxShadow: '0 2px 8px rgba(109, 40, 217, 0.25)',
+                      }}
+                    >
+                      <span>Verify Replacement Certificate &rarr;</span>
+                    </Button>
+                  ) : null}
                 </div>
+
+                {/* Inline Download Error Banner */}
+                {downloadError && (
+                  <div
+                    style={{
+                      background: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '8px',
+                      padding: '12px 16px',
+                      color: '#991B1B',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>⚠️</span>
+                    <span>{downloadError}</span>
+                  </div>
+                )}
 
                 {/* Revocation Warning Box */}
                 {isRevoked && (
-                  <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '8px', padding: '16px', color: '#991B1B' }}>
-                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-                      Permanent Invalidation Audit Notice
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '18px 20px', color: '#991B1B' }}>
+                    <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🚫</span>
+                      <span>Official Certificate Invalidation Notice</span>
                     </div>
-                    <div style={{ fontSize: '13px' }}>
-                      This certificate was officially revoked on{' '}
-                      <strong>{result.revoked_at ? new Date(result.revoked_at).toLocaleDateString() : 'N/A'}</strong>.
+                    <div style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                      This certificate has been officially <strong>REVOKED</strong> by Chhatrapati Shahu Ji Maharaj University, Kanpur.
+                      It is no longer authentic, valid, or recognized for academic or professional credentials.
+                    </div>
+                    <div style={{ fontSize: '13px', marginTop: '6px' }}>
+                      <strong>Revocation Date:</strong> {result.revoked_at ? new Date(result.revoked_at).toLocaleDateString() : 'N/A'}
                     </div>
                     <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                      <strong>Official Justification:</strong> {result.revocation_reason || 'Administrative action'}
+                      <strong>Audited Institutional Reason:</strong> {result.revocation_reason || 'Administrative action'}
                     </div>
+                    <div style={{ fontSize: '12px', color: '#B91C1C', marginTop: '8px', fontWeight: 600 }}>
+                      Certificate PDF downloads are permanently disabled for revoked credentials.
+                    </div>
+                  </div>
+                )}
+
+                {/* Superseded Advisory Box */}
+                {isSuperseded && (
+                  <div
+                    style={{
+                      background: '#FAF5FF',
+                      border: '1.5px solid #DDD6FE',
+                      borderRadius: '10px',
+                      padding: '18px 20px',
+                      color: '#5B21B6',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px' }}>🔄</span>
+                      <span style={{ fontWeight: 700, fontSize: '15px' }}>
+                        Certificate Superseded Notice
+                      </span>
+                      <Badge variant="neutral">Not Currently Valid</Badge>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: '#4C1D95' }}>
+                      This certificate document has been formally superseded by an updated institutional reissuance.
+                      {result.reissued_reason && (
+                        <span> Official Reason: <strong>{result.reissued_reason}</strong>.</span>
+                      )}
+                      {' '}It should no longer be cited or presented as the currently effective certificate.
+                    </p>
+                    {result.replacement_certificate && (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          paddingTop: '12px',
+                          borderTop: '1px solid #E9D5FF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6D28D9', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Official Replacement Document:
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px' }}>
+                            {result.replacement_certificate.certificate_number}
+                          </div>
+                        </div>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => navigate(result.replacement_certificate!.verification_url)}
+                          style={{
+                            backgroundColor: '#6D28D9',
+                            borderColor: '#6D28D9',
+                            fontWeight: 600,
+                          }}
+                        >
+                          View &amp; Verify Replacement Certificate &rarr;
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Certificate Core Details */}
                 <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      Certificate Title
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        Certificate Title
+                      </div>
+                      <Badge variant={result.certificate_type === 'INCENTIVE_AWARD' ? 'gold' : 'teal'}>
+                        {result.certificate_type === 'INCENTIVE_AWARD'
+                          ? 'Incentive Award Certificate'
+                          : 'Research Work Certificate'}
+                      </Badge>
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
-                      {result.title || 'Certificate of Appreciation & Research Excellence'}
+                      {result.title || (result.certificate_type === 'INCENTIVE_AWARD' ? 'Certificate of Research Publication Incentive Award' : 'Certificate of Appreciation & Research Excellence')}
                     </div>
                   </div>
+
+                  {/* Official Bulletin Edition Citation */}
+                  {result.bulletin && (
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 16px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Official Research Bulletin Citation
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span>CSJMU RESEARCH BULLETIN</span>
+                        <span style={{ color: '#CBD5E1' }}>•</span>
+                        <span style={{ color: '#B2811A' }}>VOLUME {result.bulletin.volume_number}</span>
+                        <span style={{ color: '#CBD5E1' }}>•</span>
+                        <span style={{ color: '#B2811A' }}>ISSUE {result.bulletin.issue_number}</span>
+                        <span style={{ color: '#64748B', fontWeight: 600 }}>({result.bulletin.publication_period})</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                        {result.bulletin.title}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Incentive Award Sanction Particulars */}
+                  {result.certificate_type === 'INCENTIVE_AWARD' && (
+                    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '14px 16px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        Incentive Sanction Particulars
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                        {result.publication_details?.incentive_amount && (
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#78350F', fontWeight: 600 }}>Sanctioned Incentive Amount:</div>
+                            <div style={{ fontSize: '16px', fontWeight: 800, color: '#92400E', marginTop: '2px' }}>
+                              ₹ {Number(result.publication_details.incentive_amount).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                        )}
+                        {result.publication_details?.sanction_order_ref && (
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#78350F', fontWeight: 600 }}>Sanction Order Reference:</div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px' }}>
+                              {result.publication_details.sanction_order_ref}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#92400E', marginTop: '8px', fontStyle: 'italic' }}>
+                        Awarded under the Governing Institutional Regulations for the Promotion of High-Impact Research & Academic Publications.
+                      </div>
+                    </div>
+                  )}
 
                   {result.research_title && (
                     <div>
@@ -259,7 +436,10 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                             }}
                           >
                             <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F2B48' }}>
-                              {auth.academic_title ? `${auth.academic_title} ` : ''}{auth.author_name}
+                              {auth.academic_title &&
+                              !auth.author_name.toLowerCase().startsWith(auth.academic_title.toLowerCase())
+                                ? `${auth.academic_title} ${auth.author_name}`
+                                : auth.author_name}
                             </div>
                             <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
                               {auth.department || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
@@ -294,36 +474,57 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                     <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
                       Authorized Institutional Signatures
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
-                          Authority 1: Verified & Sealed
-                        </div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
-                          Prof. (Dr.) Rajesh Kumar
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>
-                          Dean – Research & Development
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
-                          CSJM University, Kanpur
-                        </div>
-                      </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                      {result.approvals && result.approvals.length > 0 ? (
+                        result.approvals.map((ap, idx) => (
+                          <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                              {ap.authority_type === 'VICE_CHANCELLOR' ? 'Vice Chancellor' : 'Dean – R&D'}: Verified & Sealed
+                            </div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+                              {ap.signatory_name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                              {ap.designation}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
+                              CSJM University, Kanpur
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                              Authority 1: Verified & Sealed
+                            </div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+                              Prof. (Dr.) Rajesh Kumar
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                              Dean – Research & Development
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
+                              CSJM University, Kanpur
+                            </div>
+                          </div>
 
-                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
-                          Authority 2: Verified & Sealed
-                        </div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
-                          Prof. Vinay Kumar Pathak
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>
-                          Vice Chancellor
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
-                          CSJM University, Kanpur
-                        </div>
-                      </div>
+                          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                              Authority 2: Verified & Sealed
+                            </div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+                              Prof. Vinay Kumar Pathak
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                              Vice Chancellor
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
+                              CSJM University, Kanpur
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 

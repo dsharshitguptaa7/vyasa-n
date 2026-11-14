@@ -54,6 +54,34 @@ def get_optional_auth_payload(
     return decode_access_token(token)
 
 
+def get_optional_current_user(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """
+    Optional authentication dependency. Resolves active user if valid Bearer token is provided;
+    returns None if no token or invalid token is provided, without raising 401.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.split("Bearer ", 1)[1].strip()
+    payload = decode_access_token(token, verify_issuer=True)
+    if not payload or not payload.get("sub"):
+        return None
+
+    try:
+        user_uuid = uuid.UUID(payload["sub"])
+    except (ValueError, AttributeError):
+        return None
+
+    stmt = select(User).options(joinedload(User.roles)).where(User.id == user_uuid)
+    user = db.execute(stmt).unique().scalar_one_or_none()
+    if user and user.is_active:
+        return user
+    return None
+
+
 def get_current_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),

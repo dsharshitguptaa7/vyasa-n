@@ -86,6 +86,7 @@ export const atharvaAdminService = {
     email: string;
     delivery_status: 'SENT' | 'FAILED';
     delivery_error?: string | null;
+    temporary_password: string;
   }> {
     const res = await apiClient.post<{
       authority_id: string;
@@ -93,6 +94,7 @@ export const atharvaAdminService = {
       email: string;
       delivery_status: 'SENT' | 'FAILED';
       delivery_error?: string | null;
+      temporary_password: string;
     }>(`/admin/atharva/authorities/${authorityId}/reissue-password`);
     return res.data!;
   },

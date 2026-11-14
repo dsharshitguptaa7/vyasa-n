@@ -166,3 +166,74 @@ def test_draft_preview_watermark_rendering():
     assert "DRAFT PREVIEW" in page_text
     assert "NOT AN OFFICIAL ISSUED CERTIFICATE" in page_text
     assert "PREVIEW DRAFT" in page_text
+
+
+def test_metadata_box_equal_columns_and_long_period():
+    """Verify that metadata box handles long publication period without text overflow or collision."""
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000100",
+        verification_token="token_period_100",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_period_100",
+        authors=[{"author_name_snapshot": "Prof. Harshit Gupta", "department_snapshot": "Department of Biotechnology & Bioinformatics"}],
+        research_title="CRISPR-Cas12 Targeted Epigenetic Editing for Enhanced Plant Resilience",
+        bulletin_volume=3,
+        bulletin_issue=4,
+        bulletin_period="January to June 2026 Special Scholarly Release",
+    )
+
+    assert len(pdf_bytes) > 1000
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) == 1
+    page_text = reader.pages[0].extract_text()
+    assert "RESEARCH BULLETIN" in page_text
+    assert "DATE OF ISSUANCE" in page_text
+    assert "Volume 3, Issue 4" in page_text
+
+
+def test_long_recipient_name_and_department():
+    """Verify long recipient names and extended department affiliations render gracefully."""
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000101",
+        verification_token="token_affil_101",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_affil_101",
+        authors=[{
+            "author_name_snapshot": "Dr. Venkata Subrahmanya Sastry Bhattathiripad",
+            "department_snapshot": "Interdisciplinary Centre for Advanced Molecular Biophysics and Structural Nanotechnology",
+            "scopus_id_snapshot": "57219988776",
+        }],
+        research_title="Structural analysis of transmembrane macromolecular complexes via cryo-EM",
+    )
+
+    assert len(pdf_bytes) > 1000
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) == 1
+    page_text = reader.pages[0].extract_text()
+    assert "Venkata Subrahmanya Sastry Bhattathiripad" in page_text
+    assert "Interdisciplinary Centre for Advanced Molecular Biophysics" in page_text
+
+
+def test_incentive_certificate_metadata_box_formatting():
+    """Verify incentive award certificate renders financial sanction and bulletin citation in metadata box."""
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/INC-000102",
+        verification_token="token_inc_102",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_inc_102",
+        title="CERTIFICATE OF RESEARCH PUBLICATION INCENTIVE AWARD",
+        certificate_type="INCENTIVE_AWARD",
+        authors=[{"author_name_snapshot": "Dr. Anju Dixit", "department_snapshot": "Department of Chemistry"}],
+        research_title="Green synthesis of functionalized graphene oxide for dye degradation",
+        bulletin_volume=2,
+        bulletin_issue=3,
+        incentive_details={
+            "incentive_amount": 75000,
+            "sanction_order_ref": "CSJMU/R&D/INC-2026/099",
+        },
+    )
+
+    assert len(pdf_bytes) > 1000
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) == 1
+    page_text = reader.pages[0].extract_text()
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 75,000" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text

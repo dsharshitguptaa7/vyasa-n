@@ -324,7 +324,22 @@ export const samaAdminService = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!response.ok) {
-      throw new Error(`Failed to download certificate (HTTP ${response.status})`);
+      let errorMsg = `Failed to download certificate (HTTP ${response.status})`;
+      try {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const errData = await response.json();
+          errorMsg = errData?.message || errData?.detail || errorMsg;
+        } else {
+          if (response.status === 403) errorMsg = 'Certificate revoked or issuance not finalized. PDF download is not permitted.';
+          else if (response.status === 404) errorMsg = 'Certificate PDF document not found in storage.';
+          else if (response.status === 409) errorMsg = 'Certificate superseded or integrity verification failed.';
+          else if (response.status >= 500) errorMsg = 'Storage service is temporarily unavailable. Please try again later.';
+        }
+      } catch {
+        // keep fallback errorMsg
+      }
+      throw new Error(errorMsg);
     }
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
@@ -362,7 +377,24 @@ export const samaAdminService = {
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      throw new Error(`Failed to generate certificate preview (HTTP ${response.status})`);
+      let errorMsg = `Failed to generate certificate preview (HTTP ${response.status})`;
+      try {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const errData = await response.json();
+          errorMsg = errData?.message || errData?.detail || errorMsg;
+        } else {
+          if (response.status === 403) errorMsg = 'Permission denied to preview certificate.';
+          else if (response.status >= 500) errorMsg = 'PDF generation engine temporarily unavailable.';
+        }
+      } catch {
+        // keep fallback errorMsg
+      }
+      throw new Error(errorMsg);
+    }
+    const ct = response.headers.get('content-type') || '';
+    if (!ct.includes('application/pdf')) {
+      throw new Error('Server returned non-PDF response for certificate preview.');
     }
     return response.blob();
   },

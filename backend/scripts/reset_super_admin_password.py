@@ -24,6 +24,12 @@ Safety Principles:
     12. Zero credential leakage: credentials, hashes, and URLs are never printed or logged.
 """
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(BACKEND_DIR / ".env")
+
 import argparse
 import getpass
 import re

@@ -562,3 +562,58 @@ class SpotlightOut(BaseModel):
 class SpotlightListResponse(BaseModel):
     total: int
     items: List[SpotlightOut]
+
+
+# ============================================================================
+# 7. RESEARCHER CERTIFICATE DISCOVERY & OTP VERIFICATION
+# ============================================================================
+
+class DiscoveredCertificateItem(BaseModel):
+    id: str
+    certificate_number: str
+    title: str
+    certificate_type: str
+    category: str  # RESEARCH_WORK | INCENTIVE
+    publication_title: Optional[str] = None
+    issue_date: Optional[str] = None
+    issued_at: Optional[str] = None
+    status: str
+    is_revoked: bool
+    revocation_reason: Optional[str] = None
+    reissued_reason: Optional[str] = None
+    verification_token: str
+    verification_url: str
+    is_download_allowed: bool
+    download_url: str
+
+
+class ResearcherDiscoveryAuthorOut(BaseModel):
+    id: str
+    full_name: str
+    department: Optional[str] = None
+    institutional_affiliation: Optional[str] = None
+    scopus_id: Optional[str] = None
+
+
+class IncentiveSummaryOut(BaseModel):
+    total_applications: int
+    approved_count: int
+    pdf_certificates_available: bool
+    message: str
+
+
+class ResearcherDiscoveryData(BaseModel):
+    researcher: ResearcherDiscoveryAuthorOut
+    research_certificates: List[DiscoveredCertificateItem]
+    incentive_certificates: List[DiscoveredCertificateItem]
+    anudaan_incentives: IncentiveSummaryOut
+
+
+class ResearcherOtpSendRequest(BaseModel):
+    scopus_id: str = Field(..., min_length=1, max_length=50)
+
+
+class ResearcherOtpVerifyRequest(BaseModel):
+    scopus_id: str = Field(..., min_length=1, max_length=50)
+    otp: str = Field(..., min_length=4, max_length=10)
+

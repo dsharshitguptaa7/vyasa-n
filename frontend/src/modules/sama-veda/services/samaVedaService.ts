@@ -139,6 +139,66 @@ export interface CertificateVerificationResult {
   } | null;
   sha256_checksum: string;
   is_download_allowed: boolean;
+  replacement_certificate?: {
+    id: string;
+    certificate_number: string;
+    verification_token: string;
+    status: string;
+    issued_at?: string | null;
+    verification_url: string;
+  } | null;
+}
+
+export interface DiscoveredCertificateItem {
+  id: string;
+  certificate_number: string;
+  title: string;
+  certificate_type: string;
+  category: 'RESEARCH_WORK' | 'INCENTIVE';
+  publication_title?: string | null;
+  issue_date?: string | null;
+  issued_at?: string | null;
+  status: string;
+  is_revoked: boolean;
+  revocation_reason?: string | null;
+  reissued_reason?: string | null;
+  verification_token: string;
+  verification_url: string;
+  is_download_allowed: boolean;
+  download_url: string;
+}
+
+export interface ResearcherDiscoveryData {
+  researcher: {
+    id: string;
+    full_name: string;
+    department?: string | null;
+    institutional_affiliation?: string | null;
+    scopus_id?: string | null;
+  };
+  research_certificates: DiscoveredCertificateItem[];
+  incentive_certificates: DiscoveredCertificateItem[];
+  anudaan_incentives: {
+    total_applications: number;
+    approved_count: number;
+    pdf_certificates_available: boolean;
+    message: string;
+  };
+}
+
+export interface ResearcherAuthChallenge {
+  status: 'AUTH_REQUIRED';
+  requires_authentication: boolean;
+  researcher: {
+    id: string;
+    full_name: string;
+    department?: string | null;
+    institutional_affiliation?: string | null;
+    scopus_id?: string | null;
+    has_registered_user: boolean;
+    masked_email?: string | null;
+  };
+  message: string;
 }
 
 export const samaVedaService = {
@@ -242,24 +302,125 @@ export const samaVedaService = {
     return res.data!;
   },
 
-  async downloadCertificate(certificateNumber: string, filename: string): Promise<void> {
-    const encoded = encodeURIComponent(certificateNumber);
+  async downloadCertificate(certificateNumberOrToken: string, filename?: string): Promise<void> {
+    const encoded = encodeURIComponent(certificateNumberOrToken.trim());
     const url = `${config.apiBaseUrl}/modules/sama-veda/certificates/download/${encoded}`;
     const response = await fetch(url);
     if (!response.ok) {
-      if (response.status === 403) {
-        throw new Error('This certificate has been revoked and cannot be downloaded.');
+      let errorMsg = `Download failed (HTTP ${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.detail) {
+          errorMsg = errorData.detail;
+        } else if (errorData?.message) {
+          errorMsg = errorData.message;
+        }
+      } catch {
+        if (response.status === 403) {
+          errorMsg = 'Certificate revoked or issuance not finalized. PDF download is not permitted.';
+        } else if (response.status === 409) {
+          errorMsg = 'Certificate superseded or integrity verification failed.';
+        } else if (response.status === 404) {
+          errorMsg = 'Certificate PDF document unavailable in university digital storage.';
+        } else if (response.status >= 500) {
+          errorMsg = 'Download temporarily unavailable. Please try again later.';
+        }
       }
-      throw new Error(`Failed to download certificate (HTTP ${response.status})`);
+      throw new Error(errorMsg);
     }
     const blob = await response.blob();
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+    const safeFilename = filename
+      ? (filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`)
+      : `Certificate-${certificateNumberOrToken.replace(/[\/\\]/g, '_')}.pdf`;
+    a.download = safeFilename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  async discoverResearcherCertificates(
+    scopusId: string,
+    researcherToken?: string
+  ): Promise<{ data?: ResearcherDiscoveryData; challenge?: ResearcherAuthChallenge }> {
+    const headers: Record<string, string> = {};
+    if (researcherToken) {
+      headers['X-Researcher-Token'] = researcherToken;
+    }
+    try {
+      const res = await apiClient.get<ResearcherDiscoveryData>(
+        `/modules/sama-veda/certificates/researcher-discovery?scopus_id=${encodeURIComponent(scopusId.trim())}`,
+        headers
+      );
+      return { data: res.data };
+    } catch (err: unknown) {
+      const e = err as {
+        response?: {
+          status?: number;
+          data?: {
+            data?: ResearcherAuthChallenge;
+            message?: string;
+            detail?: string | { status?: string; message?: string };
+          };
+        };
+        message?: string;
+      };
+      if (e.response?.status === 401 && e.response?.data?.data?.requires_authentication) {
+        return {
+          challenge: {
+            ...e.response.data.data,
+            message: e.response.data.message || 'Authentication required.',
+          },
+        };
+      }
+      const errorMsg =
+        (typeof e.response?.data?.detail === 'string' ? e.response?.data?.detail : null) ||
+        e.response?.data?.message ||
+        e.message ||
+        'Unable to discover certificates.';
+      throw new Error(errorMsg);
+    }
+  },
+
+  async sendResearcherOtp(scopusId: string): Promise<{ success: boolean; masked_email?: string; message: string }> {
+    try {
+      const res = await apiClient.post<{ masked_email?: string }>(
+        '/modules/sama-veda/certificates/researcher-discovery/send-otp',
+        { scopus_id: scopusId.trim() }
+      );
+      return {
+        success: true,
+        masked_email: res.data?.masked_email,
+        message: res.message || 'Verification code sent.',
+      };
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      const msg = e.response?.data?.detail || e.response?.data?.message || e.message || 'Failed to dispatch verification code.';
+      throw new Error(msg);
+    }
+  },
+
+  async verifyResearcherOtp(
+    scopusId: string,
+    otp: string
+  ): Promise<{ success: boolean; researcher_token: string; message: string }> {
+    try {
+      const res = await apiClient.post<{ researcher_token: string }>(
+        '/modules/sama-veda/certificates/researcher-discovery/verify-otp',
+        { scopus_id: scopusId.trim(), otp: otp.trim() }
+      );
+      return {
+        success: true,
+        researcher_token: res.data!.researcher_token,
+        message: res.message || 'Identity verified.',
+      };
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      const msg = e.response?.data?.detail || e.response?.data?.message || e.message || 'Incorrect or expired verification code.';
+      throw new Error(msg);
+    }
   },
 };

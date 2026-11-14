@@ -528,10 +528,11 @@ class AdminConfigService:
             "email": recipient_email,
             "delivery_status": delivery_status,
             "delivery_error": email_error,
+            "temporary_password": new_temp_password,
             "message": (
                 f"Temporary password reissued successfully and sent to {recipient_email}."
                 if email_delivered
-                else f"Temporary password was generated and updated, but email delivery via Brevo failed ({email_error}). Please retry delivery."
+                else f"Temporary password was generated and updated, but email delivery via Brevo failed ({email_error}). You may manually share the temporary password."
             ),
         }
 

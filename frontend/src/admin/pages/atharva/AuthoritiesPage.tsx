@@ -72,9 +72,20 @@ export const AuthoritiesPage: React.FC = () => {
   const [reissueError, setReissueError] = useState<string | null>(null);
   const [reissueResult, setReissueResult] = useState<{
     authority: Authority;
-    delivery_status: 'SENT' | 'FAILED';
+    delivery_status: 'SENT' | 'FAILED' | 'PENDING';
     delivery_error?: string | null;
+    temporary_password: string;
   } | null>(null);
+  const [copiedReissuedPassword, setCopiedReissuedPassword] = useState(false);
+
+  // Clear transient credentials from memory if navigating away
+  useEffect(() => {
+    return () => {
+      setReissueResult(null);
+      setCopiedReissuedPassword(false);
+    };
+  }, []);
+
 
 
   const fetchAuthorities = async () => {
@@ -317,10 +328,12 @@ export const AuthoritiesPage: React.FC = () => {
 
       const target = reissuingAuthority;
       setReissuingAuthority(null);
+      setCopiedReissuedPassword(false);
       setReissueResult({
         authority: target,
         delivery_status: res.delivery_status,
         delivery_error: res.delivery_error,
+        temporary_password: res.temporary_password,
       });
     } catch (err: unknown) {
       setReissueError(err instanceof Error ? err.message : 'Failed to reissue temporary password');
@@ -328,6 +341,13 @@ export const AuthoritiesPage: React.FC = () => {
       setIsReissuing(false);
     }
   };
+
+  const handleCloseReissueResult = () => {
+    // Strictly clear the temporary password from frontend state to prevent leakage
+    setReissueResult(null);
+    setCopiedReissuedPassword(false);
+  };
+
 
 
   const getInitials = (name: string): string => {
@@ -2211,44 +2231,142 @@ export const AuthoritiesPage: React.FC = () => {
       {reissueResult && (
         <Modal
           isOpen={true}
-          onClose={() => setReissueResult(null)}
+          onClose={handleCloseReissueResult}
           title="Temporary Password Reissued"
           footer={
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              {reissueResult.delivery_status === 'FAILED' && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const auth = reissueResult.authority;
-                    setReissueResult(null);
-                    setReissuingAuthority(auth);
-                    setReissueError(null);
-                  }}
-                >
-                  Retry Reissue
-                </Button>
-              )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
-                variant={reissueResult.delivery_status === 'SENT' ? 'primary' : 'outline'}
+                variant="primary"
                 size="sm"
-                onClick={() => setReissueResult(null)}
+                onClick={handleCloseReissueResult}
               >
-                {reissueResult.delivery_status === 'SENT' ? 'Done & Close' : 'Close'}
+                Done & Close
               </Button>
             </div>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Authority Profile Summary */}
             <div
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
                 padding: '12px 14px',
-                backgroundColor: reissueResult.delivery_status === 'SENT' ? '#f0fdf4' : '#fff7ed',
-                border: `1px solid ${reissueResult.delivery_status === 'SENT' ? '#bbf7d0' : '#fed7aa'}`,
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
                 borderRadius: '8px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#e0f2fe',
+                  color: '#0369a1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  flexShrink: 0,
+                }}
+              >
+                {getInitials(reissueResult.authority.name_snapshot)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: '#0f2b48' }}>
+                  {reissueResult.authority.name_snapshot}
+                </div>
+                <div style={{ fontSize: '13px', color: '#475569', wordBreak: 'break-all' }}>
+                  {reissueResult.authority.email_snapshot}
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                  Role: {ROLE_DISPLAY_NAMES[reissueResult.authority.role] || reissueResult.authority.role}
+                </div>
+              </div>
+            </div>
+
+            {/* Generated Temporary Password Display Block */}
+            <div
+              style={{
+                padding: '14px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#0f2b48', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Generated Temporary Password
+                </label>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>One-time readable credential</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  data-testid="reissued-temporary-password"
+                  style={{
+                    flex: 1,
+                    fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    color: '#0f2b48',
+                    backgroundColor: '#ffffff',
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #94a3b8',
+                    wordBreak: 'break-all',
+                    userSelect: 'all',
+                  }}
+                >
+                  {reissueResult.temporary_password}
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(reissueResult.temporary_password);
+                    setCopiedReissuedPassword(true);
+                    setTimeout(() => setCopiedReissuedPassword(false), 2500);
+                  }}
+                  style={{ height: '38px', whiteSpace: 'nowrap' }}
+                >
+                  {copiedReissuedPassword ? 'Copied!' : 'Copy Password'}
+                </Button>
+              </div>
+              <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                Copy and share this credential securely with the authority if email delivery is delayed or inaccessible.
+              </span>
+            </div>
+
+            {/* Email Delivery Status Block (Separated) */}
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor:
+                  reissueResult.delivery_status === 'SENT'
+                    ? '#f0fdf4'
+                    : reissueResult.delivery_status === 'FAILED'
+                    ? '#fff7ed'
+                    : '#fefce8',
+                border: `1px solid ${
+                  reissueResult.delivery_status === 'SENT'
+                    ? '#bbf7d0'
+                    : reissueResult.delivery_status === 'FAILED'
+                    ? '#fed7aa'
+                    : '#fef08a'
+                }`,
+                borderRadius: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ fontWeight: 600, color: '#0f2b48', fontSize: '13px' }}>
                   Email Delivery Status:
                 </span>
@@ -2260,14 +2378,31 @@ export const AuthoritiesPage: React.FC = () => {
                       gap: '5px',
                       fontSize: '11px',
                       fontWeight: 700,
-                      padding: '2px 8px',
+                      padding: '2.5px 8px',
                       borderRadius: '9999px',
                       backgroundColor: '#dcfce7',
                       color: '#15803d',
                       border: '1px solid #86efac',
                     }}
                   >
-                    ✓ Sent
+                    ✓ Email Sent
+                  </span>
+                ) : reissueResult.delivery_status === 'FAILED' ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2.5px 8px',
+                      borderRadius: '9999px',
+                      backgroundColor: '#fee2e2',
+                      color: '#b91c1c',
+                      border: '1px solid #fca5a5',
+                    }}
+                  >
+                    ⚠ Email Failed
                   </span>
                 ) : (
                   <span
@@ -2277,14 +2412,14 @@ export const AuthoritiesPage: React.FC = () => {
                       gap: '5px',
                       fontSize: '11px',
                       fontWeight: 700,
-                      padding: '2px 8px',
+                      padding: '2.5px 8px',
                       borderRadius: '9999px',
-                      backgroundColor: '#fee2e2',
-                      color: '#b91c1c',
-                      border: '1px solid #fca5a5',
+                      backgroundColor: '#fef9c3',
+                      color: '#854d0e',
+                      border: '1px solid #fde047',
                     }}
                   >
-                    ⚠ Failed
+                    ⏳ Email Pending
                   </span>
                 )}
               </div>
@@ -2292,37 +2427,34 @@ export const AuthoritiesPage: React.FC = () => {
               <div style={{ fontSize: '12px', color: '#334155', lineHeight: 1.5 }}>
                 {reissueResult.delivery_status === 'SENT' ? (
                   <p style={{ margin: 0 }}>
-                    A new temporary password was generated and successfully delivered to{' '}
-                    <strong>{reissueResult.authority.email_snapshot}</strong> via Brevo.
+                    Temporary credentials were successfully dispatched to <strong>{reissueResult.authority.email_snapshot}</strong> via Brevo.
+                  </p>
+                ) : reissueResult.delivery_status === 'FAILED' ? (
+                  <p style={{ margin: 0 }}>
+                    Automated Brevo email delivery failed ({reissueResult.delivery_error || 'Delivery rejected'}). Email failure does NOT invalidate the new credentials—SADMIN should manually communicate the temporary password displayed above.
                   </p>
                 ) : (
                   <p style={{ margin: 0 }}>
-                    A new temporary password was successfully armed in the database, but email delivery to{' '}
-                    <strong>{reissueResult.authority.email_snapshot}</strong> via Brevo failed ({reissueResult.delivery_error || 'Network error'}). You can retry reissuance.
+                    Email dispatch is currently pending or queued for delivery.
                   </p>
                 )}
               </div>
             </div>
 
+            {/* Warning & Operational Guidance */}
             <div
               style={{
                 padding: '10px 12px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fef3c7',
                 borderRadius: '6px',
-                fontSize: '12px',
-                color: '#475569',
+                fontSize: '11.5px',
+                color: '#92400e',
                 lineHeight: 1.5,
               }}
             >
-              <div><strong>Authority:</strong> {reissueResult.authority.name_snapshot}</div>
-              <div><strong>Email:</strong> {reissueResult.authority.email_snapshot}</div>
-              <div><strong>Status:</strong> Password Pending (first-login password setup required)</div>
+              <strong>⚠️ Security Guidance:</strong> This temporary credential will be cleared from browser memory immediately when this window closes. The previous password has been invalidated. The authority is required to configure a permanent password upon first login.
             </div>
-
-            <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-              Security Note: Plaintext credentials are never logged or exposed in this management interface. The previous credentials will no longer authenticate.
-            </p>
           </div>
         </Modal>
       )}

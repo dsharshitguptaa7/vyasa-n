@@ -55,6 +55,8 @@ export const CertificatesPage: React.FC = () => {
   const [publications, setPublications] = useState<PublicationRecord[]>([]);
   const [templates, setTemplates] = useState<CertificateTemplateItem[]>([]);
   const [signatories, setSignatories] = useState<CertificateSignatoryItem[]>([]);
+  const [refDataLoading, setRefDataLoading] = useState(false);
+  const [refDataError, setRefDataError] = useState<string | null>(null);
 
   // Action states
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -120,6 +122,7 @@ export const CertificatesPage: React.FC = () => {
 
   // Create Wizard State
   const [wizardStep, setWizardStep] = useState(1);
+  const [wizardCategory, setWizardCategory] = useState<'RESEARCH_PUBLICATION' | 'INCENTIVE_AWARD'>('RESEARCH_PUBLICATION');
   const [wizardTemplateId, setWizardTemplateId] = useState('');
   const [wizardTitle, setWizardTitle] = useState('Certificate of Appreciation & Research Excellence');
   const [wizardPresentation, setWizardPresentation] = useState('This certificate is proudly conferred upon');
@@ -128,7 +131,10 @@ export const CertificatesPage: React.FC = () => {
   const [wizardCongratulatory, setWizardCongratulatory] = useState(
     'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
   );
+  const [wizardBulletinVolume, setWizardBulletinVolume] = useState<string>('');
   const [wizardBulletinId, setWizardBulletinId] = useState('');
+  const [wizardIncentiveAmount, setWizardIncentiveAmount] = useState<string>('');
+  const [wizardSanctionRef, setWizardSanctionRef] = useState<string>('');
   const [wizardPublicationId, setWizardPublicationId] = useState('');
   const [wizardAuthors, setWizardAuthors] = useState<CertificateAuthorItem[]>([]);
   const [wizardSubmitMode, setWizardSubmitMode] = useState<'APPROVAL' | 'DIRECT' | 'DRAFT'>('APPROVAL');
@@ -148,9 +154,7 @@ export const CertificatesPage: React.FC = () => {
   const [manualAuthorDept, setManualAuthorDept] = useState('');
   const [manualAuthorScopusId, setManualAuthorScopusId] = useState('');
   const [manualAuthorRole, setManualAuthorRole] = useState('Co-Author');
-  const [manualAuthorAffiliation, setManualAuthorAffiliation] = useState(
-    'Chhatrapati Shahu Ji Maharaj University, Kanpur'
-  );
+  const [manualAuthorAffiliation, setManualAuthorAffiliation] = useState('');
 
   // Template Modal State
   const [templateForm, setTemplateForm] = useState<CreateTemplatePayload>({
@@ -226,8 +230,10 @@ export const CertificatesPage: React.FC = () => {
     }
   }, [page, search, statusFilter]);
 
-  const loadReferenceData = async () => {
+  const loadReferenceData = useCallback(async () => {
     try {
+      setRefDataLoading(true);
+      setRefDataError(null);
       const [authRes, bullRes, pubRes, tplRes, sigRes] = await Promise.all([
         samaAdminService.getAuthors({ limit: 100 }),
         samaAdminService.getBulletins({ limit: 100 }),
@@ -243,10 +249,15 @@ export const CertificatesPage: React.FC = () => {
       if (tplRes.items.length > 0) {
         setWizardTemplateId(tplRes.items[0].id);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      const msg = e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to load reference data';
+      setRefDataError(msg);
       console.warn('Failed to load auxiliary data', err);
+    } finally {
+      setRefDataLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCertificates();
@@ -296,6 +307,7 @@ export const CertificatesPage: React.FC = () => {
   // ---------------------------------------------------------------------------
   const handleOpenWizard = () => {
     setWizardStep(1);
+    setWizardCategory('RESEARCH_PUBLICATION');
     setWizardTitle('Certificate of Appreciation & Research Excellence');
     setWizardPresentation('This certificate is proudly conferred upon');
     setWizardContribution('in recognition of scholarly research publication in:');
@@ -303,14 +315,62 @@ export const CertificatesPage: React.FC = () => {
     setWizardCongratulatory(
       'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
     );
-    setWizardBulletinId(bulletins[0]?.id || '');
+    setWizardBulletinVolume('');
+    setWizardBulletinId('');
+    setWizardIncentiveAmount('');
+    setWizardSanctionRef('');
     setWizardPublicationId('');
     setWizardAuthors([]);
     setWizardSubmitMode('APPROVAL');
     setWizardDirectJustification('');
     setSearchAuthorQuery('');
-    setWizardTemplateId(templates[0]?.id || '');
+    const defaultTpl = templates.find((t) => t.is_default || t.certificate_type === 'RESEARCH_PUBLICATION');
+    setWizardTemplateId(defaultTpl?.id || templates[0]?.id || '');
     setShowWizardModal(true);
+  };
+
+  const handleSwitchWizardCategory = (cat: 'RESEARCH_PUBLICATION' | 'INCENTIVE_AWARD') => {
+    setWizardCategory(cat);
+    if (cat === 'INCENTIVE_AWARD') {
+      const incTpl = templates.find(
+        (t) => t.code === 'DEFAULT_CSJMU_INCENTIVE_A4' || t.certificate_type === 'INCENTIVE_AWARD'
+      );
+      if (incTpl) setWizardTemplateId(incTpl.id);
+      setWizardTitle('Certificate of Research Publication Incentive Award');
+      setWizardPresentation('This certificate is proudly awarded to');
+      setWizardContribution(
+        'in recognition of distinguished research productivity and scholarly impact under the University Research Incentive Scheme for the work titled:'
+      );
+      setWizardCongratulatory(
+        'The University commends the meritorious scholarly productivity, research excellence, and exemplary intellectual dedication to advancing scientific innovation.'
+      );
+    } else {
+      const pubTpl = templates.find(
+        (t) => t.code === 'DEFAULT_CSJMU_A4' || t.certificate_type === 'RESEARCH_PUBLICATION' || t.is_default
+      );
+      if (pubTpl) setWizardTemplateId(pubTpl.id);
+      setWizardTitle('Certificate of Appreciation & Research Excellence');
+      setWizardPresentation('This certificate is proudly conferred upon');
+      setWizardContribution('in recognition of scholarly research publication in:');
+      setWizardCongratulatory(
+        'The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.'
+      );
+    }
+  };
+
+  const handleSelectBulletinVolume = (volStr: string) => {
+    setWizardBulletinVolume(volStr);
+    if (!volStr) {
+      setWizardBulletinId('');
+      return;
+    }
+    const volNum = parseInt(volStr, 10);
+    const matchingIssues = bulletins.filter((b) => b.volume_number === volNum);
+    if (matchingIssues.length === 1) {
+      setWizardBulletinId(matchingIssues[0].id);
+    } else if (!matchingIssues.some((b) => b.id === wizardBulletinId)) {
+      setWizardBulletinId('');
+    }
   };
 
   const handleAddAuthorFromDirectory = (authorRecord: AuthorRecord) => {
@@ -351,13 +411,22 @@ export const CertificatesPage: React.FC = () => {
       return;
     }
 
+    let cleanName = manualAuthorName.trim();
+    const prefixes = ['Dr.', 'Prof.', 'Mr.', 'Ms.', 'Mrs.', 'Er.', 'Dr', 'Prof', 'Mr', 'Ms', 'Mrs', 'Er'];
+    for (const p of prefixes) {
+      if (cleanName.toLowerCase().startsWith(p.toLowerCase() + ' ')) {
+        cleanName = cleanName.slice(p.length).trim();
+        break;
+      }
+    }
+
     const newAuthor: CertificateAuthorItem = {
       researcher_id: null,
-      author_name_snapshot: manualAuthorName.trim(),
-      academic_title_snapshot: manualAuthorTitle,
+      author_name_snapshot: cleanName,
+      academic_title_snapshot: manualAuthorTitle && manualAuthorTitle !== 'None' ? manualAuthorTitle : null,
       department_snapshot: manualAuthorDept.trim() || 'Department of Research',
       scopus_id_snapshot: manualAuthorScopusId.trim() || null,
-      affiliation_snapshot: manualAuthorAffiliation.trim() || 'Chhatrapati Shahu Ji Maharaj University, Kanpur',
+      affiliation_snapshot: manualAuthorAffiliation.trim() || 'External Collaborator / Independent Researcher',
       author_order: wizardAuthors.length + 1,
       author_role: manualAuthorRole || (wizardAuthors.length === 0 ? 'First Author' : 'Co-Author'),
     };
@@ -366,6 +435,7 @@ export const CertificatesPage: React.FC = () => {
     setManualAuthorName('');
     setManualAuthorDept('');
     setManualAuthorScopusId('');
+    setManualAuthorAffiliation('');
     setError(null);
   };
 
@@ -396,6 +466,10 @@ export const CertificatesPage: React.FC = () => {
   };
 
   const handleGenerateWizardPreview = async () => {
+    if (!wizardBulletinId) {
+      setError('Please select an official Research Bulletin edition (Volume and Issue) before previewing.');
+      return;
+    }
     if (wizardAuthors.length === 0) {
       setError('Please add at least one recipient author before generating a vector preview.');
       return;
@@ -403,13 +477,21 @@ export const CertificatesPage: React.FC = () => {
     try {
       setRenderingWizardPreview(true);
       setError(null);
+      const incDetails = wizardCategory === 'INCENTIVE_AWARD' ? {
+        incentive_amount: wizardIncentiveAmount.trim() || undefined,
+        sanction_order: wizardSanctionRef.trim() || undefined,
+      } : undefined;
+
       const blob = await samaAdminService.previewCertificate({
         title: wizardTitle,
+        certificate_type: wizardCategory,
         presentation_statement: wizardPresentation,
         research_contribution_statement: wizardContribution,
-        research_title: wizardResearchTitle || 'Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles',
+        research_title: wizardResearchTitle || (wizardCategory === 'INCENTIVE_AWARD' ? 'Distinguished Research Publication Incentive Achievement' : 'Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles'),
         congratulatory_statement: wizardCongratulatory,
         template_id: wizardTemplateId || null,
+        bulletin_id: wizardBulletinId || null,
+        publication_details: incDetails,
         authors: wizardAuthors,
       });
 
@@ -428,6 +510,10 @@ export const CertificatesPage: React.FC = () => {
   };
 
   const handleSubmitWizard = async () => {
+    if (!wizardBulletinId) {
+      setError('Research Bulletin selection is mandatory. Please select an official Bulletin Volume and Issue.');
+      return;
+    }
     if (wizardAuthors.length === 0) {
       setError('Please add at least one recipient author.');
       return;
@@ -448,15 +534,22 @@ export const CertificatesPage: React.FC = () => {
       setError(null);
 
       const submitForApproval = wizardSubmitMode === 'APPROVAL';
+      const incDetails = wizardCategory === 'INCENTIVE_AWARD' ? {
+        incentive_amount: wizardIncentiveAmount.trim() || undefined,
+        sanction_order: wizardSanctionRef.trim() || undefined,
+      } : undefined;
+
       const created = await samaAdminService.issueCertificate({
         template_id: wizardTemplateId || undefined,
+        certificate_type: wizardCategory,
         title: wizardTitle,
         presentation_statement: wizardPresentation,
         research_contribution_statement: wizardContribution,
         research_title: wizardResearchTitle,
         congratulatory_statement: wizardCongratulatory,
-        bulletin_id: wizardBulletinId || undefined,
+        bulletin_id: wizardBulletinId,
         publication_id: wizardPublicationId || undefined,
+        publication_details: incDetails,
         authors: wizardAuthors,
         submit_for_approval: submitForApproval,
         direct_issue_justification: wizardSubmitMode === 'DIRECT' ? wizardDirectJustification.trim() : undefined,
@@ -980,7 +1073,7 @@ export const CertificatesPage: React.FC = () => {
             }}
           >
             <AppIcon name="file-text" size={16} />
-            Templates ({templates.length})
+            Templates {refDataLoading ? '(…)' : refDataError ? '(!)' : `(${templates.length})`}
           </button>
           <button
             onClick={() => setActiveTab('signatories')}
@@ -999,7 +1092,7 @@ export const CertificatesPage: React.FC = () => {
             }}
           >
             <AppIcon name="user" size={16} />
-            Signing Authorities ({signatories.length})
+            Signing Authorities {refDataLoading ? '(…)' : refDataError ? '(!)' : `(${signatories.length})`}
           </button>
         </div>
 
@@ -1038,6 +1131,37 @@ export const CertificatesPage: React.FC = () => {
             {/* Certificate Ledger Cards */}
             {loading ? (
               <LoadingState message="Loading certificate records..." />
+            ) : error ? (
+              <div
+                style={{
+                  padding: '36px 24px',
+                  textAlign: 'center',
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: '#991B1B' }}>
+                  Unable to Load Certificates
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#B91C1C', maxWidth: '640px', marginInline: 'auto' }}>
+                  {error}
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    fetchCertificates();
+                    fetchStats();
+                  }}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
+                  Retry Request
+                </Button>
+              </div>
             ) : certificates.length === 0 ? (
               <EmptyState
                 title="No Certificates Found"
@@ -1230,6 +1354,37 @@ export const CertificatesPage: React.FC = () => {
 
             {loading ? (
               <LoadingState message="Checking approval queue..." />
+            ) : error ? (
+              <div
+                style={{
+                  padding: '36px 24px',
+                  textAlign: 'center',
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: '#991B1B' }}>
+                  Unable to Load Approval Queue
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#B91C1C', maxWidth: '640px', marginInline: 'auto' }}>
+                  {error}
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    fetchCertificates();
+                    fetchStats();
+                  }}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
+                  Retry Request
+                </Button>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {certificates
@@ -1567,41 +1722,84 @@ export const CertificatesPage: React.FC = () => {
               </Button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-              {templates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                  }}
+            {refDataLoading ? (
+              <LoadingState message="Loading certificate templates..." />
+            ) : refDataError ? (
+              <div
+                style={{
+                  padding: '36px 24px',
+                  textAlign: 'center',
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: '#991B1B' }}>
+                  Unable to Load Templates
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#B91C1C', maxWidth: '640px', marginInline: 'auto' }}>
+                  {refDataError}
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={loadReferenceData}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
                 >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', fontFamily: 'monospace' }}>
-                        {tpl.code}
-                      </span>
-                      {tpl.is_default && <Badge variant="teal">DEFAULT</Badge>}
+                  <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
+                  Retry Loading Templates
+                </Button>
+              </div>
+            ) : templates.length === 0 ? (
+              <EmptyState
+                title="No Templates Configured"
+                description="No certificate templates currently exist. Create your first template using the button above."
+                action={
+                  <Button variant="primary" size="sm" onClick={() => setShowTemplateModal(true)}>
+                    <span style={{ marginRight: '6px' }}>+</span>
+                    New Template
+                  </Button>
+                }
+              />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                {templates.map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', fontFamily: 'monospace' }}>
+                          {tpl.code}
+                        </span>
+                        {tpl.is_default && <Badge variant="teal">DEFAULT</Badge>}
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+                        {tpl.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                        {tpl.description || 'Institutional landscape A4 template.'}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
-                      {tpl.name}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-                      {tpl.description || 'Institutional landscape A4 template.'}
+                    <div style={{ fontSize: '11px', color: '#94A3B8', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                      Orientation: {tpl.orientation} • Type: {tpl.certificate_type} • Version: {tpl.version}
                     </div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94A3B8', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
-                    Orientation: {tpl.orientation} • Type: {tpl.certificate_type} • Version: {tpl.version}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1644,177 +1842,220 @@ export const CertificatesPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-              {signatories.map((sig) => {
-                const hasSignature = Boolean(sig.signature_image_path);
-                const sigUrl = samaAdminService.getSignatorySignatureUrl(sig.id);
+            {refDataLoading ? (
+              <LoadingState message="Loading signing authorities..." />
+            ) : refDataError ? (
+              <div
+                style={{
+                  padding: '36px 24px',
+                  textAlign: 'center',
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: '#991B1B' }}>
+                  Unable to Load Signing Authorities
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#B91C1C', maxWidth: '640px', marginInline: 'auto' }}>
+                  {refDataError}
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={loadReferenceData}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
+                  Retry Loading Signatories
+                </Button>
+              </div>
+            ) : signatories.length === 0 ? (
+              <EmptyState
+                title="No Signing Authorities Found"
+                description="No authorized institutional signatories have been registered. Add the Dean – R&D or Vice Chancellor to enable dual signing."
+                action={
+                  <Button variant="primary" size="sm" onClick={handleOpenAddSignatory}>
+                    <span style={{ marginRight: '6px' }}>+</span>
+                    Add Signing Authority
+                  </Button>
+                }
+              />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+                {signatories.map((sig) => {
+                  const hasSignature = Boolean(sig.signature_image_path);
+                  const sigUrl = samaAdminService.getSignatorySignatureUrl(sig.id);
 
-                return (
-                  <div
-                    key={sig.id}
-                    style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '16px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    {/* Header Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Badge variant={sig.authority_type === 'DEAN_RD' ? 'primary' : 'gold'}>
-                        {sig.authority_type === 'DEAN_RD' ? 'Dean – Research & Development' : 'Vice Chancellor'}
-                      </Badge>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Badge variant={sig.is_active ? 'teal' : 'neutral'}>
-                          {sig.is_active ? 'Active Signatory' : 'Inactive'}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Dignitary Info */}
-                    <div>
-                      <div style={{ fontSize: '17px', fontWeight: 700, color: '#0F2B48' }}>
-                        {sig.signatory_name}
-                      </div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#475569', marginTop: '2px' }}>
-                        {sig.designation}
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px' }}>
-                        {sig.department || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
-                      </div>
-                    </div>
-
-                    {/* Digital Signature Container */}
+                  return (
                     <div
+                      key={sig.id}
                       style={{
-                        background: '#FAF7F0',
-                        border: '1px solid #E2D9C8',
-                        borderRadius: '8px',
-                        padding: '12px',
+                        background: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '12px',
+                        padding: '20px',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '8px',
+                        gap: '16px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                       }}
                     >
+                      {/* Header Row */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#8C6510', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Registered Signature Asset
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#64748B' }}>
-                          Version: <strong>v{sig.signature_asset_version || 1}</strong>
-                        </span>
+                        <Badge variant={sig.authority_type === 'DEAN_RD' ? 'primary' : 'gold'}>
+                          {sig.authority_type === 'DEAN_RD' ? 'Dean – Research & Development' : 'Vice Chancellor'}
+                        </Badge>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Badge variant={sig.is_active ? 'teal' : 'neutral'}>
+                            {sig.is_active ? 'Active Signatory' : 'Inactive'}
+                          </Badge>
+                        </div>
                       </div>
 
-                      {hasSignature ? (
-                        <div
-                          style={{
-                            background: '#FFFFFF',
-                            border: '1px dashed #CBD5E1',
-                            borderRadius: '6px',
-                            height: '64px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => setSignaturePreviewSignatory(sig)}
-                          title="Click to view high-resolution preview"
-                        >
-                          <img
-                            src={sigUrl}
-                            alt={`Signature of ${sig.signatory_name}`}
-                            style={{ maxHeight: '52px', maxWidth: '85%', objectFit: 'contain' }}
-                            onError={(e) => {
-                              // If image fails to load via browser direct fetch, show placeholder
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
+                      {/* Dignitary Info */}
+                      <div>
+                        <div style={{ fontSize: '17px', fontWeight: 700, color: '#0F2B48' }}>
+                          {sig.signatory_name}
                         </div>
-                      ) : (
-                        <div
-                          style={{
-                            background: '#FEF3C7',
-                            border: '1px solid #FCD34D',
-                            borderRadius: '6px',
-                            padding: '10px 12px',
-                            fontSize: '12px',
-                            color: '#92400E',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                        >
-                          <span>⚠️</span>
-                          <span>
-                            No signature uploaded. Official certificates will leave this signature field empty until a transparent PNG is uploaded.
+                        <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#475569', marginTop: '2px' }}>
+                          {sig.designation}
+                        </div>
+                        <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px' }}>
+                          {sig.department || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
+                        </div>
+                      </div>
+
+                      {/* Digital Signature Container */}
+                      <div
+                        style={{
+                          background: '#FAF7F0',
+                          border: '1px solid #E2D9C8',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#8C6510', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Registered Signature Asset
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#64748B' }}>
+                            Version: <strong>v{sig.signature_asset_version || 1}</strong>
                           </span>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Action Buttons Toolbar */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        borderTop: '1px solid #F1F5F9',
-                        paddingTop: '12px',
-                        marginTop: 'auto',
-                      }}
-                    >
-                      {hasSignature && (
+                        {hasSignature ? (
+                          <div
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px dashed #CBD5E1',
+                              borderRadius: '6px',
+                              height: '64px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setSignaturePreviewSignatory(sig)}
+                            title="Click to view high-resolution preview"
+                          >
+                            <img
+                              src={sigUrl}
+                              alt={`Signature of ${sig.signatory_name}`}
+                              style={{ maxHeight: '52px', maxWidth: '85%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                // If image fails to load via browser direct fetch, show placeholder
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              background: '#FEF3C7',
+                              border: '1px solid #FCD34D',
+                              borderRadius: '6px',
+                              padding: '10px 12px',
+                              fontSize: '12px',
+                              color: '#92400E',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                            }}
+                          >
+                            <span>⚠️</span>
+                            <span>
+                              No signature uploaded. Official certificates will leave this signature field empty until a transparent PNG is uploaded.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons Toolbar */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          borderTop: '1px solid #F1F5F9',
+                          paddingTop: '12px',
+                          marginTop: 'auto',
+                        }}
+                      >
+                        {hasSignature && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSignaturePreviewSignatory(sig)}
+                            title="Preview full digital signature"
+                          >
+                            👁️ Preview
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setSignaturePreviewSignatory(sig)}
-                          title="Preview full digital signature"
+                          onClick={() => handleOpenUploadSignatureModal(sig)}
                         >
-                          👁️ Preview
+                          ✍️ {hasSignature ? 'Replace Signature' : 'Upload Signature'}
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenUploadSignatureModal(sig)}
-                      >
-                        ✍️ {hasSignature ? 'Replace Signature' : 'Upload Signature'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenEditSignatory(sig)}
-                      >
-                        ✏️ Edit Details
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleSignatoryActive(sig)}
-                        disabled={submitting}
-                      >
-                        {sig.is_active ? '⏸️ Deactivate' : '▶️ Activate'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteSignatoryTarget(sig)}
-                        style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                        disabled={submitting}
-                      >
-                        🗑️ Delete
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditSignatory(sig)}
+                        >
+                          ✏️ Edit Details
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleSignatoryActive(sig)}
+                          disabled={submitting}
+                        >
+                          {sig.is_active ? '⏸️ Deactivate' : '▶️ Activate'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteSignatoryTarget(sig)}
+                          style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                          disabled={submitting}
+                        >
+                          🗑️ Delete
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -1912,95 +2153,248 @@ export const CertificatesPage: React.FC = () => {
                 })}
               </div>
 
-              {/* STEP 1: Visual Template Selector */}
+              {/* STEP 1: Category, Bulletin & Template Selection */}
               {wizardStep === 1 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  {/* Category Selector (Two Official University Streams) */}
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '8px' }}>
+                      1. Select Certificate Category *
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div
+                        onClick={() => handleSwitchWizardCategory('RESEARCH_PUBLICATION')}
+                        style={{
+                          border: wizardCategory === 'RESEARCH_PUBLICATION' ? '2px solid #0F2B48' : '1px solid #CBD5E1',
+                          borderRadius: '8px',
+                          padding: '14px',
+                          backgroundColor: wizardCategory === 'RESEARCH_PUBLICATION' ? '#F0F9FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.15s ease-in-out',
+                        }}
+                      >
+                        <span style={{ fontSize: '24px' }}>📚</span>
+                        <div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48' }}>
+                            Research Work Certificate
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                            Scholarly research publications, journal citations & academic excellence
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        onClick={() => handleSwitchWizardCategory('INCENTIVE_AWARD')}
+                        style={{
+                          border: wizardCategory === 'INCENTIVE_AWARD' ? '2px solid #B2811A' : '1px solid #CBD5E1',
+                          borderRadius: '8px',
+                          padding: '14px',
+                          backgroundColor: wizardCategory === 'INCENTIVE_AWARD' ? '#FAF7F0' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.15s ease-in-out',
+                        }}
+                      >
+                        <span style={{ fontSize: '24px' }}>🏆</span>
+                        <div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#B2811A' }}>
+                            Incentive Certificate
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                            Approved research incentive sanction awards & policy incentives
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mandatory Research Bulletin Selection (Hierarchical Volume & Issue) */}
+                  <div
+                    style={{
+                      background: '#F8FAFC',
+                      border: '1.5px solid #CBD5E1',
+                      borderRadius: '10px',
+                      padding: '16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          2. Associate Research Bulletin Edition *
+                        </span>
+                        <Badge variant="teal">Mandatory Citation</Badge>
+                      </div>
+                      <span style={{ fontSize: '11.5px', color: '#64748B' }}>
+                        {bulletins.length} edition{bulletins.length === 1 ? '' : 's'} on record
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px', marginBottom: '10px' }}>
+                      {/* Volume Selector */}
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                          Bulletin Volume
+                        </label>
+                        <select
+                          value={wizardBulletinVolume}
+                          onChange={(e) => handleSelectBulletinVolume(e.target.value)}
+                          style={{
+                            width: '100%',
+                            fontSize: '12.5px',
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: '#FFFFFF',
+                            color: '#0F2B48',
+                            fontWeight: 600,
+                            height: '38px',
+                          }}
+                        >
+                          <option value="">-- Select Volume --</option>
+                          {Array.from(new Set(bulletins.map((b) => b.volume_number)))
+                            .sort((a, b) => b - a)
+                            .map((vol) => (
+                              <option key={vol} value={vol.toString()}>
+                                Volume {vol}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      {/* Issue Selector */}
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                          Issue &amp; Publication Period
+                        </label>
+                        <select
+                          value={wizardBulletinId}
+                          onChange={(e) => {
+                            const bId = e.target.value;
+                            setWizardBulletinId(bId);
+                            const found = bulletins.find((b) => b.id === bId);
+                            if (found && !wizardBulletinVolume) {
+                              setWizardBulletinVolume(found.volume_number.toString());
+                            }
+                          }}
+                          disabled={!wizardBulletinVolume && bulletins.length > 0}
+                          style={{
+                            width: '100%',
+                            fontSize: '12.5px',
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            backgroundColor: !wizardBulletinVolume ? '#F1F5F9' : '#FFFFFF',
+                            color: '#0F2B48',
+                            fontWeight: 600,
+                            height: '38px',
+                          }}
+                        >
+                          <option value="">-- Select Issue Edition --</option>
+                          {bulletins
+                            .filter((b) => !wizardBulletinVolume || b.volume_number === parseInt(wizardBulletinVolume, 10))
+                            .map((b) => (
+                              <option key={b.id} value={b.id}>
+                                Issue {b.issue_number} — {b.publication_period || b.title}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Selected Bulletin Banner */}
+                    {wizardBulletinId ? (
+                      (() => {
+                        const selB = bulletins.find((b) => b.id === wizardBulletinId);
+                        if (!selB) return null;
+                        return (
+                          <div
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px solid #0D9488',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              fontSize: '12px',
+                              color: '#0F2B48',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>🏛️</span>
+                              <span>
+                                <strong>CSJMU Research Bulletin:</strong> Volume {selB.volume_number} • Issue {selB.issue_number} ({selB.publication_period || 'Regular Edition'})
+                              </span>
+                            </div>
+                            <Badge variant="teal">✓ Verified Edition</Badge>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div style={{ fontSize: '11.5px', color: '#DC2626', marginTop: '4px' }}>
+                        ⚠️ You must select an official Volume and Issue to generate institutional citation and proceed.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Template Visual Cards (Filtered to selected category) */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Select University Certificate Template
+                        3. University Certificate Template Layout
                       </label>
                       <span style={{ fontSize: '12px', color: '#64748B' }}>
-                        {templates.length} official template{templates.length === 1 ? '' : 's'} available
+                        {templates.filter((tpl) => !wizardCategory || tpl.certificate_type === wizardCategory || (!tpl.certificate_type && wizardCategory === 'RESEARCH_PUBLICATION')).length} template(s) for category
                       </span>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-                      {templates.map((tpl) => {
-                        const isSelected = wizardTemplateId === tpl.id || (!wizardTemplateId && tpl.is_default);
-                        return (
-                          <div
-                            key={tpl.id}
-                            onClick={() => setWizardTemplateId(tpl.id)}
-                            style={{
-                              border: isSelected ? '2px solid #B2811A' : '1px solid #CBD5E1',
-                              borderRadius: '8px',
-                              padding: '12px',
-                              backgroundColor: isSelected ? '#FAF7F0' : '#FFFFFF',
-                              boxShadow: isSelected ? '0 4px 12px rgba(178, 129, 26, 0.15)' : 'none',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease-in-out',
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#6B1D2F', letterSpacing: '0.05em' }}>
-                                {tpl.code}
-                              </span>
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                {tpl.is_default && <Badge variant="gold">Default</Badge>}
-                                {isSelected && <Badge variant="teal">✓ Selected</Badge>}
-                              </div>
-                            </div>
-
-                            {/* Miniature Vector Mockup */}
+                      {templates
+                        .filter((tpl) => !wizardCategory || tpl.certificate_type === wizardCategory || (!tpl.certificate_type && wizardCategory === 'RESEARCH_PUBLICATION'))
+                        .map((tpl) => {
+                          const isSelected = wizardTemplateId === tpl.id || (!wizardTemplateId && (tpl.is_default || tpl.code.includes(wizardCategory)));
+                          return (
                             <div
+                              key={tpl.id}
+                              onClick={() => setWizardTemplateId(tpl.id)}
                               style={{
-                                height: '70px',
-                                backgroundColor: '#FAF7F0',
-                                border: '1.5px solid #B2811A',
-                                borderRadius: '4px',
-                                padding: '4px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                marginBottom: '10px',
+                                border: isSelected ? '2px solid #B2811A' : '1px solid #CBD5E1',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                backgroundColor: isSelected ? '#FAF7F0' : '#FFFFFF',
+                                boxShadow: isSelected ? '0 4px 12px rgba(178, 129, 26, 0.15)' : 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease-in-out',
                               }}
                             >
-                              <div style={{ width: '92%', height: '100%', border: '1px solid #D4AF37', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '3px' }}>
-                                <div style={{ width: '60%', height: '3px', backgroundColor: '#6B1D2F', borderRadius: '1px' }} />
-                                <div style={{ width: '40%', height: '2px', backgroundColor: '#142C46', borderRadius: '1px' }} />
-                                <div style={{ width: '75%', height: '2px', backgroundColor: '#64748B', borderRadius: '1px' }} />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', width: '90%' }}>
-                                  <div style={{ width: '25%', height: '1.5px', backgroundColor: '#B2811A' }} />
-                                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#B2811A', opacity: 0.5 }} />
-                                  <div style={{ width: '25%', height: '1.5px', backgroundColor: '#B2811A' }} />
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#6B1D2F', letterSpacing: '0.05em' }}>
+                                  {tpl.code}
+                                </span>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  {tpl.is_default && <Badge variant="gold">Default</Badge>}
+                                  {isSelected && <Badge variant="teal">✓ Selected</Badge>}
                                 </div>
                               </div>
-                            </div>
 
-                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', lineHeight: 1.3 }}>
-                              {tpl.name}
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', lineHeight: 1.3 }}>
+                                {tpl.name}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '3px' }}>
+                                Category: <strong>{tpl.certificate_type === 'INCENTIVE_AWARD' ? 'Research Incentive' : 'Research Publication'}</strong>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748B' }}>
+                                Format: <strong>Landscape A4 (297 × 210 mm)</strong>
+                              </div>
                             </div>
-                            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '3px' }}>
-                              Category: <strong>{tpl.certificate_type || 'Research Publication'}</strong>
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748B' }}>
-                              Format: <strong>Landscape A4 (297 × 210 mm)</strong>
-                            </div>
-
-                            {/* Color Scheme Palette Swatches */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #E2E8F0' }}>
-                              <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>Palette:</span>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#FAF7F0', border: '1px solid #CBD5E1' }} title="Warm Ivory #FAF7F0" />
-                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#B2811A' }} title="Antique Gold #B2811A" />
-                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#6B1D2F' }} title="Deep Maroon #6B1D2F" />
-                              <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#142C46' }} title="Deep Navy #142C46" />
-                              <span style={{ fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' }}>v{tpl.version || 1}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -2020,29 +2414,36 @@ export const CertificatesPage: React.FC = () => {
               {wizardStep === 2 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {/* Real-Time Autocomplete Directory Search */}
-                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48' }}>
-                          Search Researcher Directory
+                  <div
+                    style={{
+                      background: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      boxShadow: '0 1px 2px rgba(15, 43, 72, 0.04)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48', letterSpacing: '-0.01em' }}>
+                          🏛️ Search Institutional Directory
                         </span>
-                        <span style={{ fontSize: '11px', color: '#64748B' }}>
-                          (Auto-fill from SAMIKSHA database)
-                        </span>
+                        <Badge variant="teal">SAMIKSHA Verified</Badge>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Add as:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>Assign Role:</span>
                         <select
                           value={selectedDirectoryAuthorRole}
                           onChange={(e) => setSelectedDirectoryAuthorRole(e.target.value)}
                           style={{
-                            fontSize: '12px',
-                            padding: '4px 8px',
+                            fontSize: '12.5px',
+                            padding: '5px 10px',
                             borderRadius: '6px',
                             border: '1px solid #CBD5E1',
                             backgroundColor: '#FFFFFF',
                             color: '#0F2B48',
-                            fontWeight: 500,
+                            fontWeight: 600,
+                            cursor: 'pointer',
                           }}
                         >
                           <option value="First Author">First Author</option>
@@ -2053,11 +2454,46 @@ export const CertificatesPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <Input
-                      placeholder="Type researcher name, department, or Scopus ID to search..."
-                      value={searchAuthorQuery}
-                      onChange={(e) => setSearchAuthorQuery(e.target.value)}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <Input
+                        placeholder="Search by researcher name, department, or Scopus ID..."
+                        value={searchAuthorQuery}
+                        onChange={(e) => setSearchAuthorQuery(e.target.value)}
+                        style={{ paddingLeft: '34px' }}
+                      />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          left: '11px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '14px',
+                          color: '#94A3B8',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        🔍
+                      </span>
+                      {searchAuthorQuery.trim().length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchAuthorQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#94A3B8',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
 
                     {/* Autocomplete Suggestions Dropdown */}
                     {searchAuthorQuery.trim().length > 0 && (
@@ -2066,10 +2502,10 @@ export const CertificatesPage: React.FC = () => {
                           marginTop: '8px',
                           background: '#FFFFFF',
                           border: '1px solid #CBD5E1',
-                          borderRadius: '6px',
-                          maxHeight: '190px',
+                          borderRadius: '8px',
+                          maxHeight: '200px',
                           overflowY: 'auto',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
                         }}
                       >
                         {(() => {
@@ -2084,7 +2520,7 @@ export const CertificatesPage: React.FC = () => {
 
                           if (filtered.length === 0) {
                             return (
-                              <div style={{ padding: '12px', fontSize: '12.5px', color: '#64748B', textAlign: 'center' }}>
+                              <div style={{ padding: '14px', fontSize: '12.5px', color: '#64748B', textAlign: 'center' }}>
                                 No matching researchers found in directory. Use manual entry below for external collaborators.
                               </div>
                             );
@@ -2099,7 +2535,7 @@ export const CertificatesPage: React.FC = () => {
                                   if (!isAlreadyAdded) handleAddAuthorFromDirectory(a);
                                 }}
                                 style={{
-                                  padding: '9px 12px',
+                                  padding: '10px 14px',
                                   borderBottom: '1px solid #F1F5F9',
                                   cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
                                   backgroundColor: isAlreadyAdded ? '#F8FAFC' : '#FFFFFF',
@@ -2140,23 +2576,33 @@ export const CertificatesPage: React.FC = () => {
                   </div>
 
                   {/* Manual Author Entry Fallback (Structured 2-Row Form) */}
-                  <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48' }}>
-                          Add External / Non-Directory Co-Author
-                        </span>
-                        <Badge variant="neutral">Manual Entry</Badge>
+                  <div
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      boxShadow: '0 1px 2px rgba(15, 43, 72, 0.04)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48' }}>
+                            ✍️ Add External / Non-Directory Author
+                          </span>
+                          <Badge variant="neutral">Manual Entry</Badge>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                          For external university collaborators, visiting scholars, or researchers not in the local directory
+                        </div>
                       </div>
-                      <span style={{ fontSize: '11px', color: '#64748B' }}>
-                        For collaborators from external universities or non-directory researchers
-                      </span>
                     </div>
 
                     {/* Row 1: Title, Legal Name, Role */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1.8fr 1.2fr', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '110px 1.8fr 1.2fr', gap: '12px', marginBottom: '12px' }}>
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Title
                         </label>
                         <select
@@ -2165,12 +2611,13 @@ export const CertificatesPage: React.FC = () => {
                           style={{
                             width: '100%',
                             fontSize: '12.5px',
-                            padding: '6px 8px',
+                            padding: '6px 10px',
                             borderRadius: '6px',
                             border: '1px solid #CBD5E1',
                             backgroundColor: '#FFFFFF',
                             color: '#0F2B48',
-                            height: '36px',
+                            height: '38px',
+                            fontWeight: 500,
                           }}
                         >
                           <option value="Dr.">Dr.</option>
@@ -2179,22 +2626,29 @@ export const CertificatesPage: React.FC = () => {
                           <option value="Ms.">Ms.</option>
                           <option value="Mrs.">Mrs.</option>
                           <option value="Er.">Er.</option>
+                          <option value="None">None</option>
                         </select>
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Full Legal Name <span style={{ color: '#DC2626' }}>*</span>
                         </label>
                         <Input
                           placeholder="e.g. Ramesh Chandra Verma"
                           value={manualAuthorName}
                           onChange={(e) => setManualAuthorName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddManualAuthor();
+                            }
+                          }}
                         />
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Author Role
                         </label>
                         <select
@@ -2203,12 +2657,13 @@ export const CertificatesPage: React.FC = () => {
                           style={{
                             width: '100%',
                             fontSize: '12.5px',
-                            padding: '6px 8px',
+                            padding: '6px 10px',
                             borderRadius: '6px',
                             border: '1px solid #CBD5E1',
                             backgroundColor: '#FFFFFF',
                             color: '#0F2B48',
-                            height: '36px',
+                            height: '38px',
+                            fontWeight: 500,
                           }}
                         >
                           <option value="First Author">First Author</option>
@@ -2220,9 +2675,9 @@ export const CertificatesPage: React.FC = () => {
                     </div>
 
                     {/* Row 2: Department, Affiliation, Scopus ID, Add Button */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 120px auto', gap: '10px', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.6fr 130px auto', gap: '12px', alignItems: 'flex-end' }}>
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Department
                         </label>
                         <Input
@@ -2233,22 +2688,22 @@ export const CertificatesPage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Affiliation / Institution
                         </label>
                         <Input
-                          placeholder="e.g. IIT Kanpur / External Univ"
+                          placeholder="e.g. IIT Kanpur / BHU / External Univ"
                           value={manualAuthorAffiliation}
                           onChange={(e) => setManualAuthorAffiliation(e.target.value)}
                         />
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '4px' }}>
                           Scopus ID (opt.)
                         </label>
                         <Input
-                          placeholder="57201234567"
+                          placeholder="e.g. 57201234567"
                           value={manualAuthorScopusId}
                           onChange={(e) => setManualAuthorScopusId(e.target.value)}
                         />
@@ -2260,216 +2715,310 @@ export const CertificatesPage: React.FC = () => {
                           size="sm"
                           onClick={handleAddManualAuthor}
                           style={{
-                            height: '36px',
-                            padding: '0 16px',
+                            height: '38px',
+                            padding: '0 18px',
                             whiteSpace: 'nowrap',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '6px',
                             fontWeight: 600,
+                            backgroundColor: '#0F2B48',
+                            borderColor: '#0F2B48',
                           }}
                         >
-                          + Add Author
+                          <span>+ Add Author</span>
                         </Button>
                       </div>
                     </div>
                   </div>
 
                   {/* Current Authors List */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48' }}>
-                          Authors Included on Certificate
+                        <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48' }}>
+                          📜 Authors Included on Certificate
                         </span>
                         <Badge variant={wizardAuthors.length > 0 ? 'gold' : 'neutral'}>
                           {wizardAuthors.length} {wizardAuthors.length === 1 ? 'Recipient' : 'Recipients'}
                         </Badge>
                       </div>
                       <span style={{ fontSize: '11.5px', color: '#64748B' }}>
-                        Use ↑ / ↓ to adjust order (Author #1 is displayed as primary on the certificate)
+                        Use ↑ / ↓ to adjust order (Author #1 is designated as the primary recipient on the printed certificate)
                       </span>
                     </div>
 
                     {wizardAuthors.length === 0 ? (
                       <div
                         style={{
-                          border: '1.5px dashed #CBD5E1',
-                          borderRadius: '8px',
-                          padding: '24px 16px',
+                          border: '2px dashed #CBD5E1',
+                          borderRadius: '10px',
+                          padding: '28px 16px',
                           textAlign: 'center',
-                          backgroundColor: '#FAFCFE',
+                          backgroundColor: '#F8FAFC',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           gap: '6px',
                         }}
                       >
-                        <div style={{ fontSize: '24px', color: '#94A3B8' }}>👥</div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+                        <div style={{ fontSize: '28px', color: '#94A3B8' }}>👥</div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>
                           No Authors Added Yet
                         </div>
-                        <div style={{ fontSize: '11.5px', color: '#94A3B8', maxWidth: '380px' }}>
-                          Search the researcher directory or use manual entry above to include at least one author on this certificate.
+                        <div style={{ fontSize: '12px', color: '#64748B', maxWidth: '420px', lineHeight: 1.4 }}>
+                          Search the institutional directory above or manually enter external collaborators to add at least one recipient to this certificate.
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
-                        {wizardAuthors.map((auth, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              background: idx === 0 ? '#FAF7F0' : '#F8FAFC',
-                              border: `1px solid ${idx === 0 ? '#E8D4A2' : '#E2E8F0'}`,
-                              borderLeft: `4px solid ${idx === 0 ? '#B2811A' : '#64748B'}`,
-                              borderRadius: '6px',
-                              padding: '10px 14px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              boxShadow: idx === 0 ? '0 1px 3px rgba(178, 129, 26, 0.1)' : 'none',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                              <div
-                                style={{
-                                  width: '26px',
-                                  height: '26px',
-                                  borderRadius: '50%',
-                                  backgroundColor: idx === 0 ? '#B2811A' : '#E2E8F0',
-                                  color: idx === 0 ? '#FFFFFF' : '#475569',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  flexShrink: 0,
-                                }}
-                                title={`Author Order #${auth.author_order}`}
-                              >
-                                #{auth.author_order}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {wizardAuthors.map((auth, idx) => {
+                          const isPrimary = idx === 0;
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                background: isPrimary ? '#FAF7F0' : '#FFFFFF',
+                                border: `1.5px solid ${isPrimary ? '#B2811A' : '#E2E8F0'}`,
+                                borderRadius: '8px',
+                                padding: '12px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                boxShadow: isPrimary ? '0 2px 6px rgba(178, 129, 26, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.03)',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isPrimary ? '#B2811A' : '#64748B',
+                                    color: '#FFFFFF',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    flexShrink: 0,
+                                  }}
+                                  title={`Author Order #${auth.author_order}${isPrimary ? ' (Lead Author)' : ''}`}
+                                >
+                                  #{auth.author_order}
+                                </div>
+
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48' }}>
+                                      {auth.academic_title_snapshot && auth.academic_title_snapshot !== 'None' ? `${auth.academic_title_snapshot} ` : ''}
+                                      {auth.author_name_snapshot}
+                                    </span>
+                                    {isPrimary && (
+                                      <span
+                                        style={{
+                                          fontSize: '10.5px',
+                                          fontWeight: 700,
+                                          color: '#B2811A',
+                                          backgroundColor: '#FEF3C7',
+                                          border: '1px solid #FDE68A',
+                                          padding: '2px 6px',
+                                          borderRadius: '4px',
+                                          textTransform: 'uppercase',
+                                          letterSpacing: '0.04em',
+                                        }}
+                                      >
+                                        ⭐ Primary Recipient
+                                      </span>
+                                    )}
+                                    <Badge variant={auth.author_role === 'First Author' ? 'gold' : auth.author_role === 'Corresponding Author' ? 'teal' : 'neutral'}>
+                                      {auth.author_role}
+                                    </Badge>
+                                    {auth.scopus_id_snapshot ? (
+                                      <Badge variant="gold">Scopus: {auth.scopus_id_snapshot}</Badge>
+                                    ) : (
+                                      <Badge variant="neutral">No Scopus ID</Badge>
+                                    )}
+                                    {auth.researcher_id ? (
+                                      <Badge variant="teal">Directory</Badge>
+                                    ) : (
+                                      <Badge variant="neutral">External</Badge>
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {auth.department_snapshot} • {auth.affiliation_snapshot}
+                                  </div>
+                                </div>
                               </div>
 
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48' }}>
-                                    {auth.academic_title_snapshot ? `${auth.academic_title_snapshot} ` : ''}{auth.author_name_snapshot}
-                                  </span>
-                                  <Badge variant={auth.author_role === 'First Author' ? 'gold' : 'teal'}>
-                                    {auth.author_role}
-                                  </Badge>
-                                  {auth.scopus_id_snapshot ? (
-                                    <Badge variant="gold">Scopus: {auth.scopus_id_snapshot}</Badge>
-                                  ) : (
-                                    <Badge variant="neutral">No Scopus ID</Badge>
-                                  )}
-                                  {auth.researcher_id ? (
-                                    <Badge variant="teal">Directory</Badge>
-                                  ) : (
-                                    <Badge variant="neutral">External</Badge>
-                                  )}
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {auth.department_snapshot} • {auth.affiliation_snapshot}
-                                </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '12px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveWizardAuthor(idx, 'UP')}
+                                  disabled={idx === 0}
+                                  title="Move author up"
+                                  style={{
+                                    background: '#FFFFFF',
+                                    border: '1px solid #CBD5E1',
+                                    borderRadius: '5px',
+                                    cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                                    opacity: idx === 0 ? 0.35 : 1,
+                                    padding: '5px 9px',
+                                    fontSize: '12px',
+                                    lineHeight: 1,
+                                    color: '#0F2B48',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveWizardAuthor(idx, 'DOWN')}
+                                  disabled={idx === wizardAuthors.length - 1}
+                                  title="Move author down"
+                                  style={{
+                                    background: '#FFFFFF',
+                                    border: '1px solid #CBD5E1',
+                                    borderRadius: '5px',
+                                    cursor: idx === wizardAuthors.length - 1 ? 'not-allowed' : 'pointer',
+                                    opacity: idx === wizardAuthors.length - 1 ? 0.35 : 1,
+                                    padding: '5px 9px',
+                                    fontSize: '12px',
+                                    lineHeight: 1,
+                                    color: '#0F2B48',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveWizardAuthor(idx)}
+                                  title="Remove author from certificate"
+                                  style={{
+                                    background: '#FEF2F2',
+                                    border: '1px solid #FECACA',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    padding: '5px 9px',
+                                    fontSize: '12px',
+                                    lineHeight: 1,
+                                    color: '#DC2626',
+                                    fontWeight: 700,
+                                    marginLeft: '4px',
+                                  }}
+                                >
+                                  ✕
+                                </button>
                               </div>
                             </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '12px' }}>
-                              <button
-                                onClick={() => handleMoveWizardAuthor(idx, 'UP')}
-                                disabled={idx === 0}
-                                title="Move author up"
-                                style={{
-                                  background: '#FFFFFF',
-                                  border: '1px solid #CBD5E1',
-                                  borderRadius: '4px',
-                                  cursor: idx === 0 ? 'not-allowed' : 'pointer',
-                                  opacity: idx === 0 ? 0.35 : 1,
-                                  padding: '4px 8px',
-                                  fontSize: '12px',
-                                  lineHeight: 1,
-                                }}
-                              >
-                                ↑
-                              </button>
-                              <button
-                                onClick={() => handleMoveWizardAuthor(idx, 'DOWN')}
-                                disabled={idx === wizardAuthors.length - 1}
-                                title="Move author down"
-                                style={{
-                                  background: '#FFFFFF',
-                                  border: '1px solid #CBD5E1',
-                                  borderRadius: '4px',
-                                  cursor: idx === wizardAuthors.length - 1 ? 'not-allowed' : 'pointer',
-                                  opacity: idx === wizardAuthors.length - 1 ? 0.35 : 1,
-                                  padding: '4px 8px',
-                                  fontSize: '12px',
-                                  lineHeight: 1,
-                                }}
-                              >
-                                ↓
-                              </button>
-                              <button
-                                onClick={() => handleRemoveWizardAuthor(idx)}
-                                title="Remove author from certificate"
-                                style={{
-                                  background: '#FEE2E2',
-                                  border: '1px solid #FECACA',
-                                  color: '#DC2626',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  padding: '4px 8px',
-                                  fontSize: '12px',
-                                  lineHeight: 1,
-                                  fontWeight: 700,
-                                  marginLeft: '4px',
-                                }}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* STEP 3: Publication Details */}
+              {/* STEP 3: Publication / Incentive Details */}
               {wizardStep === 3 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Associate Existing Publication (Optional)</label>
-                    <Select
-                      value={wizardPublicationId}
-                      onChange={(e) => handleSelectPublicationForWizard(e.target.value)}
-                      options={[
-                        { label: '-- Select publication from SAMIKSHA database --', value: '' },
-                        ...publications.map((p) => ({ label: `${p.title} (${p.source_journal})`, value: p.id })),
-                      ]}
-                    />
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {wizardCategory === 'INCENTIVE_AWARD' ? (
+                    /* INCENTIVE AWARD DETAILS */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div style={{ background: '#FAF7F0', border: '1.5px solid #B2811A', borderRadius: '10px', padding: '16px' }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#B2811A', textTransform: 'uppercase', marginBottom: '10px' }}>
+                          🏆 Research Incentive Sanction Particulars
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                              Approved Incentive Amount (₹)
+                            </label>
+                            <Input
+                              placeholder="e.g. 25000"
+                              value={wizardIncentiveAmount}
+                              onChange={(e) => setWizardIncentiveAmount(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                              Sanction Order / Resolution Reference
+                            </label>
+                            <Input
+                              placeholder="e.g. CSJMU/RD/INCENTIVE/2026/042"
+                              value={wizardSanctionRef}
+                              onChange={(e) => setWizardSanctionRef(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                  <div>
-                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Research Paper / Publication Title *</label>
-                    <Input
-                      value={wizardResearchTitle}
-                      onChange={(e) => setWizardResearchTitle(e.target.value)}
-                      placeholder="e.g. Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles"
-                    />
-                  </div>
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                          Associated Research Paper / Publication Title *
+                        </label>
+                        <Input
+                          value={wizardResearchTitle}
+                          onChange={(e) => setWizardResearchTitle(e.target.value)}
+                          placeholder="e.g. Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles"
+                        />
+                      </div>
 
-                  <div>
-                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Contribution Statement</label>
-                    <Input value={wizardContribution} onChange={(e) => setWizardContribution(e.target.value)} />
-                  </div>
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Award Recognition Statement</label>
+                        <Input value={wizardContribution} onChange={(e) => setWizardContribution(e.target.value)} />
+                      </div>
 
-                  <div>
-                    <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Congratulatory Note</label>
-                    <Input value={wizardCongratulatory} onChange={(e) => setWizardCongratulatory(e.target.value)} />
-                  </div>
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Commendation Statement</label>
+                        <Input value={wizardCongratulatory} onChange={(e) => setWizardCongratulatory(e.target.value)} />
+                      </div>
+                    </div>
+                  ) : (
+                    /* RESEARCH PUBLICATION DETAILS */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Associate Existing Publication (Optional)</label>
+                        <Select
+                          value={wizardPublicationId}
+                          onChange={(e) => handleSelectPublicationForWizard(e.target.value)}
+                          options={[
+                            { label: '-- Select publication from SAMIKSHA database --', value: '' },
+                            ...publications
+                              .filter((p) => !wizardBulletinId || p.bulletin_id === wizardBulletinId)
+                              .map((p) => ({ label: `${p.title} (${p.source_journal || 'CSJMU'})`, value: p.id })),
+                            ...(wizardBulletinId && publications.some((p) => p.bulletin_id !== wizardBulletinId)
+                              ? publications
+                                  .filter((p) => p.bulletin_id !== wizardBulletinId)
+                                  .map((p) => ({ label: `[Other Bulletin] ${p.title} (${p.source_journal || 'CSJMU'})`, value: p.id }))
+                              : []),
+                          ]}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Research Paper / Publication Title *</label>
+                        <Input
+                          value={wizardResearchTitle}
+                          onChange={(e) => setWizardResearchTitle(e.target.value)}
+                          placeholder="e.g. Exploring the dielectric, supercapacitor and photocatalytic capabilities of sol-gel synthesized TiC nanoparticles"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Contribution Statement</label>
+                        <Input value={wizardContribution} onChange={(e) => setWizardContribution(e.target.value)} />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Congratulatory Note</label>
+                        <Input value={wizardCongratulatory} onChange={(e) => setWizardCongratulatory(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2479,15 +3028,33 @@ export const CertificatesPage: React.FC = () => {
                   {/* Summary Card */}
                   <div style={{ background: '#FAF7F0', border: '1px solid #B2811A', borderRadius: '8px', padding: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', textTransform: 'uppercase' }}>Certificate Summary</div>
-                      <Badge variant="gold">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#B2811A', textTransform: 'uppercase' }}>Certificate Summary</span>
+                        <Badge variant={wizardCategory === 'INCENTIVE_AWARD' ? 'gold' : 'teal'}>
+                          {wizardCategory === 'INCENTIVE_AWARD' ? '🏆 Incentive Certificate' : '📚 Research Work'}
+                        </Badge>
+                      </div>
+                      <Badge variant="neutral">
                         {templates.find((t) => t.id === wizardTemplateId)?.name || 'Default Template'}
                       </Badge>
                     </div>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', marginTop: '6px' }}>{wizardTitle}</div>
                     <div style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', marginTop: '3px' }}>"{wizardResearchTitle}"</div>
-                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0F2B48', marginTop: '10px' }}>
-                      Recipients ({wizardAuthors.length}): {wizardAuthors.map((a) => `${a.academic_title_snapshot} ${a.author_name_snapshot} (${a.author_role})`).join(' • ')}
+                    {wizardBulletinId && (() => {
+                      const b = bulletins.find((x) => x.id === wizardBulletinId);
+                      return b ? (
+                        <div style={{ fontSize: '12px', color: '#0D9488', fontWeight: 600, marginTop: '6px' }}>
+                          🏛️ Research Bulletin: Volume {b.volume_number} • Issue {b.issue_number} ({b.publication_period || 'Verified Edition'})
+                        </div>
+                      ) : null;
+                    })()}
+                    {wizardCategory === 'INCENTIVE_AWARD' && wizardIncentiveAmount && (
+                      <div style={{ fontSize: '12.5px', color: '#B2811A', fontWeight: 700, marginTop: '4px' }}>
+                        💰 Sanctioned Incentive: ₹ {wizardIncentiveAmount} {wizardSanctionRef ? `(Ref: ${wizardSanctionRef})` : ''}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0F2B48', marginTop: '8px' }}>
+                      Recipients ({wizardAuthors.length}): {wizardAuthors.map((a) => `${a.academic_title_snapshot || ''} ${a.author_name_snapshot} (${a.author_role})`).join(' • ')}
                     </div>
                   </div>
 
@@ -2578,16 +3145,30 @@ export const CertificatesPage: React.FC = () => {
                 </Button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {wizardStep === 1 && !wizardBulletinId && (
+                    <span style={{ fontSize: '11.5px', color: '#DC2626', fontWeight: 500 }}>
+                      Select a Research Bulletin edition to proceed
+                    </span>
+                  )}
                   {wizardStep === 2 && wizardAuthors.length === 0 && (
                     <span style={{ fontSize: '11.5px', color: '#DC2626', fontWeight: 500 }}>
                       Add at least one author to proceed
+                    </span>
+                  )}
+                  {wizardStep === 3 && !wizardResearchTitle.trim() && (
+                    <span style={{ fontSize: '11.5px', color: '#DC2626', fontWeight: 500 }}>
+                      Enter research title to proceed
                     </span>
                   )}
                   {wizardStep < 4 ? (
                     <Button
                       variant="primary"
                       size="sm"
-                      disabled={wizardStep === 2 && wizardAuthors.length === 0}
+                      disabled={
+                        (wizardStep === 1 && !wizardBulletinId) ||
+                        (wizardStep === 2 && wizardAuthors.length === 0) ||
+                        (wizardStep === 3 && !wizardResearchTitle.trim())
+                      }
                       onClick={() => setWizardStep(wizardStep + 1)}
                     >
                       Next Step →

@@ -902,17 +902,31 @@ class SamaCmsService:
 
         if initial_status == "ISSUED" and not data.file_storage_path:
             verify_url = f"{base_verification_url.rstrip('/')}/verify/{token}"
+            bulletin_obj = None
+            if cert.bulletin_id:
+                bulletin_obj = db.get(ResearchBulletin, cert.bulletin_id)
+            elif cert.publication_id:
+                pub_obj = db.get(ResearchPublication, cert.publication_id)
+                if pub_obj and pub_obj.bulletin_id:
+                    bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
+
             try:
                 pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
                     certificate_number=cert_num,
                     verification_token=token,
                     verification_url=verify_url,
                     title=cert.title,
-                    presentation_statement=cert.presentation_statement or "This certificate is proudly conferred upon",
+                    certificate_type=cert.certificate_type or "RESEARCH_PUBLICATION",
+                    presentation_statement=cert.presentation_statement,
                     authors=author_items or [{"author_name_snapshot": "Distinguished Scholar"}],
-                    research_contribution_statement=cert.research_contribution_statement or "in recognition of publication in:",
+                    research_contribution_statement=cert.research_contribution_statement,
                     research_title=cert.research_title,
                     publication_details=cert.publication_details,
+                    bulletin_title=bulletin_obj.title if bulletin_obj else None,
+                    bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
+                    bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
+                    bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+                    incentive_details=cert.publication_details if cert.certificate_type == "INCENTIVE_AWARD" else None,
                     congratulatory_statement=cert.congratulatory_statement or "",
                     issue_date=cert.issued_at,
                     dean_name=appr_dean.signatory_name_snapshot,
@@ -1065,16 +1079,30 @@ class SamaCmsService:
                 vc_sig_path = vc_sig.signature_image_path
 
         verify_url = f"{base_verification_url.rstrip('/')}/verify/{certificate.verification_token}"
+        bulletin_obj = None
+        if certificate.bulletin_id:
+            bulletin_obj = db.get(ResearchBulletin, certificate.bulletin_id)
+        elif certificate.publication_id:
+            pub_obj = db.get(ResearchPublication, certificate.publication_id)
+            if pub_obj and pub_obj.bulletin_id:
+                bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
+
         pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
             certificate_number=certificate.certificate_number,
             verification_token=certificate.verification_token,
             verification_url=verify_url,
             title=certificate.title,
-            presentation_statement=certificate.presentation_statement or "This certificate is proudly conferred upon",
+            certificate_type=certificate.certificate_type or "RESEARCH_PUBLICATION",
+            presentation_statement=certificate.presentation_statement,
             authors=authors_data or [{"author_name_snapshot": "Distinguished Scholar"}],
-            research_contribution_statement=certificate.research_contribution_statement or "in recognition of publication in:",
+            research_contribution_statement=certificate.research_contribution_statement,
             research_title=certificate.research_title,
             publication_details=certificate.publication_details,
+            bulletin_title=bulletin_obj.title if bulletin_obj else None,
+            bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
+            bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
+            bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+            incentive_details=certificate.publication_details if certificate.certificate_type == "INCENTIVE_AWARD" else None,
             congratulatory_statement=certificate.congratulatory_statement or "",
             issue_date=certificate.issued_at or datetime.now(timezone.utc),
             dean_name=dean_appr.signatory_name_snapshot if dean_appr else "Prof. (Dr.) Rajesh Kumar",
@@ -1396,6 +1424,34 @@ class SamaCmsService:
                 },
             )
             db.add(default_tpl)
+
+        existing_inc_tpl = db.scalar(
+            select(CertificateTemplate).where(CertificateTemplate.code == "DEFAULT_CSJMU_INCENTIVE_A4")
+        )
+        if not existing_inc_tpl:
+            inc_tpl = CertificateTemplate(
+                code="DEFAULT_CSJMU_INCENTIVE_A4",
+                name="CSJMU Research Publication Incentive Certificate Template",
+                description="Official landscape A4 certificate for university research publication incentive awards with antique-gold borders, sanction particulars, and central seal.",
+                certificate_type="INCENTIVE_AWARD",
+                orientation="LANDSCAPE",
+                is_active=True,
+                is_default=False,
+                config={
+                    "background_color": "#FAF7F0",
+                    "primary_border_color": "#B2811A",
+                    "secondary_border_color": "#D4AF37",
+                    "accent_color": "#6B1D2F",
+                    "heading_font": "Times-Bold",
+                    "body_font": "Times-Roman",
+                    "show_university_emblem": True,
+                    "show_naac_badge": True,
+                    "show_academic_seal": True,
+                    "show_qr_code": True,
+                    "award_badge_text": "RESEARCH PUBLICATION INCENTIVE AWARD",
+                },
+            )
+            db.add(inc_tpl)
 
         existing_dean = db.scalar(
             select(CertificateSignatory).where(CertificateSignatory.authority_type == "DEAN_RD")

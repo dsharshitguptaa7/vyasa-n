@@ -21,6 +21,7 @@ from app.core.storage import (
     StorageSizeLimitError,
 )
 from app.modules.sama_veda.services.cms_service import sama_cms_service
+from app.modules.sama_veda.services.certificate_download_service import validate_and_stream_certificate_pdf
 from app.modules.sama_veda.services.import_service import import_service
 from app.modules.sama_veda.models import SamaImportBatch
 from app.modules.sama_veda.schemas.import_schemas import HistoricalBundleImportRequest
@@ -72,6 +73,19 @@ from app.admin.schemas.sama_cms import (
 )
 
 sama_admin_router = APIRouter(prefix="/sama", tags=["Sama Veda Administration & CMS"])
+
+
+def _get_production_verification_base_url(request: Request) -> str:
+    """
+    Resolves the official verification base URL for certificate QR codes.
+    Avoids baking development / localhost URLs into permanent issued certificates.
+    """
+    from app.core.config import settings
+    portal_url = getattr(settings, "PORTAL_BASE_URL", "").rstrip("/")
+    req_base = str(request.base_url).rstrip("/") if request else ""
+    if portal_url and any(h in req_base for h in ["localhost", "127.0.0.1", "testserver"]):
+        return portal_url
+    return req_base or portal_url or "https://vyasa.csjmu.ac.in"
 
 
 def _to_publication_out(pub: ResearchPublication) -> PublicationOut:
@@ -1069,17 +1083,31 @@ def preview_certificate_pdf(
     except Exception:
         pass
 
+    bulletin_obj = None
+    if payload.bulletin_id:
+        try:
+            from app.modules.sama_veda.models.bulletin import ResearchBulletin
+            bulletin_obj = db.get(ResearchBulletin, payload.bulletin_id)
+        except Exception:
+            pass
+
     pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
         certificate_number=payload.certificate_number or "CSJMU/PREVIEW/DRAFT-0000",
         verification_token="PREVIEW",
         verification_url=f"{str(request.base_url).rstrip('/')}/verify/preview-draft",
         title=payload.title,
-        presentation_statement=payload.presentation_statement or "This certificate is proudly conferred upon",
+        certificate_type=payload.certificate_type or "RESEARCH_PUBLICATION",
+        presentation_statement=payload.presentation_statement,
         authors=author_items,
-        research_contribution_statement=payload.research_contribution_statement or "in recognition of meritorious scholarly contribution published in the research article titled:",
+        research_contribution_statement=payload.research_contribution_statement,
         research_title=payload.research_title or "Exemplary Research Paper Title",
         publication_details=payload.publication_details,
-        congratulatory_statement=payload.congratulatory_statement or "The university commends the exemplary commitment to advancing research frontiers and intellectual pursuit.",
+        bulletin_title=bulletin_obj.title if bulletin_obj else None,
+        bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
+        bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
+        bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+        incentive_details=payload.publication_details if payload.certificate_type == "INCENTIVE_AWARD" else None,
+        congratulatory_statement=payload.congratulatory_statement,
         dean_name=dean_name,
         dean_designation=dean_desig,
         dean_signature_path=dean_sig,
@@ -1215,7 +1243,7 @@ def issue_certificate(
                 detail="Direct certificate issuance requires a mandatory institutional justification (minimum 10 characters).",
             )
 
-    base_url = str(request.base_url).rstrip("/")
+    base_url = _get_production_verification_base_url(request)
     cert = sama_cms_service.issue_certificate(
         db, payload, created_by_user_id=current_user.id, base_verification_url=base_url
     )
@@ -1310,7 +1338,7 @@ def approve_certificate(
     if payload.action.upper() == "REJECT" and not payload.remarks:
         raise HTTPException(status_code=400, detail="Rejection remarks are mandatory when rejecting a certificate.")
 
-    base_url = str(request.base_url).rstrip("/")
+    base_url = _get_production_verification_base_url(request)
     updated_cert = sama_cms_service.process_authority_approval(
         db,
         cert,
@@ -1362,7 +1390,7 @@ def reissue_certificate(
     if not cert:
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
-    base_url = str(request.base_url).rstrip("/")
+    base_url = _get_production_verification_base_url(request)
     new_cert = sama_cms_service.reissue_certificate(
         db, cert, reason=payload.reissue_reason, data=payload, created_by_user_id=current_user.id, base_verification_url=base_url
     )
@@ -1686,33 +1714,24 @@ def delete_admin_signatory(
 @sama_admin_router.get("/certificates/{certificate_id}/download")
 def download_admin_certificate(
     certificate_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:read")),
 ):
     """
     Stream certificate PDF to authorized administrator.
-    Validates storage key and streams file without static public file mounting.
+    Validates storage key and cryptographic SHA-256 integrity without static public file mounting.
     """
     cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
     if not cert:
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
-    try:
-        file_path = storage_service.get_file_path(cert.file_storage_path)
-    except StorageFileNotFoundError:
-        raise HTTPException(status_code=404, detail="Certificate PDF file not found in storage.")
-    except StorageError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    cert.download_count += 1
-    db.commit()
-
-    cert_no = cert.certificate_number if isinstance(cert.certificate_number, str) else "certificate"
-    safe_name = cert_no.replace("/", "_") + ".pdf"
-    return FileResponse(
-        path=str(file_path),
-        media_type="application/pdf",
-        filename=safe_name,
+    return validate_and_stream_certificate_pdf(
+        cert=cert,
+        request=request,
+        db=db,
+        current_user=current_user,
+        verification_source="ADMIN_PORTAL",
     )
 
 

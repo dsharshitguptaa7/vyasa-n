@@ -348,6 +348,7 @@ def reissue_authority_temporary_password(
             email=result["email"],
             delivery_status=result["delivery_status"],
             delivery_error=result["delivery_error"],
+            temporary_password=result["temporary_password"],
         ).model_dump()
         out_data["authority_id"] = str(out_data["authority_id"])
 

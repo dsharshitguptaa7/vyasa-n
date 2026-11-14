@@ -454,6 +454,7 @@ export interface IssueCertificatePayload {
 export interface CertificatePreviewPayload {
   certificate_type?: string;
   template_id?: string | null;
+  bulletin_id?: string | null;
   title?: string;
   presentation_statement?: string;
   authors: CertificateAuthorItem[];

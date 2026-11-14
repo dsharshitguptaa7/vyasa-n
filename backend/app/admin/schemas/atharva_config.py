@@ -59,6 +59,8 @@ class AuthorityPasswordReissueOut(BaseModel):
     email: str
     delivery_status: str = Field(..., description="Delivery status: SENT or FAILED")
     delivery_error: Optional[str] = Field(None, description="Sanitized error description if delivery failed")
+    temporary_password: str = Field(..., description="One-time plaintext temporary password returned to initiating SADMIN")
+
 
 
 
