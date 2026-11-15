@@ -552,5 +552,55 @@ describe('Dean Executive Command Center Frontend Suite', () => {
       expect(screen.queryByText('Institutional Jurisdiction Restricted')).not.toBeInTheDocument();
     });
   });
+
+  it('15. Correctly renders Password Change Required screen when user has temporary credentials', async () => {
+    vi.mocked(grievanceService.getDeanExecutiveDashboard).mockRejectedValueOnce(
+      new Error('Password change required before accessing platform resources. [PASSWORD_CHANGE_REQUIRED]')
+    );
+    vi.mocked(grievanceService.getDeanDashboardCases).mockRejectedValueOnce(
+      new Error('Password change required before accessing platform resources. [PASSWORD_CHANGE_REQUIRED]')
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Password Change Required')).toBeInTheDocument();
+      expect(screen.getByText('Mandatory Account Verification')).toBeInTheDocument();
+      expect(screen.getByText('Action Required')).toBeInTheDocument();
+      expect(screen.getByTestId('dean-auth-error-banner')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Proceed to Password Change/i })).toBeInTheDocument();
+      expect(screen.queryByText('Institutional Jurisdiction Restricted')).not.toBeInTheDocument();
+    });
+  });
+
+  it('16. Correctly renders Dean Authority Required screen when account has no active Dean assignment', async () => {
+    vi.mocked(grievanceService.getDeanExecutiveDashboard).mockRejectedValueOnce(
+      new Error('Access restricted to Atharva Veda Dean.')
+    );
+    vi.mocked(grievanceService.getDeanDashboardCases).mockRejectedValueOnce(
+      new Error('Access restricted to Atharva Veda Dean.')
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Dean Authority Required')).toBeInTheDocument();
+      expect(screen.getByText('Assignment Not Found')).toBeInTheDocument();
+      expect(screen.getByTestId('dean-auth-error-banner')).toBeInTheDocument();
+      expect(screen.queryByText('Institutional Jurisdiction Restricted')).not.toBeInTheDocument();
+    });
+  });
 });
 

@@ -145,7 +145,8 @@ def get_current_user(
     if getattr(user, "must_change_password", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Password change required before accessing platform resources.",
+            detail="Password change required before accessing platform resources. [PASSWORD_CHANGE_REQUIRED]",
+            headers={"X-Error-Code": "PASSWORD_CHANGE_REQUIRED"},
         )
 
     return user

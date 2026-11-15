@@ -72,25 +72,19 @@ def is_authorized_dean(authority: Optional[NivaranAuthority], user: User) -> boo
     """
     Validates institutional jurisdiction and authority mapping for the canonical Dean authority:
     1. Caller must have an active NivaranAuthority profile with canonical role == DEAN.
-    2. Caller must belong to the authorized institutional domain (e.g. csjmu.ac.in).
-    3. Institutional jurisdiction restrictions are strictly enforced without requiring any fragile
-       sub-department or designation string (e.g. 'Dean of Research & Development').
+    2. Active authority assignment must be linked to the authenticated user.
+    3. Institutional jurisdiction is derived dynamically from the active authority assignment,
+       without requiring restrictive email domain matching or fragile designation strings.
     """
     if not authority or authority.role != NivaranRole.DEAN or not getattr(authority, "is_active", True):
         return False
 
-    inst_domain = resolve_institutional_domain()
-    user_email = (getattr(user, "email", "") or "").strip().lower()
-    auth_email = (getattr(authority, "email_snapshot", "") or "").strip().lower()
-
-    effective_email = user_email or auth_email
-    if not effective_email:
+    if not user:
         return False
 
-    if user_email and not is_institutional_domain(user_email, inst_domain):
-        return False
-    if auth_email and not is_institutional_domain(auth_email, inst_domain):
-        return False
+    if hasattr(authority, "vyasa_user_id") and hasattr(user, "id"):
+        if authority.vyasa_user_id and user.id and authority.vyasa_user_id != user.id:
+            return False
 
     return True
 
@@ -215,17 +209,32 @@ def require_atharva_dean(
 
     Execution Flow:
     1. Authenticate current user via get_current_user.
-    2. Resolve their authority assignment from existing authority management records.
+    2. Resolve their active DEAN authority assignment from authority management records.
     3. Verify that the assignment exists and is active.
     4. Verify that the assigned authority type is DEAN.
     5. Resolve the institution and jurisdiction from the authorized assignment.
     6. Attach institutional jurisdiction scope to current_user and grant access.
     """
     authority = db.scalar(
-        select(NivaranAuthority).where(
-            NivaranAuthority.vyasa_user_id == current_user.id
+        select(NivaranAuthority)
+        .where(
+            NivaranAuthority.vyasa_user_id == current_user.id,
+            NivaranAuthority.role == NivaranRole.DEAN,
+            NivaranAuthority.is_active.is_(True),
         )
+        .order_by(NivaranAuthority.updated_at.desc() if hasattr(NivaranAuthority, "updated_at") else NivaranAuthority.id.desc())
     )
+
+    if not authority:
+        # Check if user has an inactive or non-DEAN assignment for precise rejection feedback
+        fallback_auth = db.scalar(
+            select(NivaranAuthority).where(
+                NivaranAuthority.vyasa_user_id == current_user.id
+            )
+        )
+        if fallback_auth:
+            authority = fallback_auth
+
     if not authority:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

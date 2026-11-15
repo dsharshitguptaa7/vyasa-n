@@ -409,7 +409,7 @@ def bulk_delete_publications(
 @sama_admin_router.get("/authors", response_model=ApiResponse)
 def list_admin_authors(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = None,
     is_verified: Optional[bool] = None,
     department: Optional[str] = None,

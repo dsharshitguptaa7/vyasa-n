@@ -353,7 +353,7 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                       </Badge>
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
-                      {result.title || (result.certificate_type === 'INCENTIVE_AWARD' ? 'Certificate of Research Publication Incentive Award' : 'Certificate of Appreciation & Research Excellence')}
+                      {result.title || (result.certificate_type === 'INCENTIVE_AWARD' ? 'Certificate of Appreciation for Research Publication' : 'Certificate of Appreciation')}
                     </div>
                   </div>
 

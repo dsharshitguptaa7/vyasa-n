@@ -333,6 +333,15 @@ def seed_all(
             results["subjects"] = subj_results
         except Exception as e:
             logger.warning(f"Subject seeding note: {e}")
+
+    # Synchronize Institutional Directory into SAMIKSHA ResearchAuthor index
+    try:
+        from app.modules.sama_veda.services.directory_sync_service import InstitutionalDirectorySyncService
+        sync_results = InstitutionalDirectorySyncService.sync_institutional_directory(db)
+        results["institutional_directory_sync"] = sync_results
+    except Exception as e:
+        logger.warning(f"Institutional Directory sync note: {e}")
+
     return results
 
 

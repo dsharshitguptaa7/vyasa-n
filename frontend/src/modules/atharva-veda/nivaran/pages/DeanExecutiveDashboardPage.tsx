@@ -36,6 +36,7 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
   // Active Authority Tab in Section 4
@@ -105,6 +106,7 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
     try {
       setLoading(true);
       setErrorMsg(null);
+      setErrorCode(null);
       const filters = buildFilterParams();
       const [dashRes, ledgRes, commReqs, comms] = await Promise.all([
         grievanceService.getDeanExecutiveDashboard(filters),
@@ -130,7 +132,10 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
       setLedgerPage(1);
       setLastUpdated(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to retrieve Dean Command Center analytics.');
+      const msg = err instanceof Error ? err.message : 'Failed to retrieve Dean Command Center analytics.';
+      const code = (err as any)?.errorCode || (err as any)?.response?.data?.code || (err as any)?.response?.data?.error?.code;
+      setErrorMsg(msg);
+      setErrorCode(code || null);
     } finally {
       setLoading(false);
     }
@@ -291,28 +296,73 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
 
   // Handle authorization rejection and critical load failures gracefully without displaying misleading zero metrics
   if (!dashboardData && errorMsg) {
-    const isAuthError =
-      errorMsg.toLowerCase().includes('jurisdiction') ||
-      errorMsg.toLowerCase().includes('restricted') ||
-      errorMsg.toLowerCase().includes('access restricted') ||
-      errorMsg.toLowerCase().includes('forbidden') ||
-      errorMsg.toLowerCase().includes('403') ||
-      errorMsg.toLowerCase().includes('authorized') ||
-      errorMsg.toLowerCase().includes('authority');
+    const isPasswordChange =
+      errorCode === 'PASSWORD_CHANGE_REQUIRED' ||
+      errorMsg.includes('PASSWORD_CHANGE_REQUIRED') ||
+      errorMsg.toLowerCase().includes('password change required');
+
+    const isDeanAssignmentError =
+      errorMsg.toLowerCase().includes('access restricted to atharva veda dean') ||
+      errorMsg.toLowerCase().includes('dean authority required');
+
+    const isJurisdictionError =
+      errorMsg.toLowerCase().includes('institutional jurisdiction restricted') ||
+      errorMsg.toLowerCase().includes('jurisdiction');
+
+    const isGenericAuthError =
+      !isPasswordChange &&
+      !isDeanAssignmentError &&
+      !isJurisdictionError &&
+      (errorMsg.toLowerCase().includes('forbidden') ||
+       errorMsg.toLowerCase().includes('403') ||
+       errorMsg.toLowerCase().includes('access restricted') ||
+       errorMsg.toLowerCase().includes('authorized'));
+
+    let title = "Executive Command Center Unavailable";
+    let subtitle = "Analytics Retrieval Failed";
+    let badgeText = "Error";
+    let badgeVariant: "saffron" | "neutral" | "danger" | "gold" = "neutral";
+    let descriptionText = "The Executive Command Center encountered an error while aggregating institutional redressal metrics.";
+    let primaryButtonText = "Retry Verification";
+    let onPrimaryClick: () => Promise<void> = loadDashboard;
+
+    if (isPasswordChange) {
+      title = "Password Change Required";
+      subtitle = "Mandatory Account Verification";
+      badgeText = "Action Required";
+      badgeVariant = "saffron";
+      descriptionText = "A temporary password is currently active for your account. You must set a permanent password before accessing the Executive Command Center.";
+      primaryButtonText = "Proceed to Password Change";
+      onPrimaryClick = async () => { navigate('/authority/login'); };
+    } else if (isDeanAssignmentError) {
+      title = "Dean Authority Required";
+      subtitle = "Assignment Not Found";
+      badgeText = "Access Denied";
+      badgeVariant = "saffron";
+      descriptionText = "The authenticated account does not possess an active Dean authority assignment in Authority Management. Access to the Executive Command Center is restricted to authorized Deans.";
+      primaryButtonText = "Retry Verification";
+      onPrimaryClick = loadDashboard;
+    } else if (isJurisdictionError || isGenericAuthError) {
+      title = "Institutional Jurisdiction Restricted";
+      subtitle = "Authorized Dean Required";
+      badgeText = "Access Denied";
+      badgeVariant = "saffron";
+      descriptionText = "The authenticated account does not possess authorized Dean institutional jurisdiction to access the Executive Command Center.";
+      primaryButtonText = "Retry Verification";
+      onPrimaryClick = loadDashboard;
+    }
 
     return (
       <PageContainer narrow style={{ padding: '60px 0' }}>
         <Card
           variant="scholarly"
-          title={isAuthError ? "Institutional Jurisdiction Restricted" : "Executive Command Center Unavailable"}
-          subtitle={isAuthError ? "Authorized Dean Required" : "Analytics Retrieval Failed"}
-          headerAction={<Badge variant="saffron">{isAuthError ? "Access Denied" : "Error"}</Badge>}
+          title={title}
+          subtitle={subtitle}
+          headerAction={<Badge variant={badgeVariant}>{badgeText}</Badge>}
         >
           <div style={{ padding: '16px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
             <p style={{ marginBottom: '16px' }}>
-              {isAuthError
-                ? "The authenticated account does not possess authorized Dean institutional jurisdiction to access the Executive Command Center."
-                : "The Executive Command Center encountered an error while aggregating institutional redressal metrics."}
+              {descriptionText}
             </p>
             <div
               style={{
@@ -329,8 +379,8 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
               <strong>Error Details:</strong> {errorMsg}
             </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Button variant="primary" size="sm" onClick={loadDashboard} data-testid="retry-auth-btn">
-                Retry Verification
+              <Button variant="primary" size="sm" onClick={onPrimaryClick} data-testid="retry-auth-btn">
+                {primaryButtonText}
               </Button>
               <Button variant="outline" size="sm" onClick={() => navigate('/authority')}>
                 Return to Authority Console

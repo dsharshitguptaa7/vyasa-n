@@ -401,9 +401,9 @@ class CertificatePDFEngine:
         # Normalize title and presentation statement based on category
         if not title:
             if certificate_type == "INCENTIVE_AWARD":
-                title = "CERTIFICATE OF RESEARCH PUBLICATION INCENTIVE AWARD"
+                title = "CERTIFICATE OF APPRICIATION FOR RESEARCH PUBLICATION"
             else:
-                title = "CERTIFICATE OF APPRECIATION & RESEARCH EXCELLENCE"
+                title = "CERTIFICATE OF APPRECIATION"
 
         if not presentation_statement:
             if certificate_type == "INCENTIVE_AWARD":

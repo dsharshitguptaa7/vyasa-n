@@ -3,7 +3,7 @@ import logging
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 logger = logging.getLogger(__name__)
@@ -300,34 +300,67 @@ class SamaCmsService:
             query = query.where(ResearchAuthor.is_verified == is_verified)
         if department:
             query = query.where(ResearchAuthor.department.ilike(f"%{department.strip()}%"))
-        if search:
-            search_pattern = f"%{search.strip()}%"
-            query = query.where(
-                or_(
-                    ResearchAuthor.full_name.ilike(search_pattern),
-                    ResearchAuthor.scopus_id.ilike(search_pattern),
-                    ResearchAuthor.department.ilike(search_pattern),
+
+        search_filter = None
+        if search and search.strip():
+            raw_tokens = search.strip().split()
+            tokens = [t.strip(".,;:").lower() for t in raw_tokens if t.strip(".,;:")]
+
+            # Recognize common honorifics so searching "Prof. Namita Tiwari" matches "Namita Tiwari"
+            honorifics = {"prof", "dr", "mr", "mrs", "ms", "er", "shri", "smt"}
+            substantive_tokens = [t for t in tokens if t not in honorifics]
+            effective_tokens = substantive_tokens if substantive_tokens else tokens
+
+            # Every effective token must match in at least one attribute
+            token_match_clauses = []
+            for tok in effective_tokens:
+                pattern = f"%{tok}%"
+                token_match_clauses.append(
+                    or_(
+                        ResearchAuthor.full_name.ilike(pattern),
+                        ResearchAuthor.scopus_id.ilike(pattern),
+                        ResearchAuthor.department.ilike(pattern),
+                        ResearchAuthor.institutional_affiliation.ilike(pattern),
+                    )
                 )
+
+            # Combined search filter matches:
+            # 1. All effective tokens matching somewhere (multi-word, middle names, reverse order)
+            # 2. Or the exact search pattern matching full_name, scopus_id, or department
+            clean_phrase = f"%{search.strip()}%"
+            search_filter = or_(
+                and_(*token_match_clauses),
+                ResearchAuthor.full_name.ilike(clean_phrase),
+                ResearchAuthor.scopus_id.ilike(clean_phrase),
+                ResearchAuthor.department.ilike(clean_phrase),
             )
+            query = query.where(search_filter)
 
         count_stmt = select(func.count(ResearchAuthor.id))
         if is_verified is not None:
             count_stmt = count_stmt.where(ResearchAuthor.is_verified == is_verified)
         if department:
             count_stmt = count_stmt.where(ResearchAuthor.department.ilike(f"%{department.strip()}%"))
-        if search:
-            search_pattern = f"%{search.strip()}%"
-            count_stmt = count_stmt.where(
-                or_(
-                    ResearchAuthor.full_name.ilike(search_pattern),
-                    ResearchAuthor.scopus_id.ilike(search_pattern),
-                    ResearchAuthor.department.ilike(search_pattern),
-                )
-            )
+        if search_filter is not None:
+            count_stmt = count_stmt.where(search_filter)
 
         total = db.scalar(count_stmt) or 0
+
+        # Prioritize exact name matches, prefix matches, verified authors, then alphabetical
+        order_clauses = []
+        if search and search.strip():
+            clean_search = search.strip()
+            order_clauses.extend([
+                case((func.lower(ResearchAuthor.full_name) == clean_search.lower(), 1), else_=2),
+                case((ResearchAuthor.full_name.ilike(f"{clean_search}%"), 1), else_=2),
+            ])
+        order_clauses.extend([
+            ResearchAuthor.is_verified.desc(),
+            ResearchAuthor.full_name.asc(),
+        ])
+
         items = db.scalars(
-            query.order_by(ResearchAuthor.full_name.asc())
+            query.order_by(*order_clauses)
             .offset(skip)
             .limit(limit)
         ).all()

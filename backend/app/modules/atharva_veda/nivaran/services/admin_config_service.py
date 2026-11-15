@@ -240,6 +240,13 @@ class AdminConfigService:
                     "must_change_password": True if temp_password else False,
                 },
             )
+
+            try:
+                from app.modules.sama_veda.services.directory_sync_service import InstitutionalDirectorySyncService
+                InstitutionalDirectorySyncService.sync_single_authority(db, authority)
+            except Exception as sync_err:
+                logger.warning(f"Failed to sync authority into ResearchAuthor: {sync_err}")
+
             db.commit()
             db.refresh(authority)
             # Attach transient temporary password for one-time API exposure by caller
@@ -285,6 +292,16 @@ class AdminConfigService:
                     )
                     if existing:
                         raise ValueError(f"Email '{clean_email}' is already assigned to authority '{existing.name_snapshot}'.")
+
+                    existing_user = db.scalar(
+                        select(User).where(
+                            func.lower(User.email) == clean_email,
+                            User.id != authority.vyasa_user_id,
+                        )
+                    )
+                    if existing_user:
+                        raise ValueError(f"Email '{clean_email}' is already registered to another user account.")
+
                     changes["email"] = {"old": authority.email_snapshot, "new": clean_email}
                     authority.email_snapshot = clean_email
 
@@ -333,9 +350,11 @@ class AdminConfigService:
                 authority.is_active = is_active
 
             if changes:
-                # Ensure canonical user preserves generic platform role 'authority'
+                # Ensure canonical user preserves generic platform role 'authority' and synchronizes email
                 user = db.scalar(select(User).options(joinedload(User.roles)).where(User.id == authority.vyasa_user_id))
                 if user:
+                    if "email" in changes and user.email.lower() != authority.email_snapshot.lower():
+                        user.email = authority.email_snapshot
                     AdminConfigService._ensure_user_platform_authority_roles(db, user, authority.role)
 
                 AdminConfigService.log_config_audit(
@@ -346,6 +365,13 @@ class AdminConfigService:
                     entity_id=str(authority.id),
                     details=changes,
                 )
+
+                try:
+                    from app.modules.sama_veda.services.directory_sync_service import InstitutionalDirectorySyncService
+                    InstitutionalDirectorySyncService.sync_single_authority(db, authority)
+                except Exception as sync_err:
+                    logger.warning(f"Failed to sync updated authority into ResearchAuthor: {sync_err}")
+
                 db.commit()
                 db.refresh(authority)
             return authority

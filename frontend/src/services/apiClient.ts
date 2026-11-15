@@ -150,8 +150,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         (typeof data?.error === 'string' ? data.error : data?.error?.message) ||
         getFriendlyStatusMessage(response.status, false);
 
+      const headerErrorCode = response.headers.get('x-error-code');
       const errorCode =
         data?.error?.code ||
+        data?.code ||
+        headerErrorCode ||
+        (typeof data?.detail === 'string' && data.detail.includes('PASSWORD_CHANGE_REQUIRED') ? 'PASSWORD_CHANGE_REQUIRED' : undefined) ||
         (response.status === 401 ? 'UNAUTHORIZED' : response.status === 403 ? 'FORBIDDEN' : `HTTP_${response.status}`);
 
       throw new ApiError(

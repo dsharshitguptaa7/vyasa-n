@@ -218,7 +218,7 @@ def test_incentive_certificate_metadata_box_formatting():
         certificate_number="CSJMU/SAMIKSHA/2026/INC-000102",
         verification_token="token_inc_102",
         verification_url="https://samiksha.csjmu.ac.in/verify/token_inc_102",
-        title="CERTIFICATE OF RESEARCH PUBLICATION INCENTIVE AWARD",
+        title="CERTIFICATE OF APPRECIATION FOR RESEARCH PUBLICATION",
         certificate_type="INCENTIVE_AWARD",
         authors=[{"author_name_snapshot": "Dr. Anju Dixit", "department_snapshot": "Department of Chemistry"}],
         research_title="Green synthesis of functionalized graphene oxide for dye degradation",

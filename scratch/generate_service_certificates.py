@@ -18,7 +18,7 @@ research_bytes, r_sha = certificate_pdf_engine.render_certificate_pdf(
     certificate_number="CSJMU/SAMIKSHA/2026/000002",
     verification_token="tok-csjmu-res-2026-000002",
     verification_url="https://samiksha.csjmu.ac.in/verify/tok-csjmu-res-2026-000002",
-    title="CERTIFICATE OF APPRECIATION & RESEARCH EXCELLENCE",
+    title="CERTIFICATE OF APPRECIATION",
     certificate_type="RESEARCH_PUBLICATION",
     authors=[{
         "author_name_snapshot": "Dr. Harshit Gupta",
@@ -45,7 +45,7 @@ incentive_bytes, i_sha = certificate_pdf_engine.render_certificate_pdf(
     certificate_number="CSJMU/SAMIKSHA/2026/INC-000002",
     verification_token="tok-csjmu-inc-2026-000002",
     verification_url="https://samiksha.csjmu.ac.in/verify/tok-csjmu-inc-2026-000002",
-    title="CERTIFICATE OF RESEARCH PUBLICATION INCENTIVE AWARD",
+    title="CERTIFICATE OF APPRECIATION FOR RESEARCH PUBLICATION",
     certificate_type="INCENTIVE_AWARD",
     authors=[{
         "author_name_snapshot": "Dr. Harshit Gupta",

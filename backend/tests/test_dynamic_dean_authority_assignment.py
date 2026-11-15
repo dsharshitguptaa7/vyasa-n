@@ -196,20 +196,21 @@ class TestDynamicDeanAuthorityAssignment:
             assert "Access restricted to Atharva Veda Dean." in exc_info.value.detail
             assert is_authorized_dean(auth_d, user_d) is False
 
-    def test_06_institutional_jurisdiction_isolation(self):
-        """6. Institutional jurisdiction isolation: Dean from external domain is strictly rejected."""
-        external_domains = [
+    def test_06_dean_authorization_succeeds_regardless_of_email_domain(self):
+        """6. Dynamic Dean authorization succeeds for any user with active DEAN assignment regardless of email domain."""
+        non_csjmu_domains = [
             "dean@oxford.ac.uk",
             "dean@mit.edu",
-            "dean@otheruniv.ac.in",
-            "attacker@unauthorized.org",
+            "dean@partner-univ.ac.in",
+            "researcher@global-institute.org",
         ]
 
-        for ext_email in external_domains:
+        for ext_email in non_csjmu_domains:
             ext_user = _create_test_user(ext_email)
             ext_auth = _create_authority_assignment(
                 user_id=ext_user.id,
                 email=ext_email,
+                name="Prof. External Dean",
                 role=NivaranRole.DEAN,
                 is_active=True,
             )
@@ -217,11 +218,12 @@ class TestDynamicDeanAuthorityAssignment:
             mock_db = MagicMock()
             mock_db.scalar.return_value = ext_auth
 
-            with pytest.raises(HTTPException) as exc_info:
-                require_atharva_dean(current_user=ext_user, db=mock_db)
-            assert exc_info.value.status_code == 403
-            assert "Institutional Jurisdiction Restricted: Authorized Dean Required." in exc_info.value.detail
-            assert is_authorized_dean(ext_auth, ext_user) is False
+            validated = require_atharva_dean(current_user=ext_user, db=mock_db)
+            assert validated == ext_user
+            assert getattr(validated, "active_authority", None) == ext_auth
+            assert is_authorized_dean(ext_auth, ext_user) is True
+            assert validated.institutional_scope["role"] == "DEAN"
+            assert validated.institutional_scope["user_email"] == ext_email.lower()
 
     def test_07_both_dashboard_and_cases_endpoints_use_same_dependency(self):
         """7. Verify both /dean/dashboard and /dean/dashboard/cases endpoints share require_atharva_dean."""
@@ -315,3 +317,77 @@ class TestDynamicDeanAuthorityAssignment:
         validated = require_atharva_dean(current_user=new_dean, db=mock_db)
         assert validated == new_dean
         assert is_authorized_dean(new_auth, new_dean) is True
+
+    def test_11_multiple_concurrent_active_deans_supported(self):
+        """11. Multiple users may hold active DEAN authority simultaneously; all are authorized independently."""
+        dean_1 = _create_test_user("dean1@csjmu.ac.in", first_name="Dean", last_name="One")
+        dean_2 = _create_test_user("dean2@otherdomain.edu", first_name="Dean", last_name="Two")
+
+        auth_1 = _create_authority_assignment(
+            user_id=dean_1.id,
+            email=dean_1.email,
+            name="Prof. Dean One",
+            role=NivaranRole.DEAN,
+            is_active=True,
+        )
+        auth_2 = _create_authority_assignment(
+            user_id=dean_2.id,
+            email=dean_2.email,
+            name="Prof. Dean Two",
+            role=NivaranRole.DEAN,
+            is_active=True,
+        )
+
+        mock_db_1 = MagicMock()
+        mock_db_1.scalar.return_value = auth_1
+        v1 = require_atharva_dean(current_user=dean_1, db=mock_db_1)
+        assert v1 == dean_1
+        assert is_authorized_dean(auth_1, dean_1) is True
+
+        mock_db_2 = MagicMock()
+        mock_db_2.scalar.return_value = auth_2
+        v2 = require_atharva_dean(current_user=dean_2, db=mock_db_2)
+        assert v2 == dean_2
+        assert is_authorized_dean(auth_2, dean_2) is True
+
+    def test_12_mismatched_authority_assignment_rejected(self):
+        """12. If an authority assignment belongs to a different user, authorization is strictly denied."""
+        user_x = _create_test_user("user.x@csjmu.ac.in")
+        user_y = _create_test_user("user.y@csjmu.ac.in")
+
+        auth_for_x = _create_authority_assignment(
+            user_id=user_x.id,
+            email=user_x.email,
+            role=NivaranRole.DEAN,
+            is_active=True,
+        )
+
+        # Calling is_authorized_dean with auth_for_x but user_y
+        assert is_authorized_dean(auth_for_x, user_y) is False
+
+        mock_db = MagicMock()
+        mock_db.scalar.return_value = auth_for_x
+        with pytest.raises(HTTPException) as exc_info:
+            require_atharva_dean(current_user=user_y, db=mock_db)
+        assert exc_info.value.status_code == 403
+        assert "Institutional Jurisdiction Restricted: Authorized Dean Required." in exc_info.value.detail
+
+    def test_13_password_change_required_authentication_barrier(self):
+        """13. Users with must_change_password=True are blocked at get_current_user with PASSWORD_CHANGE_REQUIRED."""
+        from app.api.dependencies import get_current_user
+        from app.core.security import create_access_token
+
+        pending_user = _create_test_user("pending.dean@csjmu.ac.in")
+        pending_user.must_change_password = True
+
+        token = create_access_token({"sub": str(pending_user.id), "email": pending_user.email})
+
+        mock_db = MagicMock()
+        mock_db.execute.return_value.unique.return_value.scalar_one_or_none.return_value = pending_user
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_current_user(authorization=f"Bearer {token}", db=mock_db)
+        assert exc_info.value.status_code == 403
+        assert "PASSWORD_CHANGE_REQUIRED" in exc_info.value.detail
+        assert "Password change required" in exc_info.value.detail
+        assert exc_info.value.headers.get("X-Error-Code") == "PASSWORD_CHANGE_REQUIRED"

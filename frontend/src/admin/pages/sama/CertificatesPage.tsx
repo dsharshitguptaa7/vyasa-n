@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppIcon, Button, Badge, Modal, Input, Select, EmptyState, LoadingState } from '@vyasa/ui';
 import { AdminLayout } from '../../components/AdminLayout';
 import { useAuth } from '../../../context/AuthContext';
@@ -153,6 +153,8 @@ export const CertificatesPage: React.FC = () => {
 
   // Wizard Author Picker & Search-as-you-type
   const [searchAuthorQuery, setSearchAuthorQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<AuthorRecord[]>([]);
+  const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
   const [selectedDirectoryAuthorRole, setSelectedDirectoryAuthorRole] = useState('Co-Author');
   const [manualAuthorName, setManualAuthorName] = useState('');
   const [manualAuthorTitle, setManualAuthorTitle] = useState('Dr.');
@@ -252,7 +254,7 @@ export const CertificatesPage: React.FC = () => {
       setRefDataLoading(true);
       setRefDataError(null);
       const [authRes, bullRes, pubRes, tplRes, sigRes] = await Promise.all([
-        samaAdminService.getAuthors({ limit: 100 }),
+        samaAdminService.getAuthors({ limit: 250 }),
         samaAdminService.getBulletins({ limit: 100 }),
         samaAdminService.getPublications({ limit: 100 }),
         samaAdminService.getTemplates({ limit: 50 }),
@@ -342,6 +344,8 @@ export const CertificatesPage: React.FC = () => {
     setWizardSubmitMode('APPROVAL');
     setWizardDirectJustification('');
     setSearchAuthorQuery('');
+    setSearchResults([]);
+    setIsSearchingAuthors(false);
     const defaultTpl = templates.find((t) => t.is_default || t.certificate_type === 'RESEARCH_PUBLICATION');
     setWizardTemplateId(defaultTpl?.id || templates[0]?.id || '');
     setShowWizardModal(true);
@@ -354,7 +358,7 @@ export const CertificatesPage: React.FC = () => {
         (t) => t.code === 'DEFAULT_CSJMU_INCENTIVE_A4' || t.certificate_type === 'INCENTIVE_AWARD'
       );
       if (incTpl) setWizardTemplateId(incTpl.id);
-      setWizardTitle('Certificate of Research Publication Incentive Award');
+      setWizardTitle('Certificate of Appreciation for Research Publication');
       setWizardPresentation('This certificate is proudly awarded to');
       setWizardContribution(
         'in recognition of distinguished research productivity and scholarly impact under the University Research Incentive Scheme for the work titled:'
@@ -367,7 +371,7 @@ export const CertificatesPage: React.FC = () => {
         (t) => t.code === 'DEFAULT_CSJMU_A4' || t.certificate_type === 'RESEARCH_PUBLICATION' || t.is_default
       );
       if (pubTpl) setWizardTemplateId(pubTpl.id);
-      setWizardTitle('Certificate of Appreciation & Research Excellence');
+      setWizardTitle('Certificate of Appreciation for Research Publication');
       setWizardPresentation('This certificate is proudly conferred upon');
       setWizardContribution('in recognition of scholarly research publication in:');
       setWizardCongratulatory(
@@ -390,6 +394,59 @@ export const CertificatesPage: React.FC = () => {
       setWizardBulletinId('');
     }
   };
+
+  // Debounced live search against Institutional Directory
+  useEffect(() => {
+    const q = searchAuthorQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setIsSearchingAuthors(false);
+      return;
+    }
+
+    setIsSearchingAuthors(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await samaAdminService.getAuthors({ search: q, limit: 50 });
+        setSearchResults(res.items || []);
+      } catch (err) {
+        console.error('Failed to search institutional directory:', err);
+      } finally {
+        setIsSearchingAuthors(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchAuthorQuery]);
+
+  // Combined Directory Authors: server results prioritized + fast token-based local fallback
+  const displayedDirectoryAuthors = useMemo(() => {
+    const q = searchAuthorQuery.trim().toLowerCase();
+    if (!q) return [];
+
+    const rawTokens = q.split(/\s+/).filter(Boolean);
+    const honorifics = new Set(['prof.', 'prof', 'dr.', 'dr', 'mr.', 'mr', 'ms.', 'ms', 'mrs.', 'mrs', 'er.', 'er', 'shri', 'smt']);
+    const substantiveTokens = rawTokens.filter((t) => !honorifics.has(t.toLowerCase()));
+    const tokens = substantiveTokens.length > 0 ? substantiveTokens : rawTokens;
+
+    // Fast local matching for instant typing feedback
+    const localMatches = authors.filter((a) => {
+      const name = a.full_name.toLowerCase();
+      const dept = (a.department || '').toLowerCase();
+      const scopus = (a.scopus_id || '').toLowerCase();
+      return tokens.every((tok) => name.includes(tok) || dept.includes(tok) || scopus.includes(tok));
+    });
+
+    // Merge server search results (which query the entire directory) with local matches
+    const map = new Map<string, AuthorRecord>();
+    searchResults.forEach((a) => map.set(a.id, a));
+    localMatches.forEach((a) => {
+      if (!map.has(a.id)) {
+        map.set(a.id, a);
+      }
+    });
+    return Array.from(map.values());
+  }, [searchAuthorQuery, searchResults, authors]);
 
   const handleAddAuthorFromDirectory = (authorRecord: AuthorRecord) => {
     if (!authorRecord) return;
@@ -420,6 +477,8 @@ export const CertificatesPage: React.FC = () => {
 
     setWizardAuthors([...wizardAuthors, newAuthor]);
     setSearchAuthorQuery('');
+    setSearchResults([]);
+    setIsSearchingAuthors(false);
     setError(null);
   };
 
@@ -2663,30 +2722,21 @@ export const CertificatesPage: React.FC = () => {
                           background: '#FFFFFF',
                           border: '1px solid #CBD5E1',
                           borderRadius: '8px',
-                          maxHeight: '200px',
+                          maxHeight: '260px',
                           overflowY: 'auto',
                           boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
                         }}
                       >
-                        {(() => {
-                          const filtered = authors.filter((a) => {
-                            const q = searchAuthorQuery.toLowerCase();
-                            return (
-                              a.full_name.toLowerCase().includes(q) ||
-                              (a.department && a.department.toLowerCase().includes(q)) ||
-                              (a.scopus_id && a.scopus_id.toLowerCase().includes(q))
-                            );
-                          });
-
-                          if (filtered.length === 0) {
-                            return (
-                              <div style={{ padding: '14px', fontSize: '12.5px', color: '#64748B', textAlign: 'center' }}>
-                                No matching researchers found in directory. Use manual entry below for external collaborators.
-                              </div>
-                            );
-                          }
-
-                          return filtered.slice(0, 8).map((a) => {
+                        {isSearchingAuthors && displayedDirectoryAuthors.length === 0 ? (
+                          <div style={{ padding: '14px', fontSize: '12.5px', color: '#64748B', textAlign: 'center' }}>
+                            Searching Institutional Directory...
+                          </div>
+                        ) : displayedDirectoryAuthors.length === 0 ? (
+                          <div style={{ padding: '14px', fontSize: '12.5px', color: '#64748B', textAlign: 'center' }}>
+                            No matching researchers found in directory. Use manual entry below for external collaborators.
+                          </div>
+                        ) : (
+                          displayedDirectoryAuthors.slice(0, 12).map((a) => {
                             const isAlreadyAdded = wizardAuthors.some((auth) => auth.researcher_id === a.id);
                             return (
                               <div
@@ -2706,11 +2756,16 @@ export const CertificatesPage: React.FC = () => {
                                 }}
                               >
                                 <div>
-                                  <span style={{ fontWeight: 600, fontSize: '13px', color: isAlreadyAdded ? '#94A3B8' : '#0F2B48' }}>
-                                    {a.full_name}
-                                  </span>
-                                  <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '8px' }}>
-                                    {a.department || 'CSJMU'}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '13px', color: isAlreadyAdded ? '#94A3B8' : '#0F2B48' }}>
+                                      {a.full_name}
+                                    </span>
+                                    {a.is_verified && (
+                                      <Badge variant="teal">Directory Verified</Badge>
+                                    )}
+                                  </div>
+                                  <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                    {a.department || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -2729,8 +2784,8 @@ export const CertificatesPage: React.FC = () => {
                                 </div>
                               </div>
                             );
-                          });
-                        })()}
+                          })
+                        )}
                       </div>
                     )}
                   </div>

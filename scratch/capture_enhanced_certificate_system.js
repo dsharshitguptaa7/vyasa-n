@@ -302,7 +302,7 @@ const mockSuperAdmin = {
       certificate_number: 'CSJMU/SAMA/2026/INC-00045',
       certificate_type: 'INCENTIVE_AWARD',
       status: 'ISSUED',
-      title: 'Certificate of Research Publication Incentive Award',
+      title: 'Certificate of Appreciation for Research Publication',
       research_title: 'CRISPR-Cas12 Targeted Epigenetic Editing for Enhanced Drought Resistance in Crop Plants',
       verification_token: 'tok-csjmu-inc-2026-00045',
       issued_at: '2026-02-14T10:00:00Z',
