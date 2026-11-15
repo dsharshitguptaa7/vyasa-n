@@ -45,7 +45,7 @@ export const CertificatesPage: React.FC = () => {
 
   // Filters & Search
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'pending' | 'revoked' | 'superseded'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'pending' | 'revoked' | 'superseded'>('all');
   const [page, setPage] = useState(1);
   const limit = 12;
 
@@ -67,6 +67,10 @@ export const CertificatesPage: React.FC = () => {
   const [showWizardModal, setShowWizardModal] = useState(false);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [showReissueModal, setShowReissueModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleCert, setRescheduleCert] = useState<CertificateRecord | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduling, setRescheduling] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSignatoryModal, setShowSignatoryModal] = useState(false);
@@ -137,6 +141,7 @@ export const CertificatesPage: React.FC = () => {
   const [wizardSanctionRef, setWizardSanctionRef] = useState<string>('');
   const [wizardPublicationId, setWizardPublicationId] = useState('');
   const [wizardAuthors, setWizardAuthors] = useState<CertificateAuthorItem[]>([]);
+  const [wizardIssueDate, setWizardIssueDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [wizardSubmitMode, setWizardSubmitMode] = useState<'APPROVAL' | 'DIRECT' | 'DRAFT'>('APPROVAL');
   const [wizardDirectJustification, setWizardDirectJustification] = useState('');
 
@@ -212,6 +217,8 @@ export const CertificatesPage: React.FC = () => {
       let items = res.items;
       if (statusFilter === 'issued') {
         items = items.filter((c) => c.status === 'ISSUED' && !c.is_revoked);
+      } else if (statusFilter === 'scheduled') {
+        items = items.filter((c) => c.status === 'SCHEDULED');
       } else if (statusFilter === 'pending') {
         items = items.filter(
           (c) => c.status === 'PENDING_DEAN_APPROVAL' || c.status === 'PENDING_VC_APPROVAL' || c.status === 'DRAFT'
@@ -321,6 +328,7 @@ export const CertificatesPage: React.FC = () => {
     setWizardSanctionRef('');
     setWizardPublicationId('');
     setWizardAuthors([]);
+    setWizardIssueDate(new Date().toISOString().split('T')[0]);
     setWizardSubmitMode('APPROVAL');
     setWizardDirectJustification('');
     setSearchAuthorQuery('');
@@ -492,6 +500,7 @@ export const CertificatesPage: React.FC = () => {
         template_id: wizardTemplateId || null,
         bulletin_id: wizardBulletinId || null,
         publication_details: incDetails,
+        issue_date: wizardIssueDate || undefined,
         authors: wizardAuthors,
       });
 
@@ -550,13 +559,16 @@ export const CertificatesPage: React.FC = () => {
         bulletin_id: wizardBulletinId,
         publication_id: wizardPublicationId || undefined,
         publication_details: incDetails,
+        issue_date: wizardIssueDate || undefined,
         authors: wizardAuthors,
         submit_for_approval: submitForApproval,
         direct_issue_justification: wizardSubmitMode === 'DIRECT' ? wizardDirectJustification.trim() : undefined,
       });
 
       setSuccessMessage(
-        submitForApproval
+        created.status === 'SCHEDULED'
+          ? `Certificate ${created.certificate_number} scheduled for activation on ${created.scheduled_issue_date}. It remains hidden from public verification until that date.`
+          : submitForApproval
           ? `Certificate ${created.certificate_number} created and submitted for Dean – R&D approval.`
           : `Certificate ${created.certificate_number} officially issued via authorized direct seal.`
       );
@@ -689,6 +701,31 @@ export const CertificatesPage: React.FC = () => {
       setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to reissue certificate');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenReschedule = (cert: CertificateRecord) => {
+    setRescheduleCert(cert);
+    setRescheduleDate(cert.scheduled_issue_date || (cert.issued_at ? cert.issued_at.split('T')[0] : new Date().toISOString().split('T')[0]));
+    setShowRescheduleModal(true);
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleCert || !rescheduleDate) return;
+    try {
+      setRescheduling(true);
+      setError(null);
+      await samaAdminService.rescheduleCertificate(rescheduleCert.id, rescheduleDate);
+      setSuccessMessage(`Certificate ${rescheduleCert.certificate_number} scheduled Date of Issue updated to ${rescheduleDate}.`);
+      setShowRescheduleModal(false);
+      setRescheduleCert(null);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to reschedule certificate');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -958,6 +995,10 @@ export const CertificatesPage: React.FC = () => {
             <div style={{ fontSize: '22px', fontWeight: 700, color: '#166534', marginTop: '4px' }}>{stats.issued_certificates}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#0284C7', textTransform: 'uppercase' }}>Scheduled</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{stats.scheduled_certificates ?? 0}</div>
+          </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#D97706', textTransform: 'uppercase' }}>Pending Approvals</div>
             <div style={{ fontSize: '22px', fontWeight: 700, color: '#D97706', marginTop: '4px' }}>{stats.pending_approvals}</div>
           </div>
@@ -1120,6 +1161,7 @@ export const CertificatesPage: React.FC = () => {
                   options={[
                     { label: 'All Certificates', value: 'all' },
                     { label: 'Issued & Active', value: 'issued' },
+                    { label: 'Scheduled', value: 'scheduled' },
                     { label: 'Pending Approvals', value: 'pending' },
                     { label: 'Revoked', value: 'revoked' },
                     { label: 'Superseded', value: 'superseded' },
@@ -1178,6 +1220,7 @@ export const CertificatesPage: React.FC = () => {
                 {certificates.map((cert) => {
                   const isRevoked = cert.is_revoked || cert.status === 'REVOKED';
                   const isSuperseded = cert.status === 'SUPERSEDED';
+                  const isScheduled = cert.status === 'SCHEDULED';
                   const isPending =
                     cert.status === 'PENDING_DEAN_APPROVAL' ||
                     cert.status === 'PENDING_VC_APPROVAL' ||
@@ -1193,6 +1236,8 @@ export const CertificatesPage: React.FC = () => {
                           ? '5px solid #DC2626'
                           : isSuperseded
                           ? '5px solid #8B5CF6'
+                          : isScheduled
+                          ? '5px solid #0284C7'
                           : isPending
                           ? '5px solid #D97706'
                           : '5px solid #166534',
@@ -1214,6 +1259,10 @@ export const CertificatesPage: React.FC = () => {
                               <Badge variant="neutral" style={{ color: '#DC2626', borderColor: '#FECACA' }}>REVOKED</Badge>
                             ) : isSuperseded ? (
                               <Badge variant="neutral">SUPERSEDED</Badge>
+                            ) : isScheduled ? (
+                              <Badge variant="teal" style={{ background: '#F0F9FF', color: '#0284C7', borderColor: '#BAE6FD' }}>
+                                ⏰ SCHEDULED
+                              </Badge>
                             ) : cert.status === 'PENDING_DEAN_APPROVAL' ? (
                               <Badge variant="gold">Awaiting Dean R&D</Badge>
                             ) : cert.status === 'PENDING_VC_APPROVAL' ? (
@@ -1223,9 +1272,20 @@ export const CertificatesPage: React.FC = () => {
                             ) : (
                               <Badge variant="teal">ISSUED & VERIFIED</Badge>
                             )}
-                            <span style={{ fontSize: '12px', color: '#64748B' }}>
-                              Issued: {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : 'Pending'}
-                            </span>
+                            {isScheduled ? (
+                              <span style={{ fontSize: '12px', color: '#0284C7', fontWeight: 600 }}>
+                                Scheduled Issue Date: {cert.scheduled_issue_date || (cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : '')}
+                                {cert.time_until_activation_seconds != null && (
+                                  <span style={{ marginLeft: '6px', padding: '2px 8px', borderRadius: '10px', background: '#E0F2FE', color: '#0369A1', fontSize: '11px' }}>
+                                    Activates in {Math.ceil(cert.time_until_activation_seconds / 86400)} day(s) at 00:00 IST
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: '#64748B' }}>
+                                Issued: {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : 'Pending'}
+                              </span>
+                            )}
                           </div>
 
                           <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B', marginTop: '4px' }}>
@@ -1241,15 +1301,28 @@ export const CertificatesPage: React.FC = () => {
 
                         {/* Action Buttons */}
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyVerificationUrl(cert)}
-                            title="Copy Public Verification Link"
-                          >
-                            <AppIcon name="clipboard" size={14} style={{ marginRight: '4px' }} />
-                            {copiedToken === (cert.verification_token || cert.certificate_number) ? 'Copied' : 'Verify Link'}
-                          </Button>
+                          {isScheduled && isSuperAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              style={{ color: '#0284C7', borderColor: '#BAE6FD' }}
+                              onClick={() => handleOpenReschedule(cert)}
+                              title="Change scheduled Date of Issue prior to activation"
+                            >
+                              Reschedule
+                            </Button>
+                          )}
+                          {!isScheduled && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopyVerificationUrl(cert)}
+                              title="Copy Public Verification Link"
+                            >
+                              <AppIcon name="clipboard" size={14} style={{ marginRight: '4px' }} />
+                              {copiedToken === (cert.verification_token || cert.certificate_number) ? 'Copied' : 'Verify Link'}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -1261,7 +1334,7 @@ export const CertificatesPage: React.FC = () => {
                             {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
                           </Button>
 
-                          {!isRevoked && !isSuperseded && isSuperAdmin && (
+                          {!isRevoked && !isSuperseded && !isScheduled && isSuperAdmin && (
                             <>
                               <Button
                                 variant="outline"
@@ -2398,6 +2471,72 @@ export const CertificatesPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Date of Issue Selection (Current Date default, future scheduling, retrospective limits) */}
+                  <div
+                    style={{
+                      background: '#F8FAFC',
+                      border: '1.5px solid #CBD5E1',
+                      borderRadius: '10px',
+                      padding: '16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+                        4. Official Date of Issuance *
+                      </label>
+                      {(() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        if (wizardIssueDate > todayStr) {
+                          return <Badge variant="gold">⏰ Scheduled Future Issuance</Badge>;
+                        } else if (wizardIssueDate === todayStr) {
+                          return <Badge variant="teal">⚡ Immediate Activation</Badge>;
+                        } else {
+                          return <Badge variant="neutral">📜 Retrospective Issuance</Badge>;
+                        }
+                      })()}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '14px', alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        value={wizardIssueDate}
+                        onChange={(e) => setWizardIssueDate(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          border: '1.5px solid #CBD5E1',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#0F2B48',
+                          outline: 'none',
+                        }}
+                      />
+                      <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                        {(() => {
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          if (wizardIssueDate > todayStr) {
+                            return (
+                              <span style={{ color: '#0284C7', fontWeight: 500 }}>
+                                ℹ️ <strong>Future-dated:</strong> Certificate will enter <strong>SCHEDULED</strong> status upon approval/creation. It remains completely hidden from all public verification, Scopus discovery, and download interfaces until <strong>{wizardIssueDate} at 00:00 IST</strong>, when it will activate automatically.
+                              </span>
+                            );
+                          } else if (wizardIssueDate === todayStr) {
+                            return (
+                              <span style={{ color: '#166534' }}>
+                                ✓ <strong>Current Date:</strong> Certificate activates immediately upon final approval or issuance.
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span style={{ color: '#475569' }}>
+                                ℹ️ <strong>Retrospective:</strong> Backfilled issuance date. Institutional policy allows retrospective dates up to 365 days past.
+                              </span>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>Certificate Formal Heading</label>
                     <Input value={wizardTitle} onChange={(e) => setWizardTitle(e.target.value)} />
@@ -3359,6 +3498,58 @@ export const CertificatesPage: React.FC = () => {
                   style={approvalAction === 'REJECT' ? { backgroundColor: '#DC2626', borderColor: '#DC2626' } : {}}
                 >
                   {submitting ? 'Submitting...' : approvalAction === 'APPROVE' ? 'Confirm Approval' : 'Confirm Rejection'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: RESCHEDULE CERTIFICATE */}
+        {/* =================================================================== */}
+        {showRescheduleModal && rescheduleCert && (
+          <Modal
+            isOpen={showRescheduleModal}
+            onClose={() => setShowRescheduleModal(false)}
+            title={`Reschedule Certificate Date of Issue — ${rescheduleCert.certificate_number}`}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '12px 14px', borderRadius: '8px', fontSize: '13px', color: '#0369A1' }}>
+                ℹ️ <strong>Pre-Activation Rescheduling:</strong> You may adjust the scheduled Date of Issue for this certificate prior to activation. The vector PDF credentials will be re-rendered with the updated date. Once activated, the issuance record is immutable.
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
+                  New Date of Issue *
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '6px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    color: '#0F2B48',
+                    width: '100%',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowRescheduleModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={rescheduling || !rescheduleDate}
+                  onClick={handleConfirmReschedule}
+                >
+                  {rescheduling ? 'Updating Date...' : 'Confirm Reschedule'}
                 </Button>
               </div>
             </div>

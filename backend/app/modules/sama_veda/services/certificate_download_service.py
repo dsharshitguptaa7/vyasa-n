@@ -78,7 +78,24 @@ def validate_and_stream_certificate_pdf(
             detail=f"Certificate {clean_number} has been SUPERSEDED by an official replacement document. Please refer to the updated certificate.",
         )
 
-    if cert.status in ["DRAFT", "PENDING_APPROVAL", "REJECTED"]:
+    if cert.status == "SCHEDULED":
+        logger.warning("Download blocked: Certificate %s is scheduled for future activation", clean_number)
+        _record_download_telemetry(
+            db=db,
+            cert=cert,
+            request=request,
+            source="BLOCKED_SCHEDULED",
+            actor_user_id=current_user.id if current_user else None,
+            token_context=token_context,
+            result_status="FAILED",
+            reason="Certificate scheduled for future activation",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Certificate not found or invalid certificate number.",
+        )
+
+    if cert.status in ["DRAFT", "PENDING_APPROVAL", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
         logger.warning("Download blocked: Certificate %s status is %s", clean_number, cert.status)
         _record_download_telemetry(
             db=db,
@@ -91,8 +108,8 @@ def validate_and_stream_certificate_pdf(
             reason=f"Certificate not finalized: {cert.status}",
         )
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Certificate {clean_number} has not been officially approved or issued (Status: {cert.status}).",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Certificate not found or invalid certificate number.",
         )
 
     # 2. File Storage Path Resolution & Traversal Prevention

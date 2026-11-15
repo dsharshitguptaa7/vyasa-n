@@ -289,6 +289,59 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
     );
   }
 
+  // Handle authorization rejection and critical load failures gracefully without displaying misleading zero metrics
+  if (!dashboardData && errorMsg) {
+    const isAuthError =
+      errorMsg.toLowerCase().includes('jurisdiction') ||
+      errorMsg.toLowerCase().includes('restricted') ||
+      errorMsg.toLowerCase().includes('access restricted') ||
+      errorMsg.toLowerCase().includes('forbidden') ||
+      errorMsg.toLowerCase().includes('403') ||
+      errorMsg.toLowerCase().includes('authorized') ||
+      errorMsg.toLowerCase().includes('authority');
+
+    return (
+      <PageContainer narrow style={{ padding: '60px 0' }}>
+        <Card
+          variant="scholarly"
+          title={isAuthError ? "Institutional Jurisdiction Restricted" : "Executive Command Center Unavailable"}
+          subtitle={isAuthError ? "Dean of Research & Development Required" : "Analytics Retrieval Failed"}
+          headerAction={<Badge variant="saffron">{isAuthError ? "Access Denied" : "Error"}</Badge>}
+        >
+          <div style={{ padding: '16px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
+            <p style={{ marginBottom: '16px' }}>
+              {isAuthError
+                ? "The authenticated account does not possess authorized Dean of Research & Development institutional jurisdiction to access the Executive Command Center."
+                : "The Executive Command Center encountered an error while aggregating institutional redressal metrics."}
+            </p>
+            <div
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                color: '#991b1b',
+                marginBottom: '20px',
+                fontSize: '13px',
+              }}
+              data-testid="dean-auth-error-banner"
+            >
+              <strong>Error Details:</strong> {errorMsg}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Button variant="primary" size="sm" onClick={loadDashboard} data-testid="retry-auth-btn">
+                Retry Verification
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/authority')}>
+                Return to Authority Console
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </PageContainer>
+    );
+  }
+
   const kpis = dashboardData?.kpis;
   const pipeline = dashboardData?.workflow_pipeline || [];
   const bottlenecks = dashboardData?.bottlenecks || [];
@@ -860,6 +913,27 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
         subtitle="High-level institutional caseload counters, resolution velocity, and active pipeline volume."
         badge="8 CORE METRICS"
       />
+
+      {dashboardData && kpis?.total_cases === 0 && (
+        <div
+          data-testid="empty-caseload-notice"
+          style={{
+            padding: '14px 18px',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '8px',
+            color: '#0369a1',
+            marginBottom: '20px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>ℹ</span>
+          <span>No grievances recorded for the selected filter horizon. Institutional redressal caseload is currently empty.</span>
+        </div>
+      )}
 
       <section
         style={{

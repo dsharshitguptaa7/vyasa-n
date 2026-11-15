@@ -1,8 +1,32 @@
 import uuid
-from datetime import datetime, timezone
+import logging
+from datetime import date, datetime, time, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger(__name__)
+
+
+def validate_issue_date(issue_date: date) -> None:
+    """
+    Validates institutional policy for certificate Date of Issue:
+    - Future dates: permitted (transitions to SCHEDULED upon approval/creation).
+    - Current date: permitted (activates immediately as ISSUED).
+    - Past dates: permitted up to 365 days (1 year) for official retrospective issuances/backfills.
+      Dates older than 1 year are rejected with clear institutional policy notice.
+    """
+    IST = ZoneInfo("Asia/Kolkata")
+    today_ist = datetime.now(timezone.utc).astimezone(IST).date()
+    if issue_date < today_ist:
+        diff_days = (today_ist - issue_date).days
+        if diff_days > 365:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=400,
+                detail=f"Date of Issue ({issue_date.isoformat()}) exceeds the permitted institutional backfill limit of 365 days. Retrospective certificates older than 1 year cannot be issued without exceptional Academic Council approval.",
+            )
 
 from app.modules.sama_veda.schemas.cms import (
     PublicationCreate,
@@ -37,7 +61,10 @@ from app.modules.sama_veda.models.certificate import (
     CertificateVerificationEvent,
 )
 from app.core.storage import storage_service
-from app.modules.sama_veda.services.certificate_pdf_service import certificate_pdf_engine
+from app.modules.sama_veda.services.certificate_pdf_service import (
+    certificate_pdf_engine,
+    InstitutionalAssetResolutionError,
+)
 from app.modules.sama_veda.models.spotlight import ResearcherSpotlight
 
 
@@ -640,6 +667,9 @@ class SamaCmsService:
         status: Optional[str] = None,
         certificate_type: Optional[str] = None,
     ) -> Tuple[int, List[FelicitationCertificate]]:
+        # Automatically process due activations before listing
+        SamaCmsService.activate_due_certificates(db)
+
         query = select(FelicitationCertificate).options(
             joinedload(FelicitationCertificate.authors),
             joinedload(FelicitationCertificate.approvals),
@@ -719,6 +749,8 @@ class SamaCmsService:
 
     @staticmethod
     def get_certificate_by_number(db: Session, certificate_number: str) -> Optional[FelicitationCertificate]:
+        # Process any due activations before looking up
+        SamaCmsService.activate_due_certificates(db)
         stmt = (
             select(FelicitationCertificate)
             .options(
@@ -740,6 +772,8 @@ class SamaCmsService:
 
     @staticmethod
     def get_certificate_by_token(db: Session, token: str) -> Optional[FelicitationCertificate]:
+        # Process any due activations before looking up
+        SamaCmsService.activate_due_certificates(db)
         stmt = (
             select(FelicitationCertificate)
             .options(
@@ -757,6 +791,8 @@ class SamaCmsService:
     @staticmethod
     def get_certificate_stats(db: Session) -> Dict[str, int]:
         """Calculates dashboard summary metrics for certificates and linked researchers."""
+        SamaCmsService.activate_due_certificates(db)
+
         total = db.scalar(select(func.count(FelicitationCertificate.id))) or 0
         drafts = db.scalar(
             select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "DRAFT")
@@ -765,6 +801,9 @@ class SamaCmsService:
             select(func.count(FelicitationCertificate.id)).where(
                 FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"])
             )
+        ) or 0
+        scheduled = db.scalar(
+            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "SCHEDULED")
         ) or 0
         issued = db.scalar(
             select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "ISSUED")
@@ -783,6 +822,7 @@ class SamaCmsService:
             "total_certificates": total,
             "draft_certificates": drafts,
             "pending_approvals": pending,
+            "scheduled_certificates": scheduled,
             "issued_certificates": issued,
             "revoked_certificates": revoked,
             "reissued_certificates": reissued,
@@ -804,9 +844,36 @@ class SamaCmsService:
         cert_num = data.certificate_number or SamaCmsService.generate_unique_certificate_number(db)
         token = uuid.uuid4().hex
 
-        initial_status = "PENDING_DEAN_APPROVAL" if data.submit_for_approval else "ISSUED"
+        IST = ZoneInfo("Asia/Kolkata")
+        today_ist = datetime.now(timezone.utc).astimezone(IST).date()
+        sched_date = data.issue_date or today_ist
+        validate_issue_date(sched_date)
+        is_future = sched_date > today_ist
+
+        if data.submit_for_approval:
+            initial_status = "PENDING_DEAN_APPROVAL"
+            activated_at = None
+        else:
+            if is_future:
+                initial_status = "SCHEDULED"
+                activated_at = None
+            else:
+                initial_status = "ISSUED"
+                activated_at = datetime.now(timezone.utc)
+
         if data.file_storage_path:
-            initial_status = "ISSUED"
+            initial_status = "SCHEDULED" if is_future else "ISSUED"
+            activated_at = None if is_future else datetime.now(timezone.utc)
+
+        official_issued_at = datetime.combine(sched_date, time.min).replace(tzinfo=IST)
+
+        bulletin_obj = None
+        if data.bulletin_id:
+            bulletin_obj = db.get(ResearchBulletin, data.bulletin_id)
+        elif data.publication_id:
+            pub_obj = db.get(ResearchPublication, data.publication_id)
+            if pub_obj and pub_obj.bulletin_id:
+                bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
 
         cert = FelicitationCertificate(
             certificate_number=cert_num,
@@ -821,13 +888,18 @@ class SamaCmsService:
             congratulatory_statement=data.congratulatory_statement,
             publication_details=data.publication_details,
             verification_token=token,
-            bulletin_id=data.bulletin_id,
+            bulletin_id=data.bulletin_id or (bulletin_obj.id if bulletin_obj else None),
+            bulletin_volume_snapshot=bulletin_obj.volume_number if bulletin_obj else None,
+            bulletin_issue_snapshot=bulletin_obj.issue_number if bulletin_obj else None,
+            bulletin_period_snapshot=bulletin_obj.publication_period if bulletin_obj else None,
             author_id=data.author_id,
             publication_id=data.publication_id,
             file_storage_path=data.file_storage_path or f"sama_veda/certificates/{cert_num.replace('/', '_')}.pdf",
             checksum_sha256=data.checksum_sha256,
             created_by_user_id=created_by_user_id,
-            issued_at=datetime.now(timezone.utc),
+            scheduled_issue_date=sched_date,
+            activated_at=activated_at,
+            issued_at=official_issued_at,
         )
         db.add(cert)
         db.flush()
@@ -835,6 +907,9 @@ class SamaCmsService:
         author_items = []
         if data.authors:
             for item in data.authors:
+                dept_clean = item.department_snapshot
+                if dept_clean and dept_clean.strip().lower() == "department of research":
+                    dept_clean = None
                 c_auth = CertificateAuthor(
                     certificate_id=cert.id,
                     researcher_id=item.researcher_id,
@@ -842,25 +917,33 @@ class SamaCmsService:
                     academic_title_snapshot=item.academic_title_snapshot,
                     scopus_id_snapshot=item.scopus_id_snapshot,
                     affiliation_snapshot=item.affiliation_snapshot,
-                    department_snapshot=item.department_snapshot,
+                    department_snapshot=dept_clean,
+                    designation_snapshot=item.designation_snapshot,
                     author_order=item.author_order,
                     author_role=item.author_role,
                 )
                 db.add(c_auth)
                 author_items.append({
                     "author_name_snapshot": item.author_name_snapshot,
+                    "academic_title_snapshot": item.academic_title_snapshot,
                     "scopus_id_snapshot": item.scopus_id_snapshot,
-                    "department_snapshot": item.department_snapshot,
+                    "department_snapshot": dept_clean,
+                    "designation_snapshot": item.designation_snapshot,
+                    "affiliation_snapshot": item.affiliation_snapshot,
                 })
         elif data.author_id:
             author_obj = db.get(ResearchAuthor, data.author_id)
             if author_obj:
+                dept_clean = author_obj.department
+                if dept_clean and dept_clean.strip().lower() == "department of research":
+                    dept_clean = None
                 c_auth = CertificateAuthor(
                     certificate_id=cert.id,
                     researcher_id=author_obj.id,
                     author_name_snapshot=author_obj.full_name,
                     scopus_id_snapshot=author_obj.scopus_id,
-                    department_snapshot=author_obj.department,
+                    department_snapshot=dept_clean,
+                    designation_snapshot=None,
                     affiliation_snapshot=author_obj.institutional_affiliation,
                     author_order=1,
                     author_role="Principal Author",
@@ -869,7 +952,9 @@ class SamaCmsService:
                 author_items.append({
                     "author_name_snapshot": author_obj.full_name,
                     "scopus_id_snapshot": author_obj.scopus_id,
-                    "department_snapshot": author_obj.department,
+                    "department_snapshot": dept_clean,
+                    "designation_snapshot": None,
+                    "affiliation_snapshot": author_obj.institutional_affiliation,
                 })
 
         dean_sig = SamaCmsService.get_active_signatory(db, "DEAN_RD")
@@ -883,8 +968,8 @@ class SamaCmsService:
             designation_snapshot=dean_sig.designation if dean_sig else "Dean – Research & Development",
             signature_image_path_snapshot=dean_sig.signature_image_path if dean_sig else None,
             signature_asset_version_snapshot=dean_sig.signature_asset_version if dean_sig else 1,
-            status="APPROVED" if initial_status == "ISSUED" else "PENDING",
-            decided_at=datetime.now(timezone.utc) if initial_status == "ISSUED" else None,
+            status="APPROVED" if initial_status in ["ISSUED", "SCHEDULED"] else "PENDING",
+            decided_at=datetime.now(timezone.utc) if initial_status in ["ISSUED", "SCHEDULED"] else None,
         )
         appr_vc = CertificateApproval(
             certificate_id=cert.id,
@@ -894,13 +979,13 @@ class SamaCmsService:
             designation_snapshot=vc_sig.designation if vc_sig else "Vice Chancellor",
             signature_image_path_snapshot=vc_sig.signature_image_path if vc_sig else None,
             signature_asset_version_snapshot=vc_sig.signature_asset_version if vc_sig else 1,
-            status="APPROVED" if initial_status == "ISSUED" else "PENDING",
-            decided_at=datetime.now(timezone.utc) if initial_status == "ISSUED" else None,
+            status="APPROVED" if initial_status in ["ISSUED", "SCHEDULED"] else "PENDING",
+            decided_at=datetime.now(timezone.utc) if initial_status in ["ISSUED", "SCHEDULED"] else None,
         )
         db.add(appr_dean)
         db.add(appr_vc)
 
-        if initial_status == "ISSUED" and not data.file_storage_path:
+        if initial_status in ["ISSUED", "SCHEDULED"] and not data.file_storage_path:
             verify_url = f"{base_verification_url.rstrip('/')}/verify/{token}"
             bulletin_obj = None
             if cert.bulletin_id:
@@ -928,7 +1013,7 @@ class SamaCmsService:
                     bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
                     incentive_details=cert.publication_details if cert.certificate_type == "INCENTIVE_AWARD" else None,
                     congratulatory_statement=cert.congratulatory_statement or "",
-                    issue_date=cert.issued_at,
+                    issue_date=sched_date,
                     dean_name=appr_dean.signatory_name_snapshot,
                     dean_designation=appr_dean.designation_snapshot,
                     dean_signature_path=appr_dean.signature_image_path_snapshot,
@@ -946,6 +1031,8 @@ class SamaCmsService:
                 cert.file_storage_path = save_res.storage_key
                 cert.checksum_sha256 = sha
                 cert.approved_at = datetime.now(timezone.utc)
+            except InstitutionalAssetResolutionError:
+                raise
             except Exception as e:
                 # Fallback if storage fails in isolated tests
                 cert.checksum_sha256 = hashlib.sha256(b"fallback_certificate").hexdigest()
@@ -1047,16 +1134,22 @@ class SamaCmsService:
                 "author_name_snapshot": a.author_name_snapshot,
                 "academic_title_snapshot": a.academic_title_snapshot,
                 "scopus_id_snapshot": a.scopus_id_snapshot,
-                "department_snapshot": a.department_snapshot,
+                "department_snapshot": None if (a.department_snapshot and a.department_snapshot.strip().lower() == "department of research") else a.department_snapshot,
+                "designation_snapshot": a.designation_snapshot,
                 "affiliation_snapshot": a.affiliation_snapshot,
             }
             for a in certificate.authors
         ]
         if not authors_data and certificate.author:
+            dept_c = certificate.author.department
+            if dept_c and dept_c.strip().lower() == "department of research":
+                dept_c = None
             authors_data = [{
                 "author_name_snapshot": certificate.author.full_name,
                 "scopus_id_snapshot": certificate.author.scopus_id,
-                "department_snapshot": certificate.author.department,
+                "department_snapshot": dept_c,
+                "designation_snapshot": None,
+                "affiliation_snapshot": certificate.author.institutional_affiliation,
             }]
 
         dean_appr = next((ap for ap in certificate.approvals if ap.authority_type == "DEAN_RD"), None)
@@ -1087,6 +1180,24 @@ class SamaCmsService:
             if pub_obj and pub_obj.bulletin_id:
                 bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
 
+        if bulletin_obj:
+            if not certificate.bulletin_volume_snapshot:
+                certificate.bulletin_volume_snapshot = bulletin_obj.volume_number
+            if not certificate.bulletin_issue_snapshot:
+                certificate.bulletin_issue_snapshot = bulletin_obj.issue_number
+            if not certificate.bulletin_period_snapshot:
+                certificate.bulletin_period_snapshot = bulletin_obj.publication_period
+
+        b_vol = certificate.bulletin_volume_snapshot or (bulletin_obj.volume_number if bulletin_obj else None)
+        b_issue = certificate.bulletin_issue_snapshot or (bulletin_obj.issue_number if bulletin_obj else None)
+        b_period = certificate.bulletin_period_snapshot or (bulletin_obj.publication_period if bulletin_obj else None)
+        b_title = (bulletin_obj.title if bulletin_obj else None) or (f"Volume {b_vol} • Issue {b_issue}" if b_vol and b_issue else None)
+
+        IST = ZoneInfo("Asia/Kolkata")
+        today_ist = datetime.now(timezone.utc).astimezone(IST).date()
+        sched_date = certificate.scheduled_issue_date or today_ist
+        is_future = sched_date > today_ist
+
         pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
             certificate_number=certificate.certificate_number,
             verification_token=certificate.verification_token,
@@ -1098,13 +1209,13 @@ class SamaCmsService:
             research_contribution_statement=certificate.research_contribution_statement,
             research_title=certificate.research_title,
             publication_details=certificate.publication_details,
-            bulletin_title=bulletin_obj.title if bulletin_obj else None,
-            bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
-            bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
-            bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+            bulletin_title=b_title,
+            bulletin_volume=b_vol,
+            bulletin_issue=b_issue,
+            bulletin_period=b_period,
             incentive_details=certificate.publication_details if certificate.certificate_type == "INCENTIVE_AWARD" else None,
             congratulatory_statement=certificate.congratulatory_statement or "",
-            issue_date=certificate.issued_at or datetime.now(timezone.utc),
+            issue_date=sched_date,
             dean_name=dean_appr.signatory_name_snapshot if dean_appr else "Prof. (Dr.) Rajesh Kumar",
             dean_designation=dean_appr.designation_snapshot if dean_appr else "Dean – Research & Development",
             dean_signature_path=dean_sig_path,
@@ -1126,12 +1237,228 @@ class SamaCmsService:
             certificate.file_storage_path = f"sama_veda/certificates/{certificate.certificate_number.replace('/', '_')}.pdf"
 
         certificate.checksum_sha256 = sha
-        certificate.status = "ISSUED"
-        certificate.issued_at = datetime.now(timezone.utc)
+        certificate.scheduled_issue_date = sched_date
+        certificate.issued_at = datetime.combine(sched_date, time.min).replace(tzinfo=IST)
+        if is_future:
+            certificate.status = "SCHEDULED"
+            certificate.activated_at = None
+        else:
+            certificate.status = "ISSUED"
+            certificate.activated_at = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(certificate)
         return certificate
+
+    @staticmethod
+    def activate_due_certificates(
+        db: Session,
+        as_of_date: Optional[date] = None,
+        actor_user_id: Optional[uuid.UUID] = None,
+    ) -> int:
+        """
+        Activates all SCHEDULED certificates whose scheduled_issue_date is <= target_date
+        (default: current date in Asia/Kolkata).
+        Safe, idempotent, and uses row-level locking (with_for_update(skip_locked=True))
+        to prevent race conditions across parallel requests and cron jobs.
+        """
+        IST = ZoneInfo("Asia/Kolkata")
+        target_date = as_of_date or datetime.now(timezone.utc).astimezone(IST).date()
+
+        stmt = (
+            select(FelicitationCertificate)
+            .where(
+                FelicitationCertificate.status == "SCHEDULED",
+                FelicitationCertificate.scheduled_issue_date <= target_date,
+            )
+        )
+        try:
+            if db.bind and db.bind.dialect.name != "sqlite":
+                stmt = stmt.with_for_update(skip_locked=True)
+        except Exception:
+            pass
+        due_certs = db.scalars(stmt).all()
+        if not due_certs:
+            return 0
+
+        now_utc = datetime.now(timezone.utc)
+        activated_count = 0
+        for cert in due_certs:
+            cert.status = "ISSUED"
+            cert.activated_at = now_utc
+            activated_count += 1
+
+            try:
+                from app.services.audit_service import audit_service
+                audit_service.log_event(
+                    db=db,
+                    module="sama_veda",
+                    action="certificate_activated",
+                    entity_name="FelicitationCertificate",
+                    entity_id=cert.id,
+                    actor_user_id=actor_user_id,
+                    details={
+                        "certificate_number": cert.certificate_number,
+                        "scheduled_issue_date": cert.scheduled_issue_date.isoformat() if cert.scheduled_issue_date else None,
+                        "activated_at": now_utc.isoformat(),
+                        "as_of_date": target_date.isoformat(),
+                    },
+                    fail_silent=True,
+                )
+            except Exception as e:
+                logger.debug("Failed to record certificate activation audit log: %s", e)
+
+        db.commit()
+        logger.info("Activated %d scheduled certificate(s) as of %s", activated_count, target_date.isoformat())
+        return activated_count
+
+    @staticmethod
+    def reschedule_certificate(
+        db: Session,
+        certificate_id: uuid.UUID,
+        new_date: date,
+        user_id: Optional[uuid.UUID] = None,
+        base_verification_url: str = "https://vyasa.csjmu.ac.in",
+    ) -> FelicitationCertificate:
+        """
+        Updates the scheduled issue date for a SCHEDULED certificate.
+        Strictly disallowed once a certificate is already ISSUED, REVOKED, or SUPERSEDED.
+        Re-renders the official PDF snapshot to reflect the updated issue date.
+        """
+        from fastapi import HTTPException
+        cert = db.get(FelicitationCertificate, certificate_id)
+        if not cert:
+            raise HTTPException(status_code=404, detail="Certificate not found")
+
+        if cert.status != "SCHEDULED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Certificate cannot be rescheduled because its current status is '{cert.status}'. Rescheduling is only permitted for certificates in SCHEDULED status prior to activation. Active certificates must be superseded or reissued.",
+            )
+
+        validate_issue_date(new_date)
+
+        IST = ZoneInfo("Asia/Kolkata")
+        today_ist = datetime.now(timezone.utc).astimezone(IST).date()
+        is_future = new_date > today_ist
+
+        cert.scheduled_issue_date = new_date
+        cert.issued_at = datetime.combine(new_date, time.min).replace(tzinfo=IST)
+
+        if is_future:
+            cert.status = "SCHEDULED"
+            cert.activated_at = None
+        else:
+            cert.status = "ISSUED"
+            cert.activated_at = datetime.now(timezone.utc)
+
+        # Re-render PDF with updated issue_date so vector and raster snapshots reflect new date
+        authors_data = [
+            {
+                "author_name_snapshot": a.author_name_snapshot,
+                "academic_title_snapshot": a.academic_title_snapshot,
+                "scopus_id_snapshot": a.scopus_id_snapshot,
+                "department_snapshot": None if (a.department_snapshot and a.department_snapshot.strip().lower() == "department of research") else a.department_snapshot,
+                "designation_snapshot": a.designation_snapshot,
+                "affiliation_snapshot": a.affiliation_snapshot,
+            }
+            for a in cert.authors
+        ]
+        if not authors_data and cert.author:
+            dept_c = cert.author.department
+            if dept_c and dept_c.strip().lower() == "department of research":
+                dept_c = None
+            authors_data = [{
+                "author_name_snapshot": cert.author.full_name,
+                "scopus_id_snapshot": cert.author.scopus_id,
+                "department_snapshot": dept_c,
+                "designation_snapshot": None,
+                "affiliation_snapshot": cert.author.institutional_affiliation,
+            }]
+
+        dean_appr = next((ap for ap in cert.approvals if ap.authority_type == "DEAN_RD"), None)
+        vc_appr = next((ap for ap in cert.approvals if ap.authority_type == "VICE_CHANCELLOR"), None)
+
+        dean_sig_path = dean_appr.signature_image_path_snapshot if dean_appr else None
+        vc_sig_path = vc_appr.signature_image_path_snapshot if vc_appr else None
+
+        verify_url = f"{base_verification_url.rstrip('/')}/verify/{cert.verification_token}"
+        bulletin_obj = None
+        if cert.bulletin_id:
+            bulletin_obj = db.get(ResearchBulletin, cert.bulletin_id)
+        elif cert.publication_id:
+            pub_obj = db.get(ResearchPublication, cert.publication_id)
+            if pub_obj and pub_obj.bulletin_id:
+                bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
+
+        b_vol = cert.bulletin_volume_snapshot or (bulletin_obj.volume_number if bulletin_obj else None)
+        b_issue = cert.bulletin_issue_snapshot or (bulletin_obj.issue_number if bulletin_obj else None)
+        b_period = cert.bulletin_period_snapshot or (bulletin_obj.publication_period if bulletin_obj else None)
+        b_title = (bulletin_obj.title if bulletin_obj else None) or (f"Volume {b_vol} • Issue {b_issue}" if b_vol and b_issue else None)
+
+        try:
+            pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
+                certificate_number=cert.certificate_number,
+                verification_token=cert.verification_token,
+                verification_url=verify_url,
+                title=cert.title,
+                certificate_type=cert.certificate_type or "RESEARCH_PUBLICATION",
+                presentation_statement=cert.presentation_statement,
+                authors=authors_data or [{"author_name_snapshot": "Distinguished Scholar"}],
+                research_contribution_statement=cert.research_contribution_statement,
+                research_title=cert.research_title,
+                publication_details=cert.publication_details,
+                bulletin_title=b_title,
+                bulletin_volume=b_vol,
+                bulletin_issue=b_issue,
+                bulletin_period=b_period,
+                incentive_details=cert.publication_details if cert.certificate_type == "INCENTIVE_AWARD" else None,
+                congratulatory_statement=cert.congratulatory_statement or "",
+                issue_date=new_date,
+                dean_name=dean_appr.signatory_name_snapshot if dean_appr else "Prof. (Dr.) Rajesh Kumar",
+                dean_designation=dean_appr.designation_snapshot if dean_appr else "Dean – Research & Development",
+                dean_signature_path=dean_sig_path,
+                vc_name=vc_appr.signatory_name_snapshot if vc_appr else "Prof. Vinay Kumar Pathak",
+                vc_designation=vc_appr.designation_snapshot if vc_appr else "Vice Chancellor",
+                vc_signature_path=vc_sig_path,
+            )
+
+            save_res = storage_service.save_file(
+                content=pdf_bytes,
+                filename=f"{cert.certificate_number.replace('/', '_')}.pdf",
+                subfolder="sama_veda/certificates",
+                allowed_mime_types=["application/pdf"],
+                mime_type="application/pdf",
+            )
+            cert.file_storage_path = save_res.storage_key
+            cert.checksum_sha256 = sha
+        except InstitutionalAssetResolutionError:
+            raise
+        except Exception as e:
+            logger.warning("Could not re-render PDF during reschedule: %s", e)
+
+        try:
+            from app.services.audit_service import audit_service
+            audit_service.log_event(
+                db=db,
+                module="sama_veda",
+                action="certificate_rescheduled",
+                entity_name="FelicitationCertificate",
+                entity_id=cert.id,
+                actor_user_id=user_id,
+                details={
+                    "certificate_number": cert.certificate_number,
+                    "new_scheduled_issue_date": new_date.isoformat(),
+                    "status": cert.status,
+                },
+                fail_silent=True,
+            )
+        except Exception as e:
+            logger.debug("Failed to record reschedule audit: %s", e)
+
+        db.commit()
+        db.refresh(cert)
+        return cert
 
     @staticmethod
     def revoke_certificate(

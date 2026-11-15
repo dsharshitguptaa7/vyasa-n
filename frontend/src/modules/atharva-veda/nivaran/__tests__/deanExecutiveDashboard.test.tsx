@@ -485,5 +485,72 @@ describe('Dean Executive Command Center Frontend Suite', () => {
       );
     });
   });
+
+  it('13. Renders meaningful authorization error and suppresses misleading zero metrics upon backend 403 rejection', async () => {
+    vi.mocked(grievanceService.getDeanExecutiveDashboard).mockRejectedValueOnce(
+      new Error('Institutional Jurisdiction Restricted: Dean of Research & Development Required.')
+    );
+    vi.mocked(grievanceService.getDeanDashboardCases).mockRejectedValueOnce(
+      new Error('Institutional Jurisdiction Restricted: Dean of Research & Development Required.')
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Institutional Jurisdiction Restricted')).toBeInTheDocument();
+      expect(screen.getByText('Dean of Research & Development Required')).toBeInTheDocument();
+      expect(screen.getByTestId('dean-auth-error-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Institutional Jurisdiction Restricted: Dean of Research & Development Required/i)).toBeInTheDocument();
+      expect(screen.getByTestId('retry-auth-btn')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Return to Authority Console/i })).toBeInTheDocument();
+    });
+
+    // Verify misleading zero KPI metrics and ledger are suppressed
+    expect(screen.queryByText('TOTAL INTAKE')).not.toBeInTheDocument();
+    expect(screen.queryByText('ACTIVE / OPEN')).not.toBeInTheDocument();
+    expect(screen.queryByText('SECTION 01')).not.toBeInTheDocument();
+  });
+
+  it('14. Properly distinguishes an actual empty dataset from an authorization failure', async () => {
+    const emptyDashboardData: DeanDashboardDataResponse = {
+      ...mockDashboardData,
+      kpis: {
+        ...mockDashboardData.kpis,
+        total_cases: 0,
+        active_cases: 0,
+        resolved_cases: 0,
+        critical_urgent_cases: 0,
+      },
+    };
+    vi.mocked(grievanceService.getDeanExecutiveDashboard).mockResolvedValueOnce(emptyDashboardData);
+    vi.mocked(grievanceService.getDeanDashboardCases).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 15,
+      total_pages: 0,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/modules/atharva-veda/nivaran/dean/dashboard']}>
+        <Routes>
+          <Route path="/modules/atharva-veda/nivaran/dean/dashboard" element={<DeanExecutiveDashboardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('empty-caseload-notice')).toBeInTheDocument();
+      expect(screen.getByText(/Institutional redressal caseload is currently empty/i)).toBeInTheDocument();
+      expect(screen.getByText('TOTAL INTAKE')).toBeInTheDocument();
+      expect(screen.queryByText('Institutional Jurisdiction Restricted')).not.toBeInTheDocument();
+    });
+  });
 });
 

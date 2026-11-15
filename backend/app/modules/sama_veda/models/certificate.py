@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -230,6 +231,7 @@ class FelicitationCertificate(Base):
         Index("ix_sama_cert_number", "certificate_number", unique=True),
         Index("ix_sama_cert_verification_token", "verification_token", unique=True),
         Index("ix_sama_cert_status", "status"),
+        Index("ix_sama_cert_scheduled_issue_date", "scheduled_issue_date", "status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -321,6 +323,21 @@ class FelicitationCertificate(Base):
         index=True,
         comment="The research bulletin issue in which the work was felicitated (optional for direct issuances)",
     )
+    bulletin_volume_snapshot: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Snapshot of bulletin volume number at issuance",
+    )
+    bulletin_issue_snapshot: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Snapshot of bulletin issue number at issuance",
+    )
+    bulletin_period_snapshot: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Snapshot of bulletin publication period at issuance",
+    )
     author_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("sama_research_authors.id", ondelete="CASCADE"),
@@ -361,6 +378,16 @@ class FelicitationCertificate(Base):
         DateTime(timezone=True),
         nullable=True,
         comment="Timestamp when dual authority approvals were completed",
+    )
+    scheduled_issue_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True,
+        comment="Official scheduled calendar date of issuance in Asia/Kolkata",
+    )
+    activated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Exact timestamp when certificate transitioned to ISSUED and became publicly accessible",
     )
     created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
@@ -473,6 +500,20 @@ class FelicitationCertificate(Base):
     def __repr__(self) -> str:
         return f"<FelicitationCertificate(id={self.id}, cert_no='{self.certificate_number}', status='{self.status}')>"
 
+    @property
+    def is_scheduled(self) -> bool:
+        return self.status == "SCHEDULED"
+
+    @property
+    def time_until_activation_seconds(self) -> Optional[int]:
+        if self.status != "SCHEDULED" or not self.scheduled_issue_date:
+            return None
+        IST = ZoneInfo("Asia/Kolkata")
+        activation_dt = datetime.combine(self.scheduled_issue_date, time.min).replace(tzinfo=IST)
+        now_utc = datetime.now(timezone.utc)
+        diff = (activation_dt - now_utc).total_seconds()
+        return max(0, int(diff))
+
 
 class CertificateAuthor(Base):
     """
@@ -527,6 +568,11 @@ class CertificateAuthor(Base):
     department_snapshot: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,
+    )
+    designation_snapshot: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Academic designation snapshot (e.g. 'Associate Professor', 'Dean')",
     )
     author_order: Mapped[int] = mapped_column(
         Integer,

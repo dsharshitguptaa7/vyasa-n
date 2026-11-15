@@ -26,6 +26,7 @@ import {
   CertificatePreviewPayload,
   CertificateApprovalPayload,
   CertificateReissuePayload,
+  CertificateReschedulePayload,
   CertificateTemplateItem,
   CreateTemplatePayload,
   UpdateTemplatePayload,
@@ -358,6 +359,7 @@ export const samaAdminService = {
       total_certificates: 0,
       draft_certificates: 0,
       pending_approvals: 0,
+      scheduled_certificates: 0,
       issued_certificates: 0,
       revoked_certificates: 0,
       reissued_certificates: 0,
@@ -415,6 +417,24 @@ export const samaAdminService = {
 
   async reissueCertificate(id: string, payload: CertificateReissuePayload): Promise<FelicitationCertificateItem> {
     const res = await apiClient.post<FelicitationCertificateItem>(`/admin/sama/certificates/${id}/reissue`, payload);
+    return res.data!;
+  },
+
+  async rescheduleCertificate(
+    id: string,
+    payloadOrDate: string | CertificateReschedulePayload
+  ): Promise<FelicitationCertificateItem> {
+    const scheduled_issue_date =
+      typeof payloadOrDate === 'string' ? payloadOrDate : payloadOrDate.scheduled_issue_date;
+    const res = await apiClient.patch<FelicitationCertificateItem>(`/admin/sama/certificates/${id}/reschedule`, {
+      scheduled_issue_date,
+    });
+    return res.data!;
+  },
+
+  async activateDueCertificates(targetDate?: string): Promise<{ activated_count: number }> {
+    const qs = targetDate ? `?target_date=${encodeURIComponent(targetDate)}` : '';
+    const res = await apiClient.post<{ activated_count: number }>(`/admin/sama/certificates/activate-due${qs}`, {});
     return res.data!;
   },
 

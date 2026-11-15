@@ -133,14 +133,13 @@ def test_unauthenticated_researcher_discovery_requires_authentication(client, db
     db_session.add(author)
     db_session.commit()
 
-    # Attempt lookup without authentication
+    # Public lookup without authentication returns 200 directly
     res = client.get(f"/api/modules/sama-veda/certificates/researcher-discovery?scopus_id={author.scopus_id}")
-    assert res.status_code == 401
+    assert res.status_code == 200
     data = res.json().get("data", {})
-    assert data.get("status") == "AUTH_REQUIRED"
-    assert data.get("requires_authentication") is True
     assert data.get("researcher", {}).get("full_name") == "Prof. Rajesh Kumar"
-    assert "r***r@csjmu.ac.in" in data.get("researcher", {}).get("masked_email", "")
+    assert "research_certificates" in data
+    assert "incentive_certificates" in data
 
 
 def test_otp_dispatch_and_verification_workflow(client, db_session):

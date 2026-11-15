@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -297,6 +297,7 @@ class CertificateAuthorCreate(BaseModel):
     scopus_id_snapshot: Optional[str] = Field(None, max_length=50)
     affiliation_snapshot: Optional[str] = Field("Chhatrapati Shahu Ji Maharaj University, Kanpur", max_length=255)
     department_snapshot: Optional[str] = Field(None, max_length=255)
+    designation_snapshot: Optional[str] = Field(None, max_length=255)
     author_order: int = Field(1, ge=1)
     author_role: str = Field("Author", max_length=50)
 
@@ -312,6 +313,7 @@ class CertificateAuthorOut(BaseModel):
     scopus_id_snapshot: Optional[str] = None
     affiliation_snapshot: Optional[str] = None
     department_snapshot: Optional[str] = None
+    designation_snapshot: Optional[str] = None
     author_order: int
     author_role: str
     created_at: datetime
@@ -441,6 +443,7 @@ class CertificateIssueRequest(BaseModel):
     research_title: Optional[str] = None
     congratulatory_statement: Optional[str] = Field("The university commends the exemplary commitment to advancing research frontiers and intellectual pursuit.")
     publication_details: Optional[Dict[str, Any]] = None
+    issue_date: Optional[date] = Field(None, description="Official scheduled date of issuance (YYYY-MM-DD). Defaults to today in Asia/Kolkata.")
     authors: Optional[List[CertificateAuthorCreate]] = None
     submit_for_approval: bool = False
     direct_issue_justification: Optional[str] = Field(
@@ -466,6 +469,10 @@ class CertificateReissueRequest(BaseModel):
     updated_publication_details: Optional[Dict[str, Any]] = None
 
 
+class CertificateRescheduleRequest(BaseModel):
+    scheduled_issue_date: date = Field(..., description="New scheduled Date of Issue (YYYY-MM-DD)")
+
+
 class CertificateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -484,11 +491,18 @@ class CertificateOut(BaseModel):
     verification_token: Optional[str] = None
     verification_url: Optional[str] = None
     bulletin_id: Optional[uuid.UUID] = None
+    bulletin_volume_snapshot: Optional[int] = None
+    bulletin_issue_snapshot: Optional[int] = None
+    bulletin_period_snapshot: Optional[str] = None
     author_id: Optional[uuid.UUID] = None
     publication_id: Optional[uuid.UUID] = None
     file_storage_path: Optional[str] = None
     checksum_sha256: Optional[str] = None
     download_count: Optional[int] = 0
+    scheduled_issue_date: Optional[date] = None
+    activated_at: Optional[datetime] = None
+    is_scheduled: Optional[bool] = False
+    time_until_activation_seconds: Optional[int] = None
     issued_at: Optional[datetime] = None
     approved_at: Optional[datetime] = None
     is_revoked: Optional[bool] = False
@@ -511,6 +525,7 @@ class CertificateStatsOut(BaseModel):
     total_certificates: int
     draft_certificates: int
     pending_approvals: int
+    scheduled_certificates: int = 0
     issued_certificates: int
     revoked_certificates: int
     reissued_certificates: int

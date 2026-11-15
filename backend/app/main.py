@@ -36,7 +36,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to execute database seeding: %s", str(exc))
 
+    # 3. Start Periodic Scheduled Certificate Activation Worker
+    import asyncio
+    async def _scheduled_activation_worker():
+        while True:
+            try:
+                await asyncio.sleep(60)
+                from app.modules.sama_veda.services.cms_service import SamaCmsService
+                with SessionLocal() as db:
+                    SamaCmsService.activate_due_certificates(db)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug("Scheduled certificate activation background worker error: %s", e)
+
+    activation_worker = asyncio.create_task(_scheduled_activation_worker())
+
     yield
+
+    # Cancel background worker
+    activation_worker.cancel()
+    try:
+        await activation_worker
+    except asyncio.CancelledError:
+        pass
 
     # Teardown database engine pool
     logger.info("Shutting down VYASA Core backend service...")
@@ -73,6 +96,27 @@ def _get_cors_headers(request: Request) -> dict:
             headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
             headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin, User-Agent"
     return headers
+
+
+from app.modules.sama_veda.services.certificate_pdf_service import InstitutionalAssetResolutionError
+
+
+@app.exception_handler(InstitutionalAssetResolutionError)
+async def institutional_asset_exception_handler(req: Request, exc: InstitutionalAssetResolutionError):
+    logger.error(
+        "Institutional branding asset unavailable during certificate generation: %s (Asset: %s)",
+        str(exc),
+        getattr(exc, "asset_name", "UNKNOWN"),
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        headers=_get_cors_headers(req),
+        content=ApiResponse(
+            success=False,
+            message="Institutional certificate generation failed: Mandatory official university branding assets are temporarily unavailable. Please notify the system administrator.",
+            error=ApiErrorDetail(code="INSTITUTIONAL_ASSET_UNAVAILABLE"),
+        ).model_dump(),
+    )
 
 
 @app.exception_handler(StarletteHTTPException)

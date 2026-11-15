@@ -214,3 +214,80 @@ class TestDeanInstitutionalJurisdiction:
 
         assert exc_info.value.status_code == 403
         assert "Access restricted to Atharva Veda Dean." in exc_info.value.detail
+
+    def test_08_dean_role_canonical_mapping_formatting_variations(self):
+        """8. Appointed Dean with minor formatting variations and standard departments is granted access."""
+        user = _make_user("dean.office@csjmu.ac.in")
+
+        test_variations = [
+            ("Dean", "R&D"),
+            ("Dean", "Research and Development"),
+            ("Dean", None),
+            ("Dean", "Dean Office"),
+            ("Dean", "University Administration"),
+            ("Dean (R & D)", "Dean Office"),
+            ("Dean - Research & Development", "University Administration"),
+            ("Dean of Research and Development Cell", "R&D"),
+            (None, "R&D"),
+            (None, None),
+            ("Dean (Research)", "Research"),
+            ("Dean of R & D", None),
+        ]
+
+        for desig, dept in test_variations:
+            authority = _make_authority(
+                user_id=user.id,
+                role=NivaranRole.DEAN,
+                designation=desig,
+                department=dept,
+                email="dean.office@csjmu.ac.in",
+            )
+            mock_db = MagicMock()
+            mock_db.scalar.return_value = authority
+
+            validated = require_atharva_dean(current_user=user, db=mock_db)
+            assert validated == user, f"Failed for designation '{desig}' and department '{dept}'"
+            assert is_authorized_dean_of_rd(authority, user) is True
+
+    def test_09_dean_from_other_non_rd_faculties_rejected(self):
+        """9. Deans appointed to other non-R&D faculties are rejected."""
+        user = _make_user("dean.student@csjmu.ac.in")
+
+        foreign_configs = [
+            ("Dean of Student Welfare", "Student Welfare"),
+            ("Dean, Student Affairs", "Student Affairs"),
+            ("Dean of Examinations", "Examinations"),
+            ("Dean", "Academic Affairs"),
+            ("Dean", "Examinations"),
+        ]
+
+        for desig, dept in foreign_configs:
+            authority = _make_authority(
+                user_id=user.id,
+                role=NivaranRole.DEAN,
+                designation=desig,
+                department=dept,
+                email="dean.student@csjmu.ac.in",
+            )
+            mock_db = MagicMock()
+            mock_db.scalar.return_value = authority
+
+            with pytest.raises(HTTPException) as exc_info:
+                require_atharva_dean(current_user=user, db=mock_db)
+
+            assert exc_info.value.status_code == 403
+            assert "Institutional Jurisdiction Restricted" in exc_info.value.detail
+            assert is_authorized_dean_of_rd(authority, user) is False
+
+    def test_10_super_admin_without_dean_appointment_rejected(self):
+        """10. Super Admin without an appointed NivaranAuthority DEAN profile cannot access Dean command center."""
+        user = _make_user("superadmin@csjmu.ac.in", roles=["super_admin"])
+
+        mock_db = MagicMock()
+        mock_db.scalar.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            require_atharva_dean(current_user=user, db=mock_db)
+
+        assert exc_info.value.status_code == 403
+        assert "Access restricted to Atharva Veda Dean." in exc_info.value.detail

@@ -258,6 +258,10 @@ class ResearcherDiscoveryService:
         """
         norm_scopus = normalize_scopus_id(author.scopus_id)
 
+        # 0. Activate any due certificates before discovery lookup
+        from app.modules.sama_veda.services.cms_service import SamaCmsService
+        SamaCmsService.activate_due_certificates(db)
+
         # 1. Discover certificate IDs where author is linked
         cert_ids = set()
 
@@ -284,10 +288,14 @@ class ResearcherDiscoveryService:
                 select(FelicitationCertificate)
                 .options(
                     joinedload(FelicitationCertificate.publication),
+                    joinedload(FelicitationCertificate.bulletin),
                     joinedload(FelicitationCertificate.authors),
                     joinedload(FelicitationCertificate.approvals),
                 )
-                .where(FelicitationCertificate.id.in_(cert_ids))
+                .where(
+                    FelicitationCertificate.id.in_(cert_ids),
+                    FelicitationCertificate.status.in_(["ISSUED", "REVOKED", "SUPERSEDED"]),
+                )
                 .order_by(FelicitationCertificate.issued_at.desc())
             )
             all_certs = db.scalars(stmt).unique().all()
@@ -303,13 +311,59 @@ class ResearcherDiscoveryService:
             pub_title = cert.research_title or (cert.publication.title if cert.publication else None)
             is_valid = bool(cert.status == "ISSUED" and not cert.is_revoked and cert.file_storage_path)
 
+            # Resolve bulletin volume, issue, period
+            b_vol = cert.bulletin_volume_snapshot or (cert.bulletin.volume_number if cert.bulletin else None)
+            b_issue = cert.bulletin_issue_snapshot or (cert.bulletin.issue_number if cert.bulletin else None)
+            b_period = cert.bulletin_period_snapshot or (cert.bulletin.publication_period if cert.bulletin else None)
+            b_title = (cert.bulletin.title if cert.bulletin else None) or (f"Volume {b_vol} • Issue {b_issue}" if b_vol and b_issue else "General Edition")
+
+            # Resolve matched author snapshot
+            matched_auth = next(
+                (a for a in cert.authors if (a.researcher_id == author.id or (norm_scopus and a.scopus_id_snapshot and a.scopus_id_snapshot.strip().lower() == norm_scopus.lower()))),
+                None
+            )
+
+            author_dept = None
+            author_desig = None
+            if matched_auth:
+                author_dept = matched_auth.department_snapshot
+                author_desig = matched_auth.designation_snapshot
+            else:
+                author_dept = author.department
+
+            if author_dept and author_dept.strip().lower() == "department of research":
+                author_dept = None
+            if author_desig and author_desig.strip().lower() == "department of research":
+                author_desig = None
+
+            affiliation_line = None
+            if author_desig and author_dept:
+                affiliation_line = f"{author_desig.strip()}, {author_dept.strip()}"
+            elif author_dept:
+                affiliation_line = author_dept.strip()
+            elif author_desig:
+                affiliation_line = author_desig.strip()
+
+            bulletin_group_key = f"Volume {b_vol}, Issue {b_issue}" if b_vol and b_issue else (b_title or "General Edition")
+            if b_period:
+                bulletin_group_key += f" ({b_period})"
+
             cert_payload = {
                 "id": str(cert.id),
                 "certificate_number": cert.certificate_number,
                 "title": cert.title,
                 "certificate_type": cert.certificate_type,
                 "category": "INCENTIVE" if cert_type in incentive_types else "RESEARCH_WORK",
+                "category_display": "Research Incentive Certificate" if cert_type in incentive_types else "Research Publication Certificate",
                 "publication_title": pub_title,
+                "bulletin_volume": b_vol,
+                "bulletin_issue": b_issue,
+                "bulletin_period": b_period,
+                "bulletin_title": b_title,
+                "bulletin_group_key": bulletin_group_key,
+                "author_department": author_dept,
+                "author_designation": author_desig,
+                "affiliation_line": affiliation_line,
                 "issue_date": cert.issued_at.strftime("%d %B %Y") if cert.issued_at else None,
                 "issued_at": cert.issued_at.isoformat() if cert.issued_at else None,
                 "status": cert.status,
@@ -354,15 +408,20 @@ class ResearcherDiscoveryService:
         except Exception as exc:
             logger.debug("Anudaan application check bypassed: %s", exc)
 
+        res_dept = author.department
+        if res_dept and res_dept.strip().lower() == "department of research":
+            res_dept = None
+
         return {
             "researcher": {
                 "id": str(author.id),
                 "full_name": author.full_name,
-                "department": author.department,
+                "department": res_dept,
                 "institutional_affiliation": author.institutional_affiliation,
                 "scopus_id": author.scopus_id,
             },
             "research_certificates": research_certs,
             "incentive_certificates": incentive_certs,
+            "total_certificates": len(research_certs) + len(incentive_certs),
             "anudaan_incentives": anudaan_summary,
         }

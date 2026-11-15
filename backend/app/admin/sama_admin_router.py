@@ -54,6 +54,7 @@ from app.admin.schemas.sama_cms import (
     CertificateIssueRequest,
     CertificateRevokeRequest,
     CertificateReissueRequest,
+    CertificateRescheduleRequest,
     CertificateOut,
     CertificateListResponse,
     CertificateStatsOut,
@@ -1036,7 +1037,10 @@ def preview_certificate_pdf(
     current_user: User = Depends(require_permission("sama:read")),
 ):
     from fastapi.responses import Response
-    from app.modules.sama_veda.services.certificate_pdf_service import certificate_pdf_engine
+    from app.modules.sama_veda.services.certificate_pdf_service import (
+        certificate_pdf_engine,
+        InstitutionalAssetResolutionError,
+    )
     
     author_items = []
     if payload.authors:
@@ -1091,31 +1095,39 @@ def preview_certificate_pdf(
         except Exception:
             pass
 
-    pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
-        certificate_number=payload.certificate_number or "CSJMU/PREVIEW/DRAFT-0000",
-        verification_token="PREVIEW",
-        verification_url=f"{str(request.base_url).rstrip('/')}/verify/preview-draft",
-        title=payload.title,
-        certificate_type=payload.certificate_type or "RESEARCH_PUBLICATION",
-        presentation_statement=payload.presentation_statement,
-        authors=author_items,
-        research_contribution_statement=payload.research_contribution_statement,
-        research_title=payload.research_title or "Exemplary Research Paper Title",
-        publication_details=payload.publication_details,
-        bulletin_title=bulletin_obj.title if bulletin_obj else None,
-        bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
-        bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
-        bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
-        incentive_details=payload.publication_details if payload.certificate_type == "INCENTIVE_AWARD" else None,
-        congratulatory_statement=payload.congratulatory_statement,
-        dean_name=dean_name,
-        dean_designation=dean_desig,
-        dean_signature_path=dean_sig,
-        vc_name=vc_name,
-        vc_designation=vc_desig,
-        vc_signature_path=vc_sig,
-        is_preview=True,
-    )
+    try:
+        pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
+            certificate_number=payload.certificate_number or "CSJMU/PREVIEW/DRAFT-0000",
+            verification_token="PREVIEW",
+            verification_url=f"{str(request.base_url).rstrip('/')}/verify/preview-draft",
+            title=payload.title,
+            certificate_type=payload.certificate_type or "RESEARCH_PUBLICATION",
+            presentation_statement=payload.presentation_statement,
+            authors=author_items,
+            research_contribution_statement=payload.research_contribution_statement,
+            research_title=payload.research_title or "Exemplary Research Paper Title",
+            publication_details=payload.publication_details,
+            bulletin_title=bulletin_obj.title if bulletin_obj else None,
+            bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
+            bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
+            bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+            incentive_details=payload.publication_details if payload.certificate_type == "INCENTIVE_AWARD" else None,
+            congratulatory_statement=payload.congratulatory_statement,
+            issue_date=payload.issue_date,
+            dean_name=dean_name,
+            dean_designation=dean_desig,
+            dean_signature_path=dean_sig,
+            vc_name=vc_name,
+            vc_designation=vc_desig,
+            vc_signature_path=vc_sig,
+            is_preview=True,
+        )
+    except InstitutionalAssetResolutionError as e:
+        logger.error("Mandatory institutional branding asset missing during certificate preview: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="Institutional certificate preview failed: Mandatory official university branding assets are temporarily unavailable. Please notify the system administrator.",
+        )
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -1416,6 +1428,52 @@ def reissue_certificate(
         success=True,
         message=f"Certificate {cert.certificate_number} superseded and reissued as {new_cert.certificate_number}.",
         data=CertificateOut.model_validate(new_cert).model_dump(),
+    )
+
+
+@sama_admin_router.patch("/certificates/{certificate_id}/reschedule", response_model=ApiResponse)
+def reschedule_certificate(
+    certificate_id: uuid.UUID,
+    payload: CertificateRescheduleRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:issue")),
+):
+    """
+    Reschedule Date of Issue for a SCHEDULED certificate prior to activation.
+    Once activated/issued, rescheduling is prohibited.
+    """
+    base_url = _get_production_verification_base_url(request)
+    updated_cert = sama_cms_service.reschedule_certificate(
+        db,
+        certificate_id=certificate_id,
+        new_date=payload.scheduled_issue_date,
+        user_id=current_user.id,
+        base_verification_url=base_url,
+    )
+    return ApiResponse(
+        success=True,
+        message=f"Certificate scheduled Date of Issue updated to {payload.scheduled_issue_date.isoformat()}.",
+        data=CertificateOut.model_validate(updated_cert).model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/activate-due", response_model=ApiResponse)
+def trigger_activate_due_certificates(
+    target_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:issue")),
+):
+    """
+    Manual/Cron administrative trigger to immediately activate any due SCHEDULED certificates.
+    """
+    count = sama_cms_service.activate_due_certificates(
+        db, as_of_date=target_date, actor_user_id=current_user.id
+    )
+    return ApiResponse(
+        success=True,
+        message=f"Successfully activated {count} scheduled certificate(s).",
+        data={"activated_count": count},
     )
 
 

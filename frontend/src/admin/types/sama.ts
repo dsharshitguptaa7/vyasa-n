@@ -279,6 +279,7 @@ export type CertificateStatus =
   | 'DRAFT'
   | 'PENDING_DEAN_APPROVAL'
   | 'PENDING_VC_APPROVAL'
+  | 'SCHEDULED'
   | 'ISSUED'
   | 'REJECTED'
   | 'REVOKED'
@@ -295,6 +296,7 @@ export interface CertificateAuthorItem {
   scopus_id_snapshot?: string | null;
   affiliation_snapshot?: string | null;
   department_snapshot?: string | null;
+  designation_snapshot?: string | null;
   author_order: number;
   author_role: string;
 }
@@ -383,6 +385,7 @@ export interface CertificateStatsRecord {
   total_certificates: number;
   draft_certificates: number;
   pending_approvals: number;
+  scheduled_certificates?: number;
   issued_certificates: number;
   revoked_certificates: number;
   reissued_certificates: number;
@@ -410,6 +413,10 @@ export interface FelicitationCertificateItem {
   file_storage_path?: string | null;
   checksum_sha256?: string | null;
   download_count: number;
+  scheduled_issue_date?: string | null;
+  activated_at?: string | null;
+  is_scheduled?: boolean;
+  time_until_activation_seconds?: number | null;
   issued_at?: string | null;
   approved_at?: string | null;
   is_revoked: boolean;
@@ -440,6 +447,7 @@ export interface IssueCertificatePayload {
   research_title?: string;
   congratulatory_statement?: string;
   publication_details?: Record<string, any>;
+  issue_date?: string;
   authors?: CertificateAuthorItem[];
   submit_for_approval?: boolean;
   direct_issue_justification?: string;
@@ -457,12 +465,18 @@ export interface CertificatePreviewPayload {
   bulletin_id?: string | null;
   title?: string;
   presentation_statement?: string;
-  authors: CertificateAuthorItem[];
   research_contribution_statement?: string;
   research_title?: string;
-  publication_details?: Record<string, any>;
   congratulatory_statement?: string;
+  publication_details?: Record<string, any>;
+  issue_date?: string;
+  authors?: CertificateAuthorItem[];
+  certificate_number?: string;
   config_overrides?: Record<string, any>;
+}
+
+export interface CertificateReschedulePayload {
+  scheduled_issue_date: string;
 }
 
 export interface CertificateApprovalPayload {

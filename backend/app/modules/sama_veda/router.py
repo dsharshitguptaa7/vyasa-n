@@ -26,6 +26,7 @@ from app.modules.sama_veda.models.cam_project import CamAiProject
 from app.modules.sama_veda.models.fellowship import FellowshipScheme
 from app.modules.sama_veda.models.spotlight import ResearcherSpotlight
 from app.modules.sama_veda.models.certificate import FelicitationCertificate, CertificateVerificationEvent
+from app.modules.sama_veda.services.cms_service import SamaCmsService
 from app.modules.sama_veda.schemas.cms import (
     PublicationOut,
     PublicationAuthorOut,
@@ -551,53 +552,15 @@ def discover_researcher_certificates(
             detail=f"No researcher found with Scopus ID '{clean_scopus}' in the SAMIKSHA directory. Please verify your Scopus ID or contact the R&D Cell.",
         )
 
-    # Resolve token from either X-Researcher-Token or Authorization Bearer header
-    effective_token = researcher_token
-    if not effective_token and authorization and authorization.lower().startswith("bearer "):
-        effective_token = authorization[7:].strip()
+    # Automatically activate any due certificates
+    SamaCmsService.activate_due_certificates(db)
 
-    is_authorized, reason = ResearcherDiscoveryService.evaluate_authorization(
-        author=author,
-        current_user=current_user,
-        researcher_token=effective_token,
-    )
-
-    if not is_authorized:
-        has_user = bool(author.user_id or (author.user and author.user.email))
-        email_str = author.user.email if (author.user and author.user.email) else None
-        masked = mask_email(email_str)
-
-        from fastapi.responses import JSONResponse
-        return JSONResponse(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content=ApiResponse(
-                success=False,
-                message=(
-                    f"Researcher identified: {author.full_name}. In accordance with university credential security guidelines, "
-                    "please sign in with your university account or verify via registered email OTP to view and download certificates."
-                ),
-                data={
-                    "status": "AUTH_REQUIRED",
-                    "requires_authentication": True,
-                    "researcher": {
-                        "id": str(author.id),
-                        "full_name": author.full_name,
-                        "department": author.department,
-                        "institutional_affiliation": author.institutional_affiliation,
-                        "scopus_id": author.scopus_id,
-                        "has_registered_user": has_user,
-                        "masked_email": masked,
-                    },
-                },
-            ).model_dump(),
-        )
-
-    # Caller is authorized: retrieve all certificates across both categories
+    # Retrieve all certificates across both categories publicly
     cert_data = ResearcherDiscoveryService.get_researcher_certificates(author, db)
 
     return ApiResponse(
         success=True,
-        message=f"Retrieved {len(cert_data['research_certificates'])} research certificate(s) and {len(cert_data['incentive_certificates'])} incentive certificate(s) for Dr. {author.full_name}.",
+        message=f"Retrieved {len(cert_data['research_certificates'])} research certificate(s) and {len(cert_data['incentive_certificates'])} incentive certificate(s) for {author.full_name}.",
         data=cert_data,
     )
 
@@ -676,6 +639,7 @@ def download_certificate_by_token(
     Enforces cryptographic SHA-256 seal integrity and blocks revoked or superseded certificates.
     """
     clean_token = token.strip()
+    SamaCmsService.activate_due_certificates(db)
     stmt = (
         select(FelicitationCertificate)
         .options(
@@ -816,6 +780,7 @@ def verify_certificate(
     Explicitly reports if a certificate has been revoked.
     """
     clean_number = certificate_number.strip()
+    SamaCmsService.activate_due_certificates(db)
     stmt = (
         select(FelicitationCertificate)
         .options(
@@ -840,7 +805,7 @@ def verify_certificate(
         db.rollback()
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
 
-    if not cert:
+    if not cert or cert.status in ["SCHEDULED", "DRAFT", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
 
     # Record verification event telemetry
@@ -978,6 +943,7 @@ def download_public_certificate(
     Blocked if the certificate is revoked or superseded.
     """
     clean_number = certificate_number.strip()
+    SamaCmsService.activate_due_certificates(db)
     stmt = (
         select(FelicitationCertificate)
         .options(

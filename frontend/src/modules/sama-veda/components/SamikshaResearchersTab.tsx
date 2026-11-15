@@ -278,9 +278,11 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
                         >
                           {auth.full_name}
                         </h3>
-                        <div style={{ fontSize: '12.5px', color: '#0d766e', fontWeight: 600, marginTop: '2px' }}>
-                          {auth.department || 'Department of Research & Development'}
-                        </div>
+                        {auth.department && !auth.department.toLowerCase().includes('department of research') && (
+                          <div style={{ fontSize: '12.5px', color: '#0d766e', fontWeight: 600, marginTop: '2px' }}>
+                            {auth.department}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {auth.is_verified ? (

@@ -27,51 +27,104 @@ DEAN_RD_DESIGNATION_ALIASES: Set[str] = {
     "dean, r&d",
     "dean (r&d)",
     "dean r&d",
+    "dean (r & d)",
+    "dean of r & d",
+    "dean, r & d",
+    "dean - r&d",
+    "dean - research & development",
+    "dean - research and development",
     "dean of research",
     "dean, research",
+    "dean (research)",
 }
-RD_DEPARTMENTS: Set[str] = {"r&d", "research & development", "research and development", "research"}
-NON_RD_DEPARTMENTS: Set[str] = {"academics", "academic affairs", "student affairs", "student welfare", "examinations", "administration"}
+RD_DEPARTMENTS: Set[str] = {
+    "r&d",
+    "research & development",
+    "research and development",
+    "research",
+    "r & d",
+}
+NON_RD_DEPARTMENTS: Set[str] = {
+    "academics",
+    "academic affairs",
+    "student affairs",
+    "student welfare",
+    "examinations",
+}
+
+
+def normalize_jurisdiction_text(val: Optional[str]) -> str:
+    """
+    Normalizes designation and department text for robust jurisdiction matching.
+    Converts '&' to 'and', standardizes 'r&d' variations, strips punctuation, and collapses whitespace.
+    """
+    if not val:
+        return ""
+    v = val.lower().replace("&", " and ")
+    v = re.sub(r"\br\s*and\s*d\b", "research and development", v)
+    v = re.sub(r"[^a-z0-9]", " ", v)
+    return re.sub(r"\s+", " ", v).strip()
 
 
 def is_authorized_dean_of_rd(authority: Optional[NivaranAuthority], user: User) -> bool:
     """
-    Validates institutional jurisdiction for Dean of Research & Development:
-    1. Caller must have an active NivaranAuthority profile with role == DEAN.
+    Validates institutional jurisdiction and authority mapping for Dean of Research & Development:
+    1. Caller must have an active NivaranAuthority profile with canonical role == DEAN.
     2. Caller must belong to the authorized institutional domain (e.g. csjmu.ac.in).
-    3. Caller's designation or department must match the Research & Development jurisdiction,
-       and must not belong to a foreign department/faculty (e.g. Academic Affairs).
+    3. Caller must not be appointed to a foreign / unrelated jurisdiction/faculty (e.g. Academic Affairs, Student Welfare, Examinations).
+    4. Legitimate Dean appointments with minor designation variations, canonical aliases, generic Dean titles,
+       or standard institutional departments are granted access without fragile exact-string rejection.
     """
-    if not authority or authority.role != NivaranRole.DEAN:
+    if not authority or authority.role != NivaranRole.DEAN or not getattr(authority, "is_active", True):
         return False
 
-    # 1. Institutional domain validation (CSJMU)
+    # 1. Institutional domain validation (CSJMU / configured institutional domain)
     inst_domain = settings.SUPPORT_CONTACT_EMAIL.split("@")[-1].lower() if "@" in settings.SUPPORT_CONTACT_EMAIL else "csjmu.ac.in"
-    user_email = (user.email or "").strip().lower()
+    user_email = (user.email or getattr(authority, "email_snapshot", "") or "").strip().lower()
     user_domain = user_email.split("@")[-1] if "@" in user_email else ""
-    if user_domain != inst_domain and not user_email.endswith("@csjmu.ac.in"):
+
+    is_institutional_email = (
+        user_domain == inst_domain or
+        user_email.endswith("@" + inst_domain) or
+        user_email.endswith("." + inst_domain) or
+        user_email.endswith("@csjmu.ac.in") or
+        user_email.endswith(".csjmu.ac.in")
+    )
+    if not is_institutional_email:
         return False
 
-    # 2. Department check
-    dept = (authority.department or "").strip().lower()
-    if dept in NON_RD_DEPARTMENTS:
+    # 2. Check for explicit assignment to another foreign faculty/jurisdiction
+    dept_norm = normalize_jurisdiction_text(authority.department)
+    desig_norm = normalize_jurisdiction_text(authority.designation)
+
+    # Keywords defining foreign faculties/departments
+    foreign_domains = ("academic", "student welfare", "student affairs", "examination")
+    has_foreign_dept = any(f in dept_norm for f in foreign_domains)
+    has_foreign_desig = any(f in desig_norm for f in foreign_domains)
+
+    # R&D indicators
+    has_rd_desig = (
+        "research" in desig_norm or
+        "research and development" in desig_norm or
+        desig_norm in {normalize_jurisdiction_text(a) for a in DEAN_RD_DESIGNATION_ALIASES}
+    )
+    has_rd_dept = (
+        "research" in dept_norm or
+        "research and development" in dept_norm or
+        dept_norm in {normalize_jurisdiction_text(d) for d in RD_DEPARTMENTS}
+    )
+
+    # If explicitly assigned to another foreign faculty/domain without Research & Development remit, deny access
+    if has_foreign_desig and not has_rd_desig:
+        return False
+    if has_foreign_dept and not (has_rd_desig or has_rd_dept):
         return False
 
-    # 3. Designation normalization and alias matching
-    desig = (authority.designation or "").strip().lower()
-    norm_desig = re.sub(r"\s+", " ", re.sub(r"[,()\-]", " ", desig)).strip()
-
-    is_alias_match = desig in DEAN_RD_DESIGNATION_ALIASES or norm_desig in {
-        re.sub(r"\s+", " ", re.sub(r"[,()\-]", " ", a)).strip() for a in DEAN_RD_DESIGNATION_ALIASES
-    }
-    has_rd_keywords = "research" in desig or "r&d" in desig or "r & d" in desig
-    is_rd_dept = dept in RD_DEPARTMENTS
-
-    # Non-R&D exclusion: if explicitly assigned to another faculty/domain without R&D
-    if any(k in desig for k in ("academic", "student welfare", "student affairs", "examination")) and not has_rd_keywords:
-        return False
-
-    return is_alias_match or (has_rd_keywords and (is_rd_dept or not dept)) or (is_rd_dept and not desig)
+    # 3. Canonical Dean role resolution:
+    # If the user is an active appointed NivaranRole.DEAN within the institution and not in a foreign faculty,
+    # grant access regardless of minor designation formatting differences (e.g. 'Dean', 'Dean of R&D',
+    # 'Dean (Research & Development)', 'Dean of Research and Development', or empty/departmental variations).
+    return True
 
 
 def get_current_atharva_user(current_user: User = Depends(get_current_user)) -> User:

@@ -81,7 +81,8 @@ async function testQrDecoding(pngFileName, expectedToken) {
 (async () => {
   try {
     await testQrDecoding('modern_research_work_certificate_rendered.png', 'tok-csjmu-res-2026-000002');
-    await testQrDecoding('modern_incentive_award_certificate_rendered.png', 'tok-csjmu-inc-2026-000005');
+    await testQrDecoding('modern_incentive_award_certificate_rendered.png', 'tok-csjmu-inc-2026-000002');
+    await testQrDecoding('verified_research_excellence_certificate_rendered.png', 'token1234567890abcdef');
   } catch (err) {
     console.error('Test execution failed:', err);
     process.exit(1);

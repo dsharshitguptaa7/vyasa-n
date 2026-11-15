@@ -21,17 +21,86 @@ Features:
 """
 import hashlib
 import io
+import logging
 import math
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from PIL import Image
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.barcode.qr import QrCodeWidget
+
+logger = logging.getLogger("vyasa.certificate_pdf")
+
+
+class InstitutionalAssetResolutionError(RuntimeError):
+    """
+    Raised when a mandatory institutional branding asset (e.g. CSJMU emblem
+    or NAAC A++ accreditation badge) cannot be located, read, or decoded.
+    """
+
+    def __init__(
+        self,
+        asset_name: str,
+        message: str,
+        diagnostics: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message)
+        self.asset_name = asset_name
+        self.diagnostics = diagnostics or {}
+
+
+def _validate_image_file(path: Path) -> Tuple[bool, Optional[Tuple[int, int]], Optional[str]]:
+    """
+    Validates that the file exists, is readable, and decodes into a valid raster image.
+    Returns (is_valid, (width, height), format_name).
+    """
+    try:
+        if not path.is_file():
+            return False, None, None
+        if not os.access(path, os.R_OK):
+            return False, None, None
+        with Image.open(path) as img:
+            img.verify()
+        with Image.open(path) as img:
+            img.load()
+            dims = (img.width, img.height)
+            fmt = img.format
+            if img.width > 0 and img.height > 0:
+                return True, dims, fmt
+        return False, None, None
+    except Exception as exc:
+        logger.debug("Image file validation failed for %s: %s", path, exc)
+        return False, None, None
+
+
+def _find_file_case_insensitive(base: Path, relative_parts: List[str]) -> Optional[Path]:
+    """
+    Traverses directories case-insensitively for POSIX / Linux compatibility.
+    """
+    curr = base
+    for part in relative_parts:
+        if not curr.is_dir():
+            return None
+        lower_part = part.lower()
+        match = None
+        try:
+            for entry in curr.iterdir():
+                if entry.name.lower() == lower_part:
+                    match = entry
+                    break
+        except Exception:
+            return None
+        if not match:
+            return None
+        curr = match
+    return curr if curr.is_file() else None
 
 
 # Institutional Modern Color Palette
@@ -62,17 +131,200 @@ class CertificatePDFEngine:
     """
 
     def __init__(self, assets_dir: Optional[str] = None):
-        # Resolve assets directory by walking up directory hierarchy
-        if assets_dir:
-            self.assets_dir = Path(assets_dir)
-        else:
-            root_assets = next(
-                (p / "assets" for p in Path(__file__).resolve().parents if (p / "assets").is_dir()),
-                None
+        self.assets_dir = Path(assets_dir) if assets_dir else None
+
+        # Eagerly attempt to resolve assets, retaining attributes for backwards compatibility
+        resolved_csjmu = self.resolve_csjmu_logo(mandatory=False)
+        resolved_naac = self.resolve_naac_logo(mandatory=False)
+
+        # Retain self.assets_dir as the base directory of resolved assets if available
+        if not self.assets_dir:
+            if resolved_csjmu:
+                for p in resolved_csjmu.parents:
+                    if p.name == "assets":
+                        self.assets_dir = p
+                        break
+            if not self.assets_dir:
+                root_assets = next(
+                    (p / "assets" for p in Path(__file__).resolve().parents if (p / "assets").is_dir()),
+                    None
+                )
+                self.assets_dir = root_assets if root_assets else Path("assets")
+
+        self.csjmu_logo_path = resolved_csjmu or (self.assets_dir / "branding" / "csjmu" / "csjmu-logo.png")
+        self.naac_logo_path = resolved_naac or (self.assets_dir / "branding" / "naac-A-Plus-Plus.png")
+
+    def _get_candidate_roots(self) -> List[Path]:
+        """
+        Gathers deterministic candidate root directories for branding asset resolution.
+        Independent of runtime working directory (CWD) and container mounting layout.
+        """
+        roots: List[Path] = []
+
+        def _add_root(cand: Optional[Path]):
+            if cand is not None:
+                resolved = cand.resolve()
+                if resolved not in roots:
+                    roots.append(resolved)
+
+        # 1. Explicitly provided assets_dir on self
+        if self.assets_dir:
+            _add_root(Path(self.assets_dir))
+
+        # 2. Environment variables
+        for env_var in ("VYASA_ASSETS_DIR", "ASSETS_DIR"):
+            val = os.environ.get(env_var)
+            if val:
+                _add_root(Path(val))
+
+        # 3. Codebase package hierarchy relative to __file__
+        current_file = Path(__file__).resolve()
+        for parent in current_file.parents:
+            _add_root(parent / "assets")
+            _add_root(parent / "app" / "assets")
+
+        # 4. Standard container paths in Docker / Linux production
+        for cp in (
+            Path("/app/assets"),
+            Path("/app/backend/assets"),
+            Path("/app/backend/app/assets"),
+            Path("/workspace/assets"),
+        ):
+            _add_root(cp)
+
+        # 5. Runtime working directory candidates
+        cwd = Path.cwd().resolve()
+        for cwd_cand in (
+            cwd / "assets",
+            cwd / "backend" / "assets",
+            cwd / "backend" / "app" / "assets",
+        ):
+            _add_root(cwd_cand)
+
+        return roots
+
+    def _resolve_asset(
+        self,
+        asset_name: str,
+        candidate_rel_parts: List[List[str]],
+        mandatory: bool = False,
+    ) -> Optional[Path]:
+        """
+        Deterministically resolves and validates a branding asset across candidate roots.
+        Validates read permission and image decoding integrity with Pillow.
+        """
+        candidate_roots = self._get_candidate_roots()
+
+        # Check candidate roots with direct and case-insensitive resolution
+        for root in candidate_roots:
+            if not root.is_dir():
+                continue
+            for rel_parts in candidate_rel_parts:
+                direct_path = root.joinpath(*rel_parts)
+                if direct_path.is_file():
+                    is_valid, dims, fmt = _validate_image_file(direct_path)
+                    if is_valid:
+                        logger.debug("Resolved asset '%s' at: %s (%s, %s)", asset_name, direct_path, dims, fmt)
+                        return direct_path
+
+                ci_path = _find_file_case_insensitive(root, rel_parts)
+                if ci_path and ci_path.is_file():
+                    is_valid, dims, fmt = _validate_image_file(ci_path)
+                    if is_valid:
+                        logger.debug("Resolved asset '%s' (case-insensitive) at: %s", asset_name, ci_path)
+                        return ci_path
+
+        # Check storage service as fallback
+        try:
+            from app.core.storage import storage_service, StorageFileNotFoundError
+            for rel_parts in candidate_rel_parts:
+                storage_key = "/".join(rel_parts)
+                for candidate_key in (storage_key, f"branding/{rel_parts[-1]}", rel_parts[-1]):
+                    try:
+                        resolved = storage_service.get_file_path(candidate_key)
+                        if resolved and resolved.is_file():
+                            is_valid, dims, fmt = _validate_image_file(resolved)
+                            if is_valid:
+                                logger.debug("Resolved asset '%s' via storage_service: %s", asset_name, resolved)
+                                return resolved
+                    except (StorageFileNotFoundError, Exception):
+                        continue
+        except Exception:
+            pass
+
+        if mandatory:
+            roots_checked = [str(r) for r in candidate_roots]
+            logger.error(
+                "Mandatory institutional branding asset '%s' cannot be located or validated. Checked roots: %s",
+                asset_name,
+                roots_checked,
             )
-            self.assets_dir = root_assets if root_assets else Path("assets")
-        self.csjmu_logo_path = self.assets_dir / "branding" / "csjmu" / "csjmu-logo.png"
-        self.naac_logo_path = self.assets_dir / "branding" / "naac-A-Plus-Plus.png"
+            raise InstitutionalAssetResolutionError(
+                asset_name=asset_name,
+                message=(
+                    f"Mandatory institutional branding asset '{asset_name}' could not be located, "
+                    f"read, or validated. Rendering cannot proceed without verified official branding."
+                ),
+                diagnostics={"asset_name": asset_name, "roots_checked": roots_checked},
+            )
+
+        return None
+
+    def resolve_csjmu_logo(self, mandatory: bool = True) -> Optional[Path]:
+        """
+        Resolves and validates the official CSJMU University emblem.
+        """
+        candidate_parts = [
+            ["branding", "csjmu", "csjmu-logo.png"],
+            ["branding", "csjmu-logo.png"],
+            ["csjmu", "csjmu-logo.png"],
+            ["csjmu-logo.png"],
+        ]
+        return self._resolve_asset("CSJMU_EMBLEM", candidate_parts, mandatory=mandatory)
+
+    def resolve_naac_logo(self, mandatory: bool = True) -> Optional[Path]:
+        """
+        Resolves and validates the official NAAC A++ accreditation badge.
+        """
+        candidate_parts = [
+            ["branding", "naac-A-Plus-Plus.png"],
+            ["branding", "naac_a_plus_plus.png"],
+            ["branding", "naac-a-plus-plus.png"],
+            ["naac-A-Plus-Plus.png"],
+            ["naac_a_plus_plus.png"],
+            ["naac-a-plus-plus.png"],
+        ]
+        return self._resolve_asset("NAAC_BADGE", candidate_parts, mandatory=mandatory)
+
+    def get_asset_diagnostics(self) -> Dict[str, Any]:
+        """
+        Provides runtime diagnostic status for institutional branding assets.
+        """
+        csjmu_path = self.resolve_csjmu_logo(mandatory=False)
+        naac_path = self.resolve_naac_logo(mandatory=False)
+
+        def _inspect(p: Optional[Path]) -> Dict[str, Any]:
+            if not p:
+                return {"resolved": False, "exists": False, "readable": False, "valid": False}
+            is_valid, dims, fmt = _validate_image_file(p)
+            return {
+                "resolved": True,
+                "path": str(p),
+                "filename": p.name,
+                "exists": p.is_file(),
+                "readable": os.access(p, os.R_OK) if p.is_file() else False,
+                "valid": is_valid,
+                "dimensions": list(dims) if dims else None,
+                "format": fmt,
+                "size_bytes": p.stat().st_size if p.is_file() else 0,
+            }
+
+        return {
+            "status": "HEALTHY" if (csjmu_path and naac_path) else "DEGRADED",
+            "csjmu_emblem": _inspect(csjmu_path),
+            "naac_badge": _inspect(naac_path),
+            "candidate_roots_count": len(self._get_candidate_roots()),
+        }
 
     def _resolve_signature_path(self, sig_ref: Optional[Any]) -> Optional[Path]:
         """
@@ -499,84 +751,88 @@ class CertificatePDFEngine:
         )
 
         # 1. Official CSJMU Emblem on Left
-        logo_w, logo_h = 54, 58
+        logo_w, logo_h = 60, 64
         logo_x = 46
         logo_y = top_y - logo_h + 4
 
         if show_emblem:
-            if self.csjmu_logo_path.exists():
-                try:
-                    c.drawImage(
-                        str(self.csjmu_logo_path),
-                        logo_x,
-                        logo_y,
-                        width=logo_w,
-                        height=logo_h,
-                        preserveAspectRatio=True,
-                        mask="auto",
-                    )
-                except Exception:
-                    self._draw_fallback_emblem(c, logo_x + logo_w / 2, logo_y + logo_h / 2)
-            else:
-                self._draw_fallback_emblem(c, logo_x + logo_w / 2, logo_y + logo_h / 2)
+            csjmu_path = self.resolve_csjmu_logo(mandatory=True)
+            try:
+                c.drawImage(
+                    ImageReader(str(csjmu_path)),
+                    logo_x,
+                    logo_y,
+                    width=logo_w,
+                    height=logo_h,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception as exc:
+                logger.error("Failed to render CSJMU emblem on PDF canvas: %s", exc)
+                raise InstitutionalAssetResolutionError(
+                    "CSJMU_EMBLEM",
+                    f"Official CSJMU university emblem failed during canvas rendering: {exc}",
+                ) from exc
 
         # 2. Official NAAC Accreditation Logo on Right
-        naac_w, naac_h = 72, 48
+        naac_w, naac_h = 78, 52
         naac_x = width - 46 - naac_w
         naac_y = top_y - naac_h + 4
 
         if show_naac:
-            if self.naac_logo_path.exists():
-                try:
-                    c.drawImage(
-                        str(self.naac_logo_path),
-                        naac_x,
-                        naac_y,
-                        width=naac_w,
-                        height=naac_h,
-                        preserveAspectRatio=True,
-                        mask="auto",
-                    )
-                except Exception:
-                    self._draw_naac_badge(c, naac_x + naac_w / 2, naac_y + naac_h / 2)
-            else:
-                self._draw_naac_badge(c, naac_x + naac_w / 2, naac_y + naac_h / 2)
+            naac_path = self.resolve_naac_logo(mandatory=True)
+            try:
+                c.drawImage(
+                    ImageReader(str(naac_path)),
+                    naac_x,
+                    naac_y,
+                    width=naac_w,
+                    height=naac_h,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception as exc:
+                logger.error("Failed to render NAAC badge on PDF canvas: %s", exc)
+                raise InstitutionalAssetResolutionError(
+                    "NAAC_BADGE",
+                    f"Official NAAC accreditation badge failed during canvas rendering: {exc}",
+                ) from exc
 
         # 3. Center University Identity Typography
         center_x = width / 2.0
 
-        c.setFont("Times-Bold", 16.5)
+        c.setFont("Times-Bold", 18.5)
         c.setFillColor(COLOR_BURGUNDY)
         c.drawCentredString(center_x, top_y - 2, "CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR")
 
-        c.setFont("Helvetica", 8.5)
+        c.setFont("Helvetica", 9.5)
         c.setFillColor(COLOR_CHARCOAL)
         c.drawCentredString(center_x, top_y - 16, accreditation_text)
 
-        c.setFont("Helvetica-Bold", 9.0)
+        c.setFont("Helvetica-Bold", 10.0)
         c.setFillColor(COLOR_BURGUNDY)
         c.drawCentredString(center_x, top_y - 30, "RESEARCH & DEVELOPMENT CELL")
 
-        # 4. Gold Rounded Pill Badge
-        pill_w = 264
-        pill_h = 17
-        pill_x = center_x - pill_w / 2
-        pill_y = top_y - 50
+        # 4. Gold Rounded Pill Badge (290 × 19 pt, label 9 pt)
+        pill_w = 290.0
+        pill_h = 19.0
+        pill_x = center_x - pill_w / 2.0
+        pill_y = top_y - 51.0
         c.setFillColor(COLOR_GOLD_PILL_BG)
         c.setStrokeColor(COLOR_GOLD_LIGHT)
         c.setLineWidth(0.8)
-        c.roundRect(pill_x, pill_y, pill_w, pill_h, 8.5, fill=1, stroke=1)
+        c.roundRect(pill_x, pill_y, pill_w, pill_h, 9.5, fill=1, stroke=1)
 
-        c.setFont("Helvetica-Bold", 8.0)
+        c.setFont("Helvetica-Bold", 9.0)
         c.setFillColor(COLOR_BURGUNDY_DARK)
         badge_label = (
             "SAMIKSHA – SCHOLARLY FELICITATION"
             if certificate_type == "RESEARCH_PUBLICATION"
             else "SAMIKSHA – INCENTIVE SCHEME AWARD"
         )
-        c.drawCentredString(center_x, pill_y + 4.5, badge_label)
+        c.drawCentredString(center_x, pill_y + 5.0, badge_label)
 
-        return pill_y - 12
+        return pill_y
 
     def _draw_fallback_emblem(self, c: canvas.Canvas, cx: float, cy: float):
         """Draws vector fallback university seal when raster asset is inaccessible."""
@@ -616,6 +872,7 @@ class CertificatePDFEngine:
         c.setFillColor(colors.HexColor("#CBD5E1"))
         c.drawCentredString(cx, cy - 16, "ACCREDITED")
 
+    
     def _draw_certificate_title(
         self,
         c: canvas.Canvas,
@@ -624,11 +881,15 @@ class CertificatePDFEngine:
         title: str,
         certificate_type: str = "RESEARCH_PUBLICATION",
     ) -> float:
-        """Draws prominent two-line certificate heading with generous academic dignity."""
+        """
+        Draws prominent two-line certificate heading.
+        Target values: 29 pt font, first line offset 26 pt, second line gap 34 pt, return offset 28 pt.
+        """
         center_x = width / 2.0
-        line1_y = start_y - 16
-        line2_y = line1_y - 22
-        c.setFont("Times-Bold", 20.0)
+        line1_y = start_y - 26.0
+        line2_y = line1_y - 34.0
+
+        c.setFont("Times-Bold", 29.0)
         c.setFillColor(COLOR_NAVY_TITLE)
 
         if certificate_type == "INCENTIVE_AWARD":
@@ -638,88 +899,146 @@ class CertificatePDFEngine:
             c.drawCentredString(center_x, line1_y, "CERTIFICATE OF APPRECIATION &")
             c.drawCentredString(center_x, line2_y, "RESEARCH EXCELLENCE")
 
-        return line2_y - 20
+        return line2_y - 28.0
 
     def _draw_presentation_statement(
         self, c: canvas.Canvas, width: float, start_y: float, statement: str
     ) -> float:
-        """Draws introductory conferment statement."""
+        """
+        Draws introductory conferment statement.
+        Target values: 13 pt font, initial offset 16 pt, return offset 22 pt.
+        """
         center_x = width / 2.0
-        y = start_y - 8
-        c.setFont("Times-Italic", 11.5)
+        y = start_y - 16.0
+        c.setFont("Times-Italic", 13.0)
         c.setFillColor(COLOR_MUTED)
         c.drawCentredString(center_x, y, statement)
-        return y - 14
+        return y - 22.0
 
     def _draw_authors_section(
         self, c: canvas.Canvas, width: float, start_y: float, authors: List[Dict[str, Any]]
     ) -> float:
         """
         Dynamically formats recipient names accommodating 1, 2, 3, 4, 5, or large collaborative teams.
-        Auto-scales typography and line height to preserve single-page perfection.
+        Target values:
+        - Single author: 32 pt; Scopus ID 10.5 pt; affiliation 11.5 pt; initial offset 20 pt; return spacing 24 pt.
+        - Multiple authors: 2 authors 16 pt, 3 authors 14.5 pt, 4–5 authors 12.5 pt, 6–12 authors 10 pt, 13+ authors 9 pt.
         """
         center_x = width / 2.0
         count = len(authors) if authors else 1
 
         if count == 0:
-            y = start_y - 14
-            c.setFont("Times-Bold", 24.0)
+            y = start_y - 20.0
+            c.setFont("Times-Bold", 32.0)
             c.setFillColor(COLOR_BURGUNDY_BRIGHT)
             c.drawCentredString(center_x, y, "Distinguished University Researcher")
-            return y - 16
+            return y - 24.0
 
         elif count == 1:
             # Single Author: Large, majestic centered typography with rich crimson/burgundy
             auth = authors[0]
-            name = auth.get("author_name_snapshot") or auth.get("name") or "Distinguished Researcher"
-            dept = auth.get("department_snapshot") or auth.get("department") or ""
-            scopus = auth.get("scopus_id_snapshot") or auth.get("scopus_id") or ""
+            name = (auth.get("author_name_snapshot") or auth.get("name") or "Distinguished Researcher").strip()
+            academic_title = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+            if academic_title and not name.lower().startswith(academic_title.lower()):
+                display_name = f"{academic_title} {name}"
+            else:
+                display_name = name
 
-            y = start_y - 14
-            c.setFont("Times-Bold", 24.0)
+            dept = (auth.get("department_snapshot") or auth.get("department") or "").strip()
+            desig = (auth.get("designation_snapshot") or auth.get("designation") or "").strip()
+            if dept.lower() == "department of research":
+                dept = ""
+
+            y = start_y - 20.0
+            c.setFont("Times-Bold", 32.0)
             c.setFillColor(COLOR_BURGUNDY_BRIGHT)
-            c.drawCentredString(center_x, y, name)
+            c.drawCentredString(center_x, y, display_name)
 
-            meta_parts = []
-            if dept:
-                meta_parts.append(dept)
-            if scopus:
-                meta_parts.append(f"Scopus ID: {scopus}")
+            scopus_id = (
+                auth.get("scopus_id_snapshot")
+                or auth.get("scopus_id")
+                or ""
+            ).strip()
 
-            y -= 16
-            if meta_parts:
-                c.setFont("Helvetica-Bold", 10.0)
+            if scopus_id:
+                y -= 15.0
+                c.setFont("Helvetica", 10.5)
+                c.setFillColor(COLOR_MUTED)
+                c.drawCentredString(center_x, y, f"Scopus ID: {scopus_id}")
+
+            affiliation_line = ""
+            if desig and dept:
+                affiliation_line = f"{desig}, {dept}"
+            elif dept:
+                affiliation_line = dept
+            elif desig:
+                affiliation_line = desig
+
+            if affiliation_line:
+                y -= 17.0
+                c.setFont("Helvetica-Bold", 11.5)
                 c.setFillColor(COLOR_CHARCOAL)
-                c.drawCentredString(center_x, y, " • ".join(meta_parts))
+                c.drawCentredString(center_x, y, affiliation_line)
 
-            return y - 14
+            return y - 24.0
 
-        elif count in (2, 3):
-            # 2-3 Authors: Elegantly formatted multi-line author list with Scopus IDs
-            y = start_y - 10
+        elif count == 2:
+            # 2 Authors: 16 pt typography
+            y = start_y - 14.0
             for i, auth in enumerate(authors):
-                name = auth.get("author_name_snapshot") or auth.get("name") or f"Researcher {i+1}"
-                scopus = auth.get("scopus_id_snapshot") or auth.get("scopus_id") or ""
-                dept = auth.get("department_snapshot") or auth.get("department") or ""
+                name = (auth.get("author_name_snapshot") or auth.get("name") or f"Researcher {i+1}").strip()
+                title_prefix = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+                if title_prefix and not name.lower().startswith(title_prefix.lower()):
+                    display_name = f"{title_prefix} {name}"
+                else:
+                    display_name = name
 
-                line = name
-                if scopus:
-                    line += f"  (Scopus ID: {scopus})"
-                if dept and len(authors) == 2:
-                    line += f" — {dept}"
+                dept = (auth.get("department_snapshot") or auth.get("department") or "").strip()
+                desig = (auth.get("designation_snapshot") or auth.get("designation") or "").strip()
+                if dept.lower() == "department of research":
+                    dept = ""
 
-                c.setFont("Times-Bold", 14.5 if count == 2 else 13.0)
+                affil = f"{desig}, {dept}" if (desig and dept) else (dept or desig)
+                line = display_name + (f" — {affil}" if affil else "")
+
+                c.setFont("Times-Bold", 16.0)
                 c.setFillColor(COLOR_BURGUNDY_BRIGHT)
                 c.drawCentredString(center_x, y, line)
-                y -= 16
+                y -= 18.0
 
-            return y - 6
+            return y - 10.0
+
+        elif count == 3:
+            # 3 Authors: 14.5 pt typography
+            y = start_y - 12.0
+            for i, auth in enumerate(authors):
+                name = (auth.get("author_name_snapshot") or auth.get("name") or f"Researcher {i+1}").strip()
+                title_prefix = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+                if title_prefix and not name.lower().startswith(title_prefix.lower()):
+                    display_name = f"{title_prefix} {name}"
+                else:
+                    display_name = name
+
+                dept = (auth.get("department_snapshot") or auth.get("department") or "").strip()
+                desig = (auth.get("designation_snapshot") or auth.get("designation") or "").strip()
+                if dept.lower() == "department of research":
+                    dept = ""
+
+                affil = f"{desig}, {dept}" if (desig and dept) else (dept or desig)
+                line = display_name + (f" — {affil}" if affil else "")
+
+                c.setFont("Times-Bold", 14.5)
+                c.setFillColor(COLOR_BURGUNDY_BRIGHT)
+                c.drawCentredString(center_x, y, line)
+                y -= 17.0
+
+            return y - 8.0
 
         elif count in (4, 5):
-            # 4-5 Authors: 2-column balanced grid
-            y = start_y - 8
-            col_left = center_x - 170
-            col_right = center_x + 170
+            # 4–5 Authors: 2-column balanced grid with 12.5 pt typography
+            y = start_y - 10.0
+            col_left = center_x - 170.0
+            col_right = center_x + 170.0
             half = math.ceil(count / 2)
 
             for i in range(half):
@@ -728,7 +1047,7 @@ class CertificatePDFEngine:
                 scopus_l = auth_l.get("scopus_id_snapshot") or auth_l.get("scopus_id") or ""
                 disp_l = f"• {name_l}" + (f" (Scopus: {scopus_l})" if scopus_l else "")
 
-                c.setFont("Times-Bold", 11.0)
+                c.setFont("Times-Bold", 12.5)
                 c.setFillColor(COLOR_BURGUNDY_BRIGHT)
                 c.drawString(col_left - 130, y, disp_l)
 
@@ -739,19 +1058,20 @@ class CertificatePDFEngine:
                     disp_r = f"• {name_r}" + (f" (Scopus: {scopus_r})" if scopus_r else "")
                     c.drawString(col_right - 130, y, disp_r)
 
-                y -= 14
+                y -= 15.0
 
-            return y - 6
+            return y - 8.0
 
         else:
-            # 6+ Authors: 3-column compact grid, ensuring full inclusion without 'et al.'
-            y = start_y - 6
+            # 6+ Authors: 3-column compact grid, 6–12 authors 10 pt, 13+ authors 9 pt
+            y = start_y - 8.0
             num_cols = 3
-            col_width = (width - 120) / num_cols
-            margin_left = 60
+            col_width = (width - 120.0) / num_cols
+            margin_left = 60.0
 
             rows = math.ceil(count / num_cols)
-            font_size = 9.0 if count <= 12 else 8.0
+            font_size = 10.0 if count <= 12 else 9.0
+            row_gap = 13.0 if count <= 12 else 11.5
             c.setFont("Times-Bold", font_size)
             c.setFillColor(COLOR_BURGUNDY_BRIGHT)
 
@@ -764,9 +1084,9 @@ class CertificatePDFEngine:
                         scopus = auth.get("scopus_id_snapshot") or auth.get("scopus_id") or ""
                         text = f"• {name}" + (f" ({scopus})" if scopus else "")
                         c.drawString(margin_left + col * col_width, y, text[:36])
-                y -= 12
+                y -= row_gap
 
-            return y - 6
+            return y - 8.0
 
     def _draw_body_content(
         self,
@@ -788,9 +1108,12 @@ class CertificatePDFEngine:
         """
         Draws research/incentive statements, publication title, commendation, and
         the redesigned two-column metadata container with strict width constraints.
+        Target values:
+        - Body: initial offset 14 pt; contribution 12 pt; research title 16 pt with 22 pt line spacing and max 4 lines; commendation 10.5 pt.
+        - Metadata box: 500 × 54 pt; heading 8.5 pt; values 10 pt; heading baseline +34 pt; value baseline +14 pt.
+        - Remove hardcoded 'Volume 2, Issue 3' fallback.
         """
         center_x = width / 2.0
-        y = start_y - 6
 
         # 1. Contribution / Award Statement
         if not contribution_statement:
@@ -801,71 +1124,92 @@ class CertificatePDFEngine:
             else:
                 contribution_statement = "in recognition of scholarly research publication titled:"
 
-        c.setFont("Times-Italic", 10.0)
+        contrib_y = start_y - 14.0
+        c.setFont("Times-Italic", 12.0)
         c.setFillColor(COLOR_MUTED)
-        c.drawCentredString(center_x, y, contribution_statement)
-        y -= 18
+        c.drawCentredString(center_x, contrib_y, contribution_statement)
 
-        # 2. Research Paper Title (Wrapped in quotation marks)
-        if research_title:
-            cleaned_title = f'“{research_title.strip("“”\' ")}”'
-            lines = self._wrap_text(c, cleaned_title, "Times-BoldItalic", 13.5, width - 200)
+        # 2. Research Paper Title (Max 4 lines, 16 pt with 22 pt line spacing)
+        cleaned_title = f'“{research_title.strip("“”\' ")}”' if research_title else ""
+        title_lines = self._wrap_text(c, cleaned_title, "Times-BoldItalic", 16.0, width - 200)[:4] if cleaned_title else []
+        num_title_lines = len(title_lines)
 
-            c.setFont("Times-BoldItalic", 13.5)
+        # Adaptive Vertical Spacing to guarantee box bottom >= 138 pt (above seal at 122 pt and signatures at 130 pt)
+        min_box_base_y = 138.0
+        line_spacing = 22.0
+        gap_contrib_title = 18.0
+        gap_title_comm = 18.0
+        gap_comm_box = 14.0
+
+        est_box_top = contrib_y - gap_contrib_title - (max(0, num_title_lines - 1) * line_spacing) - gap_title_comm - gap_comm_box
+        est_box_base = est_box_top - 54.0
+
+        if est_box_base < min_box_base_y:
+            deficit = min_box_base_y - est_box_base
+            if num_title_lines > 1:
+                line_spacing = max(18.0, 22.0 - (deficit / (num_title_lines - 1)))
+            gap_contrib_title = max(12.0, 18.0 - deficit * 0.25)
+            gap_title_comm = max(10.0, 18.0 - deficit * 0.35)
+            gap_comm_box = max(8.0, 14.0 - deficit * 0.25)
+
+        title_start_y = contrib_y - gap_contrib_title
+        y = title_start_y
+
+        if title_lines:
+            c.setFont("Times-BoldItalic", 16.0)
             c.setFillColor(COLOR_NAVY_TITLE)
-            for line in lines[:3]:  # Max 3 lines
+            for i, line in enumerate(title_lines):
                 c.drawCentredString(center_x, y, line)
-                y -= 17
+                if i < num_title_lines - 1:
+                    y -= line_spacing
+            y -= gap_title_comm
         else:
-            y -= 4
+            y = title_start_y - gap_title_comm
 
-        # 3. Commendation Line
-        y -= 6
-        c.setFont("Times-Italic", 9.0)
+        # 3. Commendation Line (10.5 pt)
+        c.setFont("Times-Italic", 10.5)
         c.setFillColor(COLOR_MUTED)
         c.drawCentredString(
             center_x,
             y,
             "The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.",
         )
-        y -= 22
+        y -= gap_comm_box
 
-        # 4. Redesigned Centered Dual-Column Metadata Box
-        # Equal-width 240 pt columns (480 pt total) with strict bounds and vertical divider
-        box_w = 480.0
-        box_h = 44.0
-        box_x = center_x - box_w / 2.0  # = 180.95 pt to 660.95 pt
+        # 4. Redesigned Centered Dual-Column Metadata Box (500 × 54 pt)
+        box_w = 500.0
+        box_h = 54.0
+        box_x = center_x - box_w / 2.0
+        box_base_y = y - box_h
 
         # Draw rounded card container
         c.setFillColor(COLOR_BOX_BG)
         c.setStrokeColor(COLOR_GOLD_LIGHT)
         c.setLineWidth(1.0)
-        c.roundRect(box_x, y - box_h, box_w, box_h, 6, fill=1, stroke=1)
+        c.roundRect(box_x, box_base_y, box_w, box_h, 6, fill=1, stroke=1)
 
         # Center vertical divider line
         c.setStrokeColor(COLOR_GOLD_LIGHT)
         c.setLineWidth(0.8)
-        c.line(center_x, y - box_h + 5, center_x, y - 5)
+        c.line(center_x, box_base_y + 6.0, center_x, box_base_y + box_h - 6.0)
 
         # Column Layout Constraints
         icon_sz = 18.0
-        col1_start_x = box_x + 14.0
-        text1_x = col1_start_x + icon_sz + 10.0  # = box_x + 42.0 pt
-        col1_max_w = (center_x - 14.0) - text1_x  # = 184 pt available width!
+        col1_start_x = box_x + 16.0
+        text1_x = col1_start_x + icon_sz + 10.0
+        col1_max_w = (center_x - 14.0) - text1_x
 
         col2_start_x = center_x + 14.0
-        text2_x = col2_start_x + icon_sz + 10.0  # = center_x + 42.0 pt
-        col2_max_w = (box_x + box_w - 14.0) - text2_x  # = 184 pt available width!
+        text2_x = col2_start_x + icon_sz + 10.0
+        col2_max_w = (box_x + box_w - 16.0) - text2_x
 
-        # Bulletin edition string resolution
+        # Bulletin edition string resolution without hardcoded fallback
         bulletin_edition = self._format_bulletin_citation(
             bulletin_title=bulletin_title,
             volume=bulletin_volume,
             issue=bulletin_issue,
             period=bulletin_period,
-        ) or "Volume 2, Issue 3"
-
-        box_base_y = y - box_h
+        ) or (bulletin_title or "Official CSJMU Research Bulletin")
 
         if certificate_type == "INCENTIVE_AWARD":
             inc_data = incentive_details or publication_details or {}
@@ -884,44 +1228,44 @@ class CertificatePDFEngine:
                 formatted_amt = "Approved Grant"
 
             # Column 1 (Left): Sanctioned Incentive Award
-            self._draw_book_icon(c, col1_start_x, box_base_y + 13, size=icon_sz)
-            c.setFont("Helvetica-Bold", 7.0)
+            self._draw_book_icon(c, col1_start_x, box_base_y + 18.0, size=icon_sz)
+            c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text1_x, box_base_y + 26, "SANCTIONED INCENTIVE AWARD")
+            c.drawString(text1_x, box_base_y + 34.0, "SANCTIONED INCENTIVE AWARD")
 
             c.setFillColor(COLOR_NAVY_TITLE)
             award_line = formatted_amt
             if sanction_ref:
                 award_line += f"  •  Ref: {sanction_ref}"
-            self._draw_fitted_text(c, award_line, text1_x, box_base_y + 11, col1_max_w, font_name="Helvetica-Bold", base_size=8.5)
+            self._draw_fitted_text(c, award_line, text1_x, box_base_y + 14.0, col1_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
             # Column 2 (Right): Research Bulletin Citation
-            self._draw_calendar_icon(c, col2_start_x, box_base_y + 13, size=icon_sz)
-            c.setFont("Helvetica-Bold", 7.0)
+            self._draw_calendar_icon(c, col2_start_x, box_base_y + 18.0, size=icon_sz)
+            c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text2_x, box_base_y + 26, "RESEARCH BULLETIN CITATION")
+            c.drawString(text2_x, box_base_y + 34.0, "RESEARCH BULLETIN CITATION")
 
             c.setFillColor(COLOR_NAVY_TITLE)
-            self._draw_fitted_text(c, bulletin_edition, text2_x, box_base_y + 11, col2_max_w, font_name="Helvetica-Bold", base_size=8.5)
+            self._draw_fitted_text(c, bulletin_edition, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
         else:
             # Column 1 (Left): Research Bulletin Volume/Issue
-            self._draw_book_icon(c, col1_start_x, box_base_y + 13, size=icon_sz)
-            c.setFont("Helvetica-Bold", 7.0)
+            self._draw_book_icon(c, col1_start_x, box_base_y + 18.0, size=icon_sz)
+            c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text1_x, box_base_y + 26, "RESEARCH BULLETIN")
+            c.drawString(text1_x, box_base_y + 34.0, "RESEARCH BULLETIN")
 
             c.setFillColor(COLOR_NAVY_TITLE)
-            self._draw_fitted_text(c, bulletin_edition, text1_x, box_base_y + 11, col1_max_w, font_name="Helvetica-Bold", base_size=8.5)
+            self._draw_fitted_text(c, bulletin_edition, text1_x, box_base_y + 14.0, col1_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
             # Column 2 (Right): Date of Issuance
-            self._draw_calendar_icon(c, col2_start_x, box_base_y + 13, size=icon_sz)
-            c.setFont("Helvetica-Bold", 7.0)
+            self._draw_calendar_icon(c, col2_start_x, box_base_y + 18.0, size=icon_sz)
+            c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text2_x, box_base_y + 26, "DATE OF ISSUANCE")
+            c.drawString(text2_x, box_base_y + 34.0, "DATE OF ISSUANCE")
 
             c.setFillColor(COLOR_NAVY_TITLE)
-            self._draw_fitted_text(c, date_str, text2_x, box_base_y + 11, col2_max_w, font_name="Helvetica-Bold", base_size=8.5)
+            self._draw_fitted_text(c, date_str, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
         return box_base_y
 
@@ -933,7 +1277,7 @@ class CertificatePDFEngine:
         y: float,
         max_w: float,
         font_name: str = "Helvetica-Bold",
-        base_size: float = 8.5,
+        base_size: float = 10.0,
     ):
         """
         Draws text auto-scaled or truncated to strictly guarantee it never exceeds max_w
@@ -945,16 +1289,16 @@ class CertificatePDFEngine:
             c.drawString(x, y, text)
             return
 
-        # Proportional scale down to minimum readable size (6.5 pt)
+        # Proportional scale down to minimum readable size (7.0 pt)
         scale = max_w / sw
-        fitted_size = max(6.5, base_size * scale)
+        fitted_size = max(7.0, base_size * scale)
         sw2 = c.stringWidth(text, font_name, fitted_size)
         if sw2 <= max_w:
             c.setFont(font_name, fitted_size)
             c.drawString(x, y, text)
             return
 
-        # Truncate with ellipsis if text still exceeds at 6.5 pt
+        # Truncate with ellipsis if text still exceeds at 7.0 pt
         trunc = text
         while len(trunc) > 3 and c.stringWidth(trunc + "…", font_name, fitted_size) > max_w:
             trunc = trunc[:-1]
@@ -970,11 +1314,22 @@ class CertificatePDFEngine:
         period: Optional[str] = None,
     ) -> str:
         """Formats the official CSJMU Research Bulletin Volume and Issue citation."""
+        parts = []
         if volume is not None and issue is not None:
-            base = f"Volume {volume}, Issue {issue}"
-            if period:
-                base += f" ({period})"
-            return base
+            parts.append(f"Volume {volume}, Issue {issue}")
+        elif volume is not None:
+            parts.append(f"Volume {volume}")
+        elif issue is not None:
+            parts.append(f"Issue {issue}")
+        elif bulletin_title:
+            parts.append(bulletin_title)
+
+        if period:
+            if parts:
+                return f"{parts[0]} ({period})"
+            return f"Edition ({period})"
+        elif parts:
+            return parts[0]
         elif bulletin_title:
             return bulletin_title
         return ""
@@ -1059,14 +1414,14 @@ class CertificatePDFEngine:
         c.setLineWidth(0.8)
         c.line(left_x - 65, sig_line_y, left_x + 65, sig_line_y)
 
-        # Signatory Name & Designation
-        c.setFont("Times-Bold", 9.5)
+        # Signatory Name & Designation (name 11 pt, designation 9 pt; line Y=98 preserved)
+        c.setFont("Times-Bold", 11.0)
         c.setFillColor(COLOR_NAVY_TITLE)
-        c.drawCentredString(left_x, sig_line_y - 12, dean_name)
+        c.drawCentredString(left_x, sig_line_y - 13.0, dean_name)
 
-        c.setFont("Helvetica", 8.0)
+        c.setFont("Helvetica", 9.0)
         c.setFillColor(COLOR_CHARCOAL)
-        c.drawCentredString(left_x, sig_line_y - 22, dean_designation)
+        c.drawCentredString(left_x, sig_line_y - 25.0, dean_designation)
 
         # Authority 2: Vice Chancellor (Right)
         right_x = 585.0
@@ -1090,14 +1445,14 @@ class CertificatePDFEngine:
         c.setLineWidth(0.8)
         c.line(right_x - 65, sig_line_y, right_x + 65, sig_line_y)
 
-        # Signatory Name & Designation
-        c.setFont("Times-Bold", 9.5)
+        # Signatory Name & Designation (name 11 pt, designation 9 pt; line Y=98 preserved)
+        c.setFont("Times-Bold", 11.0)
         c.setFillColor(COLOR_NAVY_TITLE)
-        c.drawCentredString(right_x, sig_line_y - 12, vc_name)
+        c.drawCentredString(right_x, sig_line_y - 13.0, vc_name)
 
-        c.setFont("Helvetica", 8.0)
+        c.setFont("Helvetica", 9.0)
         c.setFillColor(COLOR_CHARCOAL)
-        c.drawCentredString(right_x, sig_line_y - 22, vc_designation)
+        c.drawCentredString(right_x, sig_line_y - 25.0, vc_designation)
 
     def _draw_security_footer(
         self,
@@ -1109,11 +1464,14 @@ class CertificatePDFEngine:
         verification_url: str,
         is_preview: bool = False,
     ):
-        """Renders dedicated bottom-right QR panel with white card, live QR code, burgundy pill button, and microtext."""
-        qr_card_x = width - 24 - 72
-        qr_card_y = 52
-        qr_card_w = 68
-        qr_card_h = 76
+        """
+        Renders dedicated bottom-right QR panel with white card, live QR code, burgundy pill button, and microtext.
+        Target values: panel 78 × 88 pt, QR size 56 pt, card Y=50 pt.
+        """
+        qr_card_w = 78.0
+        qr_card_h = 88.0
+        qr_card_y = 50.0
+        qr_card_x = width - 24.0 - qr_card_w
 
         # Pure white card with subtle gold border
         c.setFillColor(colors.white)
@@ -1121,10 +1479,10 @@ class CertificatePDFEngine:
         c.setLineWidth(0.75)
         c.roundRect(qr_card_x, qr_card_y, qr_card_w, qr_card_h, 4, fill=1, stroke=1)
 
-        # High-contrast live QR Code
-        qr_size = 48
-        qr_x = qr_card_x + (qr_card_w - qr_size) / 2
-        qr_y = qr_card_y + 24
+        # High-contrast live QR Code (56 pt)
+        qr_size = 56.0
+        qr_x = qr_card_x + (qr_card_w - qr_size) / 2.0
+        qr_y = qr_card_y + 26.0
 
         try:
             qr = QrCodeWidget(verification_url)
@@ -1138,8 +1496,8 @@ class CertificatePDFEngine:
                 d.drawOn(c, qr_x, qr_y)
             else:
                 d = Drawing(qr_size, qr_size)
-                qr.barWidth = 1.2
-                qr.barHeight = 1.2
+                qr.barWidth = 1.3
+                qr.barHeight = 1.3
                 d.add(qr)
                 d.drawOn(c, qr_x, qr_y)
         except Exception:
@@ -1148,28 +1506,28 @@ class CertificatePDFEngine:
             c.rect(qr_x, qr_y, qr_size, qr_size, fill=1, stroke=1)
             c.setFont("Helvetica-Bold", 6.5)
             c.setFillColor(COLOR_BURGUNDY)
-            c.drawCentredString(qr_x + qr_size / 2, qr_y + qr_size / 2, "QR CODE")
+            c.drawCentredString(qr_x + qr_size / 2.0, qr_y + qr_size / 2.0, "QR CODE")
 
         # Burgundy "Scan to Verify" Pill Button
-        pill_w = 56
-        pill_h = 11.5
-        pill_x = qr_card_x + (qr_card_w - pill_w) / 2
-        pill_y = qr_card_y + 11
+        pill_w = 66.0
+        pill_h = 12.0
+        pill_x = qr_card_x + (qr_card_w - pill_w) / 2.0
+        pill_y = qr_card_y + 11.0
         c.setFillColor(COLOR_BURGUNDY)
         c.roundRect(pill_x, pill_y, pill_w, pill_h, 3, fill=1, stroke=0)
 
-        c.setFont("Helvetica-Bold", 6.0)
+        c.setFont("Helvetica-Bold", 6.5)
         c.setFillColor(colors.white)
-        c.drawCentredString(qr_card_x + qr_card_w / 2, pill_y + 3.2, "Scan to Verify")
+        c.drawCentredString(qr_card_x + qr_card_w / 2.0, pill_y + 3.5, "Scan to Verify")
 
         # Microtext below pill
-        c.setFont("Helvetica-Bold", 5.2)
+        c.setFont("Helvetica-Bold", 5.5)
         c.setFillColor(COLOR_NAVY_TITLE)
-        c.drawCentredString(qr_card_x + qr_card_w / 2, qr_card_y + 5.5, "Official SAMIKSHA")
+        c.drawCentredString(qr_card_x + qr_card_w / 2.0, qr_card_y + 5.5, "Official SAMIKSHA")
 
-        c.setFont("Helvetica", 4.8)
+        c.setFont("Helvetica", 5.0)
         c.setFillColor(COLOR_MUTED)
-        c.drawCentredString(qr_card_x + qr_card_w / 2, qr_card_y + 1.2, "Certificate Verification")
+        c.drawCentredString(qr_card_x + qr_card_w / 2.0, qr_card_y + 1.2, "Certificate Verification")
 
     def _draw_draft_watermark(self, c: canvas.Canvas, width: float, height: float):
         """Draws a prominent diagonal DRAFT PREVIEW watermark across the certificate canvas."""

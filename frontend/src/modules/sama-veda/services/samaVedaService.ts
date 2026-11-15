@@ -155,7 +155,16 @@ export interface DiscoveredCertificateItem {
   title: string;
   certificate_type: string;
   category: 'RESEARCH_WORK' | 'INCENTIVE';
+  category_display?: string | null;
   publication_title?: string | null;
+  bulletin_volume?: number | null;
+  bulletin_issue?: number | null;
+  bulletin_period?: string | null;
+  bulletin_title?: string | null;
+  bulletin_group_key?: string | null;
+  author_department?: string | null;
+  author_designation?: string | null;
+  affiliation_line?: string | null;
   issue_date?: string | null;
   issued_at?: string | null;
   status: string;

@@ -559,7 +559,7 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                   <Badge variant="teal">SAMIKSHA Verified</Badge>
                 </div>
                 <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '3px' }}>
-                  {discoveryData.researcher.department || 'Academic Faculty'} • {discoveryData.researcher.institutional_affiliation || 'CSJMU'}
+                  {discoveryData.researcher.department ? `${discoveryData.researcher.department} • ` : ''}{discoveryData.researcher.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#B2811A', fontWeight: 700, marginTop: '4px' }}>
                   Scopus Author ID: {discoveryData.researcher.scopus_id}
@@ -673,9 +673,22 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                             <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F2B48', lineHeight: 1.35 }}>
                               {cert.title}
                             </div>
-                            <div style={{ fontSize: '11.5px', fontFamily: 'monospace', color: '#B2811A', fontWeight: 700, marginTop: '4px' }}>
-                              {cert.certificate_number}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                              <span style={{ fontSize: '11.5px', fontFamily: 'monospace', color: '#B2811A', fontWeight: 700 }}>
+                                {cert.certificate_number}
+                              </span>
+                              {cert.bulletin_group_key && (
+                                <span style={{ fontSize: '11px', color: '#0F2B48', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                  📖 {cert.bulletin_group_key}
+                                </span>
+                              )}
                             </div>
+
+                            {cert.affiliation_line && (
+                              <div style={{ fontSize: '12px', color: '#0D766E', fontWeight: 600, marginTop: '6px' }}>
+                                👤 {cert.affiliation_line}
+                              </div>
+                            )}
 
                             {cert.publication_title && (
                               <div style={{ fontSize: '12.5px', color: '#475569', fontStyle: 'italic', marginTop: '8px', lineHeight: 1.4 }}>
@@ -756,16 +769,39 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                           <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F2B48', marginTop: '8px' }}>
                             {cert.title}
                           </div>
-                          <div style={{ fontSize: '11.5px', fontFamily: 'monospace', color: '#B2811A', fontWeight: 700, marginTop: '4px' }}>
-                            {cert.certificate_number}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <span style={{ fontSize: '11.5px', fontFamily: 'monospace', color: '#B2811A', fontWeight: 700 }}>
+                              {cert.certificate_number}
+                            </span>
+                            {cert.bulletin_group_key && (
+                              <span style={{ fontSize: '11px', color: '#0F2B48', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                📖 {cert.bulletin_group_key}
+                              </span>
+                            )}
                           </div>
+
+                          {cert.affiliation_line && (
+                            <div style={{ fontSize: '12px', color: '#0D766E', fontWeight: 600, marginTop: '6px' }}>
+                              👤 {cert.affiliation_line}
+                            </div>
+                          )}
+
                           {cert.publication_title && (
                             <div style={{ fontSize: '12.5px', color: '#475569', fontStyle: 'italic', marginTop: '8px' }}>
                               "{cert.publication_title}"
                             </div>
                           )}
                         </div>
-                        <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <a
+                            href={cert.verification_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: '12px', color: '#0D766E', fontWeight: 600, textDecoration: 'none' }}
+                          >
+                            Verify Online &rarr;
+                          </a>
+
                           <Button
                             variant="primary"
                             size="sm"
