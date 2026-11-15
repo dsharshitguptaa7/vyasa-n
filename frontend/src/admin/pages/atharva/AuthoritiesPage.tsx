@@ -1703,7 +1703,7 @@ export const AuthoritiesPage: React.FC = () => {
                 options={[
                   { value: 'ASSISTANT_DEAN', label: 'Assistant Dean (Academic Disciplines)' },
                   { value: 'ASSOCIATE_DEAN', label: 'Associate Dean (Grievance Clusters)' },
-                  { value: 'DEAN', label: 'Dean (Supreme Research & Development)' },
+                  { value: 'DEAN', label: 'Dean' },
                   { value: 'MANAGER', label: 'Manager (Grievance Triage & Operations)' },
                   { value: 'GUEST_MEMBER', label: 'Guest Member (External Expert / Reviewer)' },
                 ]}

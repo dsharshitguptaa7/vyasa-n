@@ -3,8 +3,8 @@ import logging
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import case, func, or_, select
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 logger = logging.getLogger(__name__)
 
@@ -667,16 +667,9 @@ class SamaCmsService:
         status: Optional[str] = None,
         certificate_type: Optional[str] = None,
     ) -> Tuple[int, List[FelicitationCertificate]]:
-        # Automatically process due activations before listing
-        SamaCmsService.activate_due_certificates(db)
-
         query = select(FelicitationCertificate).options(
-            joinedload(FelicitationCertificate.authors),
-            joinedload(FelicitationCertificate.approvals),
-            joinedload(FelicitationCertificate.template),
-            joinedload(FelicitationCertificate.author),
-            joinedload(FelicitationCertificate.bulletin),
-            joinedload(FelicitationCertificate.publication),
+            selectinload(FelicitationCertificate.authors),
+            selectinload(FelicitationCertificate.approvals),
         )
 
         if bulletin_id:
@@ -706,7 +699,7 @@ class SamaCmsService:
                 )
             )
 
-        count_stmt = select(func.count(FelicitationCertificate.id.distinct()))
+        count_stmt = select(func.count(FelicitationCertificate.id))
         if bulletin_id:
             count_stmt = count_stmt.where(FelicitationCertificate.bulletin_id == bulletin_id)
         if author_id:
@@ -739,7 +732,7 @@ class SamaCmsService:
             query.order_by(FelicitationCertificate.created_at.desc())
             .offset(skip)
             .limit(limit)
-        ).unique().all()
+        ).all()
 
         return total, list(items)
 
@@ -749,13 +742,11 @@ class SamaCmsService:
 
     @staticmethod
     def get_certificate_by_number(db: Session, certificate_number: str) -> Optional[FelicitationCertificate]:
-        # Process any due activations before looking up
-        SamaCmsService.activate_due_certificates(db)
         stmt = (
             select(FelicitationCertificate)
             .options(
-                joinedload(FelicitationCertificate.authors),
-                joinedload(FelicitationCertificate.approvals),
+                selectinload(FelicitationCertificate.authors),
+                selectinload(FelicitationCertificate.approvals),
                 joinedload(FelicitationCertificate.template),
                 joinedload(FelicitationCertificate.author),
                 joinedload(FelicitationCertificate.bulletin),
@@ -772,13 +763,11 @@ class SamaCmsService:
 
     @staticmethod
     def get_certificate_by_token(db: Session, token: str) -> Optional[FelicitationCertificate]:
-        # Process any due activations before looking up
-        SamaCmsService.activate_due_certificates(db)
         stmt = (
             select(FelicitationCertificate)
             .options(
-                joinedload(FelicitationCertificate.authors),
-                joinedload(FelicitationCertificate.approvals),
+                selectinload(FelicitationCertificate.authors),
+                selectinload(FelicitationCertificate.approvals),
                 joinedload(FelicitationCertificate.template),
                 joinedload(FelicitationCertificate.author),
                 joinedload(FelicitationCertificate.bulletin),
@@ -790,42 +779,32 @@ class SamaCmsService:
 
     @staticmethod
     def get_certificate_stats(db: Session) -> Dict[str, int]:
-        """Calculates dashboard summary metrics for certificates and linked researchers."""
-        SamaCmsService.activate_due_certificates(db)
-
-        total = db.scalar(select(func.count(FelicitationCertificate.id))) or 0
-        drafts = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "DRAFT")
-        ) or 0
-        pending = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(
-                FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"])
-            )
-        ) or 0
-        scheduled = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "SCHEDULED")
-        ) or 0
-        issued = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.status == "ISSUED")
-        ) or 0
-        revoked = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.is_revoked == True)
-        ) or 0
-        reissued = db.scalar(
-            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.reissued_from_id.is_not(None))
-        ) or 0
-        total_authors = db.scalar(
-            select(func.count(CertificateAuthor.id.distinct()))
-        ) or 0
+        """Calculates dashboard summary metrics for certificates and linked researchers in a single optimized query."""
+        cert_stats_stmt = select(
+            func.count(FelicitationCertificate.id).label("total"),
+            func.count(case((FelicitationCertificate.status == "DRAFT", FelicitationCertificate.id))).label("drafts"),
+            func.count(
+                case((
+                    FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
+                    FelicitationCertificate.id,
+                ))
+            ).label("pending"),
+            func.count(case((FelicitationCertificate.status == "SCHEDULED", FelicitationCertificate.id))).label("scheduled"),
+            func.count(case((FelicitationCertificate.status == "ISSUED", FelicitationCertificate.id))).label("issued"),
+            func.count(case((FelicitationCertificate.is_revoked == True, FelicitationCertificate.id))).label("revoked"),
+            func.count(case((FelicitationCertificate.reissued_from_id.is_not(None), FelicitationCertificate.id))).label("reissued"),
+        )
+        row = db.execute(cert_stats_stmt).one()
+        total_authors = db.scalar(select(func.count(CertificateAuthor.id.distinct()))) or 0
 
         return {
-            "total_certificates": total,
-            "draft_certificates": drafts,
-            "pending_approvals": pending,
-            "scheduled_certificates": scheduled,
-            "issued_certificates": issued,
-            "revoked_certificates": revoked,
-            "reissued_certificates": reissued,
+            "total_certificates": row.total or 0,
+            "draft_certificates": row.drafts or 0,
+            "pending_approvals": row.pending or 0,
+            "scheduled_certificates": row.scheduled or 0,
+            "issued_certificates": row.issued or 0,
+            "revoked_certificates": row.revoked or 0,
+            "reissued_certificates": row.reissued or 0,
             "total_researchers_linked": total_authors,
         }
 
@@ -1265,6 +1244,14 @@ class SamaCmsService:
         IST = ZoneInfo("Asia/Kolkata")
         target_date = as_of_date or datetime.now(timezone.utc).astimezone(IST).date()
 
+        # Fast pre-check: avoid acquiring exclusive row locks if no candidate certificates exist
+        check_stmt = select(func.count(FelicitationCertificate.id)).where(
+            FelicitationCertificate.status == "SCHEDULED",
+            FelicitationCertificate.scheduled_issue_date <= target_date,
+        )
+        if not (db.scalar(check_stmt) or 0):
+            return 0
+
         stmt = (
             select(FelicitationCertificate)
             .where(
@@ -1279,6 +1266,7 @@ class SamaCmsService:
             pass
         due_certs = db.scalars(stmt).all()
         if not due_certs:
+            db.rollback()
             return 0
 
         now_utc = datetime.now(timezone.utc)

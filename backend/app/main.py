@@ -38,17 +38,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 3. Start Periodic Scheduled Certificate Activation Worker
     import asyncio
+
+    def _run_scheduled_activation():
+        try:
+            from app.modules.sama_veda.services.cms_service import SamaCmsService
+            with SessionLocal() as db:
+                SamaCmsService.activate_due_certificates(db)
+        except Exception as e:
+            logger.debug("Scheduled certificate activation background worker error: %s", e)
+
     async def _scheduled_activation_worker():
         while True:
             try:
                 await asyncio.sleep(60)
-                from app.modules.sama_veda.services.cms_service import SamaCmsService
-                with SessionLocal() as db:
-                    SamaCmsService.activate_due_certificates(db)
+                await asyncio.to_thread(_run_scheduled_activation)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.debug("Scheduled certificate activation background worker error: %s", e)
 
     activation_worker = asyncio.create_task(_scheduled_activation_worker())
 

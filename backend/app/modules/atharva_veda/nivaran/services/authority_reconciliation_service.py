@@ -45,7 +45,7 @@ CANONICAL_AUTHORITIES: List[Dict[str, Any]] = [
         "email": "research@csjmu.ac.in",
         "name": "Prof. Namita Tiwari",
         "role": NivaranRole.DEAN,
-        "designation": "Dean of Research & Development",
+        "designation": "Dean",
         "department": "R&D",
     },
     # 2. Manager

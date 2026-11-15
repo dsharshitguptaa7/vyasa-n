@@ -532,7 +532,7 @@ export const AssociateDeanGrievanceDetailPage: React.FC = () => {
                   {targetDean.name}
                 </div>
                 <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                  Dean of Research & Development &bull; {targetDean.email}
+                  Dean &bull; {targetDean.email}
                 </div>
                 <div style={{ fontSize: '12px', color: '#8b5cf6', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>&#10003; Configured Dean authority is active and mapped for executive escalation</span>

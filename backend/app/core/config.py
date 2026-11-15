@@ -53,8 +53,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
 
     # Database Pool Settings
-    DB_POOL_SIZE: int = Field(default=5, description="Connection pool size")
-    DB_MAX_OVERFLOW: int = Field(default=10, description="Max overflow connections")
+    DB_POOL_SIZE: int = Field(default=10, description="Connection pool size")
+    DB_MAX_OVERFLOW: int = Field(default=20, description="Max overflow connections")
     DB_POOL_TIMEOUT: int = Field(default=30, description="Pool connection timeout in seconds")
     DB_POOL_RECYCLE: int = Field(default=1800, description="Pool connection recycle in seconds")
 

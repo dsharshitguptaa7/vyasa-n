@@ -31,7 +31,7 @@ vi.mock('../../../../context/AuthContext', () => ({
     isAssistantDean: false,
     isAssociateDean: false,
     authorityRole: 'DEAN',
-    authorityDesignation: 'Dean of Research & Development',
+    authorityDesignation: 'Dean',
   }),
 }));
 
@@ -488,10 +488,10 @@ describe('Dean Executive Command Center Frontend Suite', () => {
 
   it('13. Renders meaningful authorization error and suppresses misleading zero metrics upon backend 403 rejection', async () => {
     vi.mocked(grievanceService.getDeanExecutiveDashboard).mockRejectedValueOnce(
-      new Error('Institutional Jurisdiction Restricted: Dean of Research & Development Required.')
+      new Error('Institutional Jurisdiction Restricted: Authorized Dean Required.')
     );
     vi.mocked(grievanceService.getDeanDashboardCases).mockRejectedValueOnce(
-      new Error('Institutional Jurisdiction Restricted: Dean of Research & Development Required.')
+      new Error('Institutional Jurisdiction Restricted: Authorized Dean Required.')
     );
 
     render(
@@ -504,9 +504,9 @@ describe('Dean Executive Command Center Frontend Suite', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Institutional Jurisdiction Restricted')).toBeInTheDocument();
-      expect(screen.getByText('Dean of Research & Development Required')).toBeInTheDocument();
+      expect(screen.getByText('Authorized Dean Required')).toBeInTheDocument();
       expect(screen.getByTestId('dean-auth-error-banner')).toBeInTheDocument();
-      expect(screen.getByText(/Institutional Jurisdiction Restricted: Dean of Research & Development Required/i)).toBeInTheDocument();
+      expect(screen.getByText(/Institutional Jurisdiction Restricted: Authorized Dean Required/i)).toBeInTheDocument();
       expect(screen.getByTestId('retry-auth-btn')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Return to Authority Console/i })).toBeInTheDocument();
     });

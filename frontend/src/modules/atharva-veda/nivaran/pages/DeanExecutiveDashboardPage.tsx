@@ -305,13 +305,13 @@ export const DeanExecutiveDashboardPage: React.FC = () => {
         <Card
           variant="scholarly"
           title={isAuthError ? "Institutional Jurisdiction Restricted" : "Executive Command Center Unavailable"}
-          subtitle={isAuthError ? "Dean of Research & Development Required" : "Analytics Retrieval Failed"}
+          subtitle={isAuthError ? "Authorized Dean Required" : "Analytics Retrieval Failed"}
           headerAction={<Badge variant="saffron">{isAuthError ? "Access Denied" : "Error"}</Badge>}
         >
           <div style={{ padding: '16px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
             <p style={{ marginBottom: '16px' }}>
               {isAuthError
-                ? "The authenticated account does not possess authorized Dean of Research & Development institutional jurisdiction to access the Executive Command Center."
+                ? "The authenticated account does not possess authorized Dean institutional jurisdiction to access the Executive Command Center."
                 : "The Executive Command Center encountered an error while aggregating institutional redressal metrics."}
             </p>
             <div

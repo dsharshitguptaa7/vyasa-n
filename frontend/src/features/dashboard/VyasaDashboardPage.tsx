@@ -95,7 +95,7 @@ export const VyasaDashboardPage: React.FC = () => {
 
   const userAffiliation = isApplicant
     ? (user?.department ? `${user.department} • Research Scholar` : 'Ph.D. Research Scholar')
-    : (authorityDesignation || (isDean ? 'Dean of Research & Development' : isAssociateDean ? 'Associate Dean' : isAssistantDean ? 'Assistant Dean' : isManager ? 'Grievance Redressal Cell' : 'Institutional Authority'));
+    : (authorityDesignation || (isDean ? 'Dean' : isAssociateDean ? 'Associate Dean' : isAssistantDean ? 'Assistant Dean' : isManager ? 'Grievance Redressal Cell' : 'Institutional Authority'));
 
   return (
     <VyasaPortalLayout

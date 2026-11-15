@@ -36,7 +36,7 @@ const mockAuth = (overrides: Partial<AuthContextModule.AuthContextValue> = {}) =
 
 const renderScopedRoute = (
   allowedRoles: string[] = ['DEAN'],
-  roleTitle = 'Dean of Research & Development'
+  roleTitle = 'Dean'
 ) => {
   return render(
     <MemoryRouter initialEntries={['/atharva-veda/dean/dashboard']}>
@@ -60,19 +60,19 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
     vi.clearAllMocks();
   });
 
-  it('1. Correctly assigned Dean of Research & Development can access the dashboard', () => {
+  it('1. Correctly assigned Dean can access the dashboard with canonical designation', () => {
     mockAuth({
       isAuthenticated: true,
       isAuthority: true,
       isDean: true,
       authorityRole: 'DEAN',
-      authorityDesignation: 'Dean of Research & Development',
+      authorityDesignation: 'Dean',
       user: {
         id: '889e14ec-5411-5554-b8e3-2be991e64080',
         email: 'research@csjmu.ac.in',
         roles: ['authority'],
         authority_role: 'DEAN',
-        authority_designation: 'Dean of Research & Development',
+        authority_designation: 'Dean',
       },
     });
 
@@ -88,13 +88,13 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       isAuthority: true, // Ensured by AuthContext appointed profile check
       isDean: true,
       authorityRole: 'DEAN',
-      authorityDesignation: 'Dean of Research & Development',
+      authorityDesignation: 'Dean',
       user: {
         id: '889e14ec-5411-5554-b8e3-2be991e64080',
         email: 'research@csjmu.ac.in',
         roles: ['authority'],
         authority_role: 'DEAN',
-        authority_designation: 'Dean of Research & Development',
+        authority_designation: 'Dean',
       },
     });
 
@@ -102,7 +102,27 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
     expect(screen.getByTestId('dean-dashboard-content')).toBeInTheDocument();
   });
 
-  it('3. Dean from another department (Dean of Academic Affairs) is blocked with Institutional Jurisdiction Restricted', () => {
+  it('3. Existing Dean accounts with legacy designations (Dean of Research & Development, Dean of Academic Affairs) are permitted', () => {
+    mockAuth({
+      isAuthenticated: true,
+      isAuthority: true,
+      isDean: true,
+      authorityRole: 'DEAN',
+      authorityDesignation: 'Dean of Research & Development',
+      user: {
+        id: 'dean-legacy-id',
+        email: 'research@csjmu.ac.in',
+        roles: ['authority'],
+        authority_role: 'DEAN',
+        authority_designation: 'Dean of Research & Development',
+      },
+    });
+
+    const { unmount } = renderScopedRoute(['DEAN'], 'Dean');
+    expect(screen.getByTestId('dean-dashboard-content')).toBeInTheDocument();
+    unmount();
+
+    // Also verify with other legacy alias
     mockAuth({
       isAuthenticated: true,
       isAuthority: true,
@@ -118,14 +138,11 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       },
     });
 
-    renderScopedRoute(['DEAN'], 'Dean of Research & Development');
-    expect(screen.queryByTestId('dean-dashboard-content')).not.toBeInTheDocument();
-    expect(screen.getByText(/Institutional Jurisdiction Restricted/i)).toBeInTheDocument();
-    expect(screen.getByText(/Dean of Research & Development Required/i)).toBeInTheDocument();
-    expect(screen.getByText(/Jurisdictional Designation: Dean of Academic Affairs/i)).toBeInTheDocument();
+    renderScopedRoute(['DEAN'], 'Dean');
+    expect(screen.getByTestId('dean-dashboard-content')).toBeInTheDocument();
   });
 
-  it('4. An unassigned DEAN without Research & Development designation cannot access the dashboard', () => {
+  it('4. Dean without designation (null/unspecified) can access the dashboard', () => {
     mockAuth({
       isAuthenticated: true,
       isAuthority: true,
@@ -134,17 +151,16 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       authorityDesignation: null,
       user: {
         id: 'unassigned-dean-id',
-        email: 'unassigned.dean@csjmu.ac.in',
+        email: 'dean@csjmu.ac.in',
         roles: ['authority'],
         authority_role: 'DEAN',
         authority_designation: null,
       },
     });
 
-    renderScopedRoute(['DEAN'], 'Dean of Research & Development');
-    expect(screen.queryByTestId('dean-dashboard-content')).not.toBeInTheDocument();
-    expect(screen.getByText(/Institutional Jurisdiction Restricted/i)).toBeInTheDocument();
-    expect(screen.getByText(/Dean of Research & Development Required/i)).toBeInTheDocument();
+    renderScopedRoute(['DEAN'], 'Dean');
+    expect(screen.getByTestId('dean-dashboard-content')).toBeInTheDocument();
+    expect(screen.queryByText(/Institutional Jurisdiction Restricted/i)).not.toBeInTheDocument();
   });
 
   it('5. Legacy aliases (Dean, Research & Development / Dean of R&D) are accepted', () => {
@@ -163,7 +179,7 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       },
     });
 
-    renderScopedRoute(['DEAN'], 'Dean of Research & Development');
+    renderScopedRoute(['DEAN'], 'Dean');
     expect(screen.getByTestId('dean-dashboard-content')).toBeInTheDocument();
   });
 
@@ -182,9 +198,10 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       },
     });
 
-    renderScopedRoute(['DEAN'], 'Dean of Research & Development');
+    renderScopedRoute(['DEAN'], 'Dean');
     expect(screen.queryByTestId('dean-dashboard-content')).not.toBeInTheDocument();
     expect(screen.getByText(/Institutional Jurisdiction Restricted/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dean Required/i)).toBeInTheDocument();
   });
 
   it('7. Unauthenticated user is redirected to /authority/login', () => {
@@ -192,24 +209,24 @@ describe('AuthorityScopedRoute - Institutional Jurisdiction & Designation Guard 
       isAuthenticated: false,
     });
 
-    renderScopedRoute(['DEAN'], 'Dean of Research & Development');
+    renderScopedRoute(['DEAN'], 'Dean');
     expect(screen.getByText('Authority Login Page')).toBeInTheDocument();
   });
 });
 
 describe('isDesignationJurisdictionMatch helper unit tests', () => {
-  it('handles canonical and legacy alias permutations for Dean of R&D', () => {
-    expect(isDesignationJurisdictionMatch('Dean of Research & Development', 'Dean of Research & Development')).toBe(true);
-    expect(isDesignationJurisdictionMatch('Dean, Research & Development', 'Dean of Research & Development')).toBe(true);
-    expect(isDesignationJurisdictionMatch('Dean Research & Development', 'Dean of Research & Development')).toBe(true);
-    expect(isDesignationJurisdictionMatch('Dean of R&D', 'Dean of Research & Development')).toBe(true);
-    expect(isDesignationJurisdictionMatch('Dean, R&D', 'Dean of Research & Development')).toBe(true);
-    expect(isDesignationJurisdictionMatch('Dean (R&D)', 'Dean of Research & Development')).toBe(true);
+  it('handles canonical DEAN matching for any legacy or standard designations', () => {
+    expect(isDesignationJurisdictionMatch('Dean', 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch('Dean of Research & Development', 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch('Dean of Academic Affairs', 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch('Dean, Research & Development', 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch('Dean of R&D', 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch(null, 'Dean')).toBe(true);
+    expect(isDesignationJurisdictionMatch(undefined, 'Dean')).toBe(true);
   });
 
-  it('strictly rejects mismatched jurisdictions', () => {
-    expect(isDesignationJurisdictionMatch('Dean of Academic Affairs', 'Dean of Research & Development')).toBe(false);
-    expect(isDesignationJurisdictionMatch('Dean of Student Welfare', 'Dean of Research & Development')).toBe(false);
-    expect(isDesignationJurisdictionMatch('Dean Academics', 'Dean of Research & Development')).toBe(false);
+  it('strictly rejects mismatched jurisdictions for non-Dean specific designations', () => {
+    expect(isDesignationJurisdictionMatch('Assistant Dean', 'Associate Dean')).toBe(false);
+    expect(isDesignationJurisdictionMatch('Manager', 'Assistant Dean')).toBe(false);
   });
 });

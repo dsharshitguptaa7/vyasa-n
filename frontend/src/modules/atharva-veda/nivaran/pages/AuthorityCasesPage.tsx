@@ -42,7 +42,7 @@ export const AuthorityCasesPage: React.FC<AuthorityCasesPageProps> = ({ forcedSc
       fetcher: () => grievanceService.getAssociateDeanCases(),
     },
     DEAN: {
-      title: 'Dean of Academic Affairs Executive Queue',
+      title: 'Dean Executive Review Queue',
       subtitle: 'Executive oversight and high-level grievances requiring Dean ratification.',
       badge: 'Executive University Scope',
       fetcher: () => grievanceService.getDeanCases(),

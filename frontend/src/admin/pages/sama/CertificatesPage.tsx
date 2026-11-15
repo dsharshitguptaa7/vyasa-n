@@ -205,13 +205,23 @@ export const CertificatesPage: React.FC = () => {
       setError(null);
 
       let isRevokedParam: boolean | undefined = undefined;
-      if (statusFilter === 'revoked') isRevokedParam = true;
+      let statusParam: string | undefined = undefined;
+      if (statusFilter === 'revoked') {
+        isRevokedParam = true;
+      } else if (statusFilter === 'issued') {
+        statusParam = 'ISSUED';
+      } else if (statusFilter === 'scheduled') {
+        statusParam = 'SCHEDULED';
+      } else if (statusFilter === 'superseded') {
+        statusParam = 'SUPERSEDED';
+      }
 
       const res = await samaAdminService.getCertificates({
         skip: (page - 1) * limit,
         limit,
         search: search.trim() || undefined,
         is_revoked: isRevokedParam,
+        status: statusParam,
       });
 
       let items = res.items;

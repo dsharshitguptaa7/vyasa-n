@@ -21,6 +21,10 @@ export const isDesignationJurisdictionMatch = (
   if (!requiredTitle || requiredTitle === 'Designated Authority') {
     return true;
   }
+  // Canonical Dean authority does not require a sub-designation
+  if (requiredTitle.trim().toLowerCase() === 'dean') {
+    return true;
+  }
   if (!actualDesignation) {
     // If not specified on profile, only permit if role matches and title is a generic role label
     const genericRoleTitles = ['dean', 'associate dean', 'assistant dean', 'manager', 'designated authority'];

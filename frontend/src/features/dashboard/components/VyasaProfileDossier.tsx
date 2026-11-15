@@ -34,7 +34,7 @@ export const VyasaProfileDossier: React.FC<VyasaProfileDossierProps> = ({ classN
   const roleBadge = getRoleBadge();
 
   const getAuthorityTypeLabel = () => {
-    if (isDean) return 'Dean of Research & Development (Executive Authority)';
+    if (isDean) return 'Dean (Executive Authority)';
     if (isAssociateDean) return 'Associate Dean (Stage-2 Category Redressal Authority)';
     if (isAssistantDean) return 'Assistant Dean (Stage-1 Subject Redressal Authority)';
     if (isManager) return 'Grievance Redressal Manager (Triage & Validation Authority)';
@@ -45,7 +45,7 @@ export const VyasaProfileDossier: React.FC<VyasaProfileDossierProps> = ({ classN
   const getAuthorityDepartmentLabel = () => {
     if (user?.authority_department) return user.authority_department;
     if (user?.department) return user.department;
-    if (isDean) return 'Office of the Dean, Research & Development';
+    if (isDean) return 'Office of the Dean';
     if (isAssociateDean) return 'Office of the Associate Dean, Research & Development';
     if (isAssistantDean) return 'Office of the Assistant Dean, Academic Affairs';
     if (isManager) return 'Central Grievance Redressal Cell';

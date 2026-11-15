@@ -274,6 +274,8 @@ export const samaAdminService = {
     author_id?: string;
     is_revoked?: boolean;
     search?: string;
+    status?: string;
+    certificate_type?: string;
   }): Promise<CertificateListResponse> {
     const q = new URLSearchParams();
     if (params?.skip !== undefined) q.append('skip', String(params.skip));
@@ -282,6 +284,8 @@ export const samaAdminService = {
     if (params?.author_id) q.append('author_id', params.author_id);
     if (params?.is_revoked !== undefined) q.append('is_revoked', String(params.is_revoked));
     if (params?.search) q.append('search', params.search);
+    if (params?.status) q.append('status', params.status);
+    if (params?.certificate_type) q.append('certificate_type', params.certificate_type);
 
     const qs = q.toString();
     const res = await apiClient.get<CertificateListResponse>(`/admin/sama/certificates${qs ? `?${qs}` : ''}`);

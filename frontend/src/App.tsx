@@ -535,7 +535,7 @@ export const AppRoutes: React.FC = () => {
       <Route
         path="/atharva-veda/dean/dashboard"
         element={
-          <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean of Research & Development">
+          <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean">
             <WorkspaceShell currentTab="governance">
               <DeanExecutiveDashboardPage />
             </WorkspaceShell>
@@ -545,7 +545,7 @@ export const AppRoutes: React.FC = () => {
       <Route
         path="/atharva-veda/dean/cases"
         element={
-          <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean of Academic Affairs">
+          <AuthorityScopedRoute allowedRoles={['DEAN']} roleTitle="Dean">
             <WorkspaceShell currentTab="governance">
               <AuthorityCasesPage forcedScope="DEAN" />
             </WorkspaceShell>

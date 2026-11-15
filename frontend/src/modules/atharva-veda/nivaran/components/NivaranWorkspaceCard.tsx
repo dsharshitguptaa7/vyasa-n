@@ -49,7 +49,7 @@ export const NivaranWorkspaceCard: React.FC = () => {
             {isManager && <Badge variant="teal">Triage Manager</Badge>}
             {isAssistantDean && <Badge variant="teal">Assistant Dean</Badge>}
             {isAssociateDean && <Badge variant="teal">Associate Dean</Badge>}
-            {isDean && <Badge variant="teal">Dean of Academic Affairs</Badge>}
+            {isDean && <Badge variant="teal">Dean</Badge>}
             {isAuthority && !authorityRole && !isAdmin && <Badge variant="teal">Institutional Authority</Badge>}
             {isApplicant && <Badge variant="saffron">Doctoral Scholar / Applicant</Badge>}
           </div>

@@ -53,7 +53,7 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
     <WorkflowActionModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Escalate Grievance to Dean R&D • ${grievanceId || 'Case'}`}
+      title={`Escalate Grievance to Dean • ${grievanceId || 'Case'}`}
       size="md"
       errorMsg={errorMsg}
       primaryAction={{
@@ -89,7 +89,7 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
             {targetDean?.name || 'Prof. Namita Tiwari'}
           </div>
           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-            Dean of Research & Development &bull; {targetDean?.email || 'research@csjmu.ac.in'}
+            Dean &bull; {targetDean?.email || 'research@csjmu.ac.in'}
           </div>
         </div>
 
@@ -106,7 +106,7 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
             rows={4}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Explain why higher-tier intervention by Dean R&D is required for this grievance..."
+            placeholder="Explain why higher-tier intervention by Dean is required for this grievance..."
             style={{
               width: '100%',
               padding: '10px',
