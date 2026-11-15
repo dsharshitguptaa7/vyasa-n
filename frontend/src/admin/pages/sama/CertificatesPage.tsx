@@ -1290,6 +1290,9 @@ export const CertificatesPage: React.FC = () => {
                                     Activates in {Math.ceil(cert.time_until_activation_seconds / 86400)} day(s) at 00:00 IST
                                   </span>
                                 )}
+                                <span style={{ marginLeft: '6px', padding: '2px 8px', borderRadius: '10px', background: '#FEF3C7', color: '#92400E', fontSize: '11px' }}>
+                                  Admin Print Available
+                                </span>
                               </span>
                             ) : (
                               <span style={{ fontSize: '12px', color: '#64748B' }}>
@@ -1336,12 +1339,20 @@ export const CertificatesPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={downloadingId === cert.id || isRevoked}
+                            disabled={downloadingId === cert.id || isRevoked || isSuperseded}
                             onClick={() => handleDownload(cert)}
-                            title={isRevoked ? 'Revoked certificate cannot be downloaded' : 'Download Official PDF'}
+                            title={
+                              isRevoked
+                                ? 'Revoked certificate cannot be downloaded'
+                                : isSuperseded
+                                ? 'Superseded certificate cannot be downloaded'
+                                : isScheduled
+                                ? 'Download advance PDF for physical printing (Admin only; public access inactive until scheduled date)'
+                                : 'Download Official PDF'
+                            }
                           >
                             <span style={{ marginRight: '4px' }}>&darr;</span>
-                            {downloadingId === cert.id ? 'Downloading...' : 'PDF'}
+                            {downloadingId === cert.id ? 'Downloading...' : isScheduled ? 'Print / PDF' : 'PDF'}
                           </Button>
 
                           {!isRevoked && !isSuperseded && !isScheduled && isSuperAdmin && (

@@ -86,10 +86,10 @@ export const ForwardToDeanModal: React.FC<ForwardToDeanModalProps> = ({
             <Badge variant="teal">EXECUTIVE TIER</Badge>
           </div>
           <div style={{ fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-            {targetDean?.name || 'Prof. Namita Tiwari'}
+            {targetDean?.name || 'Appointed Dean'}
           </div>
           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-            Dean &bull; {targetDean?.email || 'research@csjmu.ac.in'}
+            {targetDean?.email ? `Dean \u2022 ${targetDean.email}` : 'Dean \u2022 Institutional Executive Tier'}
           </div>
         </div>
 

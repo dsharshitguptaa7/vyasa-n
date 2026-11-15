@@ -1775,11 +1775,12 @@ def download_admin_certificate(
     certificate_id: uuid.UUID,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("sama:read")),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
 ):
     """
     Stream certificate PDF to authorized administrator.
     Validates storage key and cryptographic SHA-256 integrity without static public file mounting.
+    Allows Super Admin and certificate managers to download SCHEDULED certificates in advance for physical printing.
     """
     cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
     if not cert:
@@ -1791,6 +1792,7 @@ def download_admin_certificate(
         db=db,
         current_user=current_user,
         verification_source="ADMIN_PORTAL",
+        allow_scheduled=True,
     )
 
 

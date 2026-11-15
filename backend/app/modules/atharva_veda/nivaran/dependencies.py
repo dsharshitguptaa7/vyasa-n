@@ -19,6 +19,55 @@ CANONICAL_DEAN_DESIGNATION = "Dean"
 CANONICAL_DEAN_RD_DESIGNATION = "Dean"  # Deprecated alias pointing to canonical Dean designation
 
 
+def resolve_institutional_domain() -> str:
+    """
+    Dynamically resolves the institutional email domain from configuration.
+    """
+    if hasattr(settings, "SUPPORT_CONTACT_EMAIL") and "@" in settings.SUPPORT_CONTACT_EMAIL:
+        return settings.SUPPORT_CONTACT_EMAIL.split("@")[-1].strip().lower()
+    if hasattr(settings, "EMAIL_FROM_ADDRESS") and "@" in settings.EMAIL_FROM_ADDRESS:
+        return settings.EMAIL_FROM_ADDRESS.split("@")[-1].strip().lower()
+    return "csjmu.ac.in"
+
+
+def is_institutional_domain(email_str: Optional[str], inst_domain: Optional[str] = None) -> bool:
+    """
+    Validates whether an email string belongs to the authorized institutional domain hierarchy.
+    """
+    if not email_str or "@" not in email_str:
+        return False
+    domain = email_str.split("@")[-1].strip().lower()
+    target = (inst_domain or resolve_institutional_domain()).lower()
+    return (
+        domain == target
+        or domain.endswith("." + target)
+        or domain == "csjmu.ac.in"
+        or domain.endswith(".csjmu.ac.in")
+    )
+
+
+def resolve_authority_institutional_jurisdiction(authority: NivaranAuthority, user: User) -> dict:
+    """
+    Resolves the institutional scope and jurisdiction from the active authority assignment.
+    """
+    inst_domain = resolve_institutional_domain()
+    user_email = (getattr(user, "email", "") or "").strip().lower()
+    auth_email = (getattr(authority, "email_snapshot", "") or "").strip().lower()
+
+    return {
+        "authority_id": getattr(authority, "id", None),
+        "user_id": getattr(user, "id", None),
+        "role": authority.role.value if hasattr(authority.role, "value") else str(authority.role),
+        "institution": "Chhatrapati Shahu Ji Maharaj University (CSJMU)",
+        "institutional_domain": inst_domain,
+        "user_email": user_email,
+        "authority_email": auth_email,
+        "department": getattr(authority, "department", None) or "Office of the Dean",
+        "designation": getattr(authority, "designation", None) or CANONICAL_DEAN_DESIGNATION,
+        "is_active": getattr(authority, "is_active", True),
+    }
+
+
 def is_authorized_dean(authority: Optional[NivaranAuthority], user: User) -> bool:
     """
     Validates institutional jurisdiction and authority mapping for the canonical Dean authority:
@@ -30,19 +79,17 @@ def is_authorized_dean(authority: Optional[NivaranAuthority], user: User) -> boo
     if not authority or authority.role != NivaranRole.DEAN or not getattr(authority, "is_active", True):
         return False
 
-    # 1. Institutional domain validation (CSJMU / configured institutional domain)
-    inst_domain = settings.SUPPORT_CONTACT_EMAIL.split("@")[-1].lower() if "@" in settings.SUPPORT_CONTACT_EMAIL else "csjmu.ac.in"
-    user_email = (user.email or getattr(authority, "email_snapshot", "") or "").strip().lower()
-    user_domain = user_email.split("@")[-1] if "@" in user_email else ""
+    inst_domain = resolve_institutional_domain()
+    user_email = (getattr(user, "email", "") or "").strip().lower()
+    auth_email = (getattr(authority, "email_snapshot", "") or "").strip().lower()
 
-    is_institutional_email = (
-        user_domain == inst_domain or
-        user_email.endswith("@" + inst_domain) or
-        user_email.endswith("." + inst_domain) or
-        user_email.endswith("@csjmu.ac.in") or
-        user_email.endswith(".csjmu.ac.in")
-    )
-    if not is_institutional_email:
+    effective_email = user_email or auth_email
+    if not effective_email:
+        return False
+
+    if user_email and not is_institutional_domain(user_email, inst_domain):
+        return False
+    if auth_email and not is_institutional_domain(auth_email, inst_domain):
         return False
 
     return True
@@ -163,26 +210,49 @@ def require_atharva_dean(
     db: Session = Depends(get_db),
 ) -> User:
     """
-    Validates that the caller is an appointed Institutional Authority with the canonical DEAN role
-    within the authorized institutional jurisdiction.
+    Centralized dynamic authorization dependency for Dean Executive Command Center.
+    Single source of truth is the active NivaranAuthority assignment in Authority Management.
+
+    Execution Flow:
+    1. Authenticate current user via get_current_user.
+    2. Resolve their authority assignment from existing authority management records.
+    3. Verify that the assignment exists and is active.
+    4. Verify that the assigned authority type is DEAN.
+    5. Resolve the institution and jurisdiction from the authorized assignment.
+    6. Attach institutional jurisdiction scope to current_user and grant access.
     """
     authority = db.scalar(
         select(NivaranAuthority).where(
-            NivaranAuthority.vyasa_user_id == current_user.id,
-            NivaranAuthority.is_active.is_(True),
+            NivaranAuthority.vyasa_user_id == current_user.id
         )
     )
-    if not authority or authority.role != NivaranRole.DEAN:
+    if not authority:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access restricted to Atharva Veda Dean.",
         )
-    
+
+    if not authority.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to Atharva Veda Dean.",
+        )
+
+    if authority.role != NivaranRole.DEAN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to Atharva Veda Dean.",
+        )
+
     if not is_authorized_dean(authority, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Institutional Jurisdiction Restricted: Authorized Dean Required.",
         )
+
+    # Attach dynamic active authority assignment and resolved institutional jurisdiction scope
+    current_user.active_authority = authority
+    current_user.institutional_scope = resolve_authority_institutional_jurisdiction(authority, current_user)
 
     return current_user
 

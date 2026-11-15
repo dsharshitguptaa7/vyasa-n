@@ -30,11 +30,13 @@ def validate_and_stream_certificate_pdf(
     current_user: Optional[User] = None,
     verification_source: str = "PUBLIC_DOWNLOAD",
     token_context: Optional[str] = None,
+    allow_scheduled: bool = False,
 ) -> FileResponse:
     """
     Validates certificate issuance status, file existence, and cryptographic SHA-256 integrity,
     then streams the exact original ReportLab PDF without regenerating.
     Enforces audit logging, download telemetry, and safe path traversal guards.
+    Administrators may download SCHEDULED certificates in advance for printing via allow_scheduled=True.
     """
     cert_no = cert.certificate_number if isinstance(cert.certificate_number, str) else "certificate"
     clean_number = cert_no.strip()
@@ -79,20 +81,26 @@ def validate_and_stream_certificate_pdf(
         )
 
     if cert.status == "SCHEDULED":
-        logger.warning("Download blocked: Certificate %s is scheduled for future activation", clean_number)
-        _record_download_telemetry(
-            db=db,
-            cert=cert,
-            request=request,
-            source="BLOCKED_SCHEDULED",
-            actor_user_id=current_user.id if current_user else None,
-            token_context=token_context,
-            result_status="FAILED",
-            reason="Certificate scheduled for future activation",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Certificate not found or invalid certificate number.",
+        if not allow_scheduled:
+            logger.warning("Download blocked: Certificate %s is scheduled for future activation", clean_number)
+            _record_download_telemetry(
+                db=db,
+                cert=cert,
+                request=request,
+                source="BLOCKED_SCHEDULED",
+                actor_user_id=current_user.id if current_user else None,
+                token_context=token_context,
+                result_status="FAILED",
+                reason="Certificate scheduled for future activation",
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Certificate not found or invalid certificate number.",
+            )
+        logger.info(
+            "Admin authorized download of SCHEDULED certificate %s prior to issue date (Actor: %s)",
+            clean_number,
+            current_user.id if current_user else "unknown",
         )
 
     if cert.status in ["DRAFT", "PENDING_APPROVAL", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
