@@ -164,11 +164,13 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
   };
 
   const openAddModal = () => {
+    fetchCycles();
     resetForm();
     setIsAddEditModalOpen(true);
   };
 
   const openEditModal = (entry: AnudaanSanctionEntryOut) => {
+    fetchCycles();
     setEditingEntry(entry);
     setFormResearcher(entry.researcher_name);
     setFormDept(entry.department_name || '');
@@ -189,6 +191,7 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (actionLoading) return;
     // Mandatory fields per institutional policy:
     // Researcher Name, Publication Title, Quartile, Sanctioned Amount, Academic Year, Sanction Date, Felicitation Cycle
     // Optional: Department / School, Project Title, Publication DOI, Remarks / Order Number
@@ -581,7 +584,7 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
                         )}
                       </td>
                       <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                        {s.volume_number && s.issue_number ? (
+                        {(s.volume_number || s.felicitation_cycle_volume) && (s.issue_number || s.felicitation_cycle_issue) ? (
                           <div>
                             <span
                               style={{
@@ -590,15 +593,15 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
                                 borderRadius: 4,
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
-                                backgroundColor: s.cycle_status === 'COMPLETED' ? '#EEF2FF' : '#FEF3C7',
-                                color: s.cycle_status === 'COMPLETED' ? '#3730A3' : '#92400E',
-                                border: `1px solid ${s.cycle_status === 'COMPLETED' ? '#C7D2FE' : '#FDE68A'}`,
+                                backgroundColor: (s.cycle_status || s.felicitation_cycle_status) === 'COMPLETED' ? '#EEF2FF' : '#FEF3C7',
+                                color: (s.cycle_status || s.felicitation_cycle_status) === 'COMPLETED' ? '#3730A3' : '#92400E',
+                                border: `1px solid ${(s.cycle_status || s.felicitation_cycle_status) === 'COMPLETED' ? '#C7D2FE' : '#FDE68A'}`,
                               }}
                             >
-                              Vol {s.volume_number} · Iss {s.issue_number}
+                              Vol {s.volume_number || s.felicitation_cycle_volume} · Iss {s.issue_number || s.felicitation_cycle_issue}
                             </span>
                             <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 3 }}>
-                              {s.cycle_status || 'ASSIGNED'}
+                              {s.cycle_status || s.felicitation_cycle_status || 'ASSIGNED'}
                             </div>
                           </div>
                         ) : (

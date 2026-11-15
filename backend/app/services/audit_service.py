@@ -257,6 +257,45 @@ class CentralAuditService:
             fail_silent=fail_silent,
         )
 
+    @staticmethod
+    def log_action(
+        db: Session,
+        *,
+        action: str,
+        entity_type: str,
+        entity_id: Union[str, uuid.UUID],
+        actor_id: Optional[Union[str, uuid.UUID]] = None,
+        actor_email: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        module: str = "yajur_veda",
+        commit: bool = True,
+        fail_silent: bool = True,
+    ) -> str:
+        """
+        Record a structured administrative audit log action.
+        Backward-compatible wrapper around log_event.
+        Guarantees that post-commit audit logging never breaks application flow when fail_silent=True.
+        """
+        try:
+            return CentralAuditService.log_event(
+                db=db,
+                action=action,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                module=module,
+                actor_id=actor_id,
+                details=details,
+                ip_address=ip_address,
+                commit=commit,
+                fail_silent=fail_silent,
+            )
+        except Exception as exc:
+            logger.warning("CentralAuditService.log_action non-fatal audit log error: %s", exc)
+            if not fail_silent:
+                raise
+            return str(uuid.uuid4())
+
 
 # Exported singleton instance
 audit_service = CentralAuditService()

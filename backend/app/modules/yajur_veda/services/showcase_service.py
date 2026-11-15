@@ -60,26 +60,37 @@ class AnudaanShowcaseService:
         academic_year: Optional[str] = None,
         volume_number: Optional[int] = None,
         issue_number: Optional[int] = None,
+        is_published: Optional[bool] = True,
     ) -> AnudaanPublicImpactStats:
         """
-        Derives aggregated institutional metrics derived strictly from published sanction entries.
-        Strictly prevents fabricated figures and excludes PII.
+        Derives aggregated institutional metrics.
+        - When is_published=True (default for public portal), strictly filters for published entries.
+        - When is_published=None (for sadmin dashboard), includes all recorded sanction entries.
+        - Excludes PII and strictly prevents row multiplication by aggregating directly over subquery columns.
         """
-        # Determine available academic years from published sanction entries
-        years_query = (
-            select(AnudaanSanctionEntry.academic_year)
-            .where(AnudaanSanctionEntry.is_published.is_(True))
-            .distinct()
-            .order_by(desc(AnudaanSanctionEntry.academic_year))
-        )
+        # Determine available academic years from eligible sanction entries
+        years_query = select(AnudaanSanctionEntry.academic_year)
+        if is_published is not None:
+            years_query = years_query.where(AnudaanSanctionEntry.is_published.is_(is_published))
+        years_query = years_query.distinct().order_by(desc(AnudaanSanctionEntry.academic_year))
+
         available_years = [y for y in db.scalars(years_query).all() if y]
         if not available_years:
-            available_years = ["2025-2026", "2026-2027"]
+            available_years = ["2026-2027", "2025-2026"]
 
-        # Base query for published sanctions
-        sanctions_base = select(AnudaanSanctionEntry).where(
-            AnudaanSanctionEntry.is_published.is_(True)
+        # Base query selecting distinct sanction attributes
+        sanctions_base = select(
+            AnudaanSanctionEntry.id,
+            AnudaanSanctionEntry.researcher_name,
+            AnudaanSanctionEntry.quartile,
+            AnudaanSanctionEntry.sanctioned_amount,
+            AnudaanSanctionEntry.academic_year,
+            AnudaanSanctionEntry.updated_at,
         )
+        if is_published is not None:
+            sanctions_base = sanctions_base.where(
+                AnudaanSanctionEntry.is_published.is_(is_published)
+            )
         if academic_year and academic_year.upper() != "ALL":
             sanctions_base = sanctions_base.where(
                 AnudaanSanctionEntry.academic_year == academic_year
@@ -94,33 +105,35 @@ class AnudaanShowcaseService:
             if issue_number is not None:
                 sanctions_base = sanctions_base.where(AnudaanFelicitationCycle.issue_number == issue_number)
 
+        subq = sanctions_base.subquery()
+
         # 1. Total Distinct Researchers Recognised
         researchers_recognised = db.scalar(
-            select(func.count(func.lower(func.trim(AnudaanSanctionEntry.researcher_name)).distinct()))
-            .select_from(sanctions_base.subquery())
+            select(func.count(func.lower(func.trim(subq.c.researcher_name)).distinct()))
+            .select_from(subq)
         ) or 0
 
-        # 2. Total Incentive Amount Sanctioned (INR)
+        # 2. Total Incentive Amount Sanctioned (INR) - each record exactly once
         total_sanctioned = db.scalar(
-            select(func.coalesce(func.sum(AnudaanSanctionEntry.sanctioned_amount), Decimal("0.00")))
-            .select_from(sanctions_base.subquery())
+            select(func.coalesce(func.sum(subq.c.sanctioned_amount), Decimal("0.00")))
+            .select_from(subq)
         ) or Decimal("0.00")
 
-        # 3. Total Sanction Entries
+        # 3. Total Sanction Entries - count of distinct eligible sanction record IDs
         total_entries = db.scalar(
-            select(func.count(AnudaanSanctionEntry.id))
-            .select_from(sanctions_base.subquery())
+            select(func.count(subq.c.id.distinct()))
+            .select_from(subq)
         ) or 0
 
         # 4. Quartile-wise Breakdown
         quartile_breakdown = {"Q1": 0, "Q2": 0, "Q3": 0, "Q4": 0}
         q_rows = db.execute(
             select(
-                AnudaanSanctionEntry.quartile,
-                func.count(AnudaanSanctionEntry.id),
+                subq.c.quartile,
+                func.count(subq.c.id.distinct()),
             )
-            .select_from(sanctions_base.subquery())
-            .group_by(AnudaanSanctionEntry.quartile)
+            .select_from(subq)
+            .group_by(subq.c.quartile)
         ).all()
         for q, cnt in q_rows:
             if q in quartile_breakdown:
@@ -128,8 +141,8 @@ class AnudaanShowcaseService:
 
         # Latest update timestamp
         latest_updated_at = db.scalar(
-            select(func.max(AnudaanSanctionEntry.updated_at))
-            .select_from(sanctions_base.subquery())
+            select(func.max(subq.c.updated_at))
+            .select_from(subq)
         )
 
         return AnudaanPublicImpactStats(
@@ -207,6 +220,7 @@ class AnudaanShowcaseService:
         db.add(entry)
         db.commit()
         db.refresh(entry)
+        entry.felicitation_cycle = cycle
         return entry
 
     def update_sanction_entry(
@@ -257,6 +271,8 @@ class AnudaanShowcaseService:
         entry.updated_by_id = updated_by_id
         db.commit()
         db.refresh(entry)
+        if entry.felicitation_cycle_id:
+            entry.felicitation_cycle = db.get(AnudaanFelicitationCycle, entry.felicitation_cycle_id)
         return entry
 
     def delete_sanction_entry(
@@ -285,6 +301,8 @@ class AnudaanShowcaseService:
         entry.updated_by_id = updated_by_id
         db.commit()
         db.refresh(entry)
+        if entry.felicitation_cycle_id:
+            entry.felicitation_cycle = db.get(AnudaanFelicitationCycle, entry.felicitation_cycle_id)
         return entry
 
     def get_sanction_entry(
@@ -342,10 +360,11 @@ class AnudaanShowcaseService:
                 )
             )
 
-        total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        subq = query.subquery()
+        total = db.scalar(select(func.count(subq.c.id.distinct())).select_from(subq)) or 0
         total_amount = db.scalar(
-            select(func.coalesce(func.sum(AnudaanSanctionEntry.sanctioned_amount), Decimal("0.00")))
-            .select_from(query.subquery())
+            select(func.coalesce(func.sum(subq.c.sanctioned_amount), Decimal("0.00")))
+            .select_from(subq)
         ) or Decimal("0.00")
 
         items = db.scalars(
@@ -397,7 +416,8 @@ class AnudaanShowcaseService:
                     func.lower(func.coalesce(AnudaanSanctionEntry.project_title, "")).like(s),
                 )
             )
-        total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        subq = query.subquery()
+        total = db.scalar(select(func.count(subq.c.id.distinct())).select_from(subq)) or 0
         items = db.scalars(
             query.order_by(desc(AnudaanSanctionEntry.sanction_date), desc(AnudaanSanctionEntry.created_at))
             .offset(skip)
@@ -602,7 +622,7 @@ class AnudaanShowcaseService:
         if not cycle:
             return None
         s_count = db.scalar(
-            select(func.count(AnudaanSanctionEntry.id)).where(
+            select(func.count(AnudaanSanctionEntry.id.distinct())).where(
                 AnudaanSanctionEntry.felicitation_cycle_id == cycle.id
             )
         ) or 0
@@ -658,7 +678,8 @@ class AnudaanShowcaseService:
                 )
             )
 
-        total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        subq = query.subquery()
+        total = db.scalar(select(func.count(subq.c.id.distinct())).select_from(subq)) or 0
         cycles = db.scalars(
             query.order_by(
                 desc(AnudaanFelicitationCycle.volume_number),
@@ -671,7 +692,7 @@ class AnudaanShowcaseService:
         results = []
         for c in cycles:
             s_count = db.scalar(
-                select(func.count(AnudaanSanctionEntry.id)).where(
+                select(func.count(AnudaanSanctionEntry.id.distinct())).where(
                     AnudaanSanctionEntry.felicitation_cycle_id == c.id
                 )
             ) or 0

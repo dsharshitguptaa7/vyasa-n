@@ -9,7 +9,7 @@ Provides administrative APIs for:
 import uuid
 from decimal import Decimal
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -85,6 +85,9 @@ def _to_sanction_out(entry) -> AnudaanSanctionEntryOut:
         felicitation_cycle_issue=iss,
         felicitation_cycle_status=status,
         felicitation_cycle_title=title,
+        volume_number=vol,
+        issue_number=iss,
+        cycle_status=status,
         application_id=entry.application_id,
         application_number=app_num,
         author_id=entry.author_id,
@@ -138,13 +141,18 @@ def _to_disb_out(disb) -> AnudaanDisbursementOut:
 @anudaan_admin_router.get("/impact/stats", response_model=ApiResponse)
 def get_admin_impact_stats(
     academic_year: Optional[str] = Query(None, description="Academic year filter (e.g. '2025-2026' or 'ALL')"),
+    is_published: Optional[bool] = Query(None, description="Optional visibility filter for admin"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("anudaan:read")),
 ):
     """
     Returns administrative institutional impact metrics and academic-year breakdowns.
     """
-    stats = anudaan_showcase_service.get_public_impact_stats(db, academic_year=academic_year)
+    stats = anudaan_showcase_service.get_public_impact_stats(
+        db,
+        academic_year=academic_year,
+        is_published=is_published,
+    )
     return ApiResponse(
         success=True,
         message="Institutional incentive impact statistics retrieved.",
@@ -216,10 +224,33 @@ def lookup_applications_for_sanction(
 def create_sanction_entry(
     payload: AnudaanSanctionEntryCreate,
     request: Request,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    x_request_id: Optional[str] = Header(None, alias="X-Request-ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("anudaan:finance:manage")),
 ):
     """Manually records an official university incentive sanction."""
+    clean_name = payload.researcher_name.strip()
+    clean_title = payload.publication_title.strip()
+    clean_year = payload.academic_year.strip()
+
+    # Idempotency / duplicate protection for retried submissions
+    if idempotency_key or x_request_id:
+        existing = db.scalar(
+            select(AnudaanSanctionEntry).where(
+                func.lower(func.trim(AnudaanSanctionEntry.researcher_name)) == clean_name.lower(),
+                func.lower(func.trim(AnudaanSanctionEntry.publication_title)) == clean_title.lower(),
+                AnudaanSanctionEntry.academic_year == clean_year,
+            )
+        )
+        if existing and existing.sanctioned_amount == payload.sanctioned_amount and existing.felicitation_cycle_id == payload.felicitation_cycle_id:
+            logger.info("Idempotent sanction creation replay for entry %s", existing.id)
+            return ApiResponse(
+                success=True,
+                message="Incentive sanction entry recorded successfully.",
+                data=_to_sanction_out(existing).model_dump(),
+            )
+
     try:
         entry = anudaan_showcase_service.create_sanction_entry(
             db,
@@ -232,22 +263,27 @@ def create_sanction_entry(
             detail=str(e),
         )
 
-    audit_service.log_action(
-        db=db,
-        action="CREATE",
-        entity_type="ANULAAN_SANCTION_ENTRY",
-        entity_id=str(entry.id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details={
-            "researcher_name": entry.researcher_name,
-            "publication_title": entry.publication_title,
-            "quartile": entry.quartile,
-            "amount": str(entry.sanctioned_amount),
-            "academic_year": entry.academic_year,
-        },
-        ip_address=request.client.host if request.client else None,
-    )
+    # Post-commit audit logging - isolated from write transaction
+    try:
+        audit_service.log_action(
+            db=db,
+            action="CREATE",
+            entity_type="ANUDAAN_SANCTION_ENTRY",
+            entity_id=str(entry.id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details={
+                "researcher_name": entry.researcher_name,
+                "publication_title": entry.publication_title,
+                "quartile": entry.quartile,
+                "amount": str(entry.sanctioned_amount),
+                "academic_year": entry.academic_year,
+            },
+            ip_address=request.client.host if request.client else None,
+            fail_silent=True,
+        )
+    except Exception as exc:
+        logger.warning("Audit logging non-fatal failure for sanction %s: %s", entry.id, exc)
 
     return ApiResponse(
         success=True,
@@ -294,20 +330,24 @@ def update_sanction_entry(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    audit_service.log_action(
-        db=db,
-        action="UPDATE",
-        entity_type="ANULAAN_SANCTION_ENTRY",
-        entity_id=str(entry.id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details={
-            "researcher_name": entry.researcher_name,
-            "publication_title": entry.publication_title,
-            "amount": str(entry.sanctioned_amount),
-        },
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            action="UPDATE",
+            entity_type="ANUDAAN_SANCTION_ENTRY",
+            entity_id=str(entry.id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details={
+                "researcher_name": entry.researcher_name,
+                "publication_title": entry.publication_title,
+                "amount": str(entry.sanctioned_amount),
+            },
+            ip_address=request.client.host if request.client else None,
+            fail_silent=True,
+        )
+    except Exception as exc:
+        logger.warning("Audit logging non-fatal failure for sanction update %s: %s", entry.id, exc)
 
     return ApiResponse(
         success=True,
@@ -355,16 +395,20 @@ def delete_sanction_entry(
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sanction entry not found")
 
-    audit_service.log_action(
-        db=db,
-        action="DELETE",
-        entity_type="ANULAAN_SANCTION_ENTRY",
-        entity_id=str(sanction_id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details={"deleted_id": str(sanction_id)},
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            action="DELETE",
+            entity_type="ANUDAAN_SANCTION_ENTRY",
+            entity_id=str(sanction_id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details={"deleted_id": str(sanction_id)},
+            ip_address=request.client.host if request.client else None,
+            fail_silent=True,
+        )
+    except Exception as exc:
+        logger.warning("Audit logging non-fatal failure for sanction deletion %s: %s", sanction_id, exc)
 
     return ApiResponse(
         success=True,
@@ -427,16 +471,19 @@ def create_felicitation_cycle(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    audit_service.log_action(
-        db=db,
-        action="CREATE",
-        entity_type="ANUDAAN_FELICITATION_CYCLE",
-        entity_id=str(cycle.id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details={"volume_number": cycle.volume_number, "issue_number": cycle.issue_number, "status": cycle.status},
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            action="CREATE",
+            entity_type="ANUDAAN_FELICITATION_CYCLE",
+            entity_id=str(cycle.id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details={"volume_number": cycle.volume_number, "issue_number": cycle.issue_number, "status": cycle.status},
+            ip_address=request.client.host if request.client else None,
+        )
+    except Exception as err:
+        logger.warning("Failed to record audit log for felicitation cycle creation: %s", err)
 
     detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
     return ApiResponse(
@@ -484,16 +531,19 @@ def update_felicitation_cycle(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    audit_service.log_action(
-        db=db,
-        action="UPDATE",
-        entity_type="ANUDAAN_FELICITATION_CYCLE",
-        entity_id=str(cycle.id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details=payload.model_dump(exclude_unset=True),
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            action="UPDATE",
+            entity_type="ANUDAAN_FELICITATION_CYCLE",
+            entity_id=str(cycle.id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details=payload.model_dump(exclude_unset=True),
+            ip_address=request.client.host if request.client else None,
+        )
+    except Exception as err:
+        logger.warning("Failed to record audit log for felicitation cycle update: %s", err)
 
     detail = anudaan_showcase_service.get_felicitation_cycle(db, cycle.id)
     return ApiResponse(
@@ -570,16 +620,19 @@ def delete_felicitation_cycle(
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Felicitation cycle not found")
 
-    audit_service.log_action(
-        db=db,
-        action="DELETE",
-        entity_type="ANUDAAN_FELICITATION_CYCLE",
-        entity_id=str(cycle_id),
-        actor_id=current_user.id,
-        actor_email=current_user.email,
-        details={"deleted_id": str(cycle_id)},
-        ip_address=request.client.host if request.client else None,
-    )
+    try:
+        audit_service.log_action(
+            db=db,
+            action="DELETE",
+            entity_type="ANUDAAN_FELICITATION_CYCLE",
+            entity_id=str(cycle_id),
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            details={"deleted_id": str(cycle_id)},
+            ip_address=request.client.host if request.client else None,
+        )
+    except Exception as err:
+        logger.warning("Failed to record audit log for felicitation cycle deletion: %s", err)
 
     return ApiResponse(
         success=True,

@@ -277,6 +277,9 @@ class AnudaanSanctionEntryOut(BaseModel):
     felicitation_cycle_issue: Optional[int] = None
     felicitation_cycle_status: Optional[str] = None
     felicitation_cycle_title: Optional[str] = None
+    volume_number: Optional[int] = None
+    issue_number: Optional[int] = None
+    cycle_status: Optional[str] = None
     application_id: Optional[uuid.UUID] = None
     application_number: Optional[str] = None
     author_id: Optional[uuid.UUID] = None

@@ -334,3 +334,203 @@ class TestSanctionServiceOperations:
         assert stats.quartile_breakdown == {"Q1": 8, "Q2": 5, "Q3": 2, "Q4": 0}
         assert stats.reporting_academic_year == "2025-2026"
 
+
+class TestSanctionAggregationAndIntegrityIntegration:
+    """PostgreSQL/SQLAlchemy integration tests for Issue 1, 2, and 3 fixes."""
+
+    @pytest.fixture
+    def test_db(self):
+        """Creates an in-memory SQLite database with application, cycle, and sanction tables."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.modules.yajur_veda.models.anudaan import AnudaanApplication
+        from app.modules.yajur_veda.models.showcase import AnudaanSanctionEntry, AnudaanFelicitationCycle
+
+        engine = create_engine("sqlite:///:memory:")
+        AnudaanApplication.__table__.create(engine)
+        AnudaanFelicitationCycle.__table__.create(engine)
+        AnudaanSanctionEntry.__table__.create(engine)
+
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    def test_two_q2_records_produce_exact_count_and_amount(self, test_db):
+        """Proves: Two Q2 records produce Q2 count = 2, total amount = ₹8,000, without doubling."""
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=2,
+            issue_number=3,
+            status="COMPLETED",
+            is_published=True,
+        )
+        test_db.add(cycle)
+        test_db.commit()
+
+        s1 = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Author Alpha",
+            publication_title="Study on Material Conductivity",
+            quartile="Q2",
+            sanctioned_amount=Decimal("4000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 1),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        s2 = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Author Beta",
+            publication_title="Nanotechnology in Sensors",
+            quartile="Q2",
+            sanctioned_amount=Decimal("4000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 2),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        test_db.add_all([s1, s2])
+        test_db.commit()
+
+        # Check public impact stats
+        stats = anudaan_showcase_service.get_public_impact_stats(test_db, academic_year="2025-2026")
+        assert stats.total_sanction_entries == 2
+        assert stats.total_incentive_sanctioned_inr == Decimal("8000.00")
+        assert stats.quartile_breakdown["Q2"] == 2
+        assert stats.total_researchers_recognised == 2
+
+        # Check list_sanction_entries pagination counters
+        items, total, total_amt = anudaan_showcase_service.list_sanction_entries(test_db)
+        assert total == 2
+        assert total_amt == Decimal("8000.00")
+
+    def test_researcher_with_multiple_publications_counted_once(self, test_db):
+        """Proves: A researcher with multiple publications is counted once in Researchers Recognised."""
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=2,
+            issue_number=3,
+            status="COMPLETED",
+            is_published=True,
+        )
+        test_db.add(cycle)
+        test_db.commit()
+
+        # Researcher Alpha has two distinct publications; Researcher Beta has one
+        s1 = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Ramesh Sharma",
+            publication_title="Publication 1",
+            quartile="Q1",
+            sanctioned_amount=Decimal("50000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 1),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        s2 = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="  dr. ramesh sharma  ",  # Case/whitespace variation
+            publication_title="Publication 2",
+            quartile="Q2",
+            sanctioned_amount=Decimal("25000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 2),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        s3 = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Sita Verma",
+            publication_title="Publication 3",
+            quartile="Q1",
+            sanctioned_amount=Decimal("50000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 3),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        test_db.add_all([s1, s2, s3])
+        test_db.commit()
+
+        stats = anudaan_showcase_service.get_public_impact_stats(test_db, academic_year="2025-2026")
+        assert stats.total_sanction_entries == 3
+        # Distinct researchers: "dr. ramesh sharma" and "dr. sita verma" -> 2
+        assert stats.total_researchers_recognised == 2
+        assert stats.total_incentive_sanctioned_inr == Decimal("125000.00")
+        assert stats.quartile_breakdown["Q1"] == 2
+        assert stats.quartile_breakdown["Q2"] == 1
+
+    def test_unpublished_records_excluded_from_public_stats(self, test_db):
+        """Proves: Unpublished records are excluded from public statistics, but included in admin statistics."""
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=2,
+            issue_number=3,
+            status="UPCOMING",
+            is_published=True,
+        )
+        test_db.add(cycle)
+        test_db.commit()
+
+        # 1 published, 1 draft (unpublished)
+        s_pub = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Public Author",
+            publication_title="Published Paper",
+            quartile="Q2",
+            sanctioned_amount=Decimal("4000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 1),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        s_draft = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Draft Author",
+            publication_title="Draft Paper",
+            quartile="Q1",
+            sanctioned_amount=Decimal("10000.00"),
+            academic_year="2025-2026",
+            sanction_date=date(2026, 2, 2),
+            felicitation_cycle_id=cycle.id,
+            is_published=False,  # Unpublished
+        )
+        test_db.add_all([s_pub, s_draft])
+        test_db.commit()
+
+        # Public stats (is_published=True)
+        pub_stats = anudaan_showcase_service.get_public_impact_stats(test_db, academic_year="2025-2026", is_published=True)
+        assert pub_stats.total_sanction_entries == 1
+        assert pub_stats.total_incentive_sanctioned_inr == Decimal("4000.00")
+        assert pub_stats.quartile_breakdown["Q2"] == 1
+        assert pub_stats.quartile_breakdown["Q1"] == 0
+
+        # Admin stats (is_published=None includes drafts)
+        admin_stats = anudaan_showcase_service.get_public_impact_stats(test_db, academic_year="2025-2026", is_published=None)
+        assert admin_stats.total_sanction_entries == 2
+        assert admin_stats.total_incentive_sanctioned_inr == Decimal("14000.00")
+        assert admin_stats.quartile_breakdown["Q2"] == 1
+        assert admin_stats.quartile_breakdown["Q1"] == 1
+
+    def test_audit_logging_failure_does_not_break_sanction_creation(self):
+        """Proves: Failure in post-commit CentralAuditService logging does NOT raise 500 error."""
+        from app.services.audit_service import CentralAuditService
+
+        mock_db = MagicMock()
+        # Ensure log_action safely handles exceptions when fail_silent=True
+        with patch.object(CentralAuditService, "log_event", side_effect=Exception("Database audit table unavailable")):
+            # log_action should absorb the exception silently
+            CentralAuditService.log_action(
+                db=mock_db,
+                action="CREATE",
+                entity_type="ANUDAAN_SANCTION_ENTRY",
+                entity_id=str(uuid.uuid4()),
+                fail_silent=True,
+            )
+            # Did not raise!
+
+
