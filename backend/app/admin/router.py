@@ -1,3 +1,4 @@
+import app.models  # Guarantees Base model registry initializes cleanly before router
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
