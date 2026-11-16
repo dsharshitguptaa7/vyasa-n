@@ -361,7 +361,7 @@ export const CertificatesPage: React.FC = () => {
       setWizardTitle('Certificate of Appreciation for Research Publication');
       setWizardPresentation('This certificate is proudly awarded to');
       setWizardContribution(
-        'in recognition of distinguished research productivity and scholarly impact under the University Research Incentive Scheme for the work titled:'
+        'in recognition of distinguished research productivity and scholarly impact under the University Publication Incentive Policy for the work titled:'
       );
       setWizardCongratulatory(
         'The University commends the meritorious scholarly productivity, research excellence, and exemplary intellectual dedication to advancing scientific innovation.'
