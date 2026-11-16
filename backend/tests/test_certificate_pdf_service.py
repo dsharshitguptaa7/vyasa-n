@@ -237,3 +237,109 @@ def test_incentive_certificate_metadata_box_formatting():
     assert "SANCTIONED INCENTIVE AWARD" in page_text
     assert "INR 75,000" in page_text
     assert "RESEARCH BULLETIN CITATION" in page_text
+
+
+def test_author_title_selection_and_fallback_prevention():
+    """
+    Verify:
+    1. An author with no explicit academic title (None, empty, or 'None') is rendered without 'Dr.' prepended.
+    2. An author with explicit academic title ('Prof.' or 'Er.') renders with the chosen title.
+    3. CertificateAuthorCreate schema normalizes empty / 'None' to None and preserves explicit titles.
+    """
+    from app.modules.sama_veda.schemas.cms import CertificateAuthorCreate
+
+    # Schema tests
+    c1 = CertificateAuthorCreate(author_name_snapshot="Ramesh Sharma", academic_title_snapshot=None)
+    assert c1.academic_title_snapshot is None
+
+    c2 = CertificateAuthorCreate(author_name_snapshot="Ramesh Sharma", academic_title_snapshot="None")
+    assert c2.academic_title_snapshot is None
+
+    c3 = CertificateAuthorCreate(author_name_snapshot="Ramesh Sharma", academic_title_snapshot="  ")
+    assert c3.academic_title_snapshot is None
+
+    c4 = CertificateAuthorCreate(author_name_snapshot="Ramesh Sharma", academic_title_snapshot="Prof.")
+    assert c4.academic_title_snapshot == "Prof."
+
+    c5 = CertificateAuthorCreate(author_name_snapshot="Ramesh Sharma", academic_title_snapshot="Er.")
+    assert c5.academic_title_snapshot == "Er."
+
+    # PDF single author with None title
+    pdf_bytes_no_title, _ = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000201",
+        verification_token="token_notitle_201",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_notitle_201",
+        authors=[{
+            "author_name_snapshot": "Ramesh Sharma",
+            "academic_title_snapshot": None,
+            "department_snapshot": "Department of Physics",
+            "scopus_id_snapshot": "57211512345",
+        }],
+        research_title="Quantum coherence in low-dimensional nanostructures",
+    )
+    reader_no_title = PdfReader(io.BytesIO(pdf_bytes_no_title))
+    text_no_title = reader_no_title.pages[0].extract_text()
+    assert "Ramesh Sharma" in text_no_title
+    assert "Dr. Ramesh Sharma" not in text_no_title
+    assert "None Ramesh Sharma" not in text_no_title
+
+    # PDF single author with "None" string
+    pdf_bytes_str_none, _ = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000202",
+        verification_token="token_strnone_202",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_strnone_202",
+        authors=[{
+            "author_name_snapshot": "Ramesh Sharma",
+            "academic_title_snapshot": "None",
+            "department_snapshot": "Department of Physics",
+        }],
+        research_title="Quantum coherence in low-dimensional nanostructures",
+    )
+    reader_str_none = PdfReader(io.BytesIO(pdf_bytes_str_none))
+    text_str_none = reader_str_none.pages[0].extract_text()
+    assert "Ramesh Sharma" in text_str_none
+    assert "Dr. Ramesh Sharma" not in text_str_none
+    assert "None Ramesh Sharma" not in text_str_none
+
+    # PDF author with explicit "Prof."
+    pdf_bytes_prof, _ = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000203",
+        verification_token="token_prof_203",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_prof_203",
+        authors=[{
+            "author_name_snapshot": "Ramesh Sharma",
+            "academic_title_snapshot": "Prof.",
+            "department_snapshot": "Department of Physics",
+        }],
+        research_title="Quantum coherence in low-dimensional nanostructures",
+    )
+    reader_prof = PdfReader(io.BytesIO(pdf_bytes_prof))
+    text_prof = reader_prof.pages[0].extract_text()
+    assert "Prof. Ramesh Sharma" in text_prof
+
+    # PDF multi-author (2 authors): one with "Er." and one with None
+    pdf_bytes_multi, _ = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000204",
+        verification_token="token_multi_204",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_multi_204",
+        authors=[
+            {
+                "author_name_snapshot": "Kavita Singh",
+                "academic_title_snapshot": "Er.",
+                "department_snapshot": "Department of Engineering",
+            },
+            {
+                "author_name_snapshot": "Ananya Roy",
+                "academic_title_snapshot": None,
+                "department_snapshot": "Department of Chemistry",
+            },
+        ],
+        research_title="Novel catalytic processes in carbon-neutral fuel cells",
+    )
+    reader_multi = PdfReader(io.BytesIO(pdf_bytes_multi))
+    text_multi = reader_multi.pages[0].extract_text()
+    assert "Er. Kavita Singh" in text_multi
+    assert "Ananya Roy" in text_multi
+    assert "Dr. Ananya Roy" not in text_multi
+    assert "None Ananya Roy" not in text_multi
+

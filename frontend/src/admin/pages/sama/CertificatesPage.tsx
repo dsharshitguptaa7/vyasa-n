@@ -155,9 +155,10 @@ export const CertificatesPage: React.FC = () => {
   const [searchAuthorQuery, setSearchAuthorQuery] = useState('');
   const [searchResults, setSearchResults] = useState<AuthorRecord[]>([]);
   const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
+  const [selectedDirectoryAuthorTitle, setSelectedDirectoryAuthorTitle] = useState('None');
   const [selectedDirectoryAuthorRole, setSelectedDirectoryAuthorRole] = useState('Co-Author');
   const [manualAuthorName, setManualAuthorName] = useState('');
-  const [manualAuthorTitle, setManualAuthorTitle] = useState('Dr.');
+  const [manualAuthorTitle, setManualAuthorTitle] = useState('None');
   const [manualAuthorDept, setManualAuthorDept] = useState('');
   const [manualAuthorScopusId, setManualAuthorScopusId] = useState('');
   const [manualAuthorRole, setManualAuthorRole] = useState('Co-Author');
@@ -340,6 +341,13 @@ export const CertificatesPage: React.FC = () => {
     setWizardSanctionRef('');
     setWizardPublicationId('');
     setWizardAuthors([]);
+    setSelectedDirectoryAuthorTitle('None');
+    setSelectedDirectoryAuthorRole('Co-Author');
+    setManualAuthorTitle('None');
+    setManualAuthorName('');
+    setManualAuthorDept('');
+    setManualAuthorScopusId('');
+    setManualAuthorAffiliation('');
     setWizardIssueDate(new Date().toISOString().split('T')[0]);
     setWizardSubmitMode('APPROVAL');
     setWizardDirectJustification('');
@@ -387,7 +395,7 @@ export const CertificatesPage: React.FC = () => {
       return;
     }
     const volNum = parseInt(volStr, 10);
-    const matchingIssues = bulletins.filter((b) => b.volume_number === volNum);
+    const matchingIssues = bulletins.filter((b) => (b.volume_number || b.volume) === volNum);
     if (matchingIssues.length === 1) {
       setWizardBulletinId(matchingIssues[0].id);
     } else if (!matchingIssues.some((b) => b.id === wizardBulletinId)) {
@@ -464,10 +472,11 @@ export const CertificatesPage: React.FC = () => {
     }
 
     const assignedRole = wizardAuthors.length === 0 ? 'First Author' : selectedDirectoryAuthorRole || 'Co-Author';
+    const assignedTitle = selectedDirectoryAuthorTitle && selectedDirectoryAuthorTitle !== 'None' ? selectedDirectoryAuthorTitle : null;
     const newAuthor: CertificateAuthorItem = {
       researcher_id: authorRecord.id,
       author_name_snapshot: authorRecord.full_name,
-      academic_title_snapshot: authorRecord.full_name.startsWith('Dr.') ? 'Dr.' : (authorRecord.full_name.startsWith('Prof.') ? 'Prof.' : 'Dr.'),
+      academic_title_snapshot: assignedTitle,
       department_snapshot: authorRecord.department || 'Department of Research',
       scopus_id_snapshot: authorRecord.scopus_id || null,
       affiliation_snapshot: authorRecord.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur',
@@ -510,6 +519,7 @@ export const CertificatesPage: React.FC = () => {
 
     setWizardAuthors([...wizardAuthors, newAuthor]);
     setManualAuthorName('');
+    setManualAuthorTitle('None');
     setManualAuthorDept('');
     setManualAuthorScopusId('');
     setManualAuthorAffiliation('');
@@ -2410,10 +2420,10 @@ export const CertificatesPage: React.FC = () => {
                           }}
                         >
                           <option value="">-- Select Volume --</option>
-                          {Array.from(new Set(bulletins.map((b) => b.volume_number)))
-                            .sort((a, b) => b - a)
+                          {Array.from(new Set(bulletins.map((b) => b.volume_number || b.volume).filter(Boolean)))
+                            .sort((a, b) => (Number(b) || 0) - (Number(a) || 0))
                             .map((vol) => (
-                              <option key={vol} value={vol.toString()}>
+                              <option key={String(vol)} value={String(vol)}>
                                 Volume {vol}
                               </option>
                             ))}
@@ -2432,7 +2442,8 @@ export const CertificatesPage: React.FC = () => {
                             setWizardBulletinId(bId);
                             const found = bulletins.find((b) => b.id === bId);
                             if (found && !wizardBulletinVolume) {
-                              setWizardBulletinVolume(found.volume_number.toString());
+                              const v = found.volume_number || found.volume;
+                              if (v) setWizardBulletinVolume(String(v));
                             }
                           }}
                           disabled={!wizardBulletinVolume && bulletins.length > 0}
@@ -2450,10 +2461,10 @@ export const CertificatesPage: React.FC = () => {
                         >
                           <option value="">-- Select Issue Edition --</option>
                           {bulletins
-                            .filter((b) => !wizardBulletinVolume || b.volume_number === parseInt(wizardBulletinVolume, 10))
+                            .filter((b) => !wizardBulletinVolume || (b.volume_number || b.volume) === parseInt(wizardBulletinVolume, 10))
                             .map((b) => (
                               <option key={b.id} value={b.id}>
-                                Issue {b.issue_number} — {b.publication_period || b.title}
+                                Issue {b.issue_number || b.issue} — {b.publication_period || b.title}
                               </option>
                             ))}
                         </select>
@@ -2649,27 +2660,56 @@ export const CertificatesPage: React.FC = () => {
                         </span>
                         <Badge variant="teal">SAMIKSHA Verified</Badge>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>Assign Role:</span>
-                        <select
-                          value={selectedDirectoryAuthorRole}
-                          onChange={(e) => setSelectedDirectoryAuthorRole(e.target.value)}
-                          style={{
-                            fontSize: '12.5px',
-                            padding: '5px 10px',
-                            borderRadius: '6px',
-                            border: '1px solid #CBD5E1',
-                            backgroundColor: '#FFFFFF',
-                            color: '#0F2B48',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <option value="First Author">First Author</option>
-                          <option value="Corresponding Author">Corresponding Author</option>
-                          <option value="Co-Author">Co-Author</option>
-                          <option value="Principal Investigator">Principal Investigator</option>
-                        </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>Title:</span>
+                          <select
+                            aria-label="Directory Author Title"
+                            value={selectedDirectoryAuthorTitle}
+                            onChange={(e) => setSelectedDirectoryAuthorTitle(e.target.value)}
+                            style={{
+                              fontSize: '12.5px',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #CBD5E1',
+                              backgroundColor: '#FFFFFF',
+                              color: '#0F2B48',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="None">None</option>
+                            <option value="Dr.">Dr.</option>
+                            <option value="Prof.">Prof.</option>
+                            <option value="Mr.">Mr.</option>
+                            <option value="Ms.">Ms.</option>
+                            <option value="Mrs.">Mrs.</option>
+                            <option value="Er.">Er.</option>
+                          </select>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>Assign Role:</span>
+                          <select
+                            aria-label="Directory Author Role"
+                            value={selectedDirectoryAuthorRole}
+                            onChange={(e) => setSelectedDirectoryAuthorRole(e.target.value)}
+                            style={{
+                              fontSize: '12.5px',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #CBD5E1',
+                              backgroundColor: '#FFFFFF',
+                              color: '#0F2B48',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="First Author">First Author</option>
+                            <option value="Corresponding Author">Corresponding Author</option>
+                            <option value="Co-Author">Co-Author</option>
+                            <option value="Principal Investigator">Principal Investigator</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -2821,6 +2861,7 @@ export const CertificatesPage: React.FC = () => {
                           Title
                         </label>
                         <select
+                          aria-label="Manual Author Title"
                           value={manualAuthorTitle}
                           onChange={(e) => setManualAuthorTitle(e.target.value)}
                           style={{
@@ -2835,13 +2876,13 @@ export const CertificatesPage: React.FC = () => {
                             fontWeight: 500,
                           }}
                         >
+                          <option value="None">None</option>
                           <option value="Dr.">Dr.</option>
                           <option value="Prof.">Prof.</option>
                           <option value="Mr.">Mr.</option>
                           <option value="Ms.">Ms.</option>
                           <option value="Mrs.">Mrs.</option>
                           <option value="Er.">Er.</option>
-                          <option value="None">None</option>
                         </select>
                       </div>
 
@@ -3026,8 +3067,39 @@ export const CertificatesPage: React.FC = () => {
 
                                 <div style={{ minWidth: 0 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <select
+                                      aria-label={`Author Title for ${auth.author_name_snapshot}`}
+                                      value={auth.academic_title_snapshot || 'None'}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        const updated = [...wizardAuthors];
+                                        updated[idx] = {
+                                          ...updated[idx],
+                                          academic_title_snapshot: val === 'None' ? null : val,
+                                        };
+                                        setWizardAuthors(updated);
+                                      }}
+                                      style={{
+                                        fontSize: '11.5px',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #CBD5E1',
+                                        backgroundColor: '#FFFFFF',
+                                        color: '#0F2B48',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        height: '26px',
+                                      }}
+                                    >
+                                      <option value="None">None</option>
+                                      <option value="Dr.">Dr.</option>
+                                      <option value="Prof.">Prof.</option>
+                                      <option value="Mr.">Mr.</option>
+                                      <option value="Ms.">Ms.</option>
+                                      <option value="Mrs.">Mrs.</option>
+                                      <option value="Er.">Er.</option>
+                                    </select>
                                     <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48' }}>
-                                      {auth.academic_title_snapshot && auth.academic_title_snapshot !== 'None' ? `${auth.academic_title_snapshot} ` : ''}
                                       {auth.author_name_snapshot}
                                     </span>
                                     {isPrimary && (
@@ -3269,7 +3341,7 @@ export const CertificatesPage: React.FC = () => {
                       </div>
                     )}
                     <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#0F2B48', marginTop: '8px' }}>
-                      Recipients ({wizardAuthors.length}): {wizardAuthors.map((a) => `${a.academic_title_snapshot || ''} ${a.author_name_snapshot} (${a.author_role})`).join(' • ')}
+                      Recipients ({wizardAuthors.length}): {wizardAuthors.map((a) => `${a.academic_title_snapshot && a.academic_title_snapshot !== 'None' ? `${a.academic_title_snapshot} ` : ''}${a.author_name_snapshot} (${a.author_role})`).join(' • ')}
                     </div>
                   </div>
 

@@ -939,6 +939,8 @@ class CertificatePDFEngine:
             auth = authors[0]
             name = (auth.get("author_name_snapshot") or auth.get("name") or "Distinguished Researcher").strip()
             academic_title = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+            if academic_title.lower() in ("none", "null", "undefined"):
+                academic_title = ""
             if academic_title and not name.lower().startswith(academic_title.lower()):
                 display_name = f"{academic_title} {name}"
             else:
@@ -988,6 +990,8 @@ class CertificatePDFEngine:
             for i, auth in enumerate(authors):
                 name = (auth.get("author_name_snapshot") or auth.get("name") or f"Researcher {i+1}").strip()
                 title_prefix = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+                if title_prefix.lower() in ("none", "null", "undefined"):
+                    title_prefix = ""
                 if title_prefix and not name.lower().startswith(title_prefix.lower()):
                     display_name = f"{title_prefix} {name}"
                 else:
@@ -1014,6 +1018,8 @@ class CertificatePDFEngine:
             for i, auth in enumerate(authors):
                 name = (auth.get("author_name_snapshot") or auth.get("name") or f"Researcher {i+1}").strip()
                 title_prefix = (auth.get("academic_title_snapshot") or auth.get("academic_title") or "").strip()
+                if title_prefix.lower() in ("none", "null", "undefined"):
+                    title_prefix = ""
                 if title_prefix and not name.lower().startswith(title_prefix.lower()):
                     display_name = f"{title_prefix} {name}"
                 else:

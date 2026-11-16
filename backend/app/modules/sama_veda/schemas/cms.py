@@ -301,6 +301,16 @@ class CertificateAuthorCreate(BaseModel):
     author_order: int = Field(1, ge=1)
     author_role: str = Field("Author", max_length=50)
 
+    @field_validator("academic_title_snapshot", mode="before")
+    @classmethod
+    def normalize_academic_title(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = str(v).strip()
+        if not cleaned or cleaned.lower() in ("none", "null", "undefined"):
+            return None
+        return cleaned
+
 
 class CertificateAuthorOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

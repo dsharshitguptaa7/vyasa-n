@@ -829,7 +829,7 @@ def verify_certificate(
         {
             "id": str(a.id),
             "author_name": a.author_name_snapshot,
-            "academic_title": a.academic_title_snapshot,
+            "academic_title": a.academic_title_snapshot if a.academic_title_snapshot and a.academic_title_snapshot.strip().lower() not in ("none", "null", "undefined") else None,
             "scopus_id": a.scopus_id_snapshot,
             "affiliation": a.affiliation_snapshot,
             "department": a.department_snapshot,

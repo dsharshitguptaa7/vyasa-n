@@ -437,6 +437,7 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                           >
                             <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F2B48' }}>
                               {auth.academic_title &&
+                              auth.academic_title !== 'None' &&
                               !auth.author_name.toLowerCase().startsWith(auth.academic_title.toLowerCase())
                                 ? `${auth.academic_title} ${auth.author_name}`
                                 : auth.author_name}

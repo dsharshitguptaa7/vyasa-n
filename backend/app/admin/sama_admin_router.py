@@ -1060,7 +1060,7 @@ def preview_certificate_pdf(
         author_items = [{
             "author_name_snapshot": "Recipient Researcher",
             "department_snapshot": "Department of Physics",
-            "academic_title_snapshot": "Dr.",
+            "academic_title_snapshot": None,
             "author_role": "First Author",
             "author_order": 1,
         }]
