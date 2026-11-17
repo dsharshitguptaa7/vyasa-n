@@ -699,30 +699,84 @@ class SamaCmsService:
         search: Optional[str] = None,
         status: Optional[str] = None,
         certificate_type: Optional[str] = None,
+        scope: Optional[str] = None,
+        approval_stage: Optional[str] = None,
     ) -> Tuple[int, List[FelicitationCertificate]]:
         query = select(FelicitationCertificate).options(
             selectinload(FelicitationCertificate.authors),
             selectinload(FelicitationCertificate.approvals),
         )
 
+        filters = []
+
         if bulletin_id:
-            query = query.where(FelicitationCertificate.bulletin_id == bulletin_id)
+            filters.append(FelicitationCertificate.bulletin_id == bulletin_id)
         if author_id:
-            query = query.where(
+            filters.append(
                 or_(
                     FelicitationCertificate.author_id == author_id,
                     FelicitationCertificate.authors.any(CertificateAuthor.researcher_id == author_id),
                 )
             )
-        if is_revoked is not None:
-            query = query.where(FelicitationCertificate.is_revoked == is_revoked)
-        if status:
-            query = query.where(FelicitationCertificate.status == status.strip().upper())
         if certificate_type:
-            query = query.where(FelicitationCertificate.certificate_type == certificate_type.strip().upper())
+            filters.append(FelicitationCertificate.certificate_type == certificate_type.strip().upper())
+
+        scope_norm = (scope or "").strip().lower()
+        status_norm = (status or "").strip().upper()
+
+        if scope_norm == "ledger" or status_norm in ["ISSUED_LEDGER", "LEDGER"]:
+            # Issued Ledger lifecycle: All certificates that have actually reached the issued state
+            # (Issued & Active, Revoked, and Superseded). Strictly excludes DRAFT, SUBMITTED, PENDING, and SCHEDULED.
+            ledger_base_cond = and_(
+                or_(
+                    FelicitationCertificate.status.in_(["ISSUED", "REVOKED", "SUPERSEDED"]),
+                    FelicitationCertificate.is_revoked == True,
+                ),
+                FelicitationCertificate.status.notin_(["DRAFT", "SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
+            )
+
+            if status_norm == "ISSUED":
+                filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
+            elif status_norm == "REVOKED" or is_revoked is True:
+                filters.append(or_(FelicitationCertificate.is_revoked == True, FelicitationCertificate.status == "REVOKED"))
+            elif status_norm == "SUPERSEDED":
+                filters.append(FelicitationCertificate.status == "SUPERSEDED")
+            elif status_norm == "SCHEDULED":
+                filters.append(and_(FelicitationCertificate.status == "SCHEDULED", FelicitationCertificate.is_revoked == False))
+            else:
+                filters.append(ledger_base_cond)
+                filters.append(FelicitationCertificate.status != "SCHEDULED")
+        elif scope_norm == "approvals" or status_norm in ["PENDING", "PENDING_APPROVAL", "APPROVAL_QUEUE"]:
+            # Approval Queue lifecycle: certificates genuinely awaiting Dean R&D or Vice Chancellor approval
+            filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]))
+            filters.append(FelicitationCertificate.is_revoked == False)
+
+            stage_norm = (approval_stage or status or "").strip().upper()
+            if stage_norm in ["DEAN", "DEAN_RD", "PENDING_DEAN_APPROVAL"]:
+                filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL"]))
+            elif stage_norm in ["VC", "VICE_CHANCELLOR", "PENDING_VC_APPROVAL"]:
+                filters.append(FelicitationCertificate.status == "PENDING_VC_APPROVAL")
+        else:
+            if is_revoked is not None:
+                filters.append(FelicitationCertificate.is_revoked == is_revoked)
+
+            if status:
+                if "," in status:
+                    statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
+                    filters.append(FelicitationCertificate.status.in_(statuses))
+                elif status_norm in ["PENDING", "PENDING_APPROVAL"]:
+                    filters.append(and_(
+                        FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
+                        FelicitationCertificate.is_revoked == False,
+                    ))
+                elif status_norm == "ISSUED_ACTIVE":
+                    filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
+                else:
+                    filters.append(FelicitationCertificate.status == status_norm)
+
         if search:
             search_pattern = f"%{search.strip()}%"
-            query = query.where(
+            filters.append(
                 or_(
                     FelicitationCertificate.certificate_number.ilike(search_pattern),
                     FelicitationCertificate.title.ilike(search_pattern),
@@ -733,32 +787,9 @@ class SamaCmsService:
             )
 
         count_stmt = select(func.count(FelicitationCertificate.id))
-        if bulletin_id:
-            count_stmt = count_stmt.where(FelicitationCertificate.bulletin_id == bulletin_id)
-        if author_id:
-            count_stmt = count_stmt.where(
-                or_(
-                    FelicitationCertificate.author_id == author_id,
-                    FelicitationCertificate.authors.any(CertificateAuthor.researcher_id == author_id),
-                )
-            )
-        if is_revoked is not None:
-            count_stmt = count_stmt.where(FelicitationCertificate.is_revoked == is_revoked)
-        if status:
-            count_stmt = count_stmt.where(FelicitationCertificate.status == status.strip().upper())
-        if certificate_type:
-            count_stmt = count_stmt.where(FelicitationCertificate.certificate_type == certificate_type.strip().upper())
-        if search:
-            search_pattern = f"%{search.strip()}%"
-            count_stmt = count_stmt.where(
-                or_(
-                    FelicitationCertificate.certificate_number.ilike(search_pattern),
-                    FelicitationCertificate.title.ilike(search_pattern),
-                    FelicitationCertificate.research_title.ilike(search_pattern),
-                    FelicitationCertificate.authors.any(CertificateAuthor.author_name_snapshot.ilike(search_pattern)),
-                    FelicitationCertificate.authors.any(CertificateAuthor.scopus_id_snapshot.ilike(search_pattern)),
-                )
-            )
+        if filters:
+            query = query.where(*filters)
+            count_stmt = count_stmt.where(*filters)
 
         total = db.scalar(count_stmt) or 0
         items = db.scalars(
@@ -818,26 +849,64 @@ class SamaCmsService:
             func.count(case((FelicitationCertificate.status == "DRAFT", FelicitationCertificate.id))).label("drafts"),
             func.count(
                 case((
-                    FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
+                    and_(
+                        FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
+                        FelicitationCertificate.is_revoked == False,
+                    ),
                     FelicitationCertificate.id,
                 ))
             ).label("pending"),
-            func.count(case((FelicitationCertificate.status == "SCHEDULED", FelicitationCertificate.id))).label("scheduled"),
-            func.count(case((FelicitationCertificate.status == "ISSUED", FelicitationCertificate.id))).label("issued"),
-            func.count(case((FelicitationCertificate.is_revoked == True, FelicitationCertificate.id))).label("revoked"),
-            func.count(case((FelicitationCertificate.reissued_from_id.is_not(None), FelicitationCertificate.id))).label("reissued"),
+            func.count(
+                case((
+                    and_(
+                        FelicitationCertificate.status == "SCHEDULED",
+                        FelicitationCertificate.is_revoked == False,
+                    ),
+                    FelicitationCertificate.id,
+                ))
+            ).label("scheduled"),
+            func.count(
+                case((
+                    and_(
+                        FelicitationCertificate.status == "ISSUED",
+                        FelicitationCertificate.is_revoked == False,
+                    ),
+                    FelicitationCertificate.id,
+                ))
+            ).label("issued_active"),
+            func.count(
+                case((
+                    or_(
+                        FelicitationCertificate.is_revoked == True,
+                        FelicitationCertificate.status == "REVOKED",
+                    ),
+                    FelicitationCertificate.id,
+                ))
+            ).label("revoked"),
+            func.count(
+                case((
+                    FelicitationCertificate.status == "SUPERSEDED",
+                    FelicitationCertificate.id,
+                ))
+            ).label("superseded"),
         )
         row = db.execute(cert_stats_stmt).one()
         total_authors = db.scalar(select(func.count(CertificateAuthor.id.distinct()))) or 0
 
+        issued_active = row.issued_active or 0
+        revoked = row.revoked or 0
+        superseded = row.superseded or 0
+        total_issued = issued_active + revoked + superseded
+
         return {
             "total_certificates": row.total or 0,
+            "total_issued": total_issued,
             "draft_certificates": row.drafts or 0,
             "pending_approvals": row.pending or 0,
             "scheduled_certificates": row.scheduled or 0,
-            "issued_certificates": row.issued or 0,
-            "revoked_certificates": row.revoked or 0,
-            "reissued_certificates": row.reissued or 0,
+            "issued_certificates": issued_active,
+            "revoked_certificates": revoked,
+            "reissued_certificates": superseded,
             "total_researchers_linked": total_authors,
         }
 

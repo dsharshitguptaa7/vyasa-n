@@ -1149,6 +1149,8 @@ def list_admin_certificates(
     search: Optional[str] = None,
     status: Optional[str] = None,
     certificate_type: Optional[str] = None,
+    scope: Optional[str] = Query(None, description="'ledger' or 'approvals'"),
+    approval_stage: Optional[str] = Query(None, description="'DEAN' or 'VC'"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:read")),
 ):
@@ -1163,6 +1165,8 @@ def list_admin_certificates(
             search=search,
             status=status,
             certificate_type=certificate_type,
+            scope=scope,
+            approval_stage=approval_stage,
         )
     except Exception as exc:
         _handle_db_schema_exception(exc, "Felicitation certificates")

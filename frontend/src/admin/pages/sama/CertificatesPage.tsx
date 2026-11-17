@@ -43,11 +43,21 @@ export const CertificatesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Filters & Search
+  // Filters & Search (Issued Ledger)
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'pending' | 'revoked' | 'superseded'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'revoked' | 'superseded'>('all');
   const [page, setPage] = useState(1);
   const limit = 12;
+
+  // Dedicated Approval Queue State
+  const [approvalCertificates, setApprovalCertificates] = useState<CertificateRecord[]>([]);
+  const [approvalTotalCount, setApprovalTotalCount] = useState(0);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [approvalSearch, setApprovalSearch] = useState('');
+  const [approvalStageFilter, setApprovalStageFilter] = useState<'all' | 'DEAN' | 'VC'>('all');
+  const [approvalPage, setApprovalPage] = useState(1);
+  const approvalLimit = 10;
 
   // Auxiliary Reference Data
   const [authors, setAuthors] = useState<AuthorRecord[]>([]);
@@ -209,10 +219,15 @@ export const CertificatesPage: React.FC = () => {
 
       let isRevokedParam: boolean | undefined = undefined;
       let statusParam: string | undefined = undefined;
-      if (statusFilter === 'revoked') {
+      let scopeParam: 'ledger' | undefined = undefined;
+
+      if (statusFilter === 'all') {
+        scopeParam = 'ledger';
+      } else if (statusFilter === 'revoked') {
         isRevokedParam = true;
       } else if (statusFilter === 'issued') {
         statusParam = 'ISSUED';
+        isRevokedParam = false;
       } else if (statusFilter === 'scheduled') {
         statusParam = 'SCHEDULED';
       } else if (statusFilter === 'superseded') {
@@ -225,22 +240,10 @@ export const CertificatesPage: React.FC = () => {
         search: search.trim() || undefined,
         is_revoked: isRevokedParam,
         status: statusParam,
+        scope: scopeParam,
       });
 
-      let items = res.items;
-      if (statusFilter === 'issued') {
-        items = items.filter((c) => c.status === 'ISSUED' && !c.is_revoked);
-      } else if (statusFilter === 'scheduled') {
-        items = items.filter((c) => c.status === 'SCHEDULED');
-      } else if (statusFilter === 'pending') {
-        items = items.filter(
-          (c) => c.status === 'PENDING_DEAN_APPROVAL' || c.status === 'PENDING_VC_APPROVAL' || c.status === 'DRAFT'
-        );
-      } else if (statusFilter === 'superseded') {
-        items = items.filter((c) => c.status === 'SUPERSEDED');
-      }
-
-      setCertificates(items);
+      setCertificates(res.items);
       setTotalCount(res.total);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
@@ -249,6 +252,29 @@ export const CertificatesPage: React.FC = () => {
       setLoading(false);
     }
   }, [page, search, statusFilter]);
+
+  const fetchApprovalQueue = useCallback(async () => {
+    try {
+      setApprovalLoading(true);
+      setApprovalError(null);
+
+      const res = await samaAdminService.getCertificates({
+        scope: 'approvals',
+        approval_stage: approvalStageFilter !== 'all' ? approvalStageFilter : undefined,
+        skip: (approvalPage - 1) * approvalLimit,
+        limit: approvalLimit,
+        search: approvalSearch.trim() || undefined,
+      });
+
+      setApprovalCertificates(res.items);
+      setApprovalTotalCount(res.total);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setApprovalError(e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to load approval queue');
+    } finally {
+      setApprovalLoading(false);
+    }
+  }, [approvalPage, approvalSearch, approvalStageFilter]);
 
   const loadReferenceData = useCallback(async () => {
     try {
@@ -283,6 +309,12 @@ export const CertificatesPage: React.FC = () => {
     fetchCertificates();
     fetchStats();
   }, [fetchCertificates]);
+
+  useEffect(() => {
+    if (activeTab === 'approvals') {
+      fetchApprovalQueue();
+    }
+  }, [activeTab, fetchApprovalQueue]);
 
   useEffect(() => {
     loadReferenceData();
@@ -653,6 +685,7 @@ export const CertificatesPage: React.FC = () => {
       );
       setShowWizardModal(false);
       fetchCertificates();
+      fetchApprovalQueue();
       fetchStats();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
@@ -698,6 +731,7 @@ export const CertificatesPage: React.FC = () => {
       setShowApprovalModal(false);
       setSelectedCert(null);
       fetchCertificates();
+      fetchApprovalQueue();
       fetchStats();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
@@ -1047,7 +1081,7 @@ export const CertificatesPage: React.FC = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <Button variant="outline" size="sm" onClick={() => { fetchCertificates(); fetchStats(); }}>
+            <Button variant="outline" size="sm" onClick={() => { fetchCertificates(); fetchApprovalQueue(); fetchStats(); }}>
               <AppIcon name="clock" size={14} style={{ marginRight: '6px' }} />
               Refresh
             </Button>
@@ -1067,11 +1101,16 @@ export const CertificatesPage: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Total Issued</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>{stats.total_certificates}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>
+              {stats.total_issued ?? ((stats.issued_certificates || (stats as any).issued || 0) + (stats.revoked_certificates || (stats as any).revoked || 0) + (stats.reissued_certificates || (stats as any).superseded || 0))}
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '2px' }}>
+              {stats.total_certificates ?? (stats as any).total ?? 0} in registry
+            </div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase' }}>Issued & Active</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#166534', marginTop: '4px' }}>{stats.issued_certificates}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#166534', marginTop: '4px' }}>{stats.issued_certificates ?? (stats as any).issued ?? 0}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#0284C7', textTransform: 'uppercase' }}>Scheduled</div>
@@ -1079,23 +1118,23 @@ export const CertificatesPage: React.FC = () => {
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#D97706', textTransform: 'uppercase' }}>Pending Approvals</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#D97706', marginTop: '4px' }}>{stats.pending_approvals}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#D97706', marginTop: '4px' }}>{stats.pending_approvals ?? (stats as any).in_review ?? 0}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#6366F1', textTransform: 'uppercase' }}>Drafts</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#6366F1', marginTop: '4px' }}>{stats.draft_certificates}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#6366F1', marginTop: '4px' }}>{stats.draft_certificates ?? (stats as any).draft ?? 0}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#DC2626', textTransform: 'uppercase' }}>Revoked</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#DC2626', marginTop: '4px' }}>{stats.revoked_certificates}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#DC2626', marginTop: '4px' }}>{stats.revoked_certificates ?? (stats as any).revoked ?? 0}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#8B5CF6', textTransform: 'uppercase' }}>Superseded</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#8B5CF6', marginTop: '4px' }}>{stats.reissued_certificates}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#8B5CF6', marginTop: '4px' }}>{stats.reissued_certificates ?? (stats as any).superseded ?? 0}</div>
           </div>
           <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#0284C7', textTransform: 'uppercase' }}>Linked Scholars</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{stats.total_researchers_linked}</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{stats.total_researchers_linked ?? 0}</div>
           </div>
         </div>
 
@@ -1230,7 +1269,7 @@ export const CertificatesPage: React.FC = () => {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div style={{ width: '180px' }}>
+              <div style={{ width: '280px' }}>
                 <Select
                   value={statusFilter}
                   onChange={(e) => {
@@ -1238,12 +1277,11 @@ export const CertificatesPage: React.FC = () => {
                     setPage(1);
                   }}
                   options={[
-                    { label: 'All Certificates', value: 'all' },
+                    { label: 'All Issued (Active, Revoked, Superseded)', value: 'all' },
                     { label: 'Issued & Active', value: 'issued' },
-                    { label: 'Scheduled', value: 'scheduled' },
-                    { label: 'Pending Approvals', value: 'pending' },
                     { label: 'Revoked', value: 'revoked' },
                     { label: 'Superseded', value: 'superseded' },
+                    { label: 'Scheduled (Pre-Activation)', value: 'scheduled' },
                   ]}
                 />
               </div>
@@ -1503,6 +1541,49 @@ export const CertificatesPage: React.FC = () => {
                 })}
               </div>
             )}
+
+            {/* Pagination Controls for Issued Ledger */}
+            {totalCount > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '16px 4px',
+                  borderTop: '1px solid #E2E8F0',
+                  marginTop: '8px',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <div data-testid="ledger-pagination-info" style={{ fontSize: '13px', color: '#64748B' }}>
+                  Showing <strong style={{ color: '#0F2B48' }}>{Math.min((page - 1) * limit + 1, totalCount)}</strong> to{' '}
+                  <strong style={{ color: '#0F2B48' }}>{Math.min(page * limit, totalCount)}</strong> of{' '}
+                  <strong style={{ color: '#0F2B48' }}>{totalCount}</strong> certificates
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  >
+                    ← Previous
+                  </Button>
+                  <span data-testid="ledger-page-info" style={{ fontSize: '13px', color: '#475569', padding: '0 8px' }}>
+                    Page <strong>{page}</strong> of <strong>{Math.max(1, Math.ceil(totalCount / limit))}</strong>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= Math.ceil(totalCount / limit)}
+                    onClick={() => setPage((p) => Math.min(p + 1, Math.ceil(totalCount / limit)))}
+                  >
+                    Next →
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1515,9 +1596,58 @@ export const CertificatesPage: React.FC = () => {
               <strong>Dual Signing Policy:</strong> Official university certificates require mandatory review and approval by both the <strong>Dean – Research & Development</strong> and the <strong>Vice Chancellor</strong> before final cryptographic sealing and public release.
             </div>
 
-            {loading ? (
+            {/* Stage filter and search */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ flex: '1 1 280px' }}>
+                <Input
+                  placeholder="Search pending certificate #, author name, Scopus ID, title..."
+                  value={approvalSearch}
+                  onChange={(e) => {
+                    setApprovalSearch(e.target.value);
+                    setApprovalPage(1);
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  variant={approvalStageFilter === 'all' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setApprovalStageFilter('all');
+                    setApprovalPage(1);
+                  }}
+                  style={approvalStageFilter === 'all' ? { backgroundColor: '#0F2B48', borderColor: '#0F2B48' } : {}}
+                >
+                  All Pending ({stats.pending_approvals})
+                </Button>
+                <Button
+                  variant={approvalStageFilter === 'DEAN' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setApprovalStageFilter('DEAN');
+                    setApprovalPage(1);
+                  }}
+                  style={approvalStageFilter === 'DEAN' ? { backgroundColor: '#B2811A', borderColor: '#B2811A' } : {}}
+                >
+                  Awaiting Dean R&D
+                </Button>
+                <Button
+                  variant={approvalStageFilter === 'VC' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setApprovalStageFilter('VC');
+                    setApprovalPage(1);
+                  }}
+                  style={approvalStageFilter === 'VC' ? { backgroundColor: '#7C3AED', borderColor: '#7C3AED' } : {}}
+                >
+                  Awaiting Vice Chancellor
+                </Button>
+              </div>
+            </div>
+
+            {approvalLoading ? (
               <LoadingState message="Checking approval queue..." />
-            ) : error ? (
+            ) : approvalError ? (
               <div
                 style={{
                   padding: '36px 24px',
@@ -1533,13 +1663,13 @@ export const CertificatesPage: React.FC = () => {
                   Unable to Load Approval Queue
                 </h3>
                 <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#B91C1C', maxWidth: '640px', marginInline: 'auto' }}>
-                  {error}
+                  {approvalError}
                 </p>
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={() => {
-                    fetchCertificates();
+                    fetchApprovalQueue();
                     fetchStats();
                   }}
                   style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
@@ -1550,139 +1680,173 @@ export const CertificatesPage: React.FC = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {certificates
-                  .filter(
-                    (c) =>
-                      c.status === 'PENDING_DEAN_APPROVAL' ||
-                      c.status === 'PENDING_VC_APPROVAL' ||
-                      c.status === 'DRAFT'
-                  )
-                  .map((cert) => (
-                    <div
-                      key={cert.id}
-                      style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '10px',
-                        padding: '18px 22px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
-                              {cert.certificate_number}
-                            </span>
-                            {cert.status === 'PENDING_DEAN_APPROVAL' ? (
-                              <Badge variant="gold">Step 1: Pending Dean R&D Approval</Badge>
-                            ) : cert.status === 'PENDING_VC_APPROVAL' ? (
-                              <Badge variant="gold">Step 2: Pending Vice Chancellor Approval</Badge>
-                            ) : (
-                              <Badge variant="neutral">Draft</Badge>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1E293B', marginTop: '6px' }}>
-                            {cert.title}
-                          </div>
-                          <div style={{ fontSize: '13.5px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
-                            "{cert.research_title}"
-                          </div>
+                {approvalCertificates.map((cert) => (
+                  <div
+                    key={cert.id}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '18px 22px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
+                            {cert.certificate_number}
+                          </span>
+                          {cert.status === 'PENDING_DEAN_APPROVAL' ? (
+                            <Badge variant="gold">Step 1: Pending Dean R&D Approval</Badge>
+                          ) : cert.status === 'PENDING_VC_APPROVAL' ? (
+                            <Badge variant="gold">Step 2: Pending Vice Chancellor Approval</Badge>
+                          ) : (
+                            <Badge variant="neutral">Draft</Badge>
+                          )}
                         </div>
-
-                        {/* Direct Authority Review Actions */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          {cert.status === 'PENDING_DEAN_APPROVAL' && (
-                            <>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                style={{ backgroundColor: '#166534', borderColor: '#166534' }}
-                                onClick={() => handleOpenApprovalModal(cert, 'DEAN_RD')}
-                              >
-                                <AppIcon name="check" size={14} style={{ marginRight: '4px' }} />
-                                Approve as Dean R&D
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                                onClick={() => {
-                                  setSelectedCert(cert);
-                                  setApprovalAuthority('DEAN_RD');
-                                  setApprovalAction('REJECT');
-                                  setApprovalRemarks('');
-                                  setShowApprovalModal(true);
-                                }}
-                              >
-                                Reject with Remarks
-                              </Button>
-                            </>
-                          )}
-
-                          {cert.status === 'PENDING_VC_APPROVAL' && (
-                            <>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
-                                onClick={() => handleOpenApprovalModal(cert, 'VICE_CHANCELLOR')}
-                              >
-                                <AppIcon name="shield" size={14} style={{ marginRight: '4px' }} />
-                                Seal & Issue as Vice Chancellor
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                                onClick={() => {
-                                  setSelectedCert(cert);
-                                  setApprovalAuthority('VICE_CHANCELLOR');
-                                  setApprovalAction('REJECT');
-                                  setApprovalRemarks('');
-                                  setShowApprovalModal(true);
-                                }}
-                              >
-                                Reject with Remarks
-                              </Button>
-                            </>
-                          )}
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: '#1E293B', marginTop: '6px' }}>
+                          {cert.title}
+                        </div>
+                        <div style={{ fontSize: '13.5px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
+                          "{cert.research_title}"
                         </div>
                       </div>
 
-                      {/* Author Details Breakdown */}
-                      {cert.authors && cert.authors.length > 0 && (
-                        <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '10px 14px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px' }}>
-                            Author Citation Breakdown:
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
-                            {cert.authors.map((a, i) => (
-                              <div key={i} style={{ fontSize: '12.5px', color: '#1E293B' }}>
-                                <strong>{a.author_order}. {a.author_name_snapshot}</strong> ({a.author_role})
-                                <div style={{ fontSize: '11px', color: '#64748B' }}>
-                                  {a.department_snapshot} {a.scopus_id_snapshot && `• Scopus: ${a.scopus_id_snapshot}`}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      {/* Direct Authority Review Actions */}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {cert.status === 'PENDING_DEAN_APPROVAL' && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              style={{ backgroundColor: '#166534', borderColor: '#166534' }}
+                              onClick={() => handleOpenApprovalModal(cert, 'DEAN_RD')}
+                            >
+                              <AppIcon name="check" size={14} style={{ marginRight: '4px' }} />
+                              Approve as Dean R&D
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                              onClick={() => {
+                                setSelectedCert(cert);
+                                setApprovalAuthority('DEAN_RD');
+                                setApprovalAction('REJECT');
+                                setApprovalRemarks('');
+                                setShowApprovalModal(true);
+                              }}
+                            >
+                              Reject with Remarks
+                            </Button>
+                          </>
+                        )}
 
-                {certificates.filter(
-                  (c) =>
-                    c.status === 'PENDING_DEAN_APPROVAL' ||
-                    c.status === 'PENDING_VC_APPROVAL' ||
-                    c.status === 'DRAFT'
-                ).length === 0 && (
+                        {cert.status === 'PENDING_VC_APPROVAL' && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              style={{ backgroundColor: '#B2811A', borderColor: '#B2811A' }}
+                              onClick={() => handleOpenApprovalModal(cert, 'VICE_CHANCELLOR')}
+                            >
+                              <AppIcon name="shield" size={14} style={{ marginRight: '4px' }} />
+                              Seal & Issue as Vice Chancellor
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                              onClick={() => {
+                                setSelectedCert(cert);
+                                setApprovalAuthority('VICE_CHANCELLOR');
+                                setApprovalAction('REJECT');
+                                setApprovalRemarks('');
+                                setShowApprovalModal(true);
+                              }}
+                            >
+                              Reject with Remarks
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Author Details Breakdown */}
+                    {cert.authors && cert.authors.length > 0 && (
+                      <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '10px 14px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          Author Citation Breakdown:
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                          {cert.authors.map((a, i) => (
+                            <div key={i} style={{ fontSize: '12.5px', color: '#1E293B' }}>
+                              <strong>{a.author_order}. {a.author_name_snapshot}</strong> ({a.author_role})
+                              <div style={{ fontSize: '11px', color: '#64748B' }}>
+                                {a.department_snapshot} {a.scopus_id_snapshot && `• Scopus: ${a.scopus_id_snapshot}`}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {approvalTotalCount > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '16px 4px',
+                      borderTop: '1px solid #E2E8F0',
+                      marginTop: '8px',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                    }}
+                  >
+                    <div data-testid="approval-pagination-info" style={{ fontSize: '13px', color: '#64748B' }}>
+                      Showing <strong style={{ color: '#0F2B48' }}>{Math.min((approvalPage - 1) * approvalLimit + 1, approvalTotalCount)}</strong> to{' '}
+                      <strong style={{ color: '#0F2B48' }}>{Math.min(approvalPage * approvalLimit, approvalTotalCount)}</strong> of{' '}
+                      <strong style={{ color: '#0F2B48' }}>{approvalTotalCount}</strong> pending certificates
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={approvalPage <= 1}
+                        onClick={() => setApprovalPage((p) => Math.max(p - 1, 1))}
+                      >
+                        ← Previous
+                      </Button>
+                      <span data-testid="approval-page-info" style={{ fontSize: '13px', color: '#475569', padding: '0 8px' }}>
+                        Page <strong>{approvalPage}</strong> of <strong>{Math.max(1, Math.ceil(approvalTotalCount / approvalLimit))}</strong>
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={approvalPage >= Math.ceil(approvalTotalCount / approvalLimit)}
+                        onClick={() => setApprovalPage((p) => Math.min(p + 1, Math.ceil(approvalTotalCount / approvalLimit)))}
+                      >
+                        Next →
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {approvalCertificates.length === 0 && (
                   <EmptyState
                     title="All Approvals Cleared"
-                    description="No certificates are currently awaiting Dean R&D or Vice Chancellor authorization."
+                    description={
+                      approvalSearch || approvalStageFilter !== 'all'
+                        ? 'No pending certificates match your search/filter criteria.'
+                        : 'No certificates are currently awaiting Dean R&D or Vice Chancellor authorization.'
+                    }
                   />
                 )}
               </div>

@@ -533,6 +533,7 @@ class CertificateListResponse(BaseModel):
 
 class CertificateStatsOut(BaseModel):
     total_certificates: int
+    total_issued: Optional[int] = None
     draft_certificates: int
     pending_approvals: int
     scheduled_certificates: int = 0

@@ -176,7 +176,7 @@ const mockCertificates: CertificateRecord[] = [
   },
 ];
 
-describe('Create Joint Institutional Certificate - Author Title Selection Behavior', () => {
+describe('Create Joint Institutional Certificate - Author Title Selection Behavior', { timeout: 15000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuth();

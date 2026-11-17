@@ -383,6 +383,7 @@ export interface UpdateTemplatePayload {
 
 export interface CertificateStatsRecord {
   total_certificates: number;
+  total_issued?: number;
   draft_certificates: number;
   pending_approvals: number;
   scheduled_certificates?: number;

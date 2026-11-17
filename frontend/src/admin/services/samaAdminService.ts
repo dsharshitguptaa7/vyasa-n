@@ -276,6 +276,8 @@ export const samaAdminService = {
     search?: string;
     status?: string;
     certificate_type?: string;
+    scope?: 'ledger' | 'approvals';
+    approval_stage?: 'DEAN' | 'VC';
   }): Promise<CertificateListResponse> {
     const q = new URLSearchParams();
     if (params?.skip !== undefined) q.append('skip', String(params.skip));
@@ -286,6 +288,8 @@ export const samaAdminService = {
     if (params?.search) q.append('search', params.search);
     if (params?.status) q.append('status', params.status);
     if (params?.certificate_type) q.append('certificate_type', params.certificate_type);
+    if (params?.scope) q.append('scope', params.scope);
+    if (params?.approval_stage) q.append('approval_stage', params.approval_stage);
 
     const qs = q.toString();
     const res = await apiClient.get<CertificateListResponse>(`/admin/sama/certificates${qs ? `?${qs}` : ''}`);
@@ -361,6 +365,7 @@ export const samaAdminService = {
     const res = await apiClient.get<CertificateStatsRecord>('/admin/sama/certificates/stats');
     return res.data || {
       total_certificates: 0,
+      total_issued: 0,
       draft_certificates: 0,
       pending_approvals: 0,
       scheduled_certificates: 0,
