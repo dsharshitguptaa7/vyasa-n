@@ -220,3 +220,14 @@ class LocalStorageProvider(BaseStorageProvider):
             return resolved.is_file()
         except (StoragePathTraversalError, StorageError):
             return False
+
+    def generate_presigned_url(self, storage_key: str, expires_in_seconds: int = 300) -> str:
+        """
+        Generate a download path for local development.
+        Verifies key validity and returns a local API stream URL.
+        """
+        resolved = self._resolve_safe_path_from_key(storage_key)
+        if not resolved.is_file():
+            raise StorageFileNotFoundError(f"File not found for storage key '{storage_key}'.")
+        clean_key = str(storage_key).strip().replace("\\", "/")
+        return f"/api/v1/storage/download?key={clean_key}"

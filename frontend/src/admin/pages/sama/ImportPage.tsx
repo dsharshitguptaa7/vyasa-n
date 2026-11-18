@@ -251,7 +251,7 @@ export const ImportPage: React.FC = () => {
       if (dryRun) {
         setSuccessMsg(`Historical bundle simulated successfully (Batch: ${res.batch_number}). No persistent records were modified.`);
       } else {
-        setSuccessMsg(`Historical bundle executed successfully! Records imported into SAMIKSHA.`);
+        setSuccessMsg(`Historical bundle executed successfully! Records imported into समीक्षा.`);
       }
       fetchBatches();
     } catch (err: any) {
@@ -388,13 +388,13 @@ export const ImportPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
-              SAMIKSHA Administration
+              समीक्षा Administration
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#171717', margin: '4px 0 0 0' }}>
               Historical Data Import &amp; Reconciliation
             </h1>
             <p style={{ fontSize: '13px', color: '#737373', margin: '4px 0 0 0' }}>
-              Safely validate, preview, and ingest research records into SAMIKSHA with automated duplicate detection and auditable ledger tracking.
+              Safely validate, preview, and ingest research records into समीक्षा with automated duplicate detection and auditable ledger tracking.
             </p>
           </div>
         </div>
@@ -1053,7 +1053,7 @@ export const ImportPage: React.FC = () => {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px', color: '#404040' }}>
             <p style={{ margin: 0 }}>
-              Are you sure you want to execute this import batch into the SAMIKSHA repository?
+              Are you sure you want to execute this import batch into the समीक्षा repository?
             </p>
             <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', color: '#92400e', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div>• <strong>Draft Protection:</strong> All publications and bulletins will be initialized in non-public <code style={{ background: '#fef3c7', padding: '1px 3px' }}>draft</code> state.</div>
@@ -1091,7 +1091,7 @@ export const ImportPage: React.FC = () => {
                 }}
               >
                 <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Institutional Action Notice:</p>
-                You are about to permanently delete <strong>{selectedBatchIds.size}</strong> import batch ledger records from the SAMIKSHA system.
+                You are about to permanently delete <strong>{selectedBatchIds.size}</strong> import batch ledger records from the समीक्षा system.
                 This deletes the batch audit record and reconciliation log. Any records already created in draft status remain in the repository.
               </div>
 

@@ -272,7 +272,7 @@ export const AuthorsPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
-              SAMIKSHA • Faculty & Scholar Directory
+              समीक्षा • Faculty & Scholar Directory
             </div>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)' }}>
               Authors & Scopus Identity Review
@@ -859,7 +859,7 @@ export const AuthorsPage: React.FC = () => {
                 }}
               >
                 <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Institutional Safeguard Notice:</p>
-                You are about to permanently delete <strong>{selectedAuthorIds.size}</strong> selected author profiles from the SAMIKSHA directory.
+                You are about to permanently delete <strong>{selectedAuthorIds.size}</strong> selected author profiles from the समीक्षा directory.
                 All publication co-author affiliations and felicitation certificates linked to these author records will be cleaned up, and spotlights will be unlinked.
               </div>
 

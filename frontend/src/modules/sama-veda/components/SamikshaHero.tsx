@@ -127,7 +127,7 @@ export const SamikshaHero: React.FC<SamikshaHeroProps> = ({
               }}
             >
               <AppIcon name="book-open" size={13} color="#f59e0b" />
-              <span>SAMIKSHA • Research, Recognition &amp; Innovation Portal</span>
+              <span>समीक्षा • Research, Recognition &amp; Innovation Portal</span>
               {/* Backwards-compatibility text for test assertions & legacy search */}
               <span
                 style={{

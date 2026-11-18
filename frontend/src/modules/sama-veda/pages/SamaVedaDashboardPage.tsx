@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { SectionHeading, AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../context/AuthContext';
@@ -87,6 +87,19 @@ export const SamaVedaDashboardPage: React.FC = () => {
       navigate(targetRoute);
     }
   };
+
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+
+  // Automatically scroll active tab into view when selected or on deep-link navigation
+  useEffect(() => {
+    if (activeTabRef.current && typeof activeTabRef.current.scrollIntoView === 'function') {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest',
+      });
+    }
+  }, [activeTab]);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -456,7 +469,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            SAMIKSHA Research
+            समीक्षा Research
           </button>
           {activeTab !== 'overview' && (
             <>
@@ -549,7 +562,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
       {/* 3. Navigation Tabs Bar */}
       <nav
-        aria-label="SAMIKSHA Sections"
+        aria-label="समीक्षा Sections"
         className="samiksha-nav-bar"
       >
         {tabsList.map((tab) => {
@@ -557,6 +570,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           return (
             <button
               key={tab.id}
+              ref={isActive ? activeTabRef : undefined}
               type="button"
               onClick={() => handleTabChange(tab.id as ActiveTab)}
               aria-current={isActive ? 'page' : undefined}

@@ -365,6 +365,45 @@ class DocumentParser:
             extraction_warnings=warnings,
         )
 
+    def parse_txt(self, filepath: str) -> DocumentParseResult:
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        size = os.path.getsize(filepath)
+        checksum = self.compute_sha256(filepath)
+        filename = os.path.basename(filepath)
+        doc_type, title, session = self.classify_document(filename)
+
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+
+        cleaned = re.sub(r"[ \t]+", " ", text).replace("\x00", "").strip()
+        items: List[RawExtractedItem] = []
+        if cleaned:
+            items.append(
+                RawExtractedItem(
+                    unit_index=1,
+                    unit_type="section",
+                    heading=None,
+                    text=cleaned,
+                )
+            )
+
+        return DocumentParseResult(
+            filepath=filepath,
+            filename=filename,
+            file_type="txt",
+            file_size_bytes=size,
+            checksum_sha256=checksum,
+            doc_type=doc_type,
+            title=title,
+            academic_session=session,
+            total_units=1,
+            empty_units=[] if cleaned else [1],
+            items=items,
+            extraction_warnings=[],
+        )
+
     def parse_file(self, filepath: str) -> DocumentParseResult:
         """
         Auto-routes to the appropriate parser by file extension.
@@ -376,6 +415,8 @@ class DocumentParser:
             return self.parse_pptx(filepath)
         elif lower.endswith(".docx"):
             return self.parse_docx(filepath)
+        elif lower.endswith(".txt"):
+            return self.parse_txt(filepath)
         else:
             raise ValueError(f"Unsupported file format: {filepath}")
 

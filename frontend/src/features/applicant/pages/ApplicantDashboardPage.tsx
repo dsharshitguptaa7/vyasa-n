@@ -168,7 +168,7 @@ export const ApplicantDashboardPage: React.FC = () => {
               <div style={{ padding: '8px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
                 <p style={{ margin: '0 0 16px', fontSize: '14px' }}>
                   Welcome to the VYASA Scholar Workspace. Your verified identity enables single sign-on access across
-                  all affiliated university governance pillars, beginning with NIVARAN for doctoral research and
+                  all affiliated university governance pillars, beginning with निवारण for doctoral research and
                   grievance management.
                 </p>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

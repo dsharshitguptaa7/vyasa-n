@@ -649,7 +649,7 @@ def download_certificate_by_token(
         .where(FelicitationCertificate.verification_token == clean_token)
     )
     try:
-        cert = db.scalar(stmt)
+        cert = db.scalars(stmt).unique().first()
     except SQLAlchemyError as exc:
         logger.warning("Database query failed in download_certificate_by_token: %s", exc)
         db.rollback()
@@ -711,7 +711,7 @@ def download_authenticated_certificate(
         .where(FelicitationCertificate.id == certificate_id)
     )
     try:
-        cert = db.scalar(stmt)
+        cert = db.scalars(stmt).unique().first()
     except SQLAlchemyError as exc:
         logger.warning("Database query failed in download_authenticated_certificate: %s", exc)
         db.rollback()
@@ -799,13 +799,13 @@ def verify_certificate(
         )
     )
     try:
-        cert = db.scalar(stmt)
+        cert = db.scalars(stmt).unique().first()
     except SQLAlchemyError as exc:
         logger.warning("Database query failed in verify_certificate: %s", exc)
         db.rollback()
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
 
-    if not cert or cert.status in ["SCHEDULED", "DRAFT", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
+    if not cert or (cert.status == "ARCHIVED" and not cert.is_revoked) or cert.status in ["SCHEDULED", "DRAFT", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
 
     # Record verification event telemetry
@@ -873,6 +873,10 @@ def verify_certificate(
         except Exception as exc:
             logger.warning("Failed to lookup replacement certificate for %s: %s", cert.id, exc)
 
+    effective_status = "REVOKED" if (cert.is_revoked or cert.status == "REVOKED") else cert.status
+    public_pub_details = dict(cert.publication_details or {})
+    public_pub_details.pop("archival", None)
+
     return ApiResponse(
         success=True,
         message=msg,
@@ -880,13 +884,13 @@ def verify_certificate(
             "id": str(cert.id),
             "certificate_number": cert.certificate_number,
             "certificate_type": cert.certificate_type,
-            "status": cert.status,
+            "status": effective_status,
             "title": cert.title,
             "presentation_statement": cert.presentation_statement,
             "research_contribution_statement": cert.research_contribution_statement,
             "research_title": effective_research_title,
             "congratulatory_statement": cert.congratulatory_statement,
-            "publication_details": cert.publication_details,
+            "publication_details": public_pub_details,
             "verification_token": cert.verification_token,
             "issued_at": cert.issued_at.isoformat() if cert.issued_at else None,
             "approved_at": cert.approved_at.isoformat() if cert.approved_at else None,
@@ -958,7 +962,7 @@ def download_public_certificate(
         )
     )
     try:
-        cert = db.scalar(stmt)
+        cert = db.scalars(stmt).unique().first()
     except SQLAlchemyError as exc:
         logger.warning("Database query failed in download_public_certificate: %s", exc)
         db.rollback()

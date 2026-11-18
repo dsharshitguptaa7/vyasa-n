@@ -20,7 +20,7 @@ export const SamaOverviewPage: React.FC = () => {
       const data = await samaAdminService.getOverviewStats();
       setStats(data);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to load SAMIKSHA metrics.');
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to load समीक्षा metrics.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export const SamaOverviewPage: React.FC = () => {
                   color: '#b2811a',
                 }}
               >
-                <span>SAMIKSHA (Sama Veda) • Central Research Recognition &amp; Communication</span>
+                <span>समीक्षा (Sama Veda) • Central Research Recognition &amp; Communication</span>
                 <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)' }}>
                   Sama Veda • Central Research Recognition & Communication
                 </span>

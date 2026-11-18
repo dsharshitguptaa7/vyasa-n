@@ -83,7 +83,7 @@ export const MyStudentRecordPage: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            NIVARAN Dashboard
+            निवारण Dashboard
           </button>
           <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
           <span style={{ color: '#64748b', fontWeight: 500 }}>Student Record</span>
@@ -171,7 +171,7 @@ export const MyStudentRecordPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN Dashboard
+          निवारण Dashboard
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Student Record</span>
@@ -520,7 +520,7 @@ export const MyStudentRecordPage: React.FC = () => {
       <Card
         variant="default"
         title={`Longitudinal Grievance History (${(record.grievances || []).length})`}
-        subtitle="Complete chronological record of all redressal petitions filed with CSJMU NIVARAN"
+        subtitle="Complete chronological record of all redressal petitions filed with CSJMU निवारण"
       >
         {(!record.grievances || record.grievances.length === 0) ? (
           <div

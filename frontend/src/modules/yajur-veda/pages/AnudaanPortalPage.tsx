@@ -206,7 +206,7 @@ export const AnudaanPortalPage: React.FC = () => {
 
   const handleCopyCredentials = () => {
     if (!createdDraft) return;
-    const text = `CSJMU ANUDAAN APPLICATION CREDENTIALS\nApplication Number: ${createdDraft.application_number}\nTracking Secret: ${createdDraft.tracking_secret}\nApplication ID: ${createdDraft.application_id}`;
+    const text = `CSJMU अनुदान APPLICATION CREDENTIALS\nApplication Number: ${createdDraft.application_number}\nTracking Secret: ${createdDraft.tracking_secret}\nApplication ID: ${createdDraft.application_id}`;
     navigator.clipboard.writeText(text);
     setCopiedSecret(true);
     setTimeout(() => setCopiedSecret(false), 3000);
@@ -277,10 +277,10 @@ export const AnudaanPortalPage: React.FC = () => {
 
             <div className="anudaan-hero__identity">
               <h1 className="anudaan-hero__system-name">
-                ANUDAAN
+                अनुदान
               </h1>
               <div className="anudaan-hero__system-sub">
-                Research Publication Incentive Management System • ANUDAAN Research Incentive Portal
+                Research Publication Incentive Management System • अनुदान Research Incentive Portal
               </div>
             </div>
 
@@ -1554,7 +1554,7 @@ export const AnudaanPortalPage: React.FC = () => {
       <Modal
         isOpen={isStartModalOpen}
         onClose={() => setIsStartModalOpen(false)}
-        title={createdDraft ? 'Application Draft Initialized' : 'Start New ANUDAAN Application'}
+        title={createdDraft ? 'Application Draft Initialized' : 'Start New अनुदान Application'}
       >
         <div style={{ padding: '8px 4px' }}>
           {errorMsg && (

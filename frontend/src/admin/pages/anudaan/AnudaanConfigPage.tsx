@@ -46,7 +46,7 @@ export const AnudaanConfigPage: React.FC = () => {
         custom_banner_note: bannerNote.trim() || null,
       });
       setLastUpdated(updated.updated_at || null);
-      setFeedback({ type: 'success', message: 'Public ANUDAAN display configuration updated successfully.' });
+      setFeedback({ type: 'success', message: 'Public अनुदान display configuration updated successfully.' });
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save configuration.' });
     } finally {
@@ -59,7 +59,7 @@ export const AnudaanConfigPage: React.FC = () => {
       <div style={{ padding: '24px 32px', maxWidth: 900, margin: '0 auto' }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0B2545', margin: '0 0 6px' }}>
-            ANUDAAN Public Showcase Configuration
+            अनुदान Public Showcase Configuration
           </h1>
           <p style={{ color: '#4A5568', margin: 0, fontSize: '0.95rem' }}>
             Control visibility of the Institutional Incentive Impact Dashboard and Researcher Recognition Gallery on the public portal.
@@ -181,7 +181,7 @@ export const AnudaanConfigPage: React.FC = () => {
                 rel="noreferrer"
                 style={{ fontSize: '0.875rem', color: '#2563EB', textDecoration: 'none', fontWeight: 500 }}
               >
-                ↗ Preview Public ANUDAAN Portal
+                ↗ Preview Public अनुदान Portal
               </a>
               <Button variant="primary" type="submit" disabled={saving}>
                 {saving ? 'Saving...' : 'Save Configuration'}

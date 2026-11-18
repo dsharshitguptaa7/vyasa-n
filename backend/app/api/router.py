@@ -30,6 +30,14 @@ api_router.include_router(modules_router)
 # Administration Console
 api_router.include_router(admin_router)
 
+# AI Knowledge Centre Administration (/api/v1/admin/knowledge-centre)
+from app.modules.knowledge_centre.router import router as knowledge_centre_admin_router
+api_router.include_router(knowledge_centre_admin_router, prefix="/v1/admin/knowledge-centre")
+
+# Scholar-Facing AI Knowledge Centre Assistant Gateway (/api/v1/assistant)
+from app.modules.knowledge_centre.assistant_router import router as knowledge_centre_assistant_router
+api_router.include_router(knowledge_centre_assistant_router)
+
 # Operational Watchdog
 api_router.include_router(watchdog_router)
 

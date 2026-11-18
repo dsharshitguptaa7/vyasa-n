@@ -393,7 +393,7 @@ export const VyasaDashboardPage: React.FC = () => {
               </div>
               <div>
                 <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#92400e' }}>
-                  Action Required in NIVARAN
+                  Action Required in निवारण
                 </div>
                 <div style={{ fontSize: '12.5px', color: '#b45309', marginTop: '1px' }}>
                   You have {telemetry.actionRequired} submitted grievance{telemetry.actionRequired > 1 ? 's' : ''} awaiting clarification, appeal response, or applicant feedback.
@@ -493,7 +493,7 @@ export const VyasaDashboardPage: React.FC = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)' }}>
-                          NIVARAN
+                          निवारण
                         </span>
                         <span
                           style={{
@@ -542,7 +542,7 @@ export const VyasaDashboardPage: React.FC = () => {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-primary-hover, #091c30)')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-primary, #0f2b48)')}
                   >
-                    <span>Open NIVARAN</span>
+                    <span>Open निवारण</span>
                     <span aria-hidden="true">&rarr;</span>
                   </button>
                   <button
@@ -604,7 +604,7 @@ export const VyasaDashboardPage: React.FC = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)' }}>
-                          SAMIKSHA
+                          समीक्षा
                         </span>
                         <span
                           style={{
@@ -653,7 +653,7 @@ export const VyasaDashboardPage: React.FC = () => {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-teal-hover, #09524c)')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-teal, #0d766e)')}
                   >
-                    <span>Explore SAMIKSHA</span>
+                    <span>Explore समीक्षा</span>
                     <span aria-hidden="true">&rarr;</span>
                   </button>
                 </div>
@@ -782,7 +782,7 @@ export const VyasaDashboardPage: React.FC = () => {
                 <span>Recent Activity</span>
               </h2>
               <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                Recent grievance case dossiers and redressal activity from the NIVARAN pipeline.
+                Recent grievance case dossiers and redressal activity from the निवारण pipeline.
               </p>
             </div>
 
@@ -956,7 +956,7 @@ export const VyasaDashboardPage: React.FC = () => {
                     No Cases Registered Yet
                   </h3>
                   <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#64748b', maxWidth: '440px', lineHeight: 1.5 }}>
-                    You currently have no active or historical dispute filings. If you require institutional assistance, doctoral grievance mediation, or inquiry redressal, submit a dossier through NIVARAN.
+                    You currently have no active or historical dispute filings. If you require institutional assistance, doctoral grievance mediation, or inquiry redressal, submit a dossier through निवारण.
                   </p>
                   <Button variant="primary" size="sm" onClick={() => navigate('/modules/atharva-veda/nivaran/submit')}>
                     Submit Your First Grievance
@@ -1080,7 +1080,7 @@ export const VyasaDashboardPage: React.FC = () => {
                 Active Ecosystem Services
               </div>
               <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48' }}>
-                {activeServices.length} Active <span style={{ fontSize: '12px', fontWeight: 500, color: '#0d9488' }}>(NIVARAN Redressal)</span>
+                {activeServices.length} Active <span style={{ fontSize: '12px', fontWeight: 500, color: '#0d9488' }}>(निवारण Redressal)</span>
               </div>
             </div>
           </div>
@@ -1191,7 +1191,7 @@ export const VyasaDashboardPage: React.FC = () => {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f2b48' }}>
-                        NIVARAN
+                        निवारण
                       </span>
                       <span
                         style={{
@@ -1220,7 +1220,7 @@ export const VyasaDashboardPage: React.FC = () => {
                 <button
                   type="button"
                   data-testid="open-service-btn-nivaran"
-                  aria-label="Open NIVARAN"
+                  aria-label="Open निवारण"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenService({ id: 'nivaran' });
@@ -1242,7 +1242,7 @@ export const VyasaDashboardPage: React.FC = () => {
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-primary-hover, #091c30)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-primary, #0f2b48)')}
                 >
-                  <span>Open NIVARAN</span>
+                  <span>Open निवारण</span>
                   <span aria-hidden="true">&rsaquo;</span>
                 </button>
               </div>
@@ -1289,7 +1289,7 @@ export const VyasaDashboardPage: React.FC = () => {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f2b48' }}>
-                        SAMIKSHA
+                        समीक्षा
                       </span>
                       <span
                         style={{
@@ -1318,7 +1318,7 @@ export const VyasaDashboardPage: React.FC = () => {
                 <button
                   type="button"
                   data-testid="open-service-btn-anveshan"
-                  aria-label="Open SAMIKSHA"
+                  aria-label="Open समीक्षा"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenService({ id: 'sama-veda', route: '/modules/sama-veda' });
@@ -1340,7 +1340,7 @@ export const VyasaDashboardPage: React.FC = () => {
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-teal-hover, #09524c)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--vyasa-teal, #0d766e)')}
                 >
-                  <span>Explore SAMIKSHA</span>
+                  <span>Explore समीक्षा</span>
                   <span aria-hidden="true">&rsaquo;</span>
                 </button>
               </div>
@@ -1363,7 +1363,7 @@ export const VyasaDashboardPage: React.FC = () => {
               >
                 <AppIcon name="clock" size={14} color="#94a3b8" />
                 <span>
-                  <strong>Scheduled Governance Domains in Roadmap:</strong> Rig Veda (PRAMAAN Research), Yajur Veda (ANUDAN Grants).
+                  <strong>Scheduled Governance Domains in Roadmap:</strong> Rig Veda (PRAMAAN Research), Yajur Veda (अनुदान Grants).
                 </span>
               </div>
             </div>
@@ -1392,7 +1392,7 @@ export const VyasaDashboardPage: React.FC = () => {
                 <div className="vyasa-telemetry-item">
                   <div className="vyasa-telemetry-item__label">Active Services</div>
                   <div className="vyasa-telemetry-item__val">{activeServices.length} Active</div>
-                  <div className="vyasa-telemetry-item__note vyasa-telemetry-item__note--teal">NIVARAN Resolution</div>
+                  <div className="vyasa-telemetry-item__note vyasa-telemetry-item__note--teal">निवारण Resolution</div>
                 </div>
 
                 <div className="vyasa-telemetry-item">
@@ -1434,13 +1434,13 @@ export const VyasaDashboardPage: React.FC = () => {
             <div>
               <strong style={{ color: '#0f2b48' }}>VYASA-N Unified Academic Portal</strong>
               <p style={{ margin: '4px 0 0', color: '#64748b' }}>
-                VYASA-N integrates scholarly research governance, automated grievance redressal (NIVARAN), and academic registries into a single institutional portal.
+                VYASA-N integrates scholarly research governance, automated grievance redressal (निवारण), and academic registries into a single institutional portal.
               </p>
             </div>
             <div>
-              <strong style={{ color: '#0f2b48' }}>How to access NIVARAN Redressal?</strong>
+              <strong style={{ color: '#0f2b48' }}>How to access निवारण Redressal?</strong>
               <p style={{ margin: '4px 0 0', color: '#64748b' }}>
-                Select NIVARAN under the Services sidebar or click the Open NIVARAN action on the dashboard Service Launcher.
+                Select निवारण under the Services sidebar or click the Open निवारण action on the dashboard Service Launcher.
               </p>
             </div>
             <div>

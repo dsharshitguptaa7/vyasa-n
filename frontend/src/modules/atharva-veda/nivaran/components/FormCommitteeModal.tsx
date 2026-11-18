@@ -136,7 +136,7 @@ export const FormCommitteeModal: React.FC<FormCommitteeModalProps> = ({
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <p style={{ margin: 0, fontSize: '13px', color: 'var(--vyasa-text-secondary)' }}>
           Direct committee formation constitutes a formal inquiry panel within authorised institutional jurisdiction.
-          Appointed authorities will receive official NIVARAN notifications and case docket access.
+          Appointed authorities will receive official निवारण notifications and case docket access.
         </p>
 
         {errorMsg && (

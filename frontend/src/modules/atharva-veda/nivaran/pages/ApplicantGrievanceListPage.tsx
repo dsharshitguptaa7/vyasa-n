@@ -1211,7 +1211,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
                         <div style={{ fontSize: '12px', color: '#64748b', maxWidth: '360px' }}>
                           {searchQuery || statusFilter || categoryFilter
                             ? 'No grievances match your current search and filter criteria.'
-                            : 'You have not submitted any grievances to Atharva Veda / NIVARAN yet.'}
+                            : 'You have not submitted any grievances to Atharva Veda / निवारण yet.'}
                         </div>
                         <button
                           type="button"
@@ -1646,7 +1646,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f2b48' }}>
-                About NIVARAN
+                About निवारण
               </span>
               <span style={{ color: '#cbd5e1' }}>•</span>
               <span style={{ fontSize: '12px', fontWeight: 600, color: '#0d766e' }}>
@@ -1744,7 +1744,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setIsHelpModalOpen(false)}
-          title="NIVARAN Grievance Redressal Guidelines"
+          title="निवारण Grievance Redressal Guidelines"
           footer={
             <Button variant="primary" size="sm" onClick={() => setIsHelpModalOpen(false)}>
               Understood
@@ -1754,7 +1754,7 @@ export const ApplicantGrievanceListPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px', lineHeight: 1.6, color: '#334155' }}>
             <p style={{ margin: 0 }}>
               Under University Statute No. 14, every enrolled Ph.D. scholar and student at CSJMU has the right to transparent,
-              statutory dispute resolution through the multi-tier NIVARAN portal.
+              statutory dispute resolution through the multi-tier निवारण portal.
             </p>
             <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
               <strong style={{ color: '#0f2b48', display: 'block', marginBottom: '6px' }}>Three-Tier Redressal Hierarchy:</strong>

@@ -130,7 +130,7 @@ export const AnudaanWizardPage: React.FC = () => {
         <div style={{ maxWidth: 960, margin: '80px auto', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
           <h2 style={{ fontSize: '1.25rem', color: '#0B2545', margin: '0 0 8px' }}>
-            Loading ANUDAAN Application Draft...
+            Loading अनुदान Application Draft...
           </h2>
           <p style={{ color: '#64748B', fontSize: '0.9rem' }}>
             Verifying draft credentials and restoring institutional state...
@@ -166,7 +166,7 @@ export const AnudaanWizardPage: React.FC = () => {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Button variant="primary" onClick={() => navigate('/modules/yajur-veda/anudaan')}>
-              Go to ANUDAAN Portal
+              Go to अनुदान Portal
             </Button>
           </div>
         </div>
@@ -192,7 +192,7 @@ export const AnudaanWizardPage: React.FC = () => {
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Badge variant="primary">ANUDAAN Application Wizard</Badge>
+              <Badge variant="primary">अनुदान Application Wizard</Badge>
               <Badge variant="neutral">Status: {application.status}</Badge>
             </div>
             <h1

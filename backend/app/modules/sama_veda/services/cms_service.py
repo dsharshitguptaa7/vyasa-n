@@ -1,5 +1,9 @@
+import csv
+import io
+import re
 import uuid
 import logging
+import zipfile
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,6 +51,20 @@ from app.modules.sama_veda.schemas.cms import (
     CertificateReissueRequest,
     SpotlightCreate,
     SpotlightUpdate,
+    BulkCertificateUploadPayload,
+    BulkCertificatePreviewResponse,
+    BulkCertificatePreviewItem,
+    BulkAuthorInput,
+    AuthorMatchItem,
+    AuthorCandidate,
+    BulkCertificateGenerateRequest,
+    BulkCertificateGenerateResponse,
+    BulkCertificateGenerateResultItem,
+    BulkApprovalResponse,
+    BulkApprovalResultItem,
+    BatchSummaryItem,
+    BatchDetailResponse,
+    ArchivedCertificateItem,
 )
 from app.modules.sama_veda.models.publication import ResearchPublication, PublicationAuthor
 from app.modules.sama_veda.models.author import ResearchAuthor
@@ -746,6 +764,7 @@ class SamaCmsService:
             else:
                 filters.append(ledger_base_cond)
                 filters.append(FelicitationCertificate.status != "SCHEDULED")
+                filters.append(FelicitationCertificate.status != "ARCHIVED")
         elif scope_norm == "approvals" or status_norm in ["PENDING", "PENDING_APPROVAL", "APPROVAL_QUEUE"]:
             # Approval Queue lifecycle: certificates genuinely awaiting Dean R&D or Vice Chancellor approval
             filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]))
@@ -773,6 +792,8 @@ class SamaCmsService:
                     filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
                 else:
                     filters.append(FelicitationCertificate.status == status_norm)
+            else:
+                filters.append(FelicitationCertificate.status != "ARCHIVED")
 
         if search:
             search_pattern = f"%{search.strip()}%"
@@ -845,7 +866,7 @@ class SamaCmsService:
     def get_certificate_stats(db: Session) -> Dict[str, int]:
         """Calculates dashboard summary metrics for certificates and linked researchers in a single optimized query."""
         cert_stats_stmt = select(
-            func.count(FelicitationCertificate.id).label("total"),
+            func.count(case((FelicitationCertificate.status != "ARCHIVED", FelicitationCertificate.id))).label("total"),
             func.count(case((FelicitationCertificate.status == "DRAFT", FelicitationCertificate.id))).label("drafts"),
             func.count(
                 case((
@@ -1621,6 +1642,1586 @@ class SamaCmsService:
         db.commit()
         db.refresh(new_cert)
         return new_cert
+
+    @staticmethod
+    def bulk_delete_certificates(
+        db: Session,
+        *,
+        certificate_ids: List[uuid.UUID],
+        reason: str,
+        actor_user_id: uuid.UUID,
+    ) -> Tuple[str, List[str], List[Dict[str, str]]]:
+        """
+        Safely bulk deletes / archives certificates while protecting institutional provenance.
+        Enforces:
+        - Active issued certificates must undergo formal revocation or reissuance before archival.
+        - Preserves cryptographic hashes, signatures, verification tokens, and approval ledgers.
+        - Records archival metadata and provenance in publication_details["archival"].
+        - Safely transitions eligible certificates to ARCHIVED status.
+        """
+        clean_reason = reason.strip() if reason else ""
+        if not clean_reason:
+            raise ValueError("Mandatory institutional deletion reason is required.")
+
+        operation_id = str(uuid.uuid4())
+        deleted_ids: List[str] = []
+        failed_items: List[Dict[str, str]] = []
+
+        # Deduplicate requested IDs while preserving input order
+        unique_ids = list(dict.fromkeys(certificate_ids))
+
+        # Query all requested certificates in a single batch
+        stmt = (
+            select(FelicitationCertificate)
+            .where(FelicitationCertificate.id.in_(unique_ids))
+        )
+        certs = db.scalars(stmt).all()
+        cert_map = {c.id: c for c in certs}
+
+        for cid in unique_ids:
+            cert = cert_map.get(cid)
+            if not cert:
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": "Certificate record not found in system.",
+                })
+                continue
+
+            if cert.status == "ARCHIVED":
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": "Certificate is already archived/deleted.",
+                })
+                continue
+
+            # Active certificates cannot be archived without prior revocation or reissuance
+            if cert.status == "ISSUED" and not cert.is_revoked:
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": "Active certificate must be formally revoked or reissued before it can be archived.",
+                })
+                continue
+
+            # Record archival metadata into publication_details JSONB
+            pub_details = dict(cert.publication_details or {})
+            archival_info = dict(pub_details.get("archival") or {})
+            history = list(archival_info.get("history") or [])
+            history.append({
+                "action": "ARCHIVED",
+                "previous_status": cert.status,
+                "operation_id": operation_id,
+                "archived_at": datetime.now(timezone.utc).isoformat(),
+                "archived_by_user_id": str(actor_user_id),
+                "archival_reason": clean_reason,
+            })
+            archival_info["is_archived"] = True
+            archival_info["previous_status"] = cert.status
+            archival_info["archived_at"] = datetime.now(timezone.utc).isoformat()
+            archival_info["archived_by_user_id"] = str(actor_user_id)
+            archival_info["archival_reason"] = clean_reason
+            archival_info["history"] = history
+            pub_details["archival"] = archival_info
+            cert.publication_details = pub_details
+
+            cert.status = "ARCHIVED"
+            cert.rejection_reason = f"[DELETED via Bulk Operation {operation_id[:8]}] Rationale: {clean_reason}"
+            deleted_ids.append(str(cid))
+
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.error("Failed to commit bulk certificate deletion: %s", exc)
+            raise ValueError(f"Database error during bulk deletion: {exc}")
+
+        return operation_id, deleted_ids, failed_items
+
+    @staticmethod
+    def delete_certificate(
+        db: Session,
+        *,
+        certificate_id: uuid.UUID,
+        reason: str,
+        actor_user_id: uuid.UUID,
+    ) -> FelicitationCertificate:
+        """
+        Safely soft-deletes / archives a single certificate with mandatory reason.
+        Enforces that active certificates must be formally revoked or reissued before archival.
+        """
+        clean_reason = reason.strip() if reason else ""
+        if not clean_reason:
+            raise ValueError("Mandatory institutional deletion reason is required.")
+
+        cert = db.get(FelicitationCertificate, certificate_id)
+        if not cert:
+            raise ValueError("Certificate record not found.")
+
+        if cert.status == "ARCHIVED":
+            raise ValueError("Certificate is already archived/deleted.")
+
+        # Active certificates cannot be archived without prior revocation or reissuance
+        if cert.status == "ISSUED" and not cert.is_revoked:
+            raise ValueError("Active issued certificates must be formally revoked or reissued before archival. They cannot be archived directly.")
+
+        pub_details = dict(cert.publication_details or {})
+        archival_info = dict(pub_details.get("archival") or {})
+        history = list(archival_info.get("history") or [])
+        history.append({
+            "action": "ARCHIVED",
+            "previous_status": cert.status,
+            "archived_at": datetime.now(timezone.utc).isoformat(),
+            "archived_by_user_id": str(actor_user_id),
+            "archival_reason": clean_reason,
+        })
+        archival_info["is_archived"] = True
+        archival_info["previous_status"] = cert.status
+        archival_info["archived_at"] = datetime.now(timezone.utc).isoformat()
+        archival_info["archived_by_user_id"] = str(actor_user_id)
+        archival_info["archival_reason"] = clean_reason
+        archival_info["history"] = history
+        pub_details["archival"] = archival_info
+        cert.publication_details = pub_details
+
+        cert.status = "ARCHIVED"
+        cert.rejection_reason = f"[DELETED by Admin] Rationale: {clean_reason}"
+        db.commit()
+        db.refresh(cert)
+        return cert
+
+    @staticmethod
+    def restore_certificate(
+        db: Session,
+        *,
+        certificate_id: uuid.UUID,
+        reason: str,
+        actor_user_id: uuid.UUID,
+    ) -> Tuple[FelicitationCertificate, str]:
+        """
+        Restores an archived certificate to its previous lifecycle state.
+        Restoration state mapping:
+        - If previously REVOKED (or is_revoked is True): returns strictly to REVOKED. Never reactivates.
+        - If previously SUPERSEDED: returns strictly to SUPERSEDED.
+        - If previously REJECTED: returns strictly to REJECTED.
+        - If previously PENDING_DEAN_APPROVAL: returns to PENDING_DEAN_APPROVAL.
+        - If previously PENDING_VC_APPROVAL: returns to PENDING_VC_APPROVAL.
+        - If previously APPROVED: returns to APPROVED.
+        - If previously SCHEDULED: returns to SCHEDULED.
+        - If previously DRAFT: returns to DRAFT.
+        - If previously ISSUED: returns to REVOKED if revoked, else ISSUED.
+        """
+        clean_reason = reason.strip() if reason else ""
+        if not clean_reason:
+            raise ValueError("Mandatory institutional restoration reason is required.")
+
+        cert = db.get(FelicitationCertificate, certificate_id)
+        if not cert:
+            raise ValueError("Certificate record not found.")
+
+        if cert.status != "ARCHIVED":
+            raise ValueError(f"Certificate is in '{cert.status}' state and is not archived.")
+
+        pub_details = dict(cert.publication_details or {})
+        archival_info = dict(pub_details.get("archival") or {})
+        prev_st = archival_info.get("previous_status")
+
+        # Complete restoration state mapping
+        if cert.is_revoked or prev_st == "REVOKED":
+            target_status = "REVOKED"
+        elif prev_st == "SUPERSEDED":
+            target_status = "SUPERSEDED"
+        elif prev_st == "REJECTED":
+            target_status = "REJECTED"
+        elif prev_st == "PENDING_DEAN_APPROVAL":
+            target_status = "PENDING_DEAN_APPROVAL"
+        elif prev_st == "PENDING_VC_APPROVAL":
+            target_status = "PENDING_VC_APPROVAL"
+        elif prev_st == "APPROVED":
+            target_status = "APPROVED"
+        elif prev_st == "SCHEDULED":
+            target_status = "SCHEDULED"
+        elif prev_st == "DRAFT":
+            target_status = "DRAFT"
+        elif prev_st == "ISSUED":
+            target_status = "REVOKED" if cert.is_revoked else "ISSUED"
+        else:
+            target_status = "REVOKED" if cert.is_revoked else "DRAFT"
+
+        # Record restoration history
+        history = list(archival_info.get("history") or [])
+        history.append({
+            "action": "RESTORED",
+            "restored_at": datetime.now(timezone.utc).isoformat(),
+            "restored_by_user_id": str(actor_user_id),
+            "restore_reason": clean_reason,
+            "restored_to_status": target_status,
+            "previous_archived_reason": cert.rejection_reason,
+        })
+        archival_info["is_archived"] = False
+        archival_info["last_restored_at"] = datetime.now(timezone.utc).isoformat()
+        archival_info["last_restored_by_user_id"] = str(actor_user_id)
+        archival_info["last_restore_reason"] = clean_reason
+        archival_info["history"] = history
+        pub_details["archival"] = archival_info
+        cert.publication_details = pub_details
+
+        cert.status = target_status
+        if target_status not in ["REJECTED", "REVOKED"]:
+            cert.rejection_reason = None
+
+        db.commit()
+        db.refresh(cert)
+        return cert, target_status
+
+    @staticmethod
+    def bulk_restore_certificates(
+        db: Session,
+        *,
+        certificate_ids: List[uuid.UUID],
+        reason: str,
+        actor_user_id: uuid.UUID,
+    ) -> Tuple[str, List[Dict[str, str]], List[Dict[str, str]]]:
+        """
+        Safely bulk restores archived certificates to their previous lifecycle states.
+        Supports partial failures, idempotent retries, and returns per-record results.
+        """
+        clean_reason = reason.strip() if reason else ""
+        if not clean_reason:
+            raise ValueError("Mandatory institutional restoration reason is required.")
+
+        operation_id = str(uuid.uuid4())
+        restored_items: List[Dict[str, str]] = []
+        failed_items: List[Dict[str, str]] = []
+
+        unique_ids = list(dict.fromkeys(certificate_ids))
+
+        stmt = (
+            select(FelicitationCertificate)
+            .where(FelicitationCertificate.id.in_(unique_ids))
+        )
+        certs = db.scalars(stmt).all()
+        cert_map = {c.id: c for c in certs}
+
+        for cid in unique_ids:
+            cert = cert_map.get(cid)
+            if not cert:
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": "Certificate record not found in system.",
+                })
+                continue
+
+            if cert.status != "ARCHIVED":
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": f"Certificate is in '{cert.status}' state and is not archived.",
+                })
+                continue
+
+            pub_details = dict(cert.publication_details or {})
+            archival_info = dict(pub_details.get("archival") or {})
+            prev_st = archival_info.get("previous_status")
+
+            if cert.is_revoked or prev_st == "REVOKED":
+                target_status = "REVOKED"
+            elif prev_st == "SUPERSEDED":
+                target_status = "SUPERSEDED"
+            elif prev_st == "REJECTED":
+                target_status = "REJECTED"
+            elif prev_st == "PENDING_DEAN_APPROVAL":
+                target_status = "PENDING_DEAN_APPROVAL"
+            elif prev_st == "PENDING_VC_APPROVAL":
+                target_status = "PENDING_VC_APPROVAL"
+            elif prev_st == "APPROVED":
+                target_status = "APPROVED"
+            elif prev_st == "SCHEDULED":
+                target_status = "SCHEDULED"
+            elif prev_st == "DRAFT":
+                target_status = "DRAFT"
+            elif prev_st == "ISSUED":
+                target_status = "REVOKED" if cert.is_revoked else "ISSUED"
+            else:
+                target_status = "REVOKED" if cert.is_revoked else "DRAFT"
+
+            history = list(archival_info.get("history") or [])
+            history.append({
+                "action": "RESTORED",
+                "operation_id": operation_id,
+                "restored_at": datetime.now(timezone.utc).isoformat(),
+                "restored_by_user_id": str(actor_user_id),
+                "restore_reason": clean_reason,
+                "restored_to_status": target_status,
+                "previous_archived_reason": cert.rejection_reason,
+            })
+            archival_info["is_archived"] = False
+            archival_info["last_restored_at"] = datetime.now(timezone.utc).isoformat()
+            archival_info["last_restored_by_user_id"] = str(actor_user_id)
+            archival_info["last_restore_reason"] = clean_reason
+            archival_info["history"] = history
+            pub_details["archival"] = archival_info
+            cert.publication_details = pub_details
+
+            cert.status = target_status
+            if target_status not in ["REJECTED", "REVOKED"]:
+                cert.rejection_reason = None
+
+            restored_items.append({
+                "id": str(cid),
+                "certificate_number": cert.certificate_number,
+                "restored_to_status": target_status,
+            })
+
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.error("Failed to commit bulk certificate restoration: %s", exc)
+            raise ValueError(f"Database error during bulk restoration: {exc}")
+
+        return operation_id, restored_items, failed_items
+
+    @staticmethod
+    def list_archived_certificates(
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Tuple[int, List[ArchivedCertificateItem]]:
+        """
+        Retrieves a paginated list of archived certificates for administrative recovery.
+        """
+        count_stmt = (
+            select(func.count(FelicitationCertificate.id))
+            .where(FelicitationCertificate.status == "ARCHIVED")
+        )
+        total = db.scalar(count_stmt) or 0
+
+        stmt = (
+            select(FelicitationCertificate)
+            .options(
+                joinedload(FelicitationCertificate.authors),
+                joinedload(FelicitationCertificate.author),
+            )
+            .where(FelicitationCertificate.status == "ARCHIVED")
+            .order_by(FelicitationCertificate.updated_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        certs = db.scalars(stmt).unique().all()
+
+        items: List[ArchivedCertificateItem] = []
+        for c in certs:
+            arch_info = (c.publication_details or {}).get("archival", {})
+            prev_st = arch_info.get("previous_status") or ("REVOKED" if c.is_revoked else "UNKNOWN")
+            arch_at = arch_info.get("archived_at") or (c.updated_at.isoformat() if c.updated_at else None)
+            arch_by = arch_info.get("archived_by_user_id")
+            arch_reason = arch_info.get("archival_reason") or c.rejection_reason
+            primary_recip = c.authors[0].author_name_snapshot if c.authors else (c.author.full_name if c.author else None)
+
+            items.append(
+                ArchivedCertificateItem(
+                    id=c.id,
+                    certificate_number=c.certificate_number,
+                    title=c.title,
+                    certificate_type=c.certificate_type or "RESEARCH_PUBLICATION",
+                    research_title=c.research_title,
+                    primary_recipient=primary_recip,
+                    previous_status=prev_st,
+                    archived_at=arch_at,
+                    archived_by_user_id=arch_by,
+                    archival_reason=arch_reason,
+                    is_revoked=c.is_revoked,
+                    verification_token=c.verification_token,
+                )
+            )
+
+        return total, items
+
+    @staticmethod
+    def bulk_verify_certificates(
+        db: Session,
+        *,
+        certificate_numbers: Optional[List[str]] = None,
+        raw_text: Optional[str] = None,
+        is_admin: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Bulk verification engine that verifies certificates independently using existing
+        lifecycle rules, prevents N+1 queries, respects scheduled certificate privacy,
+        and validates batch limits.
+        """
+        raw_candidates: List[str] = []
+
+        if certificate_numbers:
+            for n in certificate_numbers:
+                if n and isinstance(n, str) and n.strip():
+                    raw_candidates.append(n.strip())
+
+        if raw_text:
+            lines = raw_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                if "," in line_str:
+                    parts = [p.strip().strip('"').strip("'") for p in line_str.split(",") if p.strip()]
+                    if parts and parts[0].lower() in ["certificate_number", "cert_number", "cert_no", "certificate", "number", "id"]:
+                        continue
+                    if len(parts) >= 1 and ("CSJMU" in parts[0] or "CERT" in parts[0] or "/" in parts[0]):
+                        raw_candidates.append(parts[0])
+                    else:
+                        for p in parts:
+                            if p and p.lower() not in ["certificate_number", "status", "name", "date"]:
+                                raw_candidates.append(p)
+                else:
+                    if line_str.lower() not in ["certificate_number", "cert_number", "cert_no", "certificate", "number", "id"]:
+                        raw_candidates.append(line_str)
+
+        if not raw_candidates:
+            return {
+                "total_submitted": 0,
+                "valid_count": 0,
+                "scheduled_count": 0,
+                "revoked_count": 0,
+                "superseded_count": 0,
+                "not_found_count": 0,
+                "invalid_count": 0,
+                "duplicate_count": 0,
+                "results": [],
+            }
+
+        MAX_BATCH_LIMIT = 250
+        if len(raw_candidates) > MAX_BATCH_LIMIT:
+            raise ValueError(f"Batch size limit exceeded. Maximum {MAX_BATCH_LIMIT} certificates allowed per verification request (received {len(raw_candidates)}).")
+
+        seen_numbers = set()
+        cleaned_valid_set = set()
+        items_prep: List[Dict[str, Any]] = []
+
+        for item in raw_candidates:
+            clean_item = item.strip().strip('"').strip("'")
+            is_dup = clean_item.upper() in seen_numbers
+            seen_numbers.add(clean_item.upper())
+
+            is_malformed = (
+                len(clean_item) < 3
+                or len(clean_item) > 100
+                or any(ch in clean_item for ch in ["<", ">", ";", "{", "}", "\0", "`"])
+            )
+
+            if is_malformed:
+                items_prep.append({
+                    "input_text": clean_item,
+                    "clean_number": clean_item,
+                    "is_malformed": True,
+                    "is_duplicate": is_dup,
+                })
+            else:
+                items_prep.append({
+                    "input_text": clean_item,
+                    "clean_number": clean_item,
+                    "is_malformed": False,
+                    "is_duplicate": is_dup,
+                })
+                cleaned_valid_set.add(clean_item)
+
+        cert_map: Dict[str, FelicitationCertificate] = {}
+        token_map: Dict[str, FelicitationCertificate] = {}
+        replacements_map: Dict[uuid.UUID, str] = {}
+
+        if cleaned_valid_set:
+            valid_list = list(cleaned_valid_set)
+            stmt = (
+                select(FelicitationCertificate)
+                .options(
+                    selectinload(FelicitationCertificate.authors),
+                    joinedload(FelicitationCertificate.author),
+                    joinedload(FelicitationCertificate.publication),
+                    joinedload(FelicitationCertificate.bulletin),
+                )
+                .where(
+                    or_(
+                        FelicitationCertificate.certificate_number.in_(valid_list),
+                        FelicitationCertificate.verification_token.in_(valid_list),
+                    )
+                )
+            )
+            found_certs = db.scalars(stmt).unique().all()
+            for fc in found_certs:
+                if fc.certificate_number:
+                    cert_map[fc.certificate_number.strip().upper()] = fc
+                if fc.verification_token:
+                    token_map[fc.verification_token.strip().upper()] = fc
+
+            superseded_ids = [fc.id for fc in found_certs if fc.status == "SUPERSEDED"]
+            if superseded_ids:
+                rep_stmt = (
+                    select(FelicitationCertificate.reissued_from_id, FelicitationCertificate.certificate_number)
+                    .where(
+                        FelicitationCertificate.reissued_from_id.in_(superseded_ids),
+                        FelicitationCertificate.status != "REVOKED",
+                    )
+                )
+                for parent_id, rep_no in db.execute(rep_stmt).all():
+                    if parent_id and parent_id not in replacements_map:
+                        replacements_map[parent_id] = rep_no
+
+        results: List[Dict[str, Any]] = []
+        valid_cnt = 0
+        scheduled_cnt = 0
+        revoked_cnt = 0
+        superseded_cnt = 0
+        not_found_cnt = 0
+        invalid_cnt = 0
+        duplicate_cnt = 0
+
+        for prep in items_prep:
+            if prep["is_duplicate"]:
+                duplicate_cnt += 1
+
+            if prep["is_malformed"]:
+                invalid_cnt += 1
+                results.append({
+                    "input_text": prep["input_text"],
+                    "certificate_number": prep["input_text"],
+                    "status": "INVALID",
+                    "is_valid": False,
+                    "is_duplicate": prep["is_duplicate"],
+                    "error_message": "Malformed certificate number format.",
+                })
+                continue
+
+            query_key = prep["clean_number"].upper()
+            cert = cert_map.get(query_key) or token_map.get(query_key)
+
+            if not cert or cert.status == "ARCHIVED":
+                not_found_cnt += 1
+                results.append({
+                    "input_text": prep["input_text"],
+                    "certificate_number": prep["clean_number"],
+                    "status": "NOT FOUND",
+                    "is_valid": False,
+                    "is_duplicate": prep["is_duplicate"],
+                    "error_message": "Certificate number does not exist in SAMIKSHA ledger.",
+                })
+                continue
+
+            author_names = []
+            if cert.authors:
+                for a in cert.authors:
+                    if a.author_name_snapshot:
+                        author_names.append(a.author_name_snapshot)
+            elif cert.author and cert.author.full_name:
+                author_names.append(cert.author.full_name)
+            recipient_str = ", ".join(author_names) if author_names else "Distinguished Scholar"
+
+            effective_res_title = cert.research_title or (cert.publication.title if cert.publication else None)
+
+            if cert.is_revoked or cert.status == "REVOKED":
+                revoked_cnt += 1
+                results.append({
+                    "input_text": prep["input_text"],
+                    "certificate_number": cert.certificate_number,
+                    "certificate_id": str(cert.id),
+                    "title": cert.title,
+                    "certificate_type": cert.certificate_type,
+                    "recipient_name": recipient_str,
+                    "research_title": effective_res_title,
+                    "status": "REVOKED",
+                    "is_valid": False,
+                    "is_revoked": True,
+                    "is_duplicate": prep["is_duplicate"],
+                    "revocation_reason": cert.revocation_reason or "Institutional revocation",
+                    "revoked_at": cert.revoked_at.isoformat() if cert.revoked_at else None,
+                    "sha256_checksum": cert.checksum_sha256,
+                    "error_message": f"Certificate revoked: {cert.revocation_reason or 'Institutional revocation'}",
+                })
+            elif cert.status == "SUPERSEDED":
+                superseded_cnt += 1
+                rep_no = replacements_map.get(cert.id)
+                results.append({
+                    "input_text": prep["input_text"],
+                    "certificate_number": cert.certificate_number,
+                    "certificate_id": str(cert.id),
+                    "title": cert.title,
+                    "certificate_type": cert.certificate_type,
+                    "recipient_name": recipient_str,
+                    "research_title": effective_res_title,
+                    "status": "SUPERSEDED",
+                    "is_valid": False,
+                    "is_superseded": True,
+                    "is_duplicate": prep["is_duplicate"],
+                    "replacement_certificate_number": rep_no,
+                    "reissued_reason": cert.reissued_reason,
+                    "sha256_checksum": cert.checksum_sha256,
+                    "error_message": f"Certificate superseded by replacement: {rep_no or 'See updated issuance'}",
+                })
+            elif cert.status == "SCHEDULED":
+                if not is_admin:
+                    not_found_cnt += 1
+                    results.append({
+                        "input_text": prep["input_text"],
+                        "certificate_number": prep["clean_number"],
+                        "status": "NOT FOUND",
+                        "is_valid": False,
+                        "is_duplicate": prep["is_duplicate"],
+                        "error_message": "Certificate number does not exist.",
+                    })
+                else:
+                    scheduled_cnt += 1
+                    results.append({
+                        "input_text": prep["input_text"],
+                        "certificate_number": cert.certificate_number,
+                        "certificate_id": str(cert.id),
+                        "title": cert.title,
+                        "certificate_type": cert.certificate_type,
+                        "recipient_name": recipient_str,
+                        "research_title": effective_res_title,
+                        "status": "SCHEDULED",
+                        "is_valid": False,
+                        "is_scheduled": True,
+                        "is_duplicate": prep["is_duplicate"],
+                        "scheduled_issue_date": cert.scheduled_issue_date.isoformat() if cert.scheduled_issue_date else None,
+                        "verification_token": cert.verification_token,
+                        "sha256_checksum": cert.checksum_sha256,
+                        "error_message": f"Certificate scheduled for activation on {cert.scheduled_issue_date or 'future date'}.",
+                    })
+            elif cert.status == "ISSUED":
+                valid_cnt += 1
+                results.append({
+                    "input_text": prep["input_text"],
+                    "certificate_number": cert.certificate_number,
+                    "certificate_id": str(cert.id),
+                    "title": cert.title,
+                    "certificate_type": cert.certificate_type,
+                    "recipient_name": recipient_str,
+                    "research_title": effective_res_title,
+                    "status": "VALID / ISSUED",
+                    "is_valid": True,
+                    "is_duplicate": prep["is_duplicate"],
+                    "issue_date": cert.scheduled_issue_date.isoformat() if cert.scheduled_issue_date else (cert.issued_at.strftime("%Y-%m-%d") if cert.issued_at else None),
+                    "verification_token": cert.verification_token,
+                    "sha256_checksum": cert.checksum_sha256,
+                })
+            else:
+                if is_admin:
+                    results.append({
+                        "input_text": prep["input_text"],
+                        "certificate_number": cert.certificate_number,
+                        "certificate_id": str(cert.id),
+                        "status": f"PENDING ({cert.status})",
+                        "is_valid": False,
+                        "is_duplicate": prep["is_duplicate"],
+                        "error_message": f"Certificate not finalized (Status: {cert.status}).",
+                    })
+                else:
+                    not_found_cnt += 1
+                    results.append({
+                        "input_text": prep["input_text"],
+                        "certificate_number": prep["clean_number"],
+                        "status": "NOT FOUND",
+                        "is_valid": False,
+                        "is_duplicate": prep["is_duplicate"],
+                        "error_message": "Certificate number does not exist.",
+                    })
+
+        return {
+            "total_submitted": len(raw_candidates),
+            "valid_count": valid_cnt,
+            "scheduled_count": scheduled_cnt,
+            "revoked_count": revoked_cnt,
+            "superseded_count": superseded_cnt,
+            "not_found_count": not_found_cnt,
+            "invalid_count": invalid_cnt,
+            "duplicate_count": duplicate_cnt,
+            "results": results,
+        }
+
+    # ========================================================================
+    # 5B. BULK CERTIFICATE GENERATION & DUAL-AUTHORITY WORKFLOW SUBSYSTEM
+    # ========================================================================
+
+    @staticmethod
+    def normalize_researcher_name(name: str) -> str:
+        """
+        Normalizes researcher names by removing honorifics, titles, and extra whitespace.
+        Used for resilient author matching against the SAMIKSHA Researcher Repository.
+        """
+        if not name:
+            return ""
+        cleaned = name.strip()
+        prefixes = [
+            "prof. dr.", "prof dr", "prof.", "prof", "dr.", "dr",
+            "mr.", "mr", "mrs.", "mrs", "ms.", "ms", "er.", "er"
+        ]
+        lower_cleaned = cleaned.lower()
+        for p in prefixes:
+            if lower_cleaned.startswith(p + " ") or lower_cleaned.startswith(p + "."):
+                cleaned = cleaned[len(p):].lstrip(" .")
+                lower_cleaned = cleaned.lower()
+                break
+
+        normalized = re.sub(r'[^a-zA-Z0-9\s]', ' ', cleaned)
+        normalized = re.sub(r'\s+', ' ', normalized).strip().lower()
+        return normalized
+
+    @staticmethod
+    def match_author_against_repository(
+        db: Session, author_in: BulkAuthorInput
+    ) -> AuthorMatchItem:
+        """
+        Matches an author against the canonical SAMIKSHA Researcher Repository (ResearchAuthor).
+        3-Tier Priority:
+        1. Exact researcher_id (UUID match)
+        2. Exact scopus_id (Case-insensitive exact match)
+        3. Normalized full_name + department / affiliation match.
+        CRITICAL TITLE RULE: academic_title_snapshot is strictly derived from author_in.certificate_title
+        (or None) and NEVER copied from the researcher profile.
+        """
+        raw_res = author_in.researcher
+        title_snapshot = author_in.certificate_title.strip() if author_in.certificate_title else None
+
+        # Priority 1: Exact researcher_id (UUID)
+        if raw_res.researcher_id:
+            cand = db.get(ResearchAuthor, raw_res.researcher_id)
+            if cand:
+                return AuthorMatchItem(
+                    input_full_name=raw_res.full_name,
+                    input_scopus_id=raw_res.scopus_id,
+                    input_department=raw_res.department,
+                    certificate_title=title_snapshot,
+                    author_role=author_in.author_role,
+                    status="MATCHED",
+                    matched_author_id=str(cand.id),
+                    matched_author_name=cand.full_name,
+                    matched_by="UUID",
+                    candidates=[
+                        AuthorCandidate(
+                            id=str(cand.id),
+                            full_name=cand.full_name,
+                            scopus_id=cand.scopus_id,
+                            department=cand.department,
+                            institutional_affiliation=cand.institutional_affiliation,
+                            is_verified=cand.is_verified,
+                        )
+                    ],
+                )
+
+        # Priority 2: Exact scopus_id match
+        if raw_res.scopus_id and raw_res.scopus_id.strip():
+            clean_scopus = raw_res.scopus_id.strip()
+            stmt = select(ResearchAuthor).where(
+                func.lower(func.trim(ResearchAuthor.scopus_id)) == clean_scopus.lower()
+            )
+            scopus_matches = db.scalars(stmt).all()
+            if len(scopus_matches) == 1:
+                cand = scopus_matches[0]
+                return AuthorMatchItem(
+                    input_full_name=raw_res.full_name,
+                    input_scopus_id=raw_res.scopus_id,
+                    input_department=raw_res.department,
+                    certificate_title=title_snapshot,
+                    author_role=author_in.author_role,
+                    status="MATCHED",
+                    matched_author_id=str(cand.id),
+                    matched_author_name=cand.full_name,
+                    matched_by="SCOPUS_ID",
+                    candidates=[
+                        AuthorCandidate(
+                            id=str(cand.id),
+                            full_name=cand.full_name,
+                            scopus_id=cand.scopus_id,
+                            department=cand.department,
+                            institutional_affiliation=cand.institutional_affiliation,
+                            is_verified=cand.is_verified,
+                        )
+                    ],
+                )
+            elif len(scopus_matches) > 1:
+                candidates_out = [
+                    AuthorCandidate(
+                        id=str(m.id),
+                        full_name=m.full_name,
+                        scopus_id=m.scopus_id,
+                        department=m.department,
+                        institutional_affiliation=m.institutional_affiliation,
+                        is_verified=m.is_verified,
+                    )
+                    for m in scopus_matches
+                ]
+                return AuthorMatchItem(
+                    input_full_name=raw_res.full_name,
+                    input_scopus_id=raw_res.scopus_id,
+                    input_department=raw_res.department,
+                    certificate_title=title_snapshot,
+                    author_role=author_in.author_role,
+                    status="AMBIGUOUS",
+                    candidates=candidates_out,
+                )
+
+        # Priority 3: Normalized name + department
+        norm_input = SamaCmsService.normalize_researcher_name(raw_res.full_name)
+        if not norm_input:
+            return AuthorMatchItem(
+                input_full_name=raw_res.full_name,
+                input_scopus_id=raw_res.scopus_id,
+                input_department=raw_res.department,
+                certificate_title=title_snapshot,
+                author_role=author_in.author_role,
+                status="NOT_FOUND",
+                candidates=[],
+            )
+
+        # Query all authors and match normalized names
+        all_authors = db.scalars(select(ResearchAuthor)).all()
+        candidate_records = []
+        for author in all_authors:
+            norm_db_name = SamaCmsService.normalize_researcher_name(author.full_name)
+            if norm_db_name == norm_input:
+                candidate_records.append(author)
+
+        if not candidate_records:
+            return AuthorMatchItem(
+                input_full_name=raw_res.full_name,
+                input_scopus_id=raw_res.scopus_id,
+                input_department=raw_res.department,
+                certificate_title=title_snapshot,
+                author_role=author_in.author_role,
+                status="NOT_FOUND",
+                candidates=[],
+            )
+
+        candidates_out = [
+            AuthorCandidate(
+                id=str(m.id),
+                full_name=m.full_name,
+                scopus_id=m.scopus_id,
+                department=m.department,
+                institutional_affiliation=m.institutional_affiliation,
+                is_verified=m.is_verified,
+            )
+            for m in candidate_records
+        ]
+
+        if len(candidate_records) == 1:
+            cand = candidate_records[0]
+            return AuthorMatchItem(
+                input_full_name=raw_res.full_name,
+                input_scopus_id=raw_res.scopus_id,
+                input_department=raw_res.department,
+                certificate_title=title_snapshot,
+                author_role=author_in.author_role,
+                status="MATCHED",
+                matched_author_id=str(cand.id),
+                matched_author_name=cand.full_name,
+                matched_by="NORMALIZED_NAME",
+                candidates=candidates_out,
+            )
+
+        # If multiple candidates, try disambiguating with department
+        if raw_res.department and raw_res.department.strip():
+            dept_input = raw_res.department.strip().lower()
+            dept_filtered = [
+                c for c in candidate_records
+                if c.department and dept_input in c.department.lower()
+            ]
+            if len(dept_filtered) == 1:
+                cand = dept_filtered[0]
+                return AuthorMatchItem(
+                    input_full_name=raw_res.full_name,
+                    input_scopus_id=raw_res.scopus_id,
+                    input_department=raw_res.department,
+                    certificate_title=title_snapshot,
+                    author_role=author_in.author_role,
+                    status="MATCHED",
+                    matched_author_id=str(cand.id),
+                    matched_author_name=cand.full_name,
+                    matched_by="NORMALIZED_NAME",
+                    candidates=candidates_out,
+                )
+
+        return AuthorMatchItem(
+            input_full_name=raw_res.full_name,
+            input_scopus_id=raw_res.scopus_id,
+            input_department=raw_res.department,
+            certificate_title=title_snapshot,
+            author_role=author_in.author_role,
+            status="AMBIGUOUS",
+            candidates=candidates_out,
+        )
+
+    @staticmethod
+    def preview_bulk_certificate_upload(
+        db: Session, payload: BulkCertificateUploadPayload
+    ) -> BulkCertificatePreviewResponse:
+        """
+        Validates bulk certificate JSON upload, performs researcher repository matching,
+        and generates a detailed interactive preview before certificates are created.
+        """
+        preview_items: List[BulkCertificatePreviewItem] = []
+        valid_certs = 0
+        invalid_certs = 0
+        total_authors = 0
+        matched_authors = 0
+        ambiguous_authors = 0
+        not_found_authors = 0
+
+        for idx, cert_item in enumerate(payload.certificates):
+            errors = []
+            if not cert_item.research_title or len(cert_item.research_title.strip()) < 3:
+                errors.append("Research title is required (at least 3 characters).")
+            if not cert_item.authors:
+                errors.append("At least one author must be specified.")
+
+            author_matches: List[AuthorMatchItem] = []
+            for a_in in cert_item.authors:
+                total_authors += 1
+                match_res = SamaCmsService.match_author_against_repository(db, a_in)
+                author_matches.append(match_res)
+                if match_res.status == "MATCHED":
+                    matched_authors += 1
+                elif match_res.status == "AMBIGUOUS":
+                    ambiguous_authors += 1
+                else:
+                    not_found_authors += 1
+
+            if payload.batch.certificate_type == "INCENTIVE_AWARD" and not cert_item.incentive_details:
+                errors.append("Incentive award details are required for INCENTIVE_AWARD certificates.")
+
+            is_valid = len(errors) == 0
+            if is_valid:
+                valid_certs += 1
+            else:
+                invalid_certs += 1
+
+            preview_items.append(
+                BulkCertificatePreviewItem(
+                    index=idx,
+                    research_title=cert_item.research_title,
+                    certificate_type=payload.batch.certificate_type,
+                    issue_date=payload.batch.issue_date.isoformat(),
+                    is_valid=is_valid,
+                    validation_errors=errors,
+                    authors=author_matches,
+                    publication_details=cert_item.publication_details,
+                    incentive_details=cert_item.incentive_details,
+                )
+            )
+
+        return BulkCertificatePreviewResponse(
+            batch=payload.batch,
+            total_certificates=len(payload.certificates),
+            valid_certificates_count=valid_certs,
+            invalid_certificates_count=invalid_certs,
+            total_authors=total_authors,
+            matched_authors_count=matched_authors,
+            ambiguous_authors_count=ambiguous_authors,
+            not_found_authors_count=not_found_authors,
+            certificates=preview_items,
+        )
+
+    @staticmethod
+    def generate_bulk_certificates(
+        db: Session,
+        payload: BulkCertificateGenerateRequest,
+        actor_user_id: uuid.UUID,
+    ) -> BulkCertificateGenerateResponse:
+        """
+        Creates certificates in PENDING_DEAN_APPROVAL status from a validated bulk batch.
+        Associates batch metadata in publication_details["batch"] without requiring DDL migrations.
+        Applies explicit certificate_title (NEVER copied from repository profile).
+        Initializes approval ledger records for DEAN_RD and VICE_CHANCELLOR.
+        """
+        batch_id = uuid.uuid4()
+        created_certs: List[BulkCertificateGenerateResultItem] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        IST = ZoneInfo("Asia/Kolkata")
+        today_ist = datetime.now(timezone.utc).astimezone(IST).date()
+        sched_date = payload.batch.issue_date
+        validate_issue_date(sched_date)
+
+        # Build resolution map: cert_idx -> {author_idx: resolved_author_id}
+        res_map: Dict[int, Dict[int, Optional[uuid.UUID]]] = {}
+        if payload.resolutions:
+            for c_res in payload.resolutions:
+                if c_res.authors:
+                    res_map[c_res.certificate_index] = {
+                        a_res.author_index: a_res.resolved_author_id
+                        for a_res in c_res.authors
+                    }
+
+        # Look up active signatories for initial approval entries
+        dean_sig = SamaCmsService.get_active_signatory(db, "DEAN_RD")
+        vc_sig = SamaCmsService.get_active_signatory(db, "VICE_CHANCELLOR")
+
+        # Resolve bulletin metadata if supplied
+        b_vol = payload.batch.bulletin.volume if payload.batch.bulletin else None
+        b_issue = payload.batch.bulletin.issue if payload.batch.bulletin else None
+        b_period = payload.batch.bulletin.period if payload.batch.bulletin else None
+
+        for idx, item in enumerate(payload.certificates):
+            try:
+                cert_num = SamaCmsService.generate_unique_certificate_number(db)
+                token = uuid.uuid4().hex
+
+                # Default titles based on certificate type
+                cert_title = (
+                    "CERTIFICATE OF RESEARCH FELICITATION"
+                    if payload.batch.certificate_type == "RESEARCH_PUBLICATION"
+                    else "RESEARCH INCENTIVE CONFERMENT"
+                )
+                pres_stmt = (
+                    "is proudly presented to"
+                    if payload.batch.certificate_type == "RESEARCH_PUBLICATION"
+                    else "is officially conferred upon"
+                )
+
+                # Persist batch metadata into publication_details JSONB
+                pub_details = dict(item.publication_details or {})
+                if item.incentive_details:
+                    pub_details.update(item.incentive_details)
+                pub_details["batch"] = {
+                    "batch_id": str(batch_id),
+                    "batch_name": payload.batch.batch_name,
+                    "certificate_type": payload.batch.certificate_type,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+                cert = FelicitationCertificate(
+                    certificate_number=cert_num,
+                    certificate_type=payload.batch.certificate_type,
+                    status="PENDING_DEAN_APPROVAL",
+                    title=cert_title,
+                    presentation_statement=pres_stmt,
+                    research_contribution_statement=item.research_contribution_statement,
+                    research_title=item.research_title,
+                    publication_details=pub_details,
+                    verification_token=token,
+                    bulletin_volume_snapshot=b_vol,
+                    bulletin_issue_snapshot=b_issue,
+                    bulletin_period_snapshot=b_period,
+                    created_by_user_id=actor_user_id,
+                    scheduled_issue_date=sched_date,
+                    activated_at=None,
+                    issued_at=None,
+                )
+                db.add(cert)
+                db.flush()
+
+                primary_author_id = None
+                for a_idx, a_in in enumerate(item.authors):
+                    # Check manual resolution first, then auto-match
+                    resolved_id = None
+                    if idx in res_map and a_idx in res_map[idx]:
+                        resolved_id = res_map[idx][a_idx]
+                    else:
+                        match_res = SamaCmsService.match_author_against_repository(db, a_in)
+                        if match_res.status == "MATCHED" and match_res.matched_author_id:
+                            resolved_id = uuid.UUID(match_res.matched_author_id)
+
+                    author_obj = db.get(ResearchAuthor, resolved_id) if resolved_id else None
+                    if a_idx == 0 and author_obj:
+                        primary_author_id = author_obj.id
+
+                    dept_clean = author_obj.department if author_obj else a_in.researcher.department
+                    if dept_clean and dept_clean.strip().lower() == "department of research":
+                        dept_clean = None
+
+                    # CRITICAL TITLE RULE: academic_title_snapshot is strictly taken from certificate_title
+                    c_title = a_in.certificate_title.strip() if a_in.certificate_title else None
+
+                    c_auth = CertificateAuthor(
+                        certificate_id=cert.id,
+                        researcher_id=author_obj.id if author_obj else None,
+                        author_name_snapshot=a_in.researcher.full_name,
+                        academic_title_snapshot=c_title,
+                        scopus_id_snapshot=author_obj.scopus_id if author_obj else a_in.researcher.scopus_id,
+                        department_snapshot=dept_clean,
+                        designation_snapshot=None,
+                        affiliation_snapshot=author_obj.institutional_affiliation if author_obj else (a_in.researcher.institutional_affiliation or "Chhatrapati Shahu Ji Maharaj University, Kanpur"),
+                        author_order=a_idx + 1,
+                        author_role=a_in.author_role or ("Lead Author" if a_idx == 0 else "Co-Author"),
+                    )
+                    db.add(c_auth)
+
+                if primary_author_id:
+                    cert.author_id = primary_author_id
+
+                # Initialize dual authority approval records
+                appr_dean = CertificateApproval(
+                    certificate_id=cert.id,
+                    authority_type="DEAN_RD",
+                    signatory_id=dean_sig.id if dean_sig else None,
+                    signatory_name_snapshot=dean_sig.signatory_name if dean_sig else "Dean – Research & Development",
+                    designation_snapshot=dean_sig.designation if dean_sig else "Dean – Research & Development",
+                    signature_image_path_snapshot=dean_sig.signature_image_path if dean_sig else None,
+                    signature_asset_version_snapshot=dean_sig.signature_asset_version if dean_sig else 1,
+                    status="PENDING",
+                )
+                db.add(appr_dean)
+
+                appr_vc = CertificateApproval(
+                    certificate_id=cert.id,
+                    authority_type="VICE_CHANCELLOR",
+                    signatory_id=vc_sig.id if vc_sig else None,
+                    signatory_name_snapshot=vc_sig.signatory_name if vc_sig else "Vice Chancellor",
+                    designation_snapshot=vc_sig.designation if vc_sig else "Vice Chancellor",
+                    signature_image_path_snapshot=vc_sig.signature_image_path if vc_sig else None,
+                    signature_asset_version_snapshot=vc_sig.signature_asset_version if vc_sig else 1,
+                    status="PENDING",
+                )
+                db.add(appr_vc)
+
+                db.flush()
+                created_certs.append(
+                    BulkCertificateGenerateResultItem(
+                        index=idx,
+                        certificate_id=str(cert.id),
+                        certificate_number=cert.certificate_number,
+                        research_title=cert.research_title,
+                        status=cert.status,
+                        authors_count=len(item.authors),
+                    )
+                )
+            except Exception as exc:
+                logger.error(f"Error creating batch certificate item {idx}: {exc}")
+                failed_items.append({"index": idx, "research_title": item.research_title, "error": str(exc)})
+
+        db.commit()
+
+        return BulkCertificateGenerateResponse(
+            batch_id=str(batch_id),
+            batch_name=payload.batch.batch_name,
+            certificate_type=payload.batch.certificate_type,
+            total_requested=len(payload.certificates),
+            created_count=len(created_certs),
+            failed_count=len(failed_items),
+            created_certificates=created_certs,
+            failed_items=failed_items,
+        )
+
+    @staticmethod
+    def bulk_submit_to_dean(
+        db: Session,
+        certificate_ids: List[uuid.UUID],
+        actor_user_id: uuid.UUID,
+    ) -> Dict[str, Any]:
+        """
+        Submits selected certificates from a generated batch to the Dean approval queue.
+        Transitions status to PENDING_DEAN_APPROVAL.
+        """
+        submitted_ids: List[str] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        for cid in certificate_ids:
+            cert = db.get(FelicitationCertificate, cid)
+            if not cert:
+                failed_items.append({"id": str(cid), "reason": "Certificate not found."})
+                continue
+            if cert.status in ["ISSUED", "SCHEDULED", "ARCHIVED", "REVOKED"]:
+                failed_items.append({"id": str(cid), "reason": f"Cannot submit certificate in '{cert.status}' state."})
+                continue
+
+            cert.status = "PENDING_DEAN_APPROVAL"
+            submitted_ids.append(str(cert.id))
+
+        db.commit()
+        return {
+            "total_requested": len(certificate_ids),
+            "submitted_count": len(submitted_ids),
+            "failed_count": len(failed_items),
+            "submitted_ids": submitted_ids,
+            "failed_items": failed_items,
+        }
+
+    @staticmethod
+    def bulk_forward_to_vc(
+        db: Session,
+        certificate_ids: List[uuid.UUID],
+        actor_user_id: uuid.UUID,
+    ) -> Dict[str, Any]:
+        """
+        Forwards Dean-approved certificates to the Vice Chancellor approval queue.
+        Validates that each certificate has received Dean approval.
+        """
+        forwarded_ids: List[str] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        for cid in certificate_ids:
+            cert = db.get(FelicitationCertificate, cid)
+            if not cert:
+                failed_items.append({"id": str(cid), "reason": "Certificate not found."})
+                continue
+
+            dean_appr = next((ap for ap in cert.approvals if ap.authority_type == "DEAN_RD"), None)
+            if not dean_appr or dean_appr.status != "APPROVED":
+                failed_items.append({
+                    "id": str(cid),
+                    "reason": "Certificate has not been approved by Dean – R&D yet."
+                })
+                continue
+
+            cert.status = "PENDING_VC_APPROVAL"
+            forwarded_ids.append(str(cert.id))
+
+        db.commit()
+        return {
+            "total_requested": len(certificate_ids),
+            "forwarded_count": len(forwarded_ids),
+            "failed_count": len(failed_items),
+            "forwarded_ids": forwarded_ids,
+            "failed_items": failed_items,
+        }
+
+    @staticmethod
+    def bulk_process_authority_approval(
+        db: Session,
+        certificate_ids: List[uuid.UUID],
+        authority_type: str,
+        action: str,
+        remarks: Optional[str],
+        actor_user_id: uuid.UUID,
+        base_verification_url: str = "https://vyasa.csjmu.ac.in",
+    ) -> BulkApprovalResponse:
+        """
+        Dual-authority bulk approval and rejection engine for Dean – R&D and Vice Chancellor.
+        Enforces:
+        - Dean approves PENDING_DEAN_APPROVAL -> PENDING_VC_APPROVAL.
+        - VC approves PENDING_VC_APPROVAL -> Final cryptographic sealing and transition to ISSUED/SCHEDULED.
+        - Rejection requires mandatory remarks and updates status to REJECTED.
+        - Neither authority can impersonate or bypass the other.
+        """
+        op_id = str(uuid.uuid4())
+        norm_auth = authority_type.strip().upper()
+        norm_act = action.strip().upper()
+
+        if norm_act == "REJECT" and (not remarks or not remarks.strip()):
+            raise ValueError("Institutional rejection remarks are strictly mandatory.")
+
+        results: List[BulkApprovalResultItem] = []
+        success_count = 0
+        failure_count = 0
+
+        for cid in certificate_ids:
+            cert = db.get(FelicitationCertificate, cid)
+            if not cert:
+                failure_count += 1
+                results.append(
+                    BulkApprovalResultItem(
+                        certificate_id=str(cid),
+                        certificate_number="UNKNOWN",
+                        previous_status="UNKNOWN",
+                        new_status="UNKNOWN",
+                        authority=norm_auth,
+                        action=norm_act,
+                        success=False,
+                        error="Certificate record not found.",
+                    )
+                )
+                continue
+
+            prev_status = cert.status
+
+            # Enforce workflow stage prerequisites
+            if norm_auth == "DEAN_RD":
+                if cert.status not in ["PENDING_DEAN_APPROVAL", "DRAFT"]:
+                    failure_count += 1
+                    results.append(
+                        BulkApprovalResultItem(
+                            certificate_id=str(cert.id),
+                            certificate_number=cert.certificate_number,
+                            previous_status=prev_status,
+                            new_status=prev_status,
+                            authority=norm_auth,
+                            action=norm_act,
+                            success=False,
+                            error=f"Certificate cannot be approved by Dean in '{prev_status}' status.",
+                        )
+                    )
+                    continue
+            elif norm_auth == "VICE_CHANCELLOR":
+                # VC requires prior Dean approval
+                dean_appr = next((ap for ap in cert.approvals if ap.authority_type == "DEAN_RD"), None)
+                if not dean_appr or dean_appr.status != "APPROVED":
+                    failure_count += 1
+                    results.append(
+                        BulkApprovalResultItem(
+                            certificate_id=str(cert.id),
+                            certificate_number=cert.certificate_number,
+                            previous_status=prev_status,
+                            new_status=prev_status,
+                            authority=norm_auth,
+                            action=norm_act,
+                            success=False,
+                            error="Certificate must be approved by Dean – R&D prior to Vice Chancellor review.",
+                        )
+                    )
+                    continue
+
+                if cert.status != "PENDING_VC_APPROVAL" and norm_act == "APPROVE":
+                    failure_count += 1
+                    results.append(
+                        BulkApprovalResultItem(
+                            certificate_id=str(cert.id),
+                            certificate_number=cert.certificate_number,
+                            previous_status=prev_status,
+                            new_status=prev_status,
+                            authority=norm_auth,
+                            action=norm_act,
+                            success=False,
+                            error=f"Certificate is in '{prev_status}' status, expecting 'PENDING_VC_APPROVAL'.",
+                        )
+                    )
+                    continue
+
+            try:
+                updated_cert = SamaCmsService.process_authority_approval(
+                    db,
+                    cert,
+                    authority_type=norm_auth,
+                    action=norm_act,
+                    remarks=remarks,
+                    user_id=actor_user_id,
+                    base_verification_url=base_verification_url,
+                )
+                success_count += 1
+                results.append(
+                    BulkApprovalResultItem(
+                        certificate_id=str(updated_cert.id),
+                        certificate_number=updated_cert.certificate_number,
+                        previous_status=prev_status,
+                        new_status=updated_cert.status,
+                        authority=norm_auth,
+                        action=norm_act,
+                        success=True,
+                    )
+                )
+            except Exception as exc:
+                failure_count += 1
+                logger.error(f"Error processing bulk approval for cert {cert.certificate_number}: {exc}")
+                results.append(
+                    BulkApprovalResultItem(
+                        certificate_id=str(cert.id),
+                        certificate_number=cert.certificate_number,
+                        previous_status=prev_status,
+                        new_status=prev_status,
+                        authority=norm_auth,
+                        action=norm_act,
+                        success=False,
+                        error=str(exc),
+                    )
+                )
+
+        return BulkApprovalResponse(
+            operation_id=op_id,
+            authority=norm_auth,
+            action=norm_act,
+            total_requested=len(certificate_ids),
+            success_count=success_count,
+            failure_count=failure_count,
+            results=results,
+        )
+
+    @staticmethod
+    def list_batches(
+        db: Session,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Tuple[int, List[BatchSummaryItem]]:
+        """
+        Lists all bulk certificate batches grouped from certificate JSONB metadata.
+        Compatible across both PostgreSQL and SQLite.
+        """
+        stmt = (
+            select(FelicitationCertificate)
+            .where(FelicitationCertificate.publication_details.is_not(None))
+            .order_by(FelicitationCertificate.created_at.desc())
+        )
+        certs = db.scalars(stmt).all()
+
+        batches_map: Dict[str, Dict[str, Any]] = {}
+        for c in certs:
+            pub_data = c.publication_details or {}
+            b_info = pub_data.get("batch")
+            if not b_info or not isinstance(b_info, dict) or "batch_id" not in b_info:
+                continue
+
+            bid = str(b_info["batch_id"])
+            if bid not in batches_map:
+                batches_map[bid] = {
+                    "batch_id": bid,
+                    "batch_name": b_info.get("batch_name", "Certificate Batch"),
+                    "certificate_type": b_info.get("certificate_type", c.certificate_type or "RESEARCH_PUBLICATION"),
+                    "created_at": b_info.get("created_at", c.created_at.isoformat() if c.created_at else datetime.now(timezone.utc).isoformat()),
+                    "total_certificates": 0,
+                    "pending_dean_count": 0,
+                    "pending_vc_count": 0,
+                    "issued_count": 0,
+                    "scheduled_count": 0,
+                    "rejected_count": 0,
+                    "archived_count": 0,
+                }
+
+            b = batches_map[bid]
+            b["total_certificates"] += 1
+            st = c.status.upper() if c.status else ""
+            if st in ["PENDING_DEAN_APPROVAL", "DRAFT"]:
+                b["pending_dean_count"] += 1
+            elif st == "PENDING_VC_APPROVAL":
+                b["pending_vc_count"] += 1
+            elif st == "ISSUED":
+                b["issued_count"] += 1
+            elif st == "SCHEDULED":
+                b["scheduled_count"] += 1
+            elif st == "REJECTED":
+                b["rejected_count"] += 1
+            elif st == "ARCHIVED":
+                b["archived_count"] += 1
+
+        total = len(batches_map)
+        sorted_batches = sorted(
+            batches_map.values(),
+            key=lambda x: x["created_at"],
+            reverse=True,
+        )
+        paginated = sorted_batches[skip : skip + limit]
+        items = [BatchSummaryItem(**b) for b in paginated]
+        return total, items
+
+    @staticmethod
+    def get_batch_detail(db: Session, batch_id: str) -> Optional[BatchDetailResponse]:
+        """
+        Retrieves detailed information and certificate items for a specific batch.
+        """
+        stmt = (
+            select(FelicitationCertificate)
+            .where(FelicitationCertificate.publication_details.is_not(None))
+            .order_by(FelicitationCertificate.created_at.desc())
+        )
+        certs = db.scalars(stmt).all()
+
+        matching_certs = []
+        batch_meta: Optional[Dict[str, Any]] = None
+
+        for c in certs:
+            pub_data = c.publication_details or {}
+            b_info = pub_data.get("batch")
+            if b_info and isinstance(b_info, dict) and str(b_info.get("batch_id")) == str(batch_id):
+                if not batch_meta:
+                    batch_meta = b_info
+                matching_certs.append(c)
+
+        if not matching_certs or not batch_meta:
+            return None
+
+        status_counts: Dict[str, int] = {}
+        cert_items: List[Dict[str, Any]] = []
+
+        for c in matching_certs:
+            st = c.status.upper() if c.status else "UNKNOWN"
+            status_counts[st] = status_counts.get(st, 0) + 1
+
+            first_author = c.authors[0].author_name_snapshot if c.authors else (c.author.full_name if c.author else "Distinguished Scholar")
+            cert_items.append({
+                "id": str(c.id),
+                "certificate_number": c.certificate_number,
+                "research_title": c.research_title,
+                "certificate_type": c.certificate_type,
+                "status": c.status,
+                "primary_author": first_author,
+                "authors_count": len(c.authors),
+                "scheduled_issue_date": c.scheduled_issue_date.isoformat() if c.scheduled_issue_date else None,
+                "verification_token": c.verification_token,
+                "checksum_sha256": c.checksum_sha256,
+            })
+
+        return BatchDetailResponse(
+            batch_id=str(batch_id),
+            batch_name=batch_meta.get("batch_name", "Certificate Batch"),
+            certificate_type=batch_meta.get("certificate_type", "RESEARCH_PUBLICATION"),
+            created_at=batch_meta.get("created_at", datetime.now(timezone.utc).isoformat()),
+            total_certificates=len(matching_certs),
+            status_counts=status_counts,
+            certificates=cert_items,
+        )
+
+    @staticmethod
+    def export_batch_zip(db: Session, batch_id: str) -> bytes:
+        """
+        Exports a ZIP archive for a certificate batch containing:
+        1. All generated vector PDFs (if rendered/issued/scheduled)
+        2. A comprehensive CSV summary manifest.
+        """
+        stmt = (
+            select(FelicitationCertificate)
+            .where(FelicitationCertificate.publication_details.is_not(None))
+            .order_by(FelicitationCertificate.certificate_number.asc())
+        )
+        certs = db.scalars(stmt).all()
+
+        matching_certs: List[FelicitationCertificate] = []
+        for c in certs:
+            pub_data = c.publication_details or {}
+            b_info = pub_data.get("batch")
+            if b_info and isinstance(b_info, dict) and str(b_info.get("batch_id")) == str(batch_id):
+                matching_certs.append(c)
+
+        if not matching_certs:
+            raise ValueError(f"No certificates found for batch '{batch_id}'.")
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            # 1. Summary CSV Manifest
+            csv_buffer = io.StringIO()
+            writer = csv.writer(csv_buffer)
+            writer.writerow([
+                "Certificate Number",
+                "Research Title",
+                "Certificate Type",
+                "Status",
+                "Date of Issue",
+                "Primary Recipient",
+                "Scopus ID",
+                "Department",
+                "SHA-256 Checksum",
+                "Verification Token",
+            ])
+
+            for c in matching_certs:
+                first_auth = c.authors[0] if c.authors else None
+                recip_name = first_auth.author_name_snapshot if first_auth else (c.author.full_name if c.author else "Distinguished Scholar")
+                scopus = first_auth.scopus_id_snapshot if first_auth else (c.author.scopus_id if c.author else "")
+                dept = first_auth.department_snapshot if first_auth else (c.author.department if c.author else "")
+                issue_d = c.scheduled_issue_date.isoformat() if c.scheduled_issue_date else ""
+
+                writer.writerow([
+                    c.certificate_number,
+                    c.research_title,
+                    c.certificate_type,
+                    c.status,
+                    issue_d,
+                    recip_name,
+                    scopus,
+                    dept,
+                    c.checksum_sha256 or "",
+                    c.verification_token or "",
+                ])
+
+                # 2. Add PDF file if available
+                if c.file_storage_path:
+                    try:
+                        file_path = storage_service.get_file_path(c.file_storage_path)
+                        if file_path and file_path.exists():
+                            zip_file.writestr(
+                                f"certificates/{c.certificate_number.replace('/', '_')}.pdf",
+                                file_path.read_bytes(),
+                            )
+                    except Exception as err:
+                        logger.warning(f"Could not read PDF for {c.certificate_number} into ZIP: {err}")
+
+            zip_file.writestr("manifest_summary.csv", csv_buffer.getvalue())
+
+        return zip_buffer.getvalue()
 
     # ========================================================================
     # TEMPLATE & SIGNATORY SUBSYSTEMS

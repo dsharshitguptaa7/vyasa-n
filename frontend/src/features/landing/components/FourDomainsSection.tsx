@@ -111,18 +111,18 @@ export const FourDomainsSection: React.FC = () => {
               </p>
               <div className="vyasa-domain-action-row">
                 <span className="vyasa-domain-subsystem-link">
-                  <span>Portal: SAMIKSHA</span>
+                  <span>Portal: समीक्षा</span>
                   <AppIcon name="arrow-right" size={12} color="var(--vyasa-teal, #0d766e)" />
                 </span>
                 <Button
                   variant="teal"
                   size="sm"
-                  aria-label="Open Sama Veda / SAMIKSHA"
+                  aria-label="Open Sama Veda / समीक्षा"
                   onClick={() => navigate('/modules/sama-veda')}
                   className="vyasa-domain-action-btn"
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Explore SAMIKSHA</span>
+                    <span>Explore समीक्षा</span>
                     <AppIcon name="arrow-right" size={13} />
                   </span>
                 </Button>
@@ -182,18 +182,18 @@ export const FourDomainsSection: React.FC = () => {
               </p>
               <div className="vyasa-domain-action-row">
                 <span className="vyasa-domain-subsystem-link">
-                  <span>Portal: ANUDAAN</span>
+                  <span>Portal: अनुदान</span>
                   <AppIcon name="arrow-right" size={12} color="var(--vyasa-saffron, #c85602)" />
                 </span>
                 <Button
                   variant="saffron"
                   size="sm"
-                  aria-label="Open Yajur Veda / ANUDAAN"
+                  aria-label="Open Yajur Veda / अनुदान"
                   onClick={() => navigate('/modules/yajur-veda/anudaan')}
                   className="vyasa-domain-action-btn"
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Explore ANUDAAN</span>
+                    <span>Explore अनुदान</span>
                     <AppIcon name="arrow-right" size={13} />
                   </span>
                 </Button>
@@ -221,18 +221,18 @@ export const FourDomainsSection: React.FC = () => {
               </p>
               <div className="vyasa-domain-action-row">
                 <span className="vyasa-domain-subsystem-link">
-                  <span>Subsystem: NIVARAN</span>
+                  <span>Subsystem: निवारण</span>
                   <AppIcon name="arrow-right" size={12} color="var(--vyasa-gold, #b2811a)" />
                 </span>
                 <Button
                   variant="gold"
                   size="sm"
-                  aria-label="Open Atharva Veda / NIVARAN"
+                  aria-label="Open Atharva Veda / निवारण"
                   onClick={() => navigate('/modules/atharva-veda/nivaran')}
                   className="vyasa-domain-action-btn"
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Explore NIVARAN</span>
+                    <span>Explore निवारण</span>
                     <AppIcon name="arrow-right" size={13} />
                   </span>
                 </Button>

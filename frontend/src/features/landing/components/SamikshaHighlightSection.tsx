@@ -69,7 +69,7 @@ export const SamikshaHighlightSection: React.FC = () => {
   ];
 
   return (
-    <section id="samiksha" className="vyasa-story-section vyasa-samiksha-section" aria-label="SAMIKSHA Research Highlights">
+    <section id="samiksha" className="vyasa-story-section vyasa-samiksha-section" aria-label="समीक्षा Research Highlights">
       <div className="vyasa-samiksha-banner">
         <div className="vyasa-samiksha-banner__header">
           <div className="vyasa-samiksha-eyebrow">
@@ -84,9 +84,9 @@ export const SamikshaHighlightSection: React.FC = () => {
                 className="vyasa-samiksha-title"
                 role="heading"
                 aria-level={2}
-                aria-label="SAMIKSHA — Research Recognition Platform"
+                aria-label="समीक्षा — Research Recognition Platform"
               >
-                SAMIKSHA
+                समीक्षा
               </div>
               <div className="vyasa-samiksha-subtitle">
                 Institutional Pillar &bull; Research Recognition &amp; Communication
@@ -100,20 +100,20 @@ export const SamikshaHighlightSection: React.FC = () => {
               className="vyasa-samiksha-header-cta"
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <span>Explore Full SAMIKSHA Portal</span>
+                <span>Explore Full समीक्षा Portal</span>
                 <AppIcon name="arrow-right" size={16} />
               </span>
             </Button>
           </div>
 
           <p className="vyasa-samiksha-desc">
-            SAMIKSHA is the official research recognition and academic communication platform of VYASA.
+            समीक्षा is the official research recognition and academic communication platform of VYASA.
             It consolidates university publications, institutional bulletins, researcher directories, and verified
             academic commendations into an integrated digital repository at Chhatrapati Shahu Ji Maharaj University.
           </p>
 
           {/* Institutional Quality Indicators */}
-          <div className="vyasa-samiksha-tags" aria-label="SAMIKSHA Research Standards">
+          <div className="vyasa-samiksha-tags" aria-label="समीक्षा Research Standards">
             <span className="vyasa-samiksha-tag">
               <AppIcon name="book-open" size={13} />
               <span>Scopus &amp; WoS Indexed</span>
@@ -143,7 +143,7 @@ export const SamikshaHighlightSection: React.FC = () => {
                 type="button"
                 className="vyasa-samiksha-card__link"
                 onClick={() => navigate(item.route)}
-                aria-label={`${item.actionLabel} in SAMIKSHA`}
+                aria-label={`${item.actionLabel} in समीक्षा`}
               >
                 <span>{item.actionLabel}</span>
                 <AppIcon name="arrow-right" size={13} />

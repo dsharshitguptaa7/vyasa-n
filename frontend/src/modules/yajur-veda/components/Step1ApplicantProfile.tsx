@@ -199,7 +199,7 @@ export const Step1ApplicantProfile: React.FC<Step1ApplicantProfileProps> = ({
         <p style={{ margin: 0, color: '#4A5568', fontSize: '0.875rem', lineHeight: 1.5 }}>
           Only regular, serving <strong>CSJMU Campus Faculty</strong>, officially registered{' '}
           <strong>CSJMU Campus Research Scholars</strong>, and <strong>Campus Post-Doctoral Researchers</strong>{' '}
-          are eligible to submit claims under the ANUDAAN scheme. Affiliated college faculty, retired staff, and alumni are strictly ineligible.
+          are eligible to submit claims under the अनुदान scheme. Affiliated college faculty, retired staff, and alumni are strictly ineligible.
         </p>
       </div>
 

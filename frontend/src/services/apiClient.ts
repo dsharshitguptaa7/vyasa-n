@@ -230,6 +230,10 @@ export const apiClient = {
       body: formData,
       headers,
     }),
-  delete: <T>(endpoint: string, headers?: HeadersInit) =>
-    request<T>(endpoint, { method: 'DELETE', headers }),
+  delete: <T>(endpoint: string, body?: unknown, headers?: HeadersInit) =>
+    request<T>(endpoint, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
+      headers,
+    }),
 };

@@ -229,7 +229,7 @@ export const GrievanceClustersPage: React.FC = () => {
               marginBottom: '3px',
             }}
           >
-            NIVARAN Functional Hierarchy • Associate Dean Domains
+            निवारण Functional Hierarchy • Associate Dean Domains
           </div>
           <h2
             style={{

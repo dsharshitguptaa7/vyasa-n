@@ -14,9 +14,12 @@ import type {
   CertificateAuthorItem,
   CreateTemplatePayload,
   CreateSignatoryPayload,
+  BulkVerifyCertificatesResponse,
+  CertificateVerificationItem,
 } from '../../types/sama';
+import { BulkOperationsSection } from './BulkOperationsSection';
 
-type TabKey = 'ledger' | 'approvals' | 'designer' | 'templates' | 'signatories';
+type TabKey = 'ledger' | 'approvals' | 'bulk_operations' | 'designer' | 'templates' | 'signatories' | 'verification';
 
 export const CertificatesPage: React.FC = () => {
   const { user, isSuperAdmin: authSuperAdmin } = useAuth();
@@ -45,7 +48,7 @@ export const CertificatesPage: React.FC = () => {
 
   // Filters & Search (Issued Ledger)
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'revoked' | 'superseded'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'revoked' | 'superseded' | 'archived'>('all');
   const [page, setPage] = useState(1);
   const limit = 12;
 
@@ -85,6 +88,35 @@ export const CertificatesPage: React.FC = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSignatoryModal, setShowSignatoryModal] = useState(false);
   const [selectedCert, setSelectedCert] = useState<CertificateRecord | null>(null);
+
+  // Bulk Selection & Deletion State
+  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkDeleteReason, setBulkDeleteReason] = useState('');
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showSingleDeleteModal, setShowSingleDeleteModal] = useState(false);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<CertificateRecord | null>(null);
+  const [singleDeleteReason, setSingleDeleteReason] = useState('');
+  const [isSingleDeleting, setIsSingleDeleting] = useState(false);
+
+  // Restoration State
+  const [showBulkRestoreModal, setShowBulkRestoreModal] = useState(false);
+  const [bulkRestoreReason, setBulkRestoreReason] = useState('');
+  const [isBulkRestoring, setIsBulkRestoring] = useState(false);
+  const [showSingleRestoreModal, setShowSingleRestoreModal] = useState(false);
+  const [singleRestoreTarget, setSingleRestoreTarget] = useState<CertificateRecord | null>(null);
+  const [singleRestoreReason, setSingleRestoreReason] = useState('');
+  const [isSingleRestoring, setIsSingleRestoring] = useState(false);
+
+  // Bulk Verification State
+  const [verifyInputMode, setVerifyInputMode] = useState<'TEXT' | 'CSV'>('TEXT');
+  const [verifyRawText, setVerifyRawText] = useState('');
+  const [verifyCsvFile, setVerifyCsvFile] = useState<File | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyResults, setVerifyResults] = useState<BulkVerifyCertificatesResponse | null>(null);
+  const [verifySearchQuery, setVerifySearchQuery] = useState('');
+  const [verifyStatusFilter, setVerifyStatusFilter] = useState('ALL');
 
   // Revoke state
   const [revocationReason, setRevocationReason] = useState('');
@@ -232,6 +264,8 @@ export const CertificatesPage: React.FC = () => {
         statusParam = 'SCHEDULED';
       } else if (statusFilter === 'superseded') {
         statusParam = 'SUPERSEDED';
+      } else if (statusFilter === 'archived') {
+        statusParam = 'ARCHIVED';
       }
 
       const res = await samaAdminService.getCertificates({
@@ -871,6 +905,245 @@ export const CertificatesPage: React.FC = () => {
   };
 
   // ---------------------------------------------------------------------------
+  // Bulk Selection, Deletion & Verification Handlers
+  // ---------------------------------------------------------------------------
+  const handleToggleSelectCert = (id: string) => {
+    setSelectedCertIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllCurrentPage = () => {
+    const allSelected = certificates.every((c) => selectedCertIds.has(c.id));
+    if (allSelected) {
+      setSelectedCertIds((prev) => {
+        const next = new Set(prev);
+        certificates.forEach((c) => next.delete(c.id));
+        return next;
+      });
+    } else {
+      setSelectedCertIds((prev) => {
+        const next = new Set(prev);
+        certificates.forEach((c) => next.add(c.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDeleteSubmit = async () => {
+    if (!bulkDeleteReason.trim()) {
+      setError('Please provide a mandatory deletion reason for institutional audit.');
+      return;
+    }
+    const idsToDelete = Array.from(selectedCertIds);
+    if (idsToDelete.length === 0) return;
+
+    try {
+      setIsBulkDeleting(true);
+      setError(null);
+      const res = await samaAdminService.bulkDeleteCertificates(idsToDelete, bulkDeleteReason.trim());
+      setShowBulkDeleteModal(false);
+      setBulkDeleteReason('');
+      setSelectedCertIds(new Set());
+      setSuccessMessage(`Successfully deleted/archived ${res.deleted_count} certificate(s).`);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to bulk delete certificates.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleOpenSingleDelete = (cert: CertificateRecord) => {
+    setSingleDeleteTarget(cert);
+    setSingleDeleteReason('');
+    setShowSingleDeleteModal(true);
+  };
+
+  const handleSingleDeleteSubmit = async () => {
+    if (!singleDeleteTarget) return;
+    if (!singleDeleteReason.trim()) {
+      setError('Please provide a mandatory deletion reason.');
+      return;
+    }
+
+    try {
+      setIsSingleDeleting(true);
+      setError(null);
+      await samaAdminService.deleteCertificate(singleDeleteTarget.id, singleDeleteReason.trim());
+      setShowSingleDeleteModal(false);
+      setSingleDeleteTarget(null);
+      setSingleDeleteReason('');
+      setSuccessMessage(`Certificate ${singleDeleteTarget.certificate_number} archived successfully.`);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to delete certificate.');
+    } finally {
+      setIsSingleDeleting(false);
+    }
+  };
+
+  const handleOpenSingleRestore = (cert: CertificateRecord) => {
+    setSingleRestoreTarget(cert);
+    setSingleRestoreReason('');
+    setShowSingleRestoreModal(true);
+  };
+
+  const handleSingleRestoreSubmit = async () => {
+    if (!singleRestoreTarget) return;
+    if (!singleRestoreReason.trim()) {
+      setError('Please provide a mandatory restoration reason for institutional audit.');
+      return;
+    }
+
+    try {
+      setIsSingleRestoring(true);
+      setError(null);
+      const res = await samaAdminService.restoreCertificate(singleRestoreTarget.id, singleRestoreReason.trim());
+      setShowSingleRestoreModal(false);
+      setSingleRestoreTarget(null);
+      setSingleRestoreReason('');
+      setSuccessMessage(`Certificate ${res.certificate_number} restored to ${res.restored_to_status} successfully.`);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to restore certificate.');
+    } finally {
+      setIsSingleRestoring(false);
+    }
+  };
+
+  const handleBulkRestoreSubmit = async () => {
+    if (!bulkRestoreReason.trim()) {
+      setError('Please provide a mandatory restoration reason for institutional audit.');
+      return;
+    }
+    const idsToRestore = Array.from(selectedCertIds);
+    if (idsToRestore.length === 0) return;
+
+    try {
+      setIsBulkRestoring(true);
+      setError(null);
+      const res = await samaAdminService.bulkRestoreCertificates(idsToRestore, bulkRestoreReason.trim());
+      setShowBulkRestoreModal(false);
+      setBulkRestoreReason('');
+      setSelectedCertIds(new Set());
+      setSuccessMessage(`Successfully restored ${res.restored_count} certificate(s).`);
+      fetchCertificates();
+      fetchStats();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to bulk restore certificates.');
+    } finally {
+      setIsBulkRestoring(false);
+    }
+  };
+
+  const handleRunBulkVerification = async () => {
+    setVerifyError(null);
+    const lines = verifyRawText
+      .split(/[\r\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      setVerifyError('Please enter at least one certificate number to verify.');
+      return;
+    }
+    if (lines.length > 250) {
+      setVerifyError(`Batch contains ${lines.length} items. Maximum allowed is 250 per verification request.`);
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      const res = await samaAdminService.bulkVerifyCertificates({ certificate_numbers: lines });
+      setVerifyResults(res);
+    } catch (err: any) {
+      setVerifyError(err?.response?.data?.detail || err?.message || 'Failed to perform bulk verification.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleUploadCsvVerification = async () => {
+    if (!verifyCsvFile) {
+      setVerifyError('Please select a CSV or text file to upload.');
+      return;
+    }
+    try {
+      setIsVerifying(true);
+      setVerifyError(null);
+      const res = await samaAdminService.bulkVerifyCertificatesCsv(verifyCsvFile);
+      setVerifyResults(res);
+    } catch (err: any) {
+      setVerifyError(err?.response?.data?.detail || err?.message || 'Failed to verify certificates from CSV file.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleExportVerificationCsv = () => {
+    if (!verifyResults || !verifyResults.results || verifyResults.results.length === 0) return;
+    const headers = ['Input Text', 'Certificate Number', 'Status', 'Is Duplicate', 'Recipient Name', 'Research Title', 'Issue Date', 'Scheduled Issue Date', 'Revocation Reason', 'Replacement Certificate', 'Details / Error'];
+    const rows = verifyResults.results.map((it: CertificateVerificationItem) => [
+      `"${it.input_text}"`,
+      `"${it.certificate_number || ''}"`,
+      `"${it.status}"`,
+      `"${it.is_duplicate ? 'YES' : 'NO'}"`,
+      `"${(it.recipient_name || '').replace(/"/g, '""')}"`,
+      `"${(it.research_title || '').replace(/"/g, '""')}"`,
+      `"${it.issue_date || ''}"`,
+      `"${it.scheduled_issue_date || ''}"`,
+      `"${(it.revocation_reason || '').replace(/"/g, '""')}"`,
+      `"${(it.replacement_certificate_number || '').replace(/"/g, '""')}"`,
+      `"${(it.error_message || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r: string[]) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `samiksha_bulk_verification_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredVerifyResults = useMemo(() => {
+    if (!verifyResults || !verifyResults.results) return [];
+    return verifyResults.results.filter((item: CertificateVerificationItem) => {
+      const q = verifySearchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.input_text.toLowerCase().includes(q) ||
+        (item.certificate_number && item.certificate_number.toLowerCase().includes(q)) ||
+        (item.recipient_name && item.recipient_name.toLowerCase().includes(q)) ||
+        (item.research_title && item.research_title.toLowerCase().includes(q)) ||
+        (item.error_message && item.error_message.toLowerCase().includes(q));
+
+      let matchesFilter = true;
+      if (verifyStatusFilter === 'VALID') matchesFilter = item.status === 'VALID / ISSUED';
+      else if (verifyStatusFilter === 'SCHEDULED') matchesFilter = item.status === 'SCHEDULED';
+      else if (verifyStatusFilter === 'REVOKED') matchesFilter = item.status === 'REVOKED';
+      else if (verifyStatusFilter === 'SUPERSEDED') matchesFilter = item.status === 'SUPERSEDED';
+      else if (verifyStatusFilter === 'NOT_FOUND') matchesFilter = item.status === 'NOT_FOUND';
+      else if (verifyStatusFilter === 'INVALID') matchesFilter = item.status === 'INVALID';
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [verifyResults, verifySearchQuery, verifyStatusFilter]);
+
+  // ---------------------------------------------------------------------------
   // Template & Signatory Management Handlers
   // ---------------------------------------------------------------------------
   const handleCreateTemplate = async () => {
@@ -1069,7 +1342,7 @@ export const CertificatesPage: React.FC = () => {
                 marginBottom: '4px',
               }}
             >
-              CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR • SAMIKSHA
+              CHHATRAPATI SHAHU JI MAHARAJ UNIVERSITY, KANPUR • समीक्षा
             </div>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
               <AppIcon name="shield" size={26} color="#D4AF37" />
@@ -1197,6 +1470,25 @@ export const CertificatesPage: React.FC = () => {
             Approval Queue {stats.pending_approvals > 0 && <Badge variant="gold">{stats.pending_approvals}</Badge>}
           </button>
           <button
+            onClick={() => setActiveTab('bulk_operations')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'bulk_operations' ? 700 : 500,
+              color: activeTab === 'bulk_operations' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'bulk_operations' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="file-text" size={16} />
+            Bulk Operations & Dual Approvals
+          </button>
+          <button
             onClick={() => setActiveTab('designer')}
             style={{
               padding: '10px 4px',
@@ -1253,6 +1545,25 @@ export const CertificatesPage: React.FC = () => {
             <AppIcon name="user" size={16} />
             Signing Authorities {refDataLoading ? '(…)' : refDataError ? '(!)' : `(${signatories.length})`}
           </button>
+          <button
+            onClick={() => setActiveTab('verification')}
+            style={{
+              padding: '10px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'verification' ? 700 : 500,
+              color: activeTab === 'verification' ? '#0F2B48' : '#64748B',
+              borderBottom: activeTab === 'verification' ? '3px solid #B2811A' : '3px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <AppIcon name="shield" size={16} />
+            Bulk Verification
+          </button>
         </div>
 
         {/* =================================================================== */}
@@ -1282,10 +1593,82 @@ export const CertificatesPage: React.FC = () => {
                     { label: 'Revoked', value: 'revoked' },
                     { label: 'Superseded', value: 'superseded' },
                     { label: 'Scheduled (Pre-Activation)', value: 'scheduled' },
+                    { label: '📦 Archived / Soft-Deleted (Recovery)', value: 'archived' },
                   ]}
                 />
               </div>
             </div>
+
+            {/* Super Admin Bulk Selection Toolbar */}
+            {isSuperAdmin && certificates.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: selectedCertIds.size > 0 ? '#FEF2F2' : '#F8FAFC',
+                  border: selectedCertIds.size > 0 ? '1px solid #FECACA' : '1px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#1E293B' }}>
+                    <input
+                      type="checkbox"
+                      checked={certificates.length > 0 && certificates.every((c) => selectedCertIds.has(c.id))}
+                      onChange={handleSelectAllCurrentPage}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#DC2626' }}
+                    />
+                    <span>Select All on Page ({certificates.length})</span>
+                  </label>
+                  {selectedCertIds.size > 0 && (
+                    <Badge variant="neutral" style={{ color: '#DC2626', borderColor: '#FECACA', background: '#FFFFFF' }}>
+                      {selectedCertIds.size} selected
+                    </Badge>
+                  )}
+                </div>
+
+                {selectedCertIds.size > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedCertIds(new Set())}
+                    >
+                      Clear Selection
+                    </Button>
+                    {statusFilter === 'archived' ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          setBulkRestoreReason('');
+                          setShowBulkRestoreModal(true);
+                        }}
+                        style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                      >
+                        ♻️ Bulk Restore ({selectedCertIds.size})
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          setBulkDeleteReason('');
+                          setShowBulkDeleteModal(true);
+                        }}
+                        style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                      >
+                        🗑️ Bulk Archive ({selectedCertIds.size})
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Certificate Ledger Cards */}
             {loading ? (
@@ -1335,6 +1718,7 @@ export const CertificatesPage: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {certificates.map((cert) => {
+                  const isArchived = cert.status === 'ARCHIVED';
                   const isRevoked = cert.is_revoked || cert.status === 'REVOKED';
                   const isSuperseded = cert.status === 'SUPERSEDED';
                   const isScheduled = cert.status === 'SCHEDULED';
@@ -1348,8 +1732,10 @@ export const CertificatesPage: React.FC = () => {
                       key={cert.id}
                       style={{
                         background: '#FFFFFF',
-                        border: isRevoked ? '1px solid #FECACA' : isSuperseded ? '1px solid #E2E8F0' : '1px solid #E2E8F0',
-                        borderLeft: isRevoked
+                        border: isArchived ? '1px solid #CBD5E1' : isRevoked ? '1px solid #FECACA' : isSuperseded ? '1px solid #E2E8F0' : '1px solid #E2E8F0',
+                        borderLeft: isArchived
+                          ? '5px solid #64748B'
+                          : isRevoked
                           ? '5px solid #DC2626'
                           : isSuperseded
                           ? '5px solid #8B5CF6'
@@ -1369,10 +1755,21 @@ export const CertificatesPage: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {isSuperAdmin && (
+                              <input
+                                type="checkbox"
+                                checked={selectedCertIds.has(cert.id)}
+                                onChange={() => handleToggleSelectCert(cert.id)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#DC2626', marginRight: '4px' }}
+                                title="Select certificate for bulk action"
+                              />
+                            )}
                             <span style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
                               {cert.certificate_number}
                             </span>
-                            {isRevoked ? (
+                            {isArchived ? (
+                              <Badge variant="neutral" style={{ background: '#F1F5F9', color: '#475569', borderColor: '#CBD5E1' }}>📦 ARCHIVED</Badge>
+                            ) : isRevoked ? (
                               <Badge variant="neutral" style={{ color: '#DC2626', borderColor: '#FECACA' }}>REVOKED</Badge>
                             ) : isSuperseded ? (
                               <Badge variant="neutral">SUPERSEDED</Badge>
@@ -1482,6 +1879,40 @@ export const CertificatesPage: React.FC = () => {
                                 Revoke
                               </Button>
                             </>
+                          )}
+
+                          {isSuperAdmin && (
+                            isArchived ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                style={{ color: '#059669', borderColor: '#A7F3D0' }}
+                                onClick={() => handleOpenSingleRestore(cert)}
+                                title="Restore archived certificate to original state"
+                              >
+                                ♻️ Restore
+                              </Button>
+                            ) : cert.status === 'ISSUED' && !isRevoked ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                style={{ color: '#94A3B8', borderColor: '#E2E8F0', cursor: 'not-allowed' }}
+                                title="Active issued certificates cannot be archived directly; revoke or reissue first."
+                              >
+                                Archive (Revoke First)
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                onClick={() => handleOpenSingleDelete(cert)}
+                                title="Soft-delete / archive certificate"
+                              >
+                                Archive
+                              </Button>
+                            )
                           )}
                         </div>
                       </div>
@@ -1852,6 +2283,16 @@ export const CertificatesPage: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB: BULK OPERATIONS & DUAL APPROVALS */}
+        {/* =================================================================== */}
+        {activeTab === 'bulk_operations' && (
+          <BulkOperationsSection
+            isSuperAdmin={isSuperAdmin}
+            onRefreshStats={fetchStats}
+          />
         )}
 
         {/* =================================================================== */}
@@ -2387,6 +2828,351 @@ export const CertificatesPage: React.FC = () => {
         )}
 
         {/* =================================================================== */}
+        {/* TAB 6: BULK CERTIFICATE VERIFICATION */}
+        {/* =================================================================== */}
+        {activeTab === 'verification' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Header Description */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '20px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '22px' }}>🔍</span>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0F2B48' }}>
+                  Institutional Bulk Certificate Verification
+                </h3>
+                <Badge variant="primary">Super Admin</Badge>
+              </div>
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#64748B', lineHeight: '1.5' }}>
+                Verify batches of up to 250 certificate numbers in a single optimized query. Cross-checks certificate authenticity, lifecycle status, revocation details, superseding chains, scheduled activation dates, and recipient author lists.
+              </p>
+            </div>
+
+            {/* Input Section */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
+              {/* Input Mode Selector */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px' }}>
+                <Button
+                  variant={verifyInputMode === 'TEXT' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setVerifyInputMode('TEXT')}
+                >
+                  📝 Text / Comma / Newline Input
+                </Button>
+                <Button
+                  variant={verifyInputMode === 'CSV' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setVerifyInputMode('CSV')}
+                >
+                  📁 CSV / TXT File Upload
+                </Button>
+              </div>
+
+              {verifyInputMode === 'TEXT' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                    Paste Certificate Numbers (one per line or comma-separated, max 250):
+                  </label>
+                  <textarea
+                    rows={6}
+                    value={verifyRawText}
+                    onChange={(e) => setVerifyRawText(e.target.value)}
+                    placeholder="VYASA-SAM-2024-0001&#10;VYASA-SAM-2024-0002&#10;VYASA-SAM-2024-0003"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontFamily: 'monospace',
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#64748B' }}>
+                      Tip: Duplicate entries are automatically identified; malformed tokens are flagged as INVALID.
+                    </span>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleRunBulkVerification}
+                      disabled={isVerifying || !verifyRawText.trim()}
+                    >
+                      {isVerifying ? 'Verifying Batch...' : 'Run Bulk Verification'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                    Upload CSV or Text File (.csv, .txt with certificate numbers, max 2MB):
+                  </label>
+                  <div
+                    style={{
+                      border: '2px dashed #CBD5E1',
+                      borderRadius: '8px',
+                      padding: '24px',
+                      textAlign: 'center',
+                      background: '#F8FAFC',
+                    }}
+                  >
+                    <input
+                      type="file"
+                      accept=".csv,.txt"
+                      onChange={(e) => setVerifyCsvFile(e.target.files?.[0] || null)}
+                      style={{ fontSize: '13px' }}
+                    />
+                    {verifyCsvFile && (
+                      <div style={{ marginTop: '8px', fontSize: '13px', color: '#0F2B48', fontWeight: 600 }}>
+                        Selected file: {verifyCsvFile.name} ({(verifyCsvFile.size / 1024).toFixed(1)} KB)
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleUploadCsvVerification}
+                      disabled={isVerifying || !verifyCsvFile}
+                    >
+                      {isVerifying ? 'Uploading & Verifying...' : 'Upload & Verify CSV'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {verifyError && (
+                <div
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    color: '#991B1B',
+                  }}
+                >
+                  ⚠️ {verifyError}
+                </div>
+              )}
+            </div>
+
+            {/* Results Section */}
+            {verifyResults && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Metric Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Total Queried</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#0F2B48', marginTop: '4px' }}>{verifyResults.total_submitted}</div>
+                  </div>
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 600, textTransform: 'uppercase' }}>Valid / Issued</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#15803D', marginTop: '4px' }}>{verifyResults.valid_count}</div>
+                  </div>
+                  <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#0369A1', fontWeight: 600, textTransform: 'uppercase' }}>Scheduled</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{verifyResults.scheduled_count}</div>
+                  </div>
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#991B1B', fontWeight: 600, textTransform: 'uppercase' }}>Revoked</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#DC2626', marginTop: '4px' }}>{verifyResults.revoked_count}</div>
+                  </div>
+                  <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#6D28D9', fontWeight: 600, textTransform: 'uppercase' }}>Superseded</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#7C3AED', marginTop: '4px' }}>{verifyResults.superseded_count}</div>
+                  </div>
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#92400E', fontWeight: 600, textTransform: 'uppercase' }}>Not Found</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#D97706', marginTop: '4px' }}>{verifyResults.not_found_count}</div>
+                  </div>
+                  <div style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, textTransform: 'uppercase' }}>Invalid Format</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#64748B', marginTop: '4px' }}>{verifyResults.invalid_count}</div>
+                  </div>
+                  <div style={{ background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '8px', padding: '12px 14px' }}>
+                    <div style={{ fontSize: '11.5px', color: '#C2410C', fontWeight: 600, textTransform: 'uppercase' }}>Duplicates</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#EA580C', marginTop: '4px' }}>{verifyResults.duplicate_count}</div>
+                  </div>
+                </div>
+
+                {/* Filter and Export Toolbar */}
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ width: '240px' }}>
+                      <Input
+                        placeholder="Search results..."
+                        value={verifySearchQuery}
+                        onChange={(e) => setVerifySearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ width: '180px' }}>
+                      <Select
+                        value={verifyStatusFilter}
+                        onChange={(e) => setVerifyStatusFilter(e.target.value)}
+                        options={[
+                          { label: 'All Statuses', value: 'ALL' },
+                          { label: 'Valid / Issued', value: 'VALID' },
+                          { label: 'Scheduled', value: 'SCHEDULED' },
+                          { label: 'Revoked', value: 'REVOKED' },
+                          { label: 'Superseded', value: 'SUPERSEDED' },
+                          { label: 'Not Found', value: 'NOT_FOUND' },
+                          { label: 'Invalid Format', value: 'INVALID' },
+                        ]}
+                      />
+                    </div>
+                    <span style={{ fontSize: '12.5px', color: '#64748B' }}>
+                      Showing {filteredVerifyResults.length} of {verifyResults.results.length} items
+                    </span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportVerificationCsv}
+                  >
+                    📥 Export Verification CSV
+                  </Button>
+                </div>
+
+                {/* Verification Results Table */}
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    overflowX: 'auto',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600, width: '40px' }}>#</th>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600 }}>Certificate Number</th>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600, width: '140px' }}>Status</th>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600 }}>Recipient / Research</th>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600 }}>Issue / Scheduled Date</th>
+                        <th style={{ padding: '10px 14px', color: '#475569', fontWeight: 600 }}>Details / Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredVerifyResults.map((item: CertificateVerificationItem, idx: number) => {
+                        const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+                          'VALID / ISSUED': { bg: '#F0FDF4', text: '#15803D', border: '#BBF7D0' },
+                          SCHEDULED: { bg: '#F0F9FF', text: '#0284C7', border: '#BAE6FD' },
+                          REVOKED: { bg: '#FEF2F2', text: '#DC2626', border: '#FECACA' },
+                          SUPERSEDED: { bg: '#F5F3FF', text: '#7C3AED', border: '#DDD6FE' },
+                          NOT_FOUND: { bg: '#FFFBEB', text: '#D97706', border: '#FDE68A' },
+                          INVALID: { bg: '#F1F5F9', text: '#64748B', border: '#CBD5E1' },
+                        };
+                        const sc = statusColors[item.status] || { bg: '#F1F5F9', text: '#64748B', border: '#CBD5E1' };
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '10px 14px', color: '#94A3B8', fontFamily: 'monospace' }}>{idx + 1}</td>
+                            <td style={{ padding: '10px 14px' }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F2B48' }}>
+                                {item.certificate_number || item.input_text}
+                              </span>
+                              {item.is_duplicate && (
+                                <span style={{ marginLeft: '6px', padding: '1px 6px', borderRadius: '4px', background: '#FFEDD5', color: '#C2410C', fontSize: '10.5px', fontWeight: 600 }}>
+                                  DUPLICATE
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 600,
+                                  background: sc.bg,
+                                  color: sc.text,
+                                  border: `1px solid ${sc.border}`,
+                                }}
+                              >
+                                {item.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 14px' }}>
+                              {item.recipient_name ? (
+                                <div>
+                                  <span style={{ fontWeight: 600, color: '#1E293B' }}>{item.recipient_name}</span>
+                                  {item.research_title && (
+                                    <div style={{ fontSize: '11.5px', color: '#64748B', fontStyle: 'italic', marginTop: '2px' }}>
+                                      {item.research_title.slice(0, 60)}{item.research_title.length > 60 ? '...' : ''}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94A3B8' }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px', color: '#475569', fontSize: '12px' }}>
+                              {item.status === 'SCHEDULED' && item.scheduled_issue_date ? (
+                                <span style={{ color: '#0284C7', fontWeight: 600 }}>⏰ {item.scheduled_issue_date}</span>
+                              ) : item.issue_date ? (
+                                item.issue_date
+                              ) : (
+                                <span style={{ color: '#94A3B8' }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px', fontSize: '12px' }}>
+                              {item.revocation_reason ? (
+                                <span style={{ color: '#DC2626' }}>Reason: {item.revocation_reason}</span>
+                              ) : item.replacement_certificate_number ? (
+                                <span style={{ color: '#7C3AED' }}>Superseded by: {item.replacement_certificate_number}</span>
+                              ) : item.error_message ? (
+                                <span style={{ color: '#64748B' }}>{item.error_message}</span>
+                              ) : (
+                                <span style={{ color: '#94A3B8' }}>—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =================================================================== */}
         {/* MODAL: CREATE JOINT CERTIFICATE WIZARD */}
         {/* =================================================================== */}
         {showWizardModal && (
@@ -2822,7 +3608,7 @@ export const CertificatesPage: React.FC = () => {
                         <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F2B48', letterSpacing: '-0.01em' }}>
                           🏛️ Search Institutional Directory
                         </span>
-                        <Badge variant="teal">SAMIKSHA Verified</Badge>
+                        <Badge variant="teal">समीक्षा Verified</Badge>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3437,7 +4223,7 @@ export const CertificatesPage: React.FC = () => {
                           value={wizardPublicationId}
                           onChange={(e) => handleSelectPublicationForWizard(e.target.value)}
                           options={[
-                            { label: '-- Select publication from SAMIKSHA database --', value: '' },
+                            { label: '-- Select publication from समीक्षा database --', value: '' },
                             ...publications
                               .filter((p) => !wizardBulletinId || p.bulletin_id === wizardBulletinId)
                               .map((p) => ({ label: `${p.title} (${p.source_journal || 'CSJMU'})`, value: p.id })),
@@ -4273,6 +5059,290 @@ export const CertificatesPage: React.FC = () => {
                   style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
                 >
                   {submitting ? 'Processing...' : 'Confirm Safe Deletion'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: BULK CERTIFICATE DELETION / ARCHIVAL */}
+        {/* =================================================================== */}
+        {showBulkDeleteModal && (
+          <Modal
+            isOpen={showBulkDeleteModal}
+            onClose={() => !isBulkDeleting && setShowBulkDeleteModal(false)}
+            title="Bulk Delete / Archive Certificates"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#991B1B',
+                }}
+              >
+                <strong>Critical Action:</strong> You are about to delete <strong>{selectedCertIds.size} certificate(s)</strong>.
+              </div>
+
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+                Certificates will be <strong>safely archived</strong> (soft-deleted). Their records are retained for institutional auditing, foreign key integrity, and legal traceability, but they will be removed from active ledgers, counts, and public directories.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Mandatory Reason for Deletion / Archival: *
+                </label>
+                <textarea
+                  rows={3}
+                  value={bulkDeleteReason}
+                  onChange={(e) => setBulkDeleteReason(e.target.value)}
+                  placeholder="Specify institutional reason (e.g., Erroneous duplicate issuance, Administrative correction authorized by R&D office)..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  disabled={isBulkDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBulkDeleteSubmit}
+                  disabled={isBulkDeleting || !bulkDeleteReason.trim()}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  {isBulkDeleting ? 'Archiving Certificates...' : `Confirm Bulk Delete (${selectedCertIds.size})`}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: BULK CERTIFICATE RESTORATION */}
+        {/* =================================================================== */}
+        {showBulkRestoreModal && (
+          <Modal
+            isOpen={showBulkRestoreModal}
+            onClose={() => !isBulkRestoring && setShowBulkRestoreModal(false)}
+            title="Bulk Restore Archived Certificates"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#065F46',
+                }}
+              >
+                <strong>Administrative Recovery:</strong> Restoring <strong>{selectedCertIds.size} archived certificate(s)</strong>.
+              </div>
+
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+                Certificates will be restored to their previous lifecycle status. <strong>Note:</strong> Certificates that were previously revoked or superseded will be restored strictly to their Revoked/Superseded status and will never be reactivated as active.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Mandatory Reason for Restoration: *
+                </label>
+                <textarea
+                  rows={3}
+                  value={bulkRestoreReason}
+                  onChange={(e) => setBulkRestoreReason(e.target.value)}
+                  placeholder="Specify institutional recovery reason (e.g., Accidental archival during batch audit, Administrative reinstatement authorized by R&D)..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkRestoreModal(false)}
+                  disabled={isBulkRestoring}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBulkRestoreSubmit}
+                  disabled={isBulkRestoring || !bulkRestoreReason.trim()}
+                  style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                >
+                  {isBulkRestoring ? 'Restoring Certificates...' : `Confirm Bulk Restore (${selectedCertIds.size})`}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: SINGLE CERTIFICATE RESTORATION */}
+        {/* =================================================================== */}
+        {showSingleRestoreModal && singleRestoreTarget && (
+          <Modal
+            isOpen={showSingleRestoreModal}
+            onClose={() => !isSingleRestoring && setShowSingleRestoreModal(false)}
+            title="Restore Archived Certificate"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#065F46',
+                }}
+              >
+                <strong>Confirm Restoration:</strong> Certificate <strong>{singleRestoreTarget.certificate_number}</strong>
+              </div>
+
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+                This record will be recovered from archives and restored to its previous lifecycle state. Revoked or superseded certificates remain safely revoked/superseded upon restoration.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Mandatory Reason for Restoration: *
+                </label>
+                <textarea
+                  rows={3}
+                  value={singleRestoreReason}
+                  onChange={(e) => setSingleRestoreReason(e.target.value)}
+                  placeholder="State reason for restoring this certificate record..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSingleRestoreModal(false)}
+                  disabled={isSingleRestoring}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSingleRestoreSubmit}
+                  disabled={isSingleRestoring || !singleRestoreReason.trim()}
+                  style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+                >
+                  {isSingleRestoring ? 'Restoring...' : 'Confirm Restore'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: SINGLE CERTIFICATE DELETION / ARCHIVAL */}
+        {/* =================================================================== */}
+        {showSingleDeleteModal && singleDeleteTarget && (
+          <Modal
+            isOpen={showSingleDeleteModal}
+            onClose={() => !isSingleDeleting && setShowSingleDeleteModal(false)}
+            title="Delete / Archive Certificate"
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#991B1B',
+                }}
+              >
+                <strong>Confirm Deletion:</strong> Certificate <strong>{singleDeleteTarget.certificate_number}</strong>
+              </div>
+
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: 0 }}>
+                This certificate will be <strong>safely archived</strong> (soft-deleted). It will no longer appear in the active certificate ledger, statistics, or public verification lookups.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Mandatory Reason for Deletion: *
+                </label>
+                <textarea
+                  rows={3}
+                  value={singleDeleteReason}
+                  onChange={(e) => setSingleDeleteReason(e.target.value)}
+                  placeholder="State reason for deleting this certificate record..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSingleDeleteModal(false)}
+                  disabled={isSingleDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSingleDeleteSubmit}
+                  disabled={isSingleDeleting || !singleDeleteReason.trim()}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  {isSingleDeleting ? 'Archiving...' : 'Confirm Delete'}
                 </Button>
               </div>
             </div>

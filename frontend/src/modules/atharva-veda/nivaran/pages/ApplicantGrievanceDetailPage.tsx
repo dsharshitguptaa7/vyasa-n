@@ -158,7 +158,7 @@ export const ApplicantGrievanceDetailPage: React.FC = () => {
           }}
         >
           <AppIcon name="layout-dashboard" size={13} color="var(--vyasa-navy, #0f2b48)" />
-          <span>NIVARAN Dashboard</span>
+          <span>निवारण Dashboard</span>
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <button

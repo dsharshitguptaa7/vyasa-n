@@ -110,7 +110,7 @@ export const PublicCertificateVerificationPage: React.FC = () => {
               Official Digital Certificate Verification Portal
             </h1>
             <p style={{ fontSize: '13px', color: '#E2E8F0', margin: 0 }}>
-              SAMIKSHA • Research & Innovation Felicitation Ledger
+              समीक्षा • Research & Innovation Felicitation Ledger
             </p>
           </div>
 
@@ -129,10 +129,10 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                   Certificate Verification Failed
                 </h2>
                 <p style={{ color: '#64748B', maxWidth: '540px', margin: '0 auto 20px auto', fontSize: '14px' }}>
-                  {error || 'The requested certificate could not be located in the official SAMIKSHA ledger.'}
+                  {error || 'The requested certificate could not be located in the official समीक्षा ledger.'}
                 </p>
                 <Button variant="outline" onClick={() => navigate('/modules/sama-veda')}>
-                  Return to SAMIKSHA
+                  Return to समीक्षा
                 </Button>
               </div>
             ) : (

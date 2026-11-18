@@ -39,11 +39,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterEcosystem }) =>
       {/* 2. THE VISION BEHIND VYASAⁿ (Institutional Purpose & Leadership) */}
       <VisionSection />
 
-      {/* 3. THREE OPERATIONAL PILLARS (SAMIKSHA, NIVARAN & ANUDAAN) */}
-      <SignaturePillarsSection />
-
-      {/* 4. THE FOUR DOMAINS OF VYASAⁿ (Institutional Architecture) */}
+      {/* 3. THE FOUR DOMAINS OF VYASAⁿ (Institutional Architecture) */}
       <FourDomainsSection />
+
+      {/* 4. THREE OPERATIONAL PILLARS (SAMIKSHA, NIVARAN & ANUDAAN) */}
+      <SignaturePillarsSection />
 
       {/* 5. ANUDAAN (Dedicated Showcase & Incentive Processing) */}
       <AnudaanShowcaseSection />

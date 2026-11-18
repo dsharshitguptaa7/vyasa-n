@@ -230,7 +230,7 @@ export const CamProjectsPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
-              SAMIKSHA • Research Grants & Innovation
+              समीक्षा • Research Grants & Innovation
             </div>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AppIcon name="grid" size={22} color="var(--vyasa-primary, #0f2b48)" />

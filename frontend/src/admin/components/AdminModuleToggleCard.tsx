@@ -101,11 +101,11 @@ export const AdminModuleToggleCard: React.FC = () => {
             const isActive = mod.key === 'atharva-veda' || mod.isEnabled;
             const portalLabel =
               mod.key === 'atharva-veda'
-                ? '{portalLabel}'
+                ? 'निवारण Portal'
                 : mod.key === 'yajur-veda'
-                ? 'ANUDAAN Console'
+                ? 'अनुदान Console'
                 : mod.key === 'sama-veda'
-                ? 'SAMIKSHA Portal'
+                ? 'समीक्षा Portal'
                 : 'PRAMAAN Portal';
 
             return (

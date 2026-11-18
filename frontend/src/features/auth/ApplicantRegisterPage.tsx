@@ -387,7 +387,7 @@ export const ApplicantRegisterPage: React.FC = () => {
             </div>
             <p style={{ margin: 0 }}>
               Registering in VYASAᴺ Core provisions your unified university identity. Once registered,
-              you will use these credentials across all affiliated university pillars including NIVARAN.
+              you will use these credentials across all affiliated university pillars including निवारण.
             </p>
           </div>
         </form>

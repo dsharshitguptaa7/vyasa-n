@@ -215,7 +215,7 @@ export const ServicesMenu: React.FC<ServicesMenuProps> = ({ className = '' }) =>
                       <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)' }}>
                         {service.id === 'sama-veda' ? (
                           <>
-                            <span>SAMIKSHA</span>
+                            <span>समीक्षा</span>
                             <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px', fontWeight: 500 }}>Sama Veda</span>
                           </>
                         ) : (

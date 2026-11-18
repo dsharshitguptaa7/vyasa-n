@@ -550,7 +550,7 @@ export const AnudaanGalleryPage: React.FC = () => {
                   checked={formIsPublished}
                   onChange={(e) => setFormIsPublished(e.target.checked)}
                 />
-                <span>Publish immediately to public ANUDAAN portal</span>
+                <span>Publish immediately to public अनुदान portal</span>
               </label>
             </div>
 

@@ -51,13 +51,13 @@ export const ApplicantPillarsSection: React.FC = () => {
       {/* Atharva Veda: NIVARAN Feature Pillar */}
       <Card
         variant="gold-accent"
-        title="Atharva Veda: NIVARAN: Grievance Redressal & Research Governance"
+        title="Atharva Veda: निवारण: Grievance Redressal & Research Governance"
         subtitle="Affiliated Doctoral Research & Administrative Redressal Pillar"
         headerAction={<Badge variant="teal">Connected Pillar</Badge>}
       >
         <div style={{ padding: '8px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
           <p style={{ margin: '0 0 16px', fontSize: '14px' }}>
-            NIVARAN is the official doctoral grievance and research resolution pillar of CSJMU. As a registered scholar,
+            निवारण is the official doctoral grievance and research resolution pillar of CSJMU. As a registered scholar,
             you will be able to file grievances, track supervisor allocations, monitor RAC/RDC status, and submit thesis
             clearance applications.
           </p>
@@ -80,11 +80,11 @@ export const ApplicantPillarsSection: React.FC = () => {
                 Single Sign-On Pipeline
               </span>
               <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: 600, color: 'var(--vyasa-navy)' }}>
-                VYASA Core &rarr; NIVARAN Handoff Contract
+                VYASA Core &rarr; निवारण Handoff Contract
               </p>
             </div>
             <Button variant="primary" size="md" onClick={handleOpenNivaran}>
-              Open NIVARAN &rarr;
+              Open निवारण &rarr;
             </Button>
           </div>
         </div>

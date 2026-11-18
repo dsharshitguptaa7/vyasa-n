@@ -246,7 +246,7 @@ export type MandatoryDeclarationType = (typeof MANDATORY_DECLARATION_TYPES)[numb
 
 export const DRAFT_DECLARATION_TEXTS: Record<MandatoryDeclarationType, string> = {
   APPLICANT_ELIGIBILITY:
-    'I confirm that I am currently a serving Faculty member, registered Research Scholar, or registered Post-Doctoral Researcher at the CSJMU Campus, and satisfy the eligibility criteria specified under the ANUDAAN Research Publication Incentive Scheme.',
+    'I confirm that I am currently a serving Faculty member, registered Research Scholar, or registered Post-Doctoral Researcher at the CSJMU Campus, and satisfy the eligibility criteria specified under the अनुदान Research Publication Incentive Scheme.',
   AUTHOR_ROLE:
     'I declare that my authorship attribution as First Author or nominated Corresponding Author is true and correct, and has been mutually consented to by all co-authors of the paper.',
   PUBLICATION_ELIGIBILITY:

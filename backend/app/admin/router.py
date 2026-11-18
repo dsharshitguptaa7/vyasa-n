@@ -65,6 +65,10 @@ router.include_router(sama_admin_router)
 from app.admin.anudaan_admin_router import anudaan_admin_router
 router.include_router(anudaan_admin_router)
 
+# Mount AI Knowledge Centre Subsystem (/admin/knowledge-centre)
+from app.modules.knowledge_centre.router import router as knowledge_centre_admin_router
+router.include_router(knowledge_centre_admin_router, prefix="/knowledge-centre")
+
 # Top-level platform audit logs route alias
 router.add_api_route(
     "/audit-logs",

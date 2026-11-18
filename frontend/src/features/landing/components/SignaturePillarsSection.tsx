@@ -47,9 +47,9 @@ export const SignaturePillarsSection: React.FC = () => {
                   className="vyasa-pillar-card__name"
                   role="heading"
                   aria-level={3}
-                  aria-label="SAMIKSHA — Research Recognition"
+                  aria-label="समीक्षा — Research Recognition"
                 >
-                  SAMIKSHA
+                  समीक्षा
                 </div>
                 <div className="vyasa-pillar-card__pillar vyasa-pillar-card__pillar--samiksha">
                   <span>Pillar &bull; Research Recognition &amp; Communication</span>
@@ -88,10 +88,10 @@ export const SignaturePillarsSection: React.FC = () => {
               size="md"
               className="vyasa-pillar-card__cta"
               onClick={() => navigate('/modules/sama-veda')}
-              aria-label="Explore SAMIKSHA"
+              aria-label="Explore समीक्षा"
             >
               <span className="vyasa-pillar-card__cta-inner">
-                <span>Explore SAMIKSHA</span>
+                <span>Explore समीक्षा</span>
                 <AppIcon name="arrow-right" size={16} className="vyasa-pillar-card__cta-arrow" />
               </span>
             </Button>
@@ -104,7 +104,7 @@ export const SignaturePillarsSection: React.FC = () => {
                   navigate('/modules/sama-veda');
                 }}
               >
-                <span>Portal: SAMIKSHA</span>
+                <span>Portal: समीक्षा</span>
                 <AppIcon name="arrow-right" size={12} className="vyasa-pillar-card__secondary-arrow" />
               </a>
             </div>
@@ -136,9 +136,9 @@ export const SignaturePillarsSection: React.FC = () => {
                   className="vyasa-pillar-card__name"
                   role="heading"
                   aria-level={3}
-                  aria-label="NIVARAN — Grievance Redressal"
+                  aria-label="निवारण — Grievance Redressal"
                 >
-                  NIVARAN
+                  निवारण
                 </div>
                 <div className="vyasa-pillar-card__pillar vyasa-pillar-card__pillar--nivaran">
                   <span>Pillar &bull; Grievance Redressal &amp; Institutional Well-Being</span>
@@ -177,10 +177,10 @@ export const SignaturePillarsSection: React.FC = () => {
               size="md"
               className="vyasa-pillar-card__cta"
               onClick={() => navigate('/modules/atharva-veda/nivaran')}
-              aria-label="Explore NIVARAN"
+              aria-label="Explore निवारण"
             >
               <span className="vyasa-pillar-card__cta-inner">
-                <span>Explore NIVARAN</span>
+                <span>Explore निवारण</span>
                 <AppIcon name="arrow-right" size={16} className="vyasa-pillar-card__cta-arrow" />
               </span>
             </Button>
@@ -193,7 +193,7 @@ export const SignaturePillarsSection: React.FC = () => {
                   navigate('/modules/atharva-veda/nivaran');
                 }}
               >
-                <span>Portal: NIVARAN</span>
+                <span>Portal: निवारण</span>
                 <AppIcon name="arrow-right" size={12} className="vyasa-pillar-card__secondary-arrow" />
               </a>
             </div>
@@ -225,9 +225,9 @@ export const SignaturePillarsSection: React.FC = () => {
                   className="vyasa-pillar-card__name"
                   role="heading"
                   aria-level={3}
-                  aria-label="ANUDAAN — Research Administration & Incentives"
+                  aria-label="अनुदान — Research Administration & Incentives"
                 >
-                  ANUDAAN
+                  अनुदान
                 </div>
                 <div className="vyasa-pillar-card__pillar vyasa-pillar-card__pillar--anudaan">
                   <span>Pillar &bull; Research Administration &amp; Incentives</span>
@@ -266,10 +266,10 @@ export const SignaturePillarsSection: React.FC = () => {
               size="md"
               className="vyasa-pillar-card__cta"
               onClick={() => navigate('/modules/yajur-veda/anudaan')}
-              aria-label="Explore ANUDAAN"
+              aria-label="Explore अनुदान"
             >
               <span className="vyasa-pillar-card__cta-inner">
-                <span>Explore ANUDAAN</span>
+                <span>Explore अनुदान</span>
                 <AppIcon name="arrow-right" size={16} className="vyasa-pillar-card__cta-arrow" />
               </span>
             </Button>
@@ -282,7 +282,7 @@ export const SignaturePillarsSection: React.FC = () => {
                   navigate('/modules/yajur-veda/anudaan');
                 }}
               >
-                <span>Portal: ANUDAAN</span>
+                <span>Portal: अनुदान</span>
                 <AppIcon name="arrow-right" size={12} className="vyasa-pillar-card__secondary-arrow" />
               </a>
             </div>

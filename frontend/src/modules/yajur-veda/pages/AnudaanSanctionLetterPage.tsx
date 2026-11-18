@@ -93,7 +93,7 @@ export const AnudaanSanctionLetterPage: React.FC = () => {
                 Invalid Sanction Order Reference
               </h2>
               <p style={{ color: '#4B5563', marginBottom: 24 }}>
-                No application or sanction reference was specified. Please return to the ANUDAAN Tracking portal.
+                No application or sanction reference was specified. Please return to the अनुदान Tracking portal.
               </p>
               <Button variant="primary" onClick={() => navigate('/modules/yajur-veda/anudaan/track')}>
                 Return to Tracking Portal
@@ -167,7 +167,7 @@ export const AnudaanSanctionLetterPage: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              ANUDAAN
+              अनुदान
             </button>
             <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
             <button
@@ -301,7 +301,7 @@ export const AnudaanSanctionLetterPage: React.FC = () => {
                   Kalyanpur, Kanpur, Uttar Pradesh 208024 &bull; Web: www.csjmu.ac.in &bull; Email: dean.rnd@csjmu.ac.in
                 </p>
                 <div style={{ marginTop: 12, display: 'inline-block', backgroundColor: '#0B2545', color: '#ffffff', padding: '4px 16px', borderRadius: 4, fontWeight: 700, fontSize: '0.875rem', letterSpacing: '0.08em' }}>
-                  EXECUTIVE SANCTION ORDER &bull; ANUDAAN SCHEME
+                  EXECUTIVE SANCTION ORDER &bull; अनुदान SCHEME
                 </div>
               </div>
 
@@ -355,7 +355,7 @@ export const AnudaanSanctionLetterPage: React.FC = () => {
 
               {/* Subject Statement */}
               <div style={{ marginBottom: 20, fontSize: '0.95rem', lineHeight: 1.6 }}>
-                <strong>Subject:</strong> Administrative and financial sanction of research cash incentive under the university Research Publication Incentive Management Scheme (ANUDAAN V1.1) for indexed scholarly contributions.
+                <strong>Subject:</strong> Administrative and financial sanction of research cash incentive under the university Research Publication Incentive Management Scheme (अनुदान V1.1) for indexed scholarly contributions.
               </div>
 
               {/* Preamble */}

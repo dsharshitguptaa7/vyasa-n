@@ -283,7 +283,8 @@ export type CertificateStatus =
   | 'ISSUED'
   | 'REJECTED'
   | 'REVOKED'
-  | 'SUPERSEDED';
+  | 'SUPERSEDED'
+  | 'ARCHIVED';
 
 export type AuthorityType = 'DEAN_RD' | 'VICE_CHANCELLOR';
 
@@ -679,4 +680,301 @@ export interface BulkDeleteResult {
   failed_count: number;
   failed_items: { id: string; reason?: string; error?: string }[];
   total_requested: number;
+}
+
+export interface BulkDeleteCertificatesPayload {
+  certificate_ids: string[];
+  reason: string;
+}
+
+export interface BulkDeleteCertificatesResponse {
+  operation_id: string;
+  total_requested: number;
+  deleted_count: number;
+  failed_count: number;
+  deleted_ids: string[];
+  failed_items: { id: string; reason: string }[];
+  audit_logged: boolean;
+}
+
+export interface SingleRestoreCertificatePayload {
+  reason: string;
+}
+
+export interface BulkRestoreCertificatesPayload {
+  certificate_ids: string[];
+  reason: string;
+}
+
+export interface BulkRestoreFailureItem {
+  id: string;
+  reason: string;
+}
+
+export interface BulkRestoreResultItem {
+  id: string;
+  certificate_number: string;
+  restored_to_status: string;
+}
+
+export interface BulkRestoreCertificatesResponse {
+  operation_id: string;
+  total_requested: number;
+  restored_count: number;
+  failed_count: number;
+  restored_items: BulkRestoreResultItem[];
+  failed_items: BulkRestoreFailureItem[];
+  audit_logged: boolean;
+}
+
+export interface ArchivedCertificateItem {
+  id: string;
+  certificate_number: string;
+  title: string;
+  certificate_type: string;
+  previous_status: string;
+  archival_reason?: string | null;
+  archived_at?: string | null;
+  archived_by_user_id?: string | null;
+  primary_recipient?: string | null;
+  verification_token?: string | null;
+  is_revoked: boolean;
+}
+
+export interface ArchivedCertificateListResponse {
+  total: number;
+  skip: number;
+  limit: number;
+  items: ArchivedCertificateItem[];
+}
+
+export interface CertificateVerificationItem {
+  input_text: string;
+  certificate_number?: string;
+  status: string;
+  is_valid: boolean;
+  is_scheduled?: boolean;
+  is_revoked?: boolean;
+  is_superseded?: boolean;
+  is_duplicate?: boolean;
+  error_message?: string | null;
+  certificate_id?: string | null;
+  title?: string | null;
+  certificate_type?: string | null;
+  recipient_name?: string | null;
+  research_title?: string | null;
+  issue_date?: string | null;
+  scheduled_issue_date?: string | null;
+  revocation_reason?: string | null;
+  revoked_at?: string | null;
+  replacement_certificate_number?: string | null;
+  verification_token?: string | null;
+  sha256_checksum?: string | null;
+}
+
+export interface BulkVerifyCertificatesResponse {
+  total_submitted: number;
+  valid_count: number;
+  scheduled_count: number;
+  revoked_count: number;
+  superseded_count: number;
+  not_found_count: number;
+  invalid_count: number;
+  duplicate_count: number;
+  results: CertificateVerificationItem[];
+}
+
+
+// ============================================================================
+// 8. BULK CERTIFICATE GENERATION & DUAL-AUTHORITY WORKFLOW TYPES
+// ============================================================================
+
+export interface BulkBulletinMetadata {
+  volume?: number | null;
+  issue?: number | null;
+  period?: string | null;
+}
+
+export interface BulkCertificateUploadBatchMetadata {
+  batch_name: string;
+  certificate_type: 'RESEARCH_PUBLICATION' | 'INCENTIVE_AWARD';
+  issue_date: string;
+  bulletin?: BulkBulletinMetadata | null;
+}
+
+export interface BulkResearcherInput {
+  researcher_id?: string | null;
+  scopus_id?: string | null;
+  full_name: string;
+  department?: string | null;
+  institutional_affiliation?: string | null;
+}
+
+export interface BulkAuthorInput {
+  researcher: BulkResearcherInput;
+  certificate_title?: string | null;
+  author_role?: string | null;
+  is_corresponding?: boolean | null;
+}
+
+export interface BulkCertificateItemInput {
+  item_id?: string | null;
+  research_title: string;
+  authors: BulkAuthorInput[];
+  research_contribution_statement?: string | null;
+  publication_details?: Record<string, any> | null;
+  incentive_details?: Record<string, any> | null;
+}
+
+export interface BulkCertificateUploadPayload {
+  batch: BulkCertificateUploadBatchMetadata;
+  certificates: BulkCertificateItemInput[];
+}
+
+export interface AuthorCandidate {
+  id: string;
+  full_name: string;
+  scopus_id?: string | null;
+  department?: string | null;
+  institutional_affiliation?: string | null;
+  is_verified: boolean;
+  match_score?: number | null;
+}
+
+export interface AuthorMatchItem {
+  input_full_name: string;
+  input_scopus_id?: string | null;
+  input_department?: string | null;
+  certificate_title?: string | null;
+  author_role?: string | null;
+  status: 'MATCHED' | 'AMBIGUOUS' | 'NOT_FOUND';
+  matched_author_id?: string | null;
+  matched_author_name?: string | null;
+  matched_by?: string | null;
+  candidates: AuthorCandidate[];
+}
+
+export interface BulkCertificatePreviewItem {
+  index: number;
+  research_title: string;
+  certificate_type: string;
+  issue_date: string;
+  is_valid: boolean;
+  validation_errors: string[];
+  authors: AuthorMatchItem[];
+  publication_details?: Record<string, any> | null;
+  incentive_details?: Record<string, any> | null;
+}
+
+export interface BulkCertificatePreviewResponse {
+  batch: BulkCertificateUploadBatchMetadata;
+  total_certificates: number;
+  valid_certificates_count: number;
+  invalid_certificates_count: number;
+  total_authors: number;
+  matched_authors_count: number;
+  ambiguous_authors_count: number;
+  not_found_authors_count: number;
+  certificates: BulkCertificatePreviewItem[];
+}
+
+export interface AuthorResolutionMapping {
+  author_index: number;
+  resolved_author_id?: string | null;
+  certificate_title?: string | null;
+}
+
+export interface CertificateResolutionMapping {
+  certificate_index: number;
+  authors?: AuthorResolutionMapping[] | null;
+}
+
+export interface BulkCertificateGenerateRequest {
+  batch: BulkCertificateUploadBatchMetadata;
+  certificates: BulkCertificateItemInput[];
+  resolutions?: CertificateResolutionMapping[] | null;
+}
+
+export interface BulkCertificateGenerateResultItem {
+  index: number;
+  certificate_id: string;
+  certificate_number: string;
+  research_title: string;
+  status: string;
+  authors_count: number;
+}
+
+export interface BulkCertificateGenerateResponse {
+  batch_id: string;
+  batch_name: string;
+  certificate_type: string;
+  total_requested: number;
+  created_count: number;
+  failed_count: number;
+  created_certificates: BulkCertificateGenerateResultItem[];
+  failed_items: Record<string, any>[];
+}
+
+export interface BulkSubmitDeanRequest {
+  certificate_ids: string[];
+}
+
+export interface BulkForwardVCRequest {
+  certificate_ids: string[];
+}
+
+export interface BulkApprovalActionRequest {
+  certificate_ids: string[];
+  action: 'APPROVE' | 'REJECT';
+  remarks?: string | null;
+}
+
+export interface BulkApprovalResultItem {
+  certificate_id: string;
+  certificate_number: string;
+  previous_status: string;
+  new_status: string;
+  authority: string;
+  action: string;
+  success: boolean;
+  error?: string | null;
+}
+
+export interface BulkApprovalResponse {
+  operation_id: string;
+  authority: string;
+  action: string;
+  total_requested: number;
+  success_count: number;
+  failure_count: number;
+  results: BulkApprovalResultItem[];
+}
+
+export interface BatchSummaryItem {
+  batch_id: string;
+  batch_name: string;
+  certificate_type: string;
+  created_at: string;
+  total_certificates: number;
+  pending_dean_count: number;
+  pending_vc_count: number;
+  issued_count: number;
+  scheduled_count: number;
+  rejected_count: number;
+  archived_count: number;
+}
+
+export interface BatchListResponse {
+  total: number;
+  items: BatchSummaryItem[];
+}
+
+export interface BatchDetailResponse {
+  batch_id: string;
+  batch_name: string;
+  certificate_type: string;
+  created_at: string;
+  total_certificates: number;
+  status_counts: Record<string, number>;
+  certificates: Record<string, any>[];
 }

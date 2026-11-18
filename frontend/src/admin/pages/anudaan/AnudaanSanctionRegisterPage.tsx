@@ -749,7 +749,7 @@ export const AnudaanSanctionRegisterPage: React.FC = () => {
                 }}
               >
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                  Pre-fill from Existing ANUDAAN Application (Optional)
+                  Pre-fill from Existing अनुदान Application (Optional)
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input

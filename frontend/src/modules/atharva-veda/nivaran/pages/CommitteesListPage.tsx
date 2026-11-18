@@ -202,7 +202,7 @@ export const CommitteesListPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN
+          निवारण
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Committees Workspace</span>

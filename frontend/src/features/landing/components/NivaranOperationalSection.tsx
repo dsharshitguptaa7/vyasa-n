@@ -71,7 +71,7 @@ export const NivaranOperationalSection: React.FC = () => {
   ];
 
   return (
-    <section id="nivaran" className="vyasa-story-section" aria-label="NIVARAN Operational Pillar">
+    <section id="nivaran" className="vyasa-story-section" aria-label="निवारण Operational Pillar">
       <div className="vyasa-nivaran-banner">
         <div className="vyasa-nivaran-banner__content">
           {/* Left Column: Heading, Narrative, and CTA */}
@@ -86,7 +86,7 @@ export const NivaranOperationalSection: React.FC = () => {
             {/* Section Heading & Attribution Indicator */}
             <div className="vyasa-nivaran-header-block">
               <div className="vyasa-nivaran-title-row">
-                <h2 className="vyasa-nivaran-title">NIVARAN</h2>
+                <h2 className="vyasa-nivaran-title">निवारण</h2>
 
                 {/* Subtle Info / Credit Indicator Button */}
                 <div
@@ -98,7 +98,7 @@ export const NivaranOperationalSection: React.FC = () => {
                   <button
                     type="button"
                     className="vyasa-nivaran-credit-btn"
-                    aria-label="NIVARAN Design & Development Information"
+                    aria-label="निवारण Design & Development Information"
                     aria-expanded={isCreditOpen}
                     aria-haspopup="dialog"
                     onClick={handleToggle}
@@ -113,11 +113,11 @@ export const NivaranOperationalSection: React.FC = () => {
                     <div
                       className="vyasa-nivaran-credit-popover"
                       role="dialog"
-                      aria-label="NIVARAN Contributors"
+                      aria-label="निवारण Contributors"
                       data-testid="nivaran-credit-popover"
                     >
                       <div className="vyasa-nivaran-credit-header">
-                        <span className="vyasa-nivaran-credit-module">NIVARAN</span>
+                        <span className="vyasa-nivaran-credit-module">निवारण</span>
                         <span className="vyasa-nivaran-credit-badge">Atharva Veda</span>
                       </div>
                       <div className="vyasa-nivaran-credit-label">Design &amp; Development</div>
@@ -144,13 +144,13 @@ export const NivaranOperationalSection: React.FC = () => {
 
             {/* Narrative Description */}
             <p className="vyasa-nivaran-desc">
-              NIVARAN is the official grievance redressal service of VYASA, designed to support
+              निवारण is the official grievance redressal service of VYASA, designed to support
               structured grievance submission, initial review, step-by-step progress tracking,
               and transparent resolutions across Chhatrapati Shahu Ji Maharaj University.
             </p>
 
             {/* Institutional Feature Highlights */}
-            <div className="vyasa-nivaran-tags" aria-label="NIVARAN Core Guarantees">
+            <div className="vyasa-nivaran-tags" aria-label="निवारण Core Guarantees">
               <span className="vyasa-nivaran-tag">
                 <AppIcon name="shield" size={13} />
                 <span>Confidential Intake</span>
@@ -172,10 +172,10 @@ export const NivaranOperationalSection: React.FC = () => {
                 size="lg"
                 onClick={() => navigate('/modules/atharva-veda/nivaran')}
                 className="vyasa-nivaran-cta-btn vyasa-nivaran-cta-btn--primary"
-                aria-label="Explore NIVARAN"
+                aria-label="Explore निवारण"
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Explore NIVARAN</span>
+                  <span>Explore निवारण</span>
                   <AppIcon name="arrow-right" size={16} />
                 </span>
               </Button>
@@ -192,7 +192,7 @@ export const NivaranOperationalSection: React.FC = () => {
 
           {/* Right Column: 7-Step Connected Workflow Visual */}
           <div className="vyasa-nivaran-banner__right">
-            <div className="vyasa-workflow-pipeline" aria-label="NIVARAN workflow stages">
+            <div className="vyasa-workflow-pipeline" aria-label="निवारण workflow stages">
               <div className="vyasa-workflow-pipeline__header">
                 <span className="vyasa-workflow-pipeline__title">Institutional Resolution Journey</span>
                 <span className="vyasa-workflow-pipeline__badge">7 Connected Stages</span>

@@ -65,7 +65,7 @@ export const EcosystemVisual: React.FC = () => {
           <Badge variant="neutral">Pillar 1 (Pending Registry)</Badge>
           <Badge variant="neutral">Pillar 2 (Pending Registry)</Badge>
           <Badge variant="neutral">Pillar 3 (Pending Registry)</Badge>
-          <Badge variant="saffron">NIVARAN (Future Integration)</Badge>
+          <Badge variant="saffron">निवारण (Future Integration)</Badge>
         </div>
       </div>
     </section>

@@ -3,9 +3,12 @@ import { Badge, Button, PageContainer } from '@vyasa/ui';
 import {
   phdRagService,
   ChatMessage,
+  CitationItem,
   SuggestedQuestionItem,
   PhdStatusResponse,
 } from '../../services/phdRagService';
+import { knowledgeAssistantService } from '../../services/knowledgeAssistantService';
+import { authService } from '../../services/authService';
 import { VyasaAvatar } from './components/VyasaAvatar';
 import { CopyButton } from './components/CopyButton';
 import { AudioSpeechPlayer, SpeechPlaybackState } from './components/AudioSpeechPlayer';
@@ -13,6 +16,15 @@ import { VoiceInputButton } from './components/VoiceInputButton';
 import { FeedbackButtons } from './components/FeedbackButtons';
 import { BRAND_NAMES } from '../../constants/userFacingCopy';
 import './PhdAssistant.css';
+
+const DOMAIN_OPTIONS = [
+  { id: 'all', label: 'All Domains' },
+  { id: 'doctoral_studies', label: 'Doctoral Studies' },
+  { id: 'admissions', label: 'Admissions' },
+  { id: 'academic_regulations', label: 'Academic Regulations' },
+  { id: 'research_and_innovation', label: 'Research & Innovation' },
+  { id: 'university_administration', label: 'University Administration' },
+];
 
 export const PhdAssistantPage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -23,6 +35,9 @@ export const PhdAssistantPage: React.FC = () => {
   const [expandedCitationId, setExpandedCitationId] = useState<string | null>(null);
   const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Audio Playback State tracking
   const [activePlayingId, setActivePlayingId] = useState<string | null>(null);
@@ -31,6 +46,9 @@ export const PhdAssistantPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const token = authService.getToken();
+    setIsAuthenticated(Boolean(token));
+
     // Load suggestions and status
     phdRagService
       .getSuggestedQuestions()
@@ -94,21 +112,64 @@ export const PhdAssistantPage: React.FC = () => {
     }));
 
     try {
-      const response = await phdRagService.askQuestion(text, historyPayload);
+      if (isAuthenticated) {
+        const response = await knowledgeAssistantService.askQuestion({
+          query: text,
+          conversation_id: conversationId,
+          domains: selectedDomain && selectedDomain !== 'all' ? [selectedDomain] : undefined,
+          conversation_history: historyPayload,
+        });
 
-      const assistantMsg: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: response.answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        citations: response.citations,
-        has_conflict: response.has_conflict,
-        is_grounded: response.is_grounded,
-        suggested_followups: response.suggested_followups,
-        model_used: response.model_used,
-      };
+        if (response.conversation_id) {
+          setConversationId(response.conversation_id);
+        }
 
-      setMessages((prev) => [...prev, assistantMsg]);
+        const mappedCitations: CitationItem[] = (response.citations || []).map((c) => ({
+          chunk_id: c.citation_id,
+          doc_type: c.document_type,
+          document_title: c.document_title,
+          citation_label: c.citation_label,
+          relevance_score: c.relevance_score,
+          domain: c.domain,
+          domain_label: c.domain_label,
+          academic_session: c.academic_session || undefined,
+          issuing_authority: c.issuing_authority || undefined,
+          section_heading: c.section_heading || undefined,
+          page_number: c.page_number || undefined,
+        }));
+
+        const assistantMsg: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: response.answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          citations: mappedCitations,
+          has_conflict: response.has_conflict,
+          is_grounded: response.is_grounded,
+          evidence_status: response.evidence_status,
+          model_used: response.model_used,
+          claim_validation_status: response.claim_validation_status,
+          unsupported_claims: response.unsupported_claims,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+      } else {
+        const response = await phdRagService.askQuestion(text, historyPayload);
+
+        const assistantMsg: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: response.answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          citations: response.citations,
+          has_conflict: response.has_conflict,
+          is_grounded: response.is_grounded,
+          suggested_followups: response.suggested_followups,
+          model_used: response.model_used,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+      }
     } catch (err: unknown) {
       console.error('Chat error:', err);
       let errMsg = err instanceof Error ? err.message : 'Network error';
@@ -132,12 +193,21 @@ export const PhdAssistantPage: React.FC = () => {
     }
   };
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
     if (typeof window !== 'undefined' && window.speechSynthesis && typeof window.speechSynthesis.cancel === 'function') {
       window.speechSynthesis.cancel();
     }
     setActivePlayingId(null);
     setPlaybackState('idle');
+
+    if (conversationId && isAuthenticated) {
+      try {
+        await knowledgeAssistantService.clearConversation(conversationId);
+      } catch (err) {
+        console.warn('Failed to clear conversation on server:', err);
+      }
+    }
+    setConversationId(null);
     setMessages([]);
     setLastFailedQuery(null);
   };
@@ -445,7 +515,11 @@ export const PhdAssistantPage: React.FC = () => {
                   VYASA AI Assistant
                 </h1>
                 <Badge variant="gold">Research & Development Assistant</Badge>
-                <Badge variant="neutral">Public &bull; No Login</Badge>
+                {isAuthenticated ? (
+                  <Badge variant="primary">Scholar Gateway &bull; Multi-Domain RAG</Badge>
+                ) : (
+                  <Badge variant="neutral">Public &bull; Ph.D. RAG</Badge>
+                )}
               </div>
               <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ color: '#92400e', fontWeight: 600 }}>Chhatrapati Shahu Ji Maharaj University, Kanpur</span>
@@ -456,27 +530,55 @@ export const PhdAssistantPage: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={() => handleTopicClick('Doctoral Studies')}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-            >
-              <Badge variant={selectedTopic === 'Doctoral Studies' ? 'gold' : 'teal'}>Doctoral Studies</Badge>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTopicClick('Academic Regulations')}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-            >
-              <Badge variant={selectedTopic === 'Academic Regulations' ? 'gold' : 'primary'}>Academic Regulations</Badge>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTopicClick('Admissions (2026-27)')}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-            >
-              <Badge variant={selectedTopic === 'Admissions (2026-27)' ? 'teal' : 'gold'}>Admissions (2026-27)</Badge>
-            </button>
+            {isAuthenticated ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#475569' }}>Domain Scope:</span>
+                {DOMAIN_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedDomain(opt.id)}
+                    style={{
+                      background: selectedDomain === opt.id ? '#0f2b48' : '#f8fafc',
+                      color: selectedDomain === opt.id ? '#ffffff' : '#334155',
+                      border: selectedDomain === opt.id ? '1px solid #0f2b48' : '1px solid #cbd5e1',
+                      borderRadius: '14px',
+                      padding: '2px 8px',
+                      fontSize: '0.74rem',
+                      fontWeight: selectedDomain === opt.id ? 600 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleTopicClick('Doctoral Studies')}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Badge variant={selectedTopic === 'Doctoral Studies' ? 'gold' : 'teal'}>Doctoral Studies</Badge>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTopicClick('Academic Regulations')}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Badge variant={selectedTopic === 'Academic Regulations' ? 'gold' : 'primary'}>Academic Regulations</Badge>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTopicClick('Admissions (2026-27)')}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  <Badge variant={selectedTopic === 'Admissions (2026-27)' ? 'teal' : 'gold'}>Admissions (2026-27)</Badge>
+                </button>
+              </>
+            )}
 
             {statusInfo && (
               <div
@@ -494,7 +596,7 @@ export const PhdAssistantPage: React.FC = () => {
               >
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
                 <span>
-                  <strong>{statusInfo.total_documents} Authoritative University Documents</strong> ({statusInfo.total_chunks} verified passages) &bull; Zero Hallucination Mode
+                  <strong>{statusInfo.total_documents} Authoritative University Documents</strong> ({statusInfo.total_chunks} verified passages) &bull; Authoritative Retrieval Mode
                 </span>
               </div>
             )}
@@ -613,20 +715,49 @@ export const PhdAssistantPage: React.FC = () => {
                         : undefined
                     }
                   >
+                    {/* Abstention Notice Banner */}
+                    {msg.evidence_status === 'insufficient' && (
+                      <div
+                        style={{
+                          backgroundColor: '#eff6ff',
+                          borderLeft: '4px solid #3b82f6',
+                          padding: '10px 14px',
+                          marginBottom: '12px',
+                          borderRadius: '0 6px 6px 0',
+                          fontSize: '0.85rem',
+                          color: '#1e40af',
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>🛡️</span>
+                          <span>No Authoritative Evidence Found in Published Documents</span>
+                        </div>
+                        <div style={{ marginTop: '4px', color: '#1e3a8a', lineHeight: 1.5 }}>
+                          VYASA AI strictly abstains from inventing university rules, eligibility criteria, fees, dates, or institutional decisions without direct evidence in SADMIN-approved university documents. Please consult the concerned university administrative department.
+                        </div>
+                      </div>
+                    )}
+
                     {/* Conflict Notice Banner */}
-                    {msg.has_conflict && (
+                    {(msg.evidence_status === 'conflicting_sources' || (msg.has_conflict && msg.evidence_status !== 'insufficient')) && (
                       <div
                         style={{
                           backgroundColor: '#fffbeb',
                           borderLeft: '4px solid #f59e0b',
-                          padding: '8px 12px',
+                          padding: '10px 14px',
                           marginBottom: '12px',
-                          borderRadius: '0 4px 4px 0',
+                          borderRadius: '0 6px 6px 0',
                           fontSize: '0.85rem',
                           color: '#92400e',
                         }}
                       >
-                        <strong>Discrepancy Detected Between Authoritative Sources:</strong> The Ph.D. Orientation Course Work PPT (2026-27) specifies 12 credits across 5 components, while the Ph.D. Ordinance (2024-25) references 16 credits under general regulatory provisions. Both provisions are presented below.
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>⚠️</span>
+                          <span>Discrepancy / Conflicting Provisions Disclosed in University Documents</span>
+                        </div>
+                        <div style={{ marginTop: '4px', lineHeight: 1.5 }}>
+                          Differing provisions were found across published university documents. Both provisions are presented below for verification with the respective issuing authorities.
+                        </div>
                       </div>
                     )}
 
@@ -653,9 +784,26 @@ export const PhdAssistantPage: React.FC = () => {
                           color: '#64748b',
                         }}
                       >
-                        <span>
-                          {msg.is_grounded ? '✓ Source Grounded' : 'ℹ Informational'} &bull; {BRAND_NAMES.assistant}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>
+                            {msg.is_grounded ? '✓ Source Attribution Verified' : 'ℹ Informational'} &bull; {BRAND_NAMES.assistant}
+                          </span>
+                          {msg.claim_validation_status === 'flagged' && (
+                            <span
+                              style={{
+                                color: '#b45309',
+                                backgroundColor: '#fef3c7',
+                                border: '1px solid #fde68a',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              ⚠️ Figures Require Confirmation
+                            </span>
+                          )}
+                        </div>
 
                         {/* Action Bar: Copy Answer, Listen Controls, Feedback */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -675,7 +823,7 @@ export const PhdAssistantPage: React.FC = () => {
                     {msg.citations && msg.citations.length > 0 && (
                       <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' }}>
                         <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
-                          Source Citations ({msg.citations.length} Retrieved Passages):
+                          Source Provenance ({msg.citations.length} Attributed Source Passages):
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {msg.citations.map((cite) => {
@@ -692,25 +840,48 @@ export const PhdAssistantPage: React.FC = () => {
                               >
                                 <div
                                   onClick={() =>
-                                    setExpandedCitationId(isExpanded ? null : cite.chunk_id)
+                                    cite.chunk_text ? setExpandedCitationId(isExpanded ? null : cite.chunk_id) : undefined
                                   }
                                   style={{
                                     padding: '8px 12px',
-                                    cursor: 'pointer',
+                                    cursor: cite.chunk_text ? 'pointer' : 'default',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     fontSize: '0.82rem',
                                     fontWeight: 500,
                                     color: '#1e293b',
+                                    gap: '8px',
                                   }}
                                 >
-                                  <span>📖 {cite.citation_label}</span>
-                                  <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
-                                    {isExpanded ? '▲ Hide snippet' : '▼ View passage'}
-                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span>📖 {cite.citation_label}</span>
+                                    {cite.domain_label && (
+                                      <Badge variant="teal">{cite.domain_label}</Badge>
+                                    )}
+                                    {cite.issuing_authority && (
+                                      <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                        Authority: {cite.issuing_authority}
+                                      </span>
+                                    )}
+                                    {cite.page_number && (
+                                      <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                        Page {cite.page_number}
+                                      </span>
+                                    )}
+                                    {cite.relevance_score != null && (
+                                      <span style={{ fontSize: '0.74rem', color: '#059669', fontWeight: 600 }}>
+                                        {Math.round(cite.relevance_score * 100)}% match
+                                      </span>
+                                    )}
+                                  </div>
+                                  {cite.chunk_text && (
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', flexShrink: 0 }}>
+                                      {isExpanded ? '▲ Hide snippet' : '▼ View passage'}
+                                    </span>
+                                  )}
                                 </div>
-                                {isExpanded && (
+                                {isExpanded && cite.chunk_text && (
                                   <div
                                     style={{
                                       padding: '10px 12px',

@@ -37,7 +37,7 @@ export const SystemBoundaryView: React.FC<SystemBoundaryViewProps> = ({ onReturn
           headerAction={<Badge variant="gold">Specification</Badge>}
         >
           <p style={{ color: 'var(--vyasa-text-secondary)', fontSize: '14px', lineHeight: 1.6, marginBottom: '16px' }}>
-            External functional pillars (such as Pillar 1, Pillar 2, Pillar 3, and NIVARAN) attach
+            External functional pillars (such as Pillar 1, Pillar 2, Pillar 3, and निवारण) attach
             to VYASA Core using decoupled registry interfaces. Core business logic remains strictly
             isolated from pillar-specific schemas.
           </p>

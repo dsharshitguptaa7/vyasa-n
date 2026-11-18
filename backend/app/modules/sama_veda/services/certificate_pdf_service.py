@@ -24,7 +24,7 @@ import io
 import logging
 import math
 import os
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -411,7 +411,19 @@ class CertificatePDFEngine:
             else:
                 presentation_statement = "This certificate is proudly conferred upon"
 
-        effective_date = issue_date or datetime.now()
+        if isinstance(issue_date, str):
+            try:
+                effective_date = datetime.fromisoformat(issue_date.replace("Z", "+00:00"))
+            except Exception:
+                try:
+                    effective_date = date.fromisoformat(issue_date[:10])
+                except Exception:
+                    effective_date = datetime.now()
+        elif isinstance(issue_date, (datetime, date)):
+            effective_date = issue_date
+        else:
+            effective_date = datetime.now()
+
         date_str = effective_date.strftime("%B %d, %Y")
 
         # 1. Warm Ivory Background
@@ -1245,14 +1257,14 @@ class CertificatePDFEngine:
                 award_line += f"  •  Ref: {sanction_ref}"
             self._draw_fitted_text(c, award_line, text1_x, box_base_y + 14.0, col1_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
-            # Column 2 (Right): Research Bulletin Citation
+            # Column 2 (Right): Date of Issuance (matching Research Publication Certificate)
             self._draw_calendar_icon(c, col2_start_x, box_base_y + 18.0, size=icon_sz)
             c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text2_x, box_base_y + 34.0, "RESEARCH BULLETIN CITATION")
+            c.drawString(text2_x, box_base_y + 34.0, "DATE OF ISSUANCE")
 
             c.setFillColor(COLOR_NAVY_TITLE)
-            self._draw_fitted_text(c, bulletin_edition, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
+            self._draw_fitted_text(c, date_str, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
         else:
             # Column 1 (Left): Research Bulletin Volume/Issue

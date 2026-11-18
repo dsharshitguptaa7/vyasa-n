@@ -230,7 +230,7 @@ export const VyasaPortalSidebar: React.FC<VyasaPortalSidebarProps> = ({
                       size={14}
                       color={isServiceActive ? 'var(--vyasa-primary, #0f2b48)' : 'var(--vyasa-text-muted, #64748b)'}
                     />
-                    <span style={{ flex: 1 }}>{service.id === 'sama-veda' ? 'SAMIKSHA' : service.name}</span>
+                    <span style={{ flex: 1 }}>{service.id === 'sama-veda' ? 'समीक्षा' : service.name}</span>
                     <span style={{ fontSize: '11px', color: isServiceActive ? 'var(--vyasa-primary, #0f2b48)' : 'var(--vyasa-text-muted, #64748b)' }}>&rsaquo;</span>
                   </button>
                 );

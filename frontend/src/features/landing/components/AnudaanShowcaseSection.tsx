@@ -31,7 +31,7 @@ export const AnudaanShowcaseSection: React.FC = () => {
   ];
 
   return (
-    <section id="anudaan" className="vyasa-story-section vyasa-anudaan-section" aria-label="ANUDAAN Operational System">
+    <section id="anudaan" className="vyasa-story-section vyasa-anudaan-section" aria-label="अनुदान Operational System">
       <div className="vyasa-anudaan-banner">
         <div className="vyasa-anudaan-banner__content">
           {/* Left Column: Heading, Institutional Copy, Eligibility & CTAs */}
@@ -45,7 +45,7 @@ export const AnudaanShowcaseSection: React.FC = () => {
 
             {/* Title & Subtitle */}
             <div className="vyasa-anudaan-header-block">
-              <h2 className="vyasa-anudaan-title">ANUDAAN</h2>
+              <h2 className="vyasa-anudaan-title">अनुदान</h2>
               <div className="vyasa-anudaan-subtitle">
                 Research Publication Incentive Management System
               </div>
@@ -56,7 +56,7 @@ export const AnudaanShowcaseSection: React.FC = () => {
 
             {/* Narrative Description */}
             <p className="vyasa-anudaan-desc">
-              ANUDAAN is an institutional initiative of Chhatrapati Shahu Ji Maharaj University, Kanpur,
+              अनुदान is an institutional initiative of Chhatrapati Shahu Ji Maharaj University, Kanpur,
               designed to facilitate research publication incentive applications from eligible CSJMU
               Campus Faculty, Registered Research Scholars and Post-Doctoral Researchers.
             </p>
@@ -85,7 +85,7 @@ export const AnudaanShowcaseSection: React.FC = () => {
             </div>
 
             {/* Institutional Quality Indicators / Guarantees */}
-            <div className="vyasa-anudaan-tags" aria-label="ANUDAAN Core Guarantees">
+            <div className="vyasa-anudaan-tags" aria-label="अनुदान Core Guarantees">
               <span className="vyasa-anudaan-tag">
                 <AppIcon name="book-open" size={13} />
                 <span>Scopus &amp; WoS Validated</span>
@@ -111,10 +111,10 @@ export const AnudaanShowcaseSection: React.FC = () => {
                 size="lg"
                 onClick={() => navigate('/modules/yajur-veda/anudaan')}
                 className="vyasa-anudaan-cta-btn vyasa-anudaan-cta-btn--primary"
-                aria-label="Explore ANUDAAN"
+                aria-label="Explore अनुदान"
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Explore ANUDAAN</span>
+                  <span>Explore अनुदान</span>
                   <AppIcon name="arrow-right" size={16} />
                 </span>
               </Button>
@@ -132,7 +132,7 @@ export const AnudaanShowcaseSection: React.FC = () => {
 
           {/* Right Column: 7-Stage Connected Workflow Visual */}
           <div className="vyasa-anudaan-banner__right">
-            <div className="vyasa-anudaan-pipeline" aria-label="ANUDAAN workflow stages">
+            <div className="vyasa-anudaan-pipeline" aria-label="अनुदान workflow stages">
               <div className="vyasa-anudaan-pipeline__header">
                 <span className="vyasa-anudaan-pipeline__title">Incentive Processing Journey</span>
                 <span className="vyasa-anudaan-pipeline__badge">7 Connected Stages</span>

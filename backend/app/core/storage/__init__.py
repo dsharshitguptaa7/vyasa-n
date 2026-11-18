@@ -19,7 +19,13 @@ from app.core.storage.base import (
     StorageFileNotFoundError,
     MAGIC_SIGNATURES,
     DEFAULT_MAX_UPLOAD_BYTES,
+    DEFAULT_KNOWLEDGE_MAX_UPLOAD_BYTES,
     DEFAULT_ALLOWED_MIME_TYPES,
+    KNOWLEDGE_ALLOWED_MIME_TYPES,
+    MIME_DOCX,
+    MIME_PPTX,
+    MIME_PDF,
+    MIME_TXT,
     sanitize_filename,
     verify_magic_bytes,
     infer_mime_type,
@@ -95,6 +101,9 @@ class StorageServiceProxy(BaseStorageProvider):
     def exists(self, storage_key: str) -> bool:
         return self.get_provider().exists(storage_key)
 
+    def generate_presigned_url(self, storage_key: str, expires_in_seconds: int = 300) -> str:
+        return self.get_provider().generate_presigned_url(storage_key, expires_in_seconds=expires_in_seconds)
+
 
 # Global singleton proxy
 storage_service: StorageServiceProxy = StorageServiceProxy()
@@ -117,7 +126,13 @@ __all__ = [
     "StorageFileNotFoundError",
     "MAGIC_SIGNATURES",
     "DEFAULT_MAX_UPLOAD_BYTES",
+    "DEFAULT_KNOWLEDGE_MAX_UPLOAD_BYTES",
     "DEFAULT_ALLOWED_MIME_TYPES",
+    "KNOWLEDGE_ALLOWED_MIME_TYPES",
+    "MIME_DOCX",
+    "MIME_PPTX",
+    "MIME_PDF",
+    "MIME_TXT",
     "sanitize_filename",
     "verify_magic_bytes",
     "infer_mime_type",

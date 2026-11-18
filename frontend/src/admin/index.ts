@@ -23,6 +23,15 @@ export { AnudaanFelicitationPage } from './pages/anudaan/AnudaanFelicitationPage
 export { AnudaanGalleryPage } from './pages/anudaan/AnudaanGalleryPage';
 export { AnudaanConfigPage } from './pages/anudaan/AnudaanConfigPage';
 
+// AI Knowledge Centre Administration Pages
+export { KnowledgeDashboardPage } from './pages/knowledge/KnowledgeDashboardPage';
+export { DocumentLibraryPage } from './pages/knowledge/DocumentLibraryPage';
+export { UploadDocumentPage } from './pages/knowledge/UploadDocumentPage';
+export { DocumentDetailPage } from './pages/knowledge/DocumentDetailPage';
+export { ApprovalQueuePage } from './pages/knowledge/ApprovalQueuePage';
+export { ProcessingQueuePage } from './pages/knowledge/ProcessingQueuePage';
+export { FailedProcessingPage } from './pages/knowledge/FailedProcessingPage';
+
 export { AdminNav } from './components/AdminNav';
 export { AdminSidebar } from './components/AdminSidebar';
 export { AdminLayout } from './components/AdminLayout';
@@ -32,7 +41,9 @@ export { adminService } from './services/adminService';
 export { atharvaAdminService } from './services/atharvaAdminService';
 export { samaAdminService } from './services/samaAdminService';
 export { anudaanAdminService } from './services/anudaanAdminService';
+export { knowledgeAdminService } from './services/knowledgeAdminService';
 export type { ModuleRegistryItem, AdminStats } from './types';
 export * from './types/atharva';
 export * from './types/sama';
 export * from './types/anudaan';
+export * from './types/knowledge';

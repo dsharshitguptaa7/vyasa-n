@@ -436,7 +436,7 @@ export function getSamikshaNavItems(auth: any): NavItemConfig[] {
   if (isSamaEditor) {
     items.push({
       id: 'sama-cms',
-      label: 'SAMIKSHA CMS',
+      label: 'समीक्षा CMS',
       path: '/admin/sama',
       icon: 'edit',
     });
@@ -461,19 +461,19 @@ export function getVedaPortalsNavItems(): NavItemConfig[] {
   return [
     {
       id: 'atharva-veda',
-      label: 'Atharva Veda (NIVARAN)',
+      label: 'Atharva Veda (निवारण)',
       path: '/atharva-veda/workspace',
       icon: 'shield',
     },
     {
       id: 'sama-veda',
-      label: 'Sama Veda (SAMIKSHA)',
+      label: 'Sama Veda (समीक्षा)',
       path: '/modules/sama-veda',
       icon: 'book-open',
     },
     {
       id: 'yajur-veda',
-      label: 'Yajur Veda (ANUDAAN)',
+      label: 'Yajur Veda (अनुदान)',
       path: '/modules/yajur-veda/anudaan',
       icon: 'scale',
     },

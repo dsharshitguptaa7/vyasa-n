@@ -4,13 +4,13 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, desc
 from sqlalchemy.exc import OperationalError, DBAPIError
 
 from app.core.logging import logger
-from app.api.dependencies import get_db, require_permission, require_super_admin_user
+from app.api.dependencies import get_db, get_current_user, require_permission, require_super_admin_user
 from app.models.user import User
 from app.schemas.response import ApiResponse
 from app.services.audit_service import audit_service
@@ -59,6 +59,30 @@ from app.admin.schemas.sama_cms import (
     CertificateOut,
     CertificateListResponse,
     CertificateStatsOut,
+    BulkDeleteCertificatesRequest,
+    SingleDeleteCertificateRequest,
+    BulkDeleteFailureItem,
+    BulkDeleteCertificatesResponse,
+    SingleRestoreCertificateRequest,
+    BulkRestoreCertificatesRequest,
+    BulkRestoreFailureItem,
+    BulkRestoreResultItem,
+    BulkRestoreCertificatesResponse,
+    ArchivedCertificateItem,
+    ArchivedCertificateListResponse,
+    BulkVerifyCertificatesRequest,
+    BulkVerifyCertificatesResponse,
+    CertificateVerificationItem,
+    BulkCertificateUploadPayload,
+    BulkCertificatePreviewResponse,
+    BulkCertificateGenerateRequest,
+    BulkCertificateGenerateResponse,
+    BulkSubmitDeanRequest,
+    BulkForwardVCRequest,
+    BulkApprovalActionRequest,
+    BulkApprovalResponse,
+    BatchListResponse,
+    BatchDetailResponse,
     CertificateApprovalActionRequest,
     CertificateSignatoryCreate,
     CertificateSignatoryUpdate,
@@ -1178,6 +1202,95 @@ def list_admin_certificates(
     )
 
 
+@sama_admin_router.get("/certificates/batches", response_model=ApiResponse)
+def list_certificate_batches(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    """
+    Lists certificate batches with status metrics.
+    """
+    total, items = sama_cms_service.list_batches(db, skip=skip, limit=limit)
+    return ApiResponse(
+        success=True,
+        message="Certificate batches retrieved successfully.",
+        data=BatchListResponse(total=total, items=items).model_dump(),
+    )
+
+
+@sama_admin_router.get("/certificates/batches/{batch_id}", response_model=ApiResponse)
+def get_certificate_batch_detail(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    """
+    Retrieves details and items of a specific certificate batch.
+    """
+    detail = sama_cms_service.get_batch_detail(db, batch_id=batch_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Certificate batch '{batch_id}' not found.")
+    return ApiResponse(
+        success=True,
+        message="Certificate batch details retrieved successfully.",
+        data=detail.model_dump(),
+    )
+
+
+@sama_admin_router.get("/certificates/batches/{batch_id}/export-zip")
+def export_certificate_batch_zip(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Exports a ZIP archive containing all certificate PDFs and summary manifest CSV for a batch.
+    Restricted to Super Admin.
+    """
+    try:
+        zip_bytes = sama_cms_service.export_batch_zip(db, batch_id=batch_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Error exporting batch ZIP: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to generate batch ZIP archive.")
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="CSJMU_Certificate_Batch_{batch_id[:8]}.zip"',
+        },
+    )
+
+
+@sama_admin_router.get("/certificates/archived", response_model=ApiResponse)
+def list_archived_certificates(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Lists archived/soft-deleted certificates for administrative review and recovery.
+    Restricted to Super Admin.
+    """
+    total, items = sama_cms_service.list_archived_certificates(db, skip=skip, limit=limit)
+    response_data = ArchivedCertificateListResponse(
+        total=total,
+        skip=skip,
+        limit=limit,
+        items=items,
+    )
+    return ApiResponse(
+        success=True,
+        message="Archived certificates retrieved successfully.",
+        data=response_data.model_dump(),
+    )
+
+
 @sama_admin_router.get("/certificates/{certificate_id}", response_model=ApiResponse)
 def get_admin_certificate(
     certificate_id: uuid.UUID,
@@ -1479,6 +1592,530 @@ def trigger_activate_due_certificates(
         success=True,
         message=f"Successfully activated {count} scheduled certificate(s).",
         data={"activated_count": count},
+    )
+
+
+@sama_admin_router.delete("/certificates/{certificate_id}", response_model=ApiResponse)
+def delete_admin_certificate(
+    certificate_id: uuid.UUID,
+    payload: SingleDeleteCertificateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Safely soft-deletes / archives a single certificate with mandatory institutional reason.
+    Restricted to Super Admin.
+    """
+    try:
+        cert = sama_cms_service.delete_certificate(
+            db,
+            certificate_id=certificate_id,
+            reason=payload.reason,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificate_deleted",
+        entity_name="FelicitationCertificate",
+        entity_id=cert.id,
+        actor_user_id=current_user.id,
+        details={
+            "certificate_number": cert.certificate_number,
+            "reason": payload.reason,
+            "status": cert.status,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=True,
+        message=f"Certificate {cert.certificate_number} archived and deleted successfully.",
+        data={"id": str(cert.id), "certificate_number": cert.certificate_number, "status": cert.status},
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-delete", response_model=ApiResponse)
+def bulk_delete_admin_certificates(
+    payload: BulkDeleteCertificatesRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Bulk soft-deletes / archives certificates with mandatory institutional reason.
+    Restricted to Super Admin.
+    """
+    try:
+        op_id, deleted_ids, failed_items = sama_cms_service.bulk_delete_certificates(
+            db,
+            certificate_ids=payload.certificate_ids,
+            reason=payload.reason,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificates_bulk_deleted",
+        entity_name="FelicitationCertificate",
+        entity_id=op_id,
+        actor_user_id=current_user.id,
+        details={
+            "operation_id": op_id,
+            "reason": payload.reason,
+            "total_requested": len(payload.certificate_ids),
+            "deleted_count": len(deleted_ids),
+            "failed_count": len(failed_items),
+            "deleted_ids": deleted_ids,
+            "failed_items": failed_items,
+        },
+        fail_silent=False,
+    )
+
+    resp = BulkDeleteCertificatesResponse(
+        operation_id=op_id,
+        total_requested=len(payload.certificate_ids),
+        deleted_count=len(deleted_ids),
+        failed_count=len(failed_items),
+        deleted_ids=deleted_ids,
+        failed_items=[BulkDeleteFailureItem(id=item["id"], reason=item["reason"]) for item in failed_items],
+        audit_logged=True,
+    )
+
+    msg = f"Bulk deletion completed: {len(deleted_ids)} certificate(s) archived."
+    if failed_items:
+        msg = f"Bulk deletion finished: {len(deleted_ids)} archived, {len(failed_items)} failed."
+
+    return ApiResponse(
+        success=len(deleted_ids) > 0 or len(payload.certificate_ids) == 0,
+        message=msg,
+        data=resp.model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/{certificate_id}/restore", response_model=ApiResponse)
+def restore_admin_certificate(
+    certificate_id: uuid.UUID,
+    payload: SingleRestoreCertificateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Restores an archived certificate to its previous lifecycle state.
+    Restoration state mapping:
+    - Revoked/Superseded certificates are restored strictly to REVOKED/SUPERSEDED (never reactivated as active).
+    - Pending approval certificates are restored to their respective approval queues.
+    - Approved/Scheduled certificates are restored to their respective queues.
+    Restricted to Super Admin.
+    """
+    try:
+        cert, target_status = sama_cms_service.restore_certificate(
+            db,
+            certificate_id=certificate_id,
+            reason=payload.reason,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificate_restored",
+        entity_name="FelicitationCertificate",
+        entity_id=cert.id,
+        actor_user_id=current_user.id,
+        details={
+            "certificate_number": cert.certificate_number,
+            "reason": payload.reason,
+            "restored_to_status": target_status,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=True,
+        message=f"Certificate {cert.certificate_number} restored successfully to {target_status} status.",
+        data={"id": str(cert.id), "certificate_number": cert.certificate_number, "restored_to_status": target_status},
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-restore", response_model=ApiResponse)
+def bulk_restore_admin_certificates(
+    payload: BulkRestoreCertificatesRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Bulk restores archived certificates to their previous lifecycle states.
+    Supports partial failures, idempotent retries, and returns per-record results.
+    Restricted to Super Admin.
+    """
+    try:
+        op_id, restored_items, failed_items = sama_cms_service.bulk_restore_certificates(
+            db,
+            certificate_ids=payload.certificate_ids,
+            reason=payload.reason,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificates_bulk_restored",
+        entity_name="FelicitationCertificate",
+        entity_id=op_id,
+        actor_user_id=current_user.id,
+        details={
+            "operation_id": op_id,
+            "reason": payload.reason,
+            "total_requested": len(payload.certificate_ids),
+            "restored_count": len(restored_items),
+            "failed_count": len(failed_items),
+            "restored_items": restored_items,
+            "failed_items": failed_items,
+        },
+        fail_silent=False,
+    )
+
+    resp = BulkRestoreCertificatesResponse(
+        operation_id=op_id,
+        total_requested=len(payload.certificate_ids),
+        restored_count=len(restored_items),
+        failed_count=len(failed_items),
+        restored_items=[BulkRestoreResultItem(id=item["id"], certificate_number=item["certificate_number"], restored_to_status=item["restored_to_status"]) for item in restored_items],
+        failed_items=[BulkRestoreFailureItem(id=item["id"], reason=item["reason"]) for item in failed_items],
+        audit_logged=True,
+    )
+
+    msg = f"Bulk restoration completed: {len(restored_items)} certificate(s) restored."
+    if failed_items:
+        msg = f"Bulk restoration finished: {len(restored_items)} restored, {len(failed_items)} failed."
+
+    return ApiResponse(
+        success=len(restored_items) > 0 or len(payload.certificate_ids) == 0,
+        message=msg,
+        data=resp.model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-verify", response_model=ApiResponse)
+def bulk_verify_admin_certificates(
+    payload: BulkVerifyCertificatesRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Bulk verification endpoint for Super Admin in CMS.
+    Verifies multiple certificates independently with detailed lifecycle reporting.
+    """
+    try:
+        result = sama_cms_service.bulk_verify_certificates(
+            db,
+            certificate_numbers=payload.certificate_numbers,
+            raw_text=payload.raw_text,
+            is_admin=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return ApiResponse(
+        success=True,
+        message=f"Verified {result['total_submitted']} certificate numbers.",
+        data=result,
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-verify/csv", response_model=ApiResponse)
+async def bulk_verify_admin_certificates_csv(
+    file: UploadFile = File(...),
+    request: Request = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Upload and bulk-verify a CSV file of certificate numbers.
+    Validates CSV file size (<= 2MB) and content.
+    """
+    if not file.filename.lower().endswith(".csv") and not file.filename.lower().endswith(".txt"):
+        raise HTTPException(status_code=400, detail="Only CSV or TXT files are accepted for bulk verification.")
+
+    content_bytes = await file.read()
+    if len(content_bytes) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Uploaded file exceeds maximum limit of 2MB.")
+
+    try:
+        raw_text = content_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            raw_text = content_bytes.decode("latin-1")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Unable to decode uploaded CSV file. Please upload a UTF-8 encoded CSV.")
+
+    try:
+        result = sama_cms_service.bulk_verify_certificates(
+            db,
+            raw_text=raw_text,
+            is_admin=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return ApiResponse(
+        success=True,
+        message=f"Verified {result['total_submitted']} entries from CSV '{file.filename}'.",
+        data=result,
+    )
+
+
+# ============================================================================
+# BULK CERTIFICATE GENERATION & DUAL-AUTHORITY WORKFLOW ENDPOINTS
+# ============================================================================
+
+def _check_authority_permission(user: User, authority_type: str) -> None:
+    """
+    Enforces separation of powers between Dean – R&D and Vice Chancellor.
+    Impersonation is strictly prohibited at the API layer.
+    """
+    norm_auth = authority_type.strip().upper()
+    user_roles = [r.name.lower() for r in (user.roles or [])]
+    assigned_permissions = set()
+    for r in (user.roles or []):
+        if hasattr(r, "permissions") and r.permissions:
+            for p in r.permissions:
+                if hasattr(p, "name"):
+                    assigned_permissions.add(p.name.lower())
+
+    if norm_auth == "DEAN_RD":
+        is_dean = any(r in user_roles for r in ["dean_rd", "dean", "dean_research"]) or (
+            "sama:dean:approve" in assigned_permissions or "sama:certificate:manage" in assigned_permissions
+        )
+        if not is_dean:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access restricted to authorized Dean – Research & Development only. Impersonation is strictly prohibited.",
+            )
+    elif norm_auth == "VICE_CHANCELLOR":
+        is_vc = any(r in user_roles for r in ["vice_chancellor", "vc"]) or (
+            "sama:vc:approve" in assigned_permissions
+        )
+        if not is_vc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access restricted to authorized Vice Chancellor only. Impersonation is strictly prohibited.",
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported authority type '{authority_type}'. Expected 'DEAN_RD' or 'VICE_CHANCELLOR'.",
+        )
+
+
+@sama_admin_router.post("/certificates/bulk-generate/preview", response_model=ApiResponse)
+def preview_bulk_certificates(
+    payload: BulkCertificateUploadPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Preview and validation endpoint for bulk certificate generation.
+    Matches authors against canonical SAMIKSHA Researcher Repository (ResearchAuthor).
+    Restricted to Super Admin.
+    """
+    try:
+        preview = sama_cms_service.preview_bulk_certificate_upload(db, payload)
+    except Exception as exc:
+        logger.error(f"Error previewing bulk certificate upload: {exc}")
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return ApiResponse(
+        success=True,
+        message=f"Validated {preview.total_certificates} certificate(s): {preview.valid_certificates_count} valid, {preview.invalid_certificates_count} invalid.",
+        data=preview.model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-generate/confirm", response_model=ApiResponse)
+def confirm_bulk_certificates_generation(
+    payload: BulkCertificateGenerateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Confirms generation of certificates from a validated batch into PENDING_DEAN_APPROVAL status.
+    Does NOT issue or seal certificates. Initial approval records created.
+    Restricted to Super Admin.
+    """
+    try:
+        res = sama_cms_service.generate_bulk_certificates(db, payload, actor_user_id=current_user.id)
+    except Exception as exc:
+        logger.error(f"Error confirming bulk certificate generation: {exc}")
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="certificates_batch_generated",
+        entity_name="FelicitationCertificate",
+        entity_id=res.batch_id,
+        actor_user_id=current_user.id,
+        details={
+            "batch_id": res.batch_id,
+            "batch_name": res.batch_name,
+            "certificate_type": res.certificate_type,
+            "created_count": res.created_count,
+            "failed_count": res.failed_count,
+        },
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=res.created_count > 0,
+        message=f"Batch generated: {res.created_count} certificate(s) created in PENDING_DEAN_APPROVAL status.",
+        data=res.model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-submit-dean", response_model=ApiResponse)
+def bulk_submit_certificates_to_dean(
+    payload: BulkSubmitDeanRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Submits selected batch certificates to the Dean – R&D approval queue.
+    Restricted to Super Admin.
+    """
+    result = sama_cms_service.bulk_submit_to_dean(db, payload.certificate_ids, actor_user_id=current_user.id)
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="batch_submitted_dean",
+        entity_name="FelicitationCertificate",
+        entity_id=str(payload.certificate_ids[0]) if payload.certificate_ids else "BATCH",
+        actor_user_id=current_user.id,
+        details=result,
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=result["submitted_count"] > 0,
+        message=f"Submitted {result['submitted_count']} certificate(s) to Dean – R&D approval queue.",
+        data=result,
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-forward-vc", response_model=ApiResponse)
+def bulk_forward_certificates_to_vc(
+    payload: BulkForwardVCRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin_user),
+):
+    """
+    Forwards Dean-approved certificates to the Vice Chancellor approval queue.
+    Restricted to Super Admin.
+    """
+    result = sama_cms_service.bulk_forward_to_vc(db, payload.certificate_ids, actor_user_id=current_user.id)
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="batch_forwarded_vc",
+        entity_name="FelicitationCertificate",
+        entity_id=str(payload.certificate_ids[0]) if payload.certificate_ids else "BATCH",
+        actor_user_id=current_user.id,
+        details=result,
+        fail_silent=False,
+    )
+
+    return ApiResponse(
+        success=result["forwarded_count"] > 0,
+        message=f"Forwarded {result['forwarded_count']} certificate(s) to Vice Chancellor approval queue.",
+        data=result,
+    )
+
+
+@sama_admin_router.post("/certificates/bulk-approve", response_model=ApiResponse)
+def bulk_approve_certificates(
+    payload: BulkApprovalActionRequest,
+    request: Request,
+    authority: str = Query("DEAN_RD", description="DEAN_RD | VICE_CHANCELLOR"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Dual-authority bulk approval and rejection endpoint.
+    Strictly verifies authority identity:
+    - DEAN_RD requires authorized Dean credentials.
+    - VICE_CHANCELLOR requires authorized VC credentials and prior Dean approval.
+    """
+    _check_authority_permission(current_user, authority)
+
+    if payload.action.upper() == "REJECT" and (not payload.remarks or not payload.remarks.strip()):
+        raise HTTPException(status_code=400, detail="Institutional rejection remarks are strictly mandatory.")
+
+    base_url = _get_production_verification_base_url(request)
+    try:
+        resp = sama_cms_service.bulk_process_authority_approval(
+            db,
+            certificate_ids=payload.certificate_ids,
+            authority_type=authority,
+            action=payload.action,
+            remarks=payload.remarks,
+            actor_user_id=current_user.id,
+            base_verification_url=base_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action=f"batch_{payload.action.lower()}_{authority.lower()}",
+        entity_name="FelicitationCertificate",
+        entity_id=resp.operation_id,
+        actor_user_id=current_user.id,
+        details={
+            "operation_id": resp.operation_id,
+            "authority": authority,
+            "action": payload.action,
+            "total_requested": resp.total_requested,
+            "success_count": resp.success_count,
+            "failure_count": resp.failure_count,
+        },
+        fail_silent=False,
+    )
+
+    msg = f"Bulk {payload.action.lower()} by {authority} completed: {resp.success_count} succeeded, {resp.failure_count} failed."
+    return ApiResponse(
+        success=resp.success_count > 0,
+        message=msg,
+        data=resp.model_dump(),
     )
 
 

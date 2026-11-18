@@ -158,7 +158,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       sections.push({
         id: 'sama-veda',
-        title: 'SAMIKSHA (Sama Veda)',
+        title: 'समीक्षा (Sama Veda)',
         badge: 'Research CMS',
         items: samaItems,
       });
@@ -168,7 +168,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     if (isAdministrator) {
       sections.push({
         id: 'atharva-veda',
-        title: 'NIVARAN (Atharva Veda)',
+        title: 'निवारण (Atharva Veda)',
         badge: 'Grievance CMS',
         items: [
           {
@@ -240,14 +240,61 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       sections.push({
         id: 'anudaan-management',
-        title: 'ANUDAAN MANAGEMENT',
+        title: 'अनुदान MANAGEMENT',
         badge: 'Incentive CMS',
         items: anudaanItems,
       });
     }
 
+    // 5. AI KNOWLEDGE CENTRE (SADMIN Only)
+    if (isSuperAdmin || userRoles.includes('super_admin')) {
+      sections.push({
+        id: 'knowledge-centre',
+        title: 'AI KNOWLEDGE CENTRE',
+        badge: 'RAG Core',
+        items: [
+          {
+            id: 'knowledge-dashboard',
+            label: 'Knowledge Dashboard',
+            path: '/admin/knowledge-centre',
+            icon: 'book-open',
+          },
+          {
+            id: 'knowledge-library',
+            label: 'Document Library',
+            path: '/admin/knowledge-centre/documents',
+            icon: 'file-text',
+          },
+          {
+            id: 'knowledge-upload',
+            label: 'Upload Document',
+            path: '/admin/knowledge-centre/upload',
+            icon: 'upload',
+          },
+          {
+            id: 'knowledge-approvals',
+            label: 'Approval Queue',
+            path: '/admin/knowledge-centre/approvals',
+            icon: 'clipboard',
+          },
+          {
+            id: 'knowledge-processing',
+            label: 'Processing Queue',
+            path: '/admin/knowledge-centre/processing',
+            icon: 'layers',
+          },
+          {
+            id: 'knowledge-failed',
+            label: 'Failed Extractions',
+            path: '/admin/knowledge-centre/failed',
+            icon: 'alert-circle',
+          },
+        ],
+      });
+    }
+
     return sections;
-  }, [isAdministrator, isSamaAdmin, isSamaEditor, isAnudaanFinance, isAnudaanGallery, isAnudaanConfig]);
+  }, [isSuperAdmin, userRoles, isAdministrator, isSamaAdmin, isSamaEditor, isAnudaanFinance, isAnudaanGallery, isAnudaanConfig]);
 
   const handleSubitemClick = (sub: { id: string; path: string; action?: string }, e: React.MouseEvent) => {
     if (sub.action === 'add-authority' && onAddAuthority) {

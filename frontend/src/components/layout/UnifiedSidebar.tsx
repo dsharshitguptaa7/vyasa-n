@@ -464,7 +464,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
               <AppIcon name="shield" size={16} color="var(--vyasa-primary, #0f2b48)" />
-              <span>NIVARAN</span>
+              <span>निवारण</span>
             </div>
             <AppIcon
               name={isNivaranOpen ? 'chevron-up' : 'chevron-down'}
@@ -520,11 +520,11 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
               }}
             >
               <AppIcon name="book-open" size={16} color="#0f766e" />
-              <span>SAMIKSHA Research</span>
+              <span>समीक्षा Research</span>
             </NavLink>
             <button
               type="button"
-              aria-label="Toggle SAMIKSHA sections"
+              aria-label="Toggle समीक्षा sections"
               aria-expanded={isSamikshaOpen}
               onClick={handleSamikshaToggle}
               style={{
@@ -593,7 +593,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             >
               <AppIcon name="building" size={16} color="var(--vyasa-saffron, #c85602)" />
               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                <span>ANUDAAN</span>
+                <span>अनुदान</span>
                 <span style={{ fontSize: '10.5px', fontWeight: 500, color: 'var(--vyasa-text-muted, #64748b)' }}>
                   Research Publication Incentives
                 </span>
@@ -601,7 +601,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             </NavLink>
             <button
               type="button"
-              aria-label="Toggle ANUDAAN sections"
+              aria-label="Toggle अनुदान sections"
               aria-expanded={isAnudaanOpen}
               onClick={handleAnudaanToggle}
               style={{

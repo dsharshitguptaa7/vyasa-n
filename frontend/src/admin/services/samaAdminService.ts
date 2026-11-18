@@ -46,6 +46,17 @@ import {
   ImportPreviewResult,
   ImportExecuteResult,
   BulkDeleteResult,
+  BulkDeleteCertificatesResponse,
+  BulkRestoreCertificatesResponse,
+  ArchivedCertificateListResponse,
+  BulkVerifyCertificatesResponse,
+  BulkCertificateUploadPayload,
+  BulkCertificatePreviewResponse,
+  BulkCertificateGenerateRequest,
+  BulkCertificateGenerateResponse,
+  BulkApprovalResponse,
+  BatchListResponse,
+  BatchDetailResponse,
 } from '../types/sama';
 
 export const samaAdminService = {
@@ -324,6 +335,134 @@ export const samaAdminService = {
       revocation_reason: reason,
     });
     return res.data!;
+  },
+
+  async deleteCertificate(id: string, reason: string): Promise<{ id: string; certificate_number: string; status: string }> {
+    const res = await apiClient.delete<{ id: string; certificate_number: string; status: string }>(
+      `/admin/sama/certificates/${id}`,
+      { reason }
+    );
+    return res.data!;
+  },
+
+  async bulkDeleteCertificates(certificateIds: string[], reason: string): Promise<BulkDeleteCertificatesResponse> {
+    const res = await apiClient.post<BulkDeleteCertificatesResponse>('/admin/sama/certificates/bulk-delete', {
+      certificate_ids: certificateIds,
+      reason,
+    });
+    return res.data!;
+  },
+
+  async getArchivedCertificates(params?: { skip?: number; limit?: number }): Promise<ArchivedCertificateListResponse> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    const qs = q.toString();
+    const res = await apiClient.get<ArchivedCertificateListResponse>(`/admin/sama/certificates/archived${qs ? `?${qs}` : ''}`);
+    return res.data || { total: 0, skip: 0, limit: 50, items: [] };
+  },
+
+  async restoreCertificate(id: string, reason: string): Promise<{ id: string; certificate_number: string; restored_to_status: string }> {
+    const res = await apiClient.post<{ id: string; certificate_number: string; restored_to_status: string }>(
+      `/admin/sama/certificates/${id}/restore`,
+      { reason }
+    );
+    return res.data!;
+  },
+
+  async bulkRestoreCertificates(certificateIds: string[], reason: string): Promise<BulkRestoreCertificatesResponse> {
+    const res = await apiClient.post<BulkRestoreCertificatesResponse>('/admin/sama/certificates/bulk-restore', {
+      certificate_ids: certificateIds,
+      reason,
+    });
+    return res.data!;
+  },
+
+  async bulkVerifyCertificates(payload: { certificate_numbers?: string[]; raw_text?: string }): Promise<BulkVerifyCertificatesResponse> {
+    const res = await apiClient.post<BulkVerifyCertificatesResponse>('/admin/sama/certificates/bulk-verify', payload);
+    return res.data!;
+  },
+
+  async bulkVerifyCertificatesCsv(file: File): Promise<BulkVerifyCertificatesResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.postFormData<BulkVerifyCertificatesResponse>('/admin/sama/certificates/bulk-verify/csv', formData);
+    return res.data!;
+  },
+
+  async previewBulkCertificates(payload: BulkCertificateUploadPayload): Promise<BulkCertificatePreviewResponse> {
+    const res = await apiClient.post<BulkCertificatePreviewResponse>('/admin/sama/certificates/bulk-generate/preview', payload);
+    return res.data!;
+  },
+
+  async confirmBulkCertificates(payload: BulkCertificateGenerateRequest): Promise<BulkCertificateGenerateResponse> {
+    const res = await apiClient.post<BulkCertificateGenerateResponse>('/admin/sama/certificates/bulk-generate/confirm', payload);
+    return res.data!;
+  },
+
+  async bulkSubmitToDean(certificateIds: string[]): Promise<any> {
+    const res = await apiClient.post<any>('/admin/sama/certificates/bulk-submit-dean', {
+      certificate_ids: certificateIds,
+    });
+    return res.data!;
+  },
+
+  async bulkForwardToVC(certificateIds: string[]): Promise<any> {
+    const res = await apiClient.post<any>('/admin/sama/certificates/bulk-forward-vc', {
+      certificate_ids: certificateIds,
+    });
+    return res.data!;
+  },
+
+  async bulkApproveCertificates(
+    certificateIds: string[],
+    action: 'APPROVE' | 'REJECT',
+    authority: 'DEAN_RD' | 'VICE_CHANCELLOR' = 'DEAN_RD',
+    remarks?: string
+  ): Promise<BulkApprovalResponse> {
+    const res = await apiClient.post<BulkApprovalResponse>(
+      `/admin/sama/certificates/bulk-approve?authority=${authority}`,
+      {
+        certificate_ids: certificateIds,
+        action,
+        remarks,
+      }
+    );
+    return res.data!;
+  },
+
+  async listCertificateBatches(params?: { skip?: number; limit?: number }): Promise<BatchListResponse> {
+    const q = new URLSearchParams();
+    if (params?.skip !== undefined) q.append('skip', String(params.skip));
+    if (params?.limit !== undefined) q.append('limit', String(params.limit));
+    const qs = q.toString();
+    const res = await apiClient.get<BatchListResponse>(`/admin/sama/certificates/batches${qs ? `?${qs}` : ''}`);
+    return res.data || { total: 0, items: [] };
+  },
+
+  async getCertificateBatchDetail(batchId: string): Promise<BatchDetailResponse> {
+    const res = await apiClient.get<BatchDetailResponse>(`/admin/sama/certificates/batches/${batchId}`);
+    return res.data!;
+  },
+
+  async downloadBatchZip(batchId: string, filename?: string): Promise<void> {
+    const url = `${config.apiBaseUrl}/admin/sama/certificates/batches/${batchId}/export-zip`;
+    const token = authService.getToken();
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to download batch ZIP (HTTP ${response.status})`);
+    }
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', filename || `CSJMU_Certificate_Batch_${batchId.slice(0, 8)}.zip`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 
   async downloadCertificate(id: string, filename: string): Promise<void> {

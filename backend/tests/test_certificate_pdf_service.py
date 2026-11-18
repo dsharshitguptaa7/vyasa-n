@@ -236,7 +236,7 @@ def test_incentive_certificate_metadata_box_formatting():
     page_text = reader.pages[0].extract_text()
     assert "SANCTIONED INCENTIVE AWARD" in page_text
     assert "INR 75,000" in page_text
-    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "DATE OF ISSUANCE" in page_text
 
 
 def test_author_title_selection_and_fallback_prevention():

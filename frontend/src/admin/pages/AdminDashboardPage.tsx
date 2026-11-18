@@ -534,7 +534,7 @@ export const AdminDashboardPage: React.FC = () => {
                     fontFamily: 'var(--vyasa-font-scholarly, serif)',
                   }}
                 >
-                  Atharva Veda / NIVARAN Dynamic Governance State
+                  Atharva Veda / निवारण Dynamic Governance State
                 </h2>
                 <Badge variant="teal">Live Database Topology • Real-time Sync</Badge>
               </div>
@@ -846,7 +846,7 @@ export const AdminDashboardPage: React.FC = () => {
                   fontFamily: 'var(--vyasa-font-scholarly, serif)',
                 }}
               >
-                ANUDAAN Incentive Impact &amp; Ceremonial Recognition Console
+                अनुदान Incentive Impact &amp; Ceremonial Recognition Console
               </h2>
               <span style={{ fontSize: '12px', color: 'var(--vyasa-text-muted, #64748b)' }}>
                 Audited financial disbursements, researcher ceremonies, and showcase configuration

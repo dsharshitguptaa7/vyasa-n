@@ -4,14 +4,17 @@ export interface CitationItem {
   chunk_id: string;
   doc_type: string;
   document_title: string;
-  source_filename: string;
+  source_filename?: string;
   academic_session?: string;
   page_number?: number;
   slide_number?: number;
   section_heading?: string;
-  chunk_text: string;
+  chunk_text?: string;
   relevance_score: number;
   citation_label: string;
+  domain?: string;
+  domain_label?: string;
+  issuing_authority?: string;
 }
 
 export interface ChatMessage {
@@ -25,6 +28,9 @@ export interface ChatMessage {
   suggested_followups?: string[];
   model_used?: string;
   is_error?: boolean;
+  evidence_status?: 'sufficient' | 'insufficient' | 'conflicting_sources' | 'generation_failed' | string;
+  claim_validation_status?: 'verified' | 'flagged';
+  unsupported_claims?: string[];
 }
 
 export interface ChatQueryRequest {

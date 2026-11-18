@@ -88,7 +88,7 @@ export const EntryGatewaySection: React.FC = () => {
             </div>
 
             <h3 className="vyasa-gateway-card__title">Doctoral Scholars &amp; Applicants</h3>
-            <p className="vyasa-gateway-card__subtitle">Scholar Services &amp; NIVARAN Grievance Resolution</p>
+            <p className="vyasa-gateway-card__subtitle">Scholar Services &amp; निवारण Grievance Resolution</p>
 
             <ul className="vyasa-gateway-features" aria-label="Applicant features">
               <li className="vyasa-gateway-feature-item">
@@ -113,7 +113,7 @@ export const EntryGatewaySection: React.FC = () => {
                 <span className="vyasa-gateway-feature-icon vyasa-gateway-feature-icon--applicant" aria-hidden="true">
                   <AppIcon name="shield" size={16} />
                 </span>
-                <span>Submit and track grievances via NIVARAN</span>
+                <span>Submit and track grievances via निवारण</span>
               </li>
             </ul>
           </div>

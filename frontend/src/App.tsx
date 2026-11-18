@@ -65,6 +65,13 @@ import {
   AnudaanFelicitationPage,
   AnudaanGalleryPage,
   AnudaanConfigPage,
+  KnowledgeDashboardPage,
+  DocumentLibraryPage,
+  UploadDocumentPage,
+  DocumentDetailPage,
+  ApprovalQueuePage,
+  ProcessingQueuePage,
+  FailedProcessingPage,
 } from './admin';
 import { PhdAssistantPage } from './features/phd-rag';
 import { NotificationCenterPage } from './features/notifications';
@@ -953,6 +960,64 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
+
+      {/* VYASAⁿ AI Knowledge Centre (Strict SADMIN Authorization) */}
+      <Route
+        path="/admin/knowledge-centre"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <KnowledgeDashboardPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/documents"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <DocumentLibraryPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/upload"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <UploadDocumentPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/documents/:documentId"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <DocumentDetailPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/approvals"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <ApprovalQueuePage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/processing"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <ProcessingQueuePage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-centre/failed"
+        element={
+          <AdminRoute allowedRoles={['super_admin']}>
+            <FailedProcessingPage />
+          </AdminRoute>
+        }
+      />
 
       {/* 9. Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -10,6 +10,20 @@ from app.models.notification import (
     NotificationDelivery,
 )
 from app.models.email_outbox import EmailOutbox, EmailOutboxStatus
+from app.modules.knowledge_centre.models import (
+    AiKnowledgeDocument,
+    AiKnowledgeDocumentVersion,
+    AiKnowledgeChunk,
+    KnowledgeDocumentStatus,
+    KnowledgeApprovalStatus,
+    KnowledgeExtractionStatus,
+    KnowledgeVerificationStatus,
+)
+from app.modules.knowledge_centre.conversation_models import (
+    AiAssistantConversation,
+    AiAssistantMessage,
+    AiAssistantRateLimit,
+)
 from app.models.applicant_profile import ApplicantProfile
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
@@ -255,4 +269,12 @@ __all__ = [
     # Core Asynchronous Email Outbox
     "EmailOutbox",
     "EmailOutboxStatus",
+    # AI Knowledge Centre Models
+    "AiKnowledgeDocument",
+    "AiKnowledgeDocumentVersion",
+    "AiKnowledgeChunk",
+    "KnowledgeDocumentStatus",
+    "KnowledgeApprovalStatus",
+    "KnowledgeExtractionStatus",
+    "KnowledgeVerificationStatus",
 ]

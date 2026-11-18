@@ -100,7 +100,7 @@ export const AnudaanTrackingPage: React.FC = () => {
             onClick={() => navigate('/modules/yajur-veda/anudaan')}
             style={{ marginBottom: 16 }}
           >
-            ← Back to ANUDAAN Portal
+            ← Back to अनुदान Portal
           </Button>
 
           <h1
@@ -112,7 +112,7 @@ export const AnudaanTrackingPage: React.FC = () => {
               margin: '0 0 8px',
             }}
           >
-            Track ANUDAAN Application
+            Track अनुदान Application
           </h1>
           <p style={{ color: '#4A5568', fontSize: '1rem', lineHeight: 1.5, margin: 0 }}>
             Enter your institutional Application Number (e.g. <code>ANU-2026-XXXXX</code>) and confidential Tracking Secret.

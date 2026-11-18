@@ -37,7 +37,7 @@ export const ManagerRoute: React.FC<ManagerRouteProps> = ({ children }) => {
           <div style={{ padding: '16px 0', color: 'var(--vyasa-text-secondary)', lineHeight: 1.6 }}>
             <p style={{ marginBottom: '16px' }}>
               The authenticated account (<strong>{user?.email}</strong>) is not assigned to the institutional{' '}
-              <strong>Triage Manager</strong> role required to access the NIVARAN Triage Command Center.
+              <strong>Triage Manager</strong> role required to access the निवारण Triage Command Center.
             </p>
             <p style={{ fontSize: '13px', color: 'var(--vyasa-text-muted)', marginBottom: '24px' }}>
               Authority role: {user?.authority_role || 'None'}.<br />

@@ -22,9 +22,9 @@ const PUBLIC_SECTIONS: NavSection[] = [
   { id: 'overview', label: 'Overview', hash: '#overview' },
   { id: 'vision', label: 'The Vision', hash: '#vision' },
   { id: 'domains', label: 'Four Domains', hash: '#domains' },
-  { id: 'nivaran', label: 'NIVARAN', hash: '#nivaran', isOperational: true },
-  { id: 'samiksha', label: 'SAMIKSHA', hash: '#samiksha' },
-  { id: 'anudaan', label: 'ANUDAAN', hash: '#anudaan', isOperational: true },
+  { id: 'nivaran', label: 'निवारण', hash: '#nivaran', isOperational: true },
+  { id: 'samiksha', label: 'समीक्षा', hash: '#samiksha' },
+  { id: 'anudaan', label: 'अनुदान', hash: '#anudaan', isOperational: true },
   { id: 'innovation', label: 'Research & Innovation', hash: '#innovation' },
 ];
 

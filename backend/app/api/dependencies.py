@@ -183,6 +183,10 @@ def require_super_admin_user(
     return current_user
 
 
+# Canonical SADMIN dependency alias ensuring backward and forward compatibility
+require_sadmin = require_super_admin_user
+
+
 def require_admin_user(
     current_user: User = Depends(require_super_admin_user),
 ) -> User:

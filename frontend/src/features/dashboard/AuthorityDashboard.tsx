@@ -120,7 +120,7 @@ export const AuthorityDashboard: React.FC = () => {
           {/* NIVARAN Pillar Card (Active) */}
           <Card
             variant="gold-accent"
-            title="NIVARAN"
+            title="निवारण"
             subtitle="AI-Assisted Grievance Redressal System"
             headerAction={<Badge variant="teal">Active Pillar</Badge>}
           >
@@ -141,7 +141,7 @@ export const AuthorityDashboard: React.FC = () => {
                     lineHeight: 1.5,
                   }}
                 >
-                  <strong>Domain Integration:</strong> Identity verified via VYASAᴺ Core JWT. Domain role assignments and cluster authority are maintained within NIVARAN.
+                  <strong>Domain Integration:</strong> Identity verified via VYASAᴺ Core JWT. Domain role assignments and cluster authority are maintained within निवारण.
                 </div>
               </div>
 
@@ -152,7 +152,7 @@ export const AuthorityDashboard: React.FC = () => {
                   style={{ width: '100%', justifyContent: 'center' }}
                   onClick={handleOpenNivaran}
                 >
-                  Open NIVARAN &rarr;
+                  Open निवारण &rarr;
                 </Button>
               </div>
             </div>

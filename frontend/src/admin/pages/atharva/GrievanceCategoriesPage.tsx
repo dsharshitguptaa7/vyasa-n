@@ -339,7 +339,7 @@ export const GrievanceCategoriesPage: React.FC = () => {
               marginBottom: '3px',
             }}
           >
-            NIVARAN Intake Architecture • Dynamic Routing Engine
+            निवारण Intake Architecture • Dynamic Routing Engine
           </div>
           <h2
             style={{

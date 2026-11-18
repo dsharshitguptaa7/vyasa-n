@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Badge, Button, Input, Select, EmptyState, AppIcon } from '@vyasa/ui';
+import { Button, Input, Select, EmptyState, AppIcon } from '@vyasa/ui';
 import { PublicAuthor, PublicPublication } from '../services/samaVedaService';
 
 interface SamikshaResearchersTabProps {
@@ -71,20 +71,19 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-      {/* Header Summary */}
+      {/* Institutional Directory Header */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #061325 0%, #0a1f3d 60%, #0d3852 100%)',
+          background: '#ffffff',
           borderRadius: '16px',
-          padding: '28px 32px',
-          color: '#ffffff',
+          padding: '24px 28px',
+          border: '1px solid #e2e8f0',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '20px',
-          boxShadow: '0 8px 24px -4px rgba(6, 19, 37, 0.25)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
         }}
       >
         <div>
@@ -93,7 +92,7 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               fontSize: '11px',
               fontWeight: 700,
               textTransform: 'uppercase',
-              color: '#38bdf8',
+              color: '#0d9488',
               letterSpacing: '0.08em',
               marginBottom: '6px',
               display: 'flex',
@@ -101,47 +100,58 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               gap: '6px',
             }}
           >
-            <AppIcon name="users" size={13} color="#38bdf8" />
-            <span>Academic Directory</span>
+            <AppIcon name="users" size={13} color="#0d9488" />
+            <span>Institutional Registry</span>
           </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-            Faculty &amp; Scholar Directory
+          <h2
+            style={{
+              fontSize: '22px',
+              fontWeight: 800,
+              margin: 0,
+              color: '#0f2b48',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Faculty Researcher Directory
           </h2>
-          <p style={{ fontSize: '14px', color: '#cbd5e1', margin: '4px 0 0 0', lineHeight: 1.5 }}>
-            Official register of university researchers, faculty investigators, and Scopus-indexed authors.
+          <p
+            style={{
+              fontSize: '13.5px',
+              color: '#64748b',
+              margin: '4px 0 0 0',
+              lineHeight: 1.5,
+            }}
+          >
+            Official university registry of affiliated researchers, verified faculty investigators, and Scopus-indexed scholars.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(8px)',
-              padding: '12px 18px',
+              background: '#f8fafc',
+              padding: '10px 16px',
               borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
+              border: '1px solid #e2e8f0',
               textAlign: 'center',
-              minWidth: '110px',
+              minWidth: '105px',
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#38bdf8' }}>{totalAuthors}</div>
-            <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>Total Researchers</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f2b48' }}>{totalAuthors}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Researchers</div>
           </div>
           <div
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(8px)',
-              padding: '12px 18px',
+              background: '#f0fdfa',
+              padding: '10px 16px',
               borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
+              border: '1px solid #ccfbf1',
               textAlign: 'center',
-              minWidth: '110px',
+              minWidth: '105px',
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#2dd4bf' }}>
-              {verifiedCount}
-            </div>
-            <div style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>Verified Faculty</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0d9488' }}>{verifiedCount}</div>
+            <div style={{ fontSize: '11px', color: '#0f766e', fontWeight: 600 }}>Verified Faculty</div>
           </div>
         </div>
       </div>
@@ -199,9 +209,30 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
         )}
       </div>
 
-      {/* Counter */}
-      <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-        Showing {filteredAuthors.length} of {totalAuthors} faculty researchers
+      {/* Results Summary Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '13px',
+          color: '#475569',
+          fontWeight: 600,
+          padding: '0 2px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <AppIcon name="users" size={14} color="#64748b" />
+          <span>
+            Showing <strong style={{ color: '#0f2b48' }}>{filteredAuthors.length}</strong> of{' '}
+            <strong style={{ color: '#0f2b48' }}>{totalAuthors}</strong> researchers
+          </span>
+        </div>
+        {filteredAuthors.length !== totalAuthors && (
+          <span style={{ fontSize: '12px', color: '#0d9488', fontWeight: 500 }}>
+            Filters Active
+          </span>
+        )}
       </div>
 
       {/* Directory Grid */}
@@ -211,13 +242,7 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
           description="Researcher profiles will appear here as publications and institutional Scopus IDs are linked. Try resetting search filters."
         />
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '20px',
-          }}
-        >
+        <div className="samiksha-researcher-grid">
           {filteredAuthors.map((auth) => {
             const pubCount = authorPubCounts[auth.id] || authorPubCounts[auth.full_name?.toLowerCase()] || 0;
             const initials = auth.full_name
@@ -232,98 +257,133 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               : 'RS';
 
             return (
-              <div
-                key={auth.id}
-                className="samiksha-card samiksha-interactive-lift"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  padding: '24px',
-                }}
-              >
-                <div>
+              <div key={auth.id} className="samiksha-researcher-card">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Identity & Verification Status */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', minWidth: 0, flex: 1 }}>
+                      {/* Avatar */}
                       <div
                         style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '10px',
-                          background: auth.is_verified
-                            ? 'linear-gradient(135deg, #0d9488 0%, #06b6d4 100%)'
-                            : 'linear-gradient(135deg, #475569 0%, #64748b 100%)',
-                          color: '#ffffff',
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '12px',
+                          background: auth.is_verified ? '#f0fdfa' : '#f8fafc',
+                          border: auth.is_verified ? '1.5px solid #99f6e4' : '1.5px solid #e2e8f0',
+                          color: auth.is_verified ? '#0d9488' : '#475569',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontWeight: 800,
                           fontSize: '14px',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                          letterSpacing: '0.02em',
                           flexShrink: 0,
+                          userSelect: 'none',
                         }}
+                        aria-hidden="true"
                       >
                         {initials}
                       </div>
-                      <div>
+
+                      {/* Name & Department */}
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <h3
                           style={{
-                            fontSize: '16.5px',
+                            fontSize: '15.5px',
                             fontWeight: 700,
                             color: '#0f2b48',
                             margin: 0,
-                            lineHeight: 1.3,
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
                           }}
                         >
                           {auth.full_name}
                         </h3>
                         {auth.department && !auth.department.toLowerCase().includes('department of research') && (
-                          <div style={{ fontSize: '12.5px', color: '#0d766e', fontWeight: 600, marginTop: '2px' }}>
+                          <div
+                            style={{
+                              fontSize: '12.5px',
+                              color: '#0d766e',
+                              fontWeight: 600,
+                              marginTop: '3px',
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                            }}
+                          >
                             {auth.department}
                           </div>
                         )}
                       </div>
                     </div>
-                    {auth.is_verified ? (
-                      <Badge variant="teal">Verified</Badge>
-                    ) : (
-                      <Badge variant="neutral">Provisional</Badge>
-                    )}
+
+                    {/* Verification Status Badge */}
+                    <div style={{ flexShrink: 0 }}>
+                      {auth.is_verified ? (
+                        <span
+                          className="samiksha-pill-badge teal"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                          }}
+                        >
+                          <AppIcon name="check-circle" size={11} color="#0d9488" />
+                          <span>Verified</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="samiksha-pill-badge amber"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                          }}
+                        >
+                          <AppIcon name="clock" size={11} color="#b45309" />
+                          <span>Provisional</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '12px', paddingLeft: '54px' }}>
+                  {/* Institutional Affiliation */}
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#64748b',
+                      lineHeight: 1.4,
+                      paddingLeft: '56px',
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {auth.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
                   </div>
 
+                  {/* Scopus ID */}
                   {auth.scopus_id && (
-                    <div style={{ paddingLeft: '54px', marginTop: '10px' }}>
+                    <div style={{ paddingLeft: '56px' }}>
                       <a
                         href={`https://www.scopus.com/authid/detail.uri?authorId=${auth.scopus_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '11.5px',
-                          color: '#0d766e',
-                          fontFamily: 'monospace',
-                          background: '#f0fdfa',
-                          border: '1px solid #99f6e4',
-                          padding: '4px 9px',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          textDecoration: 'none',
-                        }}
-                        title="View Scopus Author Profile"
+                        className="samiksha-scopus-chip"
+                        title={`View Scopus Author Profile for ${auth.full_name} (opens in new tab)`}
+                        aria-label={`Scopus ID ${auth.scopus_id}, opens author profile in a new tab`}
                       >
-                        <span>Scopus ID: {auth.scopus_id} &nearr;</span>
+                        <span>Scopus ID: {auth.scopus_id}</span>
+                        <AppIcon name="external-link" size={12} color="#0d766e" />
                       </a>
                     </div>
                   )}
                 </div>
 
+                {/* Card Footer Actions */}
                 <div
                   style={{
                     display: 'flex',
@@ -331,51 +391,44 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
                     alignItems: 'center',
                     paddingTop: '12px',
                     borderTop: '1px solid #f1f5f9',
-                    fontSize: '12.5px',
+                    fontSize: '12px',
+                    gap: '8px',
+                    flexWrap: 'wrap',
                   }}
                 >
                   <span style={{ color: '#64748b' }}>
                     {pubCount > 0 ? (
-                      <strong style={{ color: '#0f2b48' }}>{pubCount} Felicitated Works</strong>
+                      <strong style={{ color: '#0f2b48', fontWeight: 600 }}>
+                        {pubCount} Felicitated {pubCount === 1 ? 'Work' : 'Works'}
+                      </strong>
                     ) : (
                       'Affiliated Scholar'
                     )}
                   </span>
 
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {onSelectAuthorCertificates && (
                       <button
                         type="button"
                         onClick={() => onSelectAuthorCertificates(auth.full_name)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#b45309',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          padding: 0,
-                          fontSize: '12px',
-                        }}
-                        title="Search Certificates for this author"
+                        className="samiksha-card-action-btn"
+                        style={{ color: '#b45309' }}
+                        title={`Search Certificates for ${auth.full_name}`}
                       >
-                        Certificates &rarr;
+                        <span>Certificates</span>
+                        <AppIcon name="chevron-right" size={12} color="#b45309" />
                       </button>
                     )}
                     {onSelectAuthorPublications && (
                       <button
                         type="button"
                         onClick={() => onSelectAuthorPublications(auth.full_name)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#0d766e',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          padding: 0,
-                          fontSize: '12px',
-                        }}
+                        className="samiksha-card-action-btn"
+                        style={{ color: '#0d766e' }}
+                        title={`View Works by ${auth.full_name}`}
                       >
-                        Works &rarr;
+                        <span>Works</span>
+                        <AppIcon name="chevron-right" size={12} color="#0d766e" />
                       </button>
                     )}
                   </div>

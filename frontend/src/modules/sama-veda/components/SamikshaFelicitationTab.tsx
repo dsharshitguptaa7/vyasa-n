@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Badge, Button, Input, Select, EmptyState, AppIcon, SectionHeading } from '@vyasa/ui';
+import { Badge, Button, Input, Select, EmptyState, AppIcon } from '@vyasa/ui';
 import {
   CertificateVerificationResult,
   PublicPublication,
@@ -330,13 +330,13 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
           flexDirection: 'column',
           gap: '24px',
           padding: '32px',
-          border: '1.5px solid #E2E8F0',
+          border: '1px solid var(--samiksha-border-light)',
           borderRadius: '16px',
           backgroundColor: '#FFFFFF',
           boxShadow: '0 4px 20px rgba(15, 43, 72, 0.04)',
         }}
       >
-        <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -344,19 +344,19 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
               gap: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              color: '#B2811A',
+              color: '#0D766E',
               textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginBottom: '6px',
+              letterSpacing: '0.08em',
+              marginBottom: '8px',
             }}
           >
-            <span>📜</span>
+            <AppIcon name="file-text" size={13} color="#0D766E" />
             <span>Researcher Credential Self-Service</span>
           </div>
-          <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#0F2B48', margin: '0 0 6px 0' }}>
+          <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#0F2B48', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
             Download Your Research Certificates
           </h3>
-          <p style={{ fontSize: '13.5px', color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: '13.5px', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
             Enter your registered Scopus ID to access your officially issued university certificates.
           </p>
         </div>
@@ -367,18 +367,20 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
             onSubmit={handleFindCertificates}
             style={{
               display: 'flex',
-              gap: '12px',
+              gap: '10px',
               background: '#F8FAFC',
-              padding: '16px 20px',
-              borderRadius: '14px',
+              padding: '8px',
+              borderRadius: '12px',
               border: '1px solid #E2E8F0',
-              maxWidth: '680px',
+              maxWidth: '620px',
               margin: '0 auto',
               width: '100%',
               boxSizing: 'border-box',
+              alignItems: 'center',
+              boxShadow: '0 1px 3px rgba(15, 43, 72, 0.04)',
             }}
           >
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <Input
                 placeholder="Enter your registered Scopus ID (e.g. 57218492000)..."
                 value={scopusQuery}
@@ -386,9 +388,35 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                 aria-label="Researcher Scopus ID"
               />
             </div>
-            <Button variant="primary" type="submit" disabled={discoveryLoading || !scopusQuery.trim()}>
-              {discoveryLoading ? 'Searching Directory...' : 'Find My Certificates'}
-            </Button>
+            <button
+              type="submit"
+              disabled={discoveryLoading || !scopusQuery.trim()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: discoveryLoading || !scopusQuery.trim()
+                  ? '#94A3B8'
+                  : 'linear-gradient(135deg, #0F2B48 0%, #1E3A5F 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                cursor: discoveryLoading || !scopusQuery.trim() ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.18s ease',
+                boxShadow: discoveryLoading || !scopusQuery.trim()
+                  ? 'none'
+                  : '0 2px 6px rgba(15, 43, 72, 0.2)',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name="search" size={14} color="#FFFFFF" />
+              <span>{discoveryLoading ? 'Searching Directory...' : 'Find My Certificates'}</span>
+            </button>
           </form>
         )}
 
@@ -556,7 +584,7 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                       ? discoveryData.researcher.full_name
                       : `Dr. ${discoveryData.researcher.full_name}`}
                   </span>
-                  <Badge variant="teal">SAMIKSHA Verified</Badge>
+                  <Badge variant="teal">समीक्षा Verified</Badge>
                 </div>
                 <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '3px' }}>
                   {discoveryData.researcher.department ? `${discoveryData.researcher.department} • ` : ''}{discoveryData.researcher.institutional_affiliation || 'Chhatrapati Shahu Ji Maharaj University, Kanpur'}
@@ -639,7 +667,7 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                 {discoveryData.research_certificates.length === 0 ? (
                   <EmptyState
                     title="No Research Work Certificates Found"
-                    description="No research felicitations or publication recognition certificates have been formally issued for this Scopus ID in SAMIKSHA."
+                    description="No research felicitations or publication recognition certificates have been formally issued for this Scopus ID in समीक्षा."
                   />
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
@@ -870,13 +898,13 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
           flexDirection: 'column',
           gap: '24px',
           padding: '32px',
-          border: '1.5px solid #E2E8F0',
+          border: '1px solid var(--samiksha-border-light)',
           borderRadius: '16px',
           backgroundColor: '#FFFFFF',
           boxShadow: '0 4px 20px rgba(15, 43, 72, 0.04)',
         }}
       >
-        <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -886,30 +914,46 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
               fontWeight: 700,
               color: '#0D766E',
               textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginBottom: '6px',
+              letterSpacing: '0.08em',
+              marginBottom: '8px',
             }}
           >
-            <span>🛡️</span>
+            <AppIcon name="shield" size={13} color="#0D766E" />
             <span>Cryptographic University Verification</span>
           </div>
-          <SectionHeading
-            align="center"
-            eyebrow=""
-            title="Verify Felicitation Certificate"
-            description="Verify the authenticity of any certificate issued by Chhatrapati Shahu Ji Maharaj University, Kanpur."
-          />
+          <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#0F2B48', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+            Verify Felicitation Certificate
+          </h3>
+          <p style={{ fontSize: '13.5px', color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+            Verify the authenticity of any certificate issued by Chhatrapati Shahu Ji Maharaj University, Kanpur.
+          </p>
         </div>
 
         {/* Verification Methods Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', maxWidth: '820px', margin: '0 auto', width: '100%' }}>
           {/* Method A: Certificate Number Search */}
-          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '16px',
+              boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            }}
+          >
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', marginBottom: '4px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#0D766E', background: '#F0FDFA', border: '1px solid #99F6E4', padding: '3px 8px', borderRadius: '6px', marginBottom: '8px' }}>
+                <AppIcon name="file-text" size={12} color="#0D766E" />
+                <span>Method A</span>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', marginBottom: '4px' }}>
                 Method A: Certificate Number
               </div>
-              <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px' }}>
+              <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: 1.45, marginBottom: '16px' }}>
                 Enter the formal registration serial printed on the lower left of the certificate.
               </div>
 
@@ -920,28 +964,98 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                   onChange={(e) => onCertQueryChange(e.target.value)}
                   aria-label="Certificate Registration Number"
                 />
-                <Button variant="primary" type="submit" disabled={certLoading || !certQuery.trim()}>
-                  {certLoading ? 'Verifying...' : 'Verify Authenticity'}
-                </Button>
+                <button
+                  type="submit"
+                  disabled={certLoading || !certQuery.trim()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: certLoading || !certQuery.trim()
+                      ? '#94A3B8'
+                      : 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    cursor: certLoading || !certQuery.trim() ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.18s ease',
+                    boxShadow: certLoading || !certQuery.trim()
+                      ? 'none'
+                      : '0 2px 6px rgba(13, 148, 136, 0.25)',
+                  }}
+                >
+                  <AppIcon name="check-circle" size={14} color="#FFFFFF" />
+                  <span>{certLoading ? 'Verifying...' : 'Verify Authenticity'}</span>
+                </button>
               </form>
             </div>
           </div>
 
           {/* Method B: Instant QR Code Scan */}
-          <div style={{ background: '#FAF7F0', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '16px',
+              boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            }}
+          >
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F2B48', marginBottom: '4px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#0F2B48', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '6px', marginBottom: '8px' }}>
+                <AppIcon name="grid" size={12} color="#0F2B48" />
+                <span>Method B</span>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', marginBottom: '4px' }}>
                 Method B: Instant QR Code Scan
               </div>
-              <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px' }}>
+              <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: 1.45, marginBottom: '16px' }}>
                 Every issued certificate features a secure cryptographic QR seal for instant smartphone verification.
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '28px' }}>📱</span>
-                <div style={{ fontSize: '11.5px', color: '#475569', lineHeight: 1.4 }}>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  background: '#F8FAFC',
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #E2E8F0',
+                }}
+              >
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    background: '#F0FDFA',
+                    border: '1.5px solid #99F6E4',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <AppIcon name="grid" size={20} color="#0D9488" />
+                </div>
+                <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
                   Scan the QR seal on the physical or PDF certificate with any smartphone camera to open the authentic verification portal.
                 </div>
               </div>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#0D766E', fontWeight: 600 }}>
+              <AppIcon name="check" size={13} color="#0D766E" />
+              <span>Instant cryptographic validation — no login required</span>
             </div>
           </div>
         </div>
@@ -1200,6 +1314,7 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
         {filteredGallery.length === 0 ? (
           <EmptyState
             title="No Felicitated Publications Found"
+            icon={<AppIcon name="book-open" size={24} color="#0D766E" />}
             description={
               gallerySearch || galleryCategory
                 ? 'No recognized publications matched your current filter criteria.'

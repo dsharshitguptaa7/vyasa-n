@@ -115,7 +115,7 @@ export const AuditLogsPage: React.FC = () => {
         <div style={{ width: '220px' }}>
           <Select
             options={[
-              { value: 'atharva_veda', label: 'Atharva Veda (NIVARAN)' },
+              { value: 'atharva_veda', label: 'Atharva Veda (निवारण)' },
               { value: 'core', label: 'VYASA Core Subsystem' },
               { value: '', label: 'All Modules' },
             ]}

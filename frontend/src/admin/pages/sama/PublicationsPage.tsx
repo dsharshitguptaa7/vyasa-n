@@ -317,7 +317,7 @@ export const PublicationsPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b2811a' }}>
-              SAMIKSHA • Scholarly Works Repository
+              समीक्षा • Scholarly Works Repository
             </div>
             <h1 style={{ margin: '4px 0 0 0', fontSize: '22px', fontWeight: 700, color: 'var(--vyasa-primary, #0f2b48)' }}>
               Research Publications Ledger
@@ -964,7 +964,7 @@ export const PublicationsPage: React.FC = () => {
                 }}
               >
                 <p style={{ fontWeight: 700, margin: '0 0 4px 0' }}>Institutional Safeguard Notice:</p>
-                You are about to permanently delete <strong>{selectedPubIds.size}</strong> selected publication entries from the SAMIKSHA repository.
+                You are about to permanently delete <strong>{selectedPubIds.size}</strong> selected publication entries from the समीक्षा repository.
                 All mapped author links will be cleaned up, and any felicitation certificates referencing these publications will have their link safely set to null without deleting the certificate document.
               </div>
 

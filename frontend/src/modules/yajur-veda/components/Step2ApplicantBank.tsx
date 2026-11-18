@@ -227,7 +227,7 @@ export const Step2ApplicantBank: React.FC<Step2ApplicantBankProps> = ({
           Institutional Architecture Notice: Bank Details Persistence Limitation
         </div>
         <p style={{ margin: '0 0 8px', color: '#78350F', fontSize: '0.875rem', lineHeight: 1.5 }}>
-          Under the ANUDAAN Field Mapping V1.1 and database architecture, bank accounts are legally bound to{' '}
+          Under the अनुदान Field Mapping V1.1 and database architecture, bank accounts are legally bound to{' '}
           <strong>Publication Authors</strong> upon attribution in Step 4, rather than stored as top-level draft fields on the application.
         </p>
         <p style={{ margin: 0, color: '#92400E', fontSize: '0.825rem', lineHeight: 1.5 }}>

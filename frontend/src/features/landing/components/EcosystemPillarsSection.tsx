@@ -17,7 +17,7 @@ interface ConceptualPillarItem {
 const DEFAULT_ECOSYSTEM_PILLARS: ConceptualPillarItem[] = [
   {
     id: 'sama-veda',
-    name: 'Sama Veda: SAMIKSHA',
+    name: 'Sama Veda: समीक्षा',
     subtitle: 'Research Recognition, Publications & Bulletins',
     description:
       'Official CSJMU research felicitation portal featuring verified publication archives, Scopus researcher recognition, digital felicitation certificate verification, research bulletins, and CAM-AI project showcases.',
@@ -27,7 +27,7 @@ const DEFAULT_ECOSYSTEM_PILLARS: ConceptualPillarItem[] = [
   },
   {
     id: 'nivaran',
-    name: 'Atharva Veda: NIVARAN',
+    name: 'Atharva Veda: निवारण',
     subtitle: 'Institutional Grievance Redressal & Governance',
     description:
       'Official CSJMU doctoral research and university grievance resolution platform, featuring AI-assisted ticket triage, transparent multi-tier escalations, and cryptographic dossier tracking.',
@@ -162,7 +162,7 @@ export const EcosystemPillarsSection: React.FC = () => {
                   style={{ width: '100%', justifyContent: 'center' }}
                   onClick={() => navigate('/modules/sama-veda')}
                 >
-                  Explore SAMIKSHA &rarr;
+                  Explore समीक्षा &rarr;
                 </Button>
               </div>
             )}
@@ -175,7 +175,7 @@ export const EcosystemPillarsSection: React.FC = () => {
                   style={{ width: '100%', justifyContent: 'center' }}
                   onClick={() => navigate('/modules/atharva-veda/nivaran')}
                 >
-                  Open NIVARAN &rarr;
+                  Open निवारण &rarr;
                 </Button>
               </div>
             )}

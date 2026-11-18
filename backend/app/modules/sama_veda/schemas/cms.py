@@ -643,3 +643,320 @@ class ResearcherOtpVerifyRequest(BaseModel):
     scopus_id: str = Field(..., min_length=1, max_length=50)
     otp: str = Field(..., min_length=4, max_length=10)
 
+
+# ============================================================================
+# 8. CMS BULK CERTIFICATE OPERATIONS (DELETION & VERIFICATION)
+# ============================================================================
+
+class BulkDeleteCertificatesRequest(BaseModel):
+    certificate_ids: List[uuid.UUID] = Field(..., min_length=1, max_length=500)
+    reason: str = Field(..., min_length=3, max_length=500, description="Mandatory institutional reason for certificate deletion")
+
+
+class SingleDeleteCertificateRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500, description="Mandatory institutional reason for certificate deletion")
+
+
+class BulkDeleteFailureItem(BaseModel):
+    id: str
+    reason: str
+
+
+class BulkDeleteCertificatesResponse(BaseModel):
+    operation_id: str
+    total_requested: int
+    deleted_count: int
+    failed_count: int
+    deleted_ids: List[str]
+    failed_items: List[BulkDeleteFailureItem]
+    audit_logged: bool = True
+
+
+class BulkVerifyCertificatesRequest(BaseModel):
+    certificate_numbers: Optional[List[str]] = Field(None, max_length=250)
+    raw_text: Optional[str] = Field(None, max_length=50000, description="Raw newline or comma-separated certificate numbers or CSV text")
+
+
+class CertificateVerificationItem(BaseModel):
+    input_text: str
+    certificate_number: Optional[str] = None
+    status: str  # VALID / ISSUED | SCHEDULED | REVOKED | SUPERSEDED | NOT FOUND | INVALID
+    is_valid: bool = False
+    is_scheduled: bool = False
+    is_revoked: bool = False
+    is_superseded: bool = False
+    is_duplicate: bool = False
+    error_message: Optional[str] = None
+    certificate_id: Optional[str] = None
+    title: Optional[str] = None
+    certificate_type: Optional[str] = None
+    recipient_name: Optional[str] = None
+    research_title: Optional[str] = None
+    issue_date: Optional[str] = None
+    scheduled_issue_date: Optional[str] = None
+    revocation_reason: Optional[str] = None
+    revoked_at: Optional[str] = None
+    replacement_certificate_number: Optional[str] = None
+    verification_token: Optional[str] = None
+    sha256_checksum: Optional[str] = None
+
+
+class BulkVerifyCertificatesResponse(BaseModel):
+    total_submitted: int
+    valid_count: int
+    scheduled_count: int
+    revoked_count: int
+    superseded_count: int
+    not_found_count: int
+    invalid_count: int
+    duplicate_count: int
+    results: List[CertificateVerificationItem]
+
+
+
+# ============================================================================
+# 8. BULK CERTIFICATE GENERATION & DUAL-AUTHORITY WORKFLOW SCHEMAS
+# ============================================================================
+
+class BulkBulletinMetadata(BaseModel):
+    volume: Optional[int] = None
+    issue: Optional[int] = None
+    period: Optional[str] = None
+
+
+class BulkCertificateUploadBatchMetadata(BaseModel):
+    batch_name: str = Field(..., min_length=2, max_length=255)
+    certificate_type: str = Field("RESEARCH_PUBLICATION", pattern="^(RESEARCH_PUBLICATION|INCENTIVE_AWARD)$")
+    issue_date: date
+    bulletin: Optional[BulkBulletinMetadata] = None
+
+
+class BulkResearcherInput(BaseModel):
+    researcher_id: Optional[uuid.UUID] = None
+    scopus_id: Optional[str] = None
+    full_name: str = Field(..., min_length=1)
+    department: Optional[str] = None
+    institutional_affiliation: Optional[str] = None
+
+
+class BulkAuthorInput(BaseModel):
+    researcher: BulkResearcherInput
+    certificate_title: Optional[str] = None  # Explicit snapshot title e.g. "Dr.", "Prof." or None (NEVER copied from profile)
+    author_role: Optional[str] = None
+    is_corresponding: Optional[bool] = None
+
+
+class BulkCertificateItemInput(BaseModel):
+    item_id: Optional[str] = None
+    research_title: str = Field(..., min_length=3)
+    authors: List[BulkAuthorInput] = Field(..., min_length=1)
+    research_contribution_statement: Optional[str] = None
+    publication_details: Optional[Dict[str, Any]] = None
+    incentive_details: Optional[Dict[str, Any]] = None
+
+
+class BulkCertificateUploadPayload(BaseModel):
+    batch: BulkCertificateUploadBatchMetadata
+    certificates: List[BulkCertificateItemInput] = Field(..., min_length=1)
+
+
+class AuthorCandidate(BaseModel):
+    id: str
+    full_name: str
+    scopus_id: Optional[str] = None
+    department: Optional[str] = None
+    institutional_affiliation: Optional[str] = None
+    is_verified: bool = False
+    match_score: Optional[float] = None
+
+
+class AuthorMatchItem(BaseModel):
+    input_full_name: str
+    input_scopus_id: Optional[str] = None
+    input_department: Optional[str] = None
+    certificate_title: Optional[str] = None
+    author_role: Optional[str] = None
+    status: str  # MATCHED | AMBIGUOUS | NOT_FOUND
+    matched_author_id: Optional[str] = None
+    matched_author_name: Optional[str] = None
+    matched_by: Optional[str] = None  # UUID | SCOPUS_ID | NORMALIZED_NAME
+    candidates: List[AuthorCandidate] = []
+
+
+class BulkCertificatePreviewItem(BaseModel):
+    index: int
+    research_title: str
+    certificate_type: str
+    issue_date: str
+    is_valid: bool
+    validation_errors: List[str] = []
+    authors: List[AuthorMatchItem]
+    publication_details: Optional[Dict[str, Any]] = None
+    incentive_details: Optional[Dict[str, Any]] = None
+
+
+class BulkCertificatePreviewResponse(BaseModel):
+    batch: BulkCertificateUploadBatchMetadata
+    total_certificates: int
+    valid_certificates_count: int
+    invalid_certificates_count: int
+    total_authors: int
+    matched_authors_count: int
+    ambiguous_authors_count: int
+    not_found_authors_count: int
+    certificates: List[BulkCertificatePreviewItem]
+
+
+class AuthorResolutionMapping(BaseModel):
+    author_index: int
+    resolved_author_id: Optional[uuid.UUID] = None
+    certificate_title: Optional[str] = None
+
+
+class CertificateResolutionMapping(BaseModel):
+    certificate_index: int
+    authors: Optional[List[AuthorResolutionMapping]] = None
+
+
+class BulkCertificateGenerateRequest(BaseModel):
+    batch: BulkCertificateUploadBatchMetadata
+    certificates: List[BulkCertificateItemInput]
+    resolutions: Optional[List[CertificateResolutionMapping]] = None
+
+
+class BulkCertificateGenerateResultItem(BaseModel):
+    index: int
+    certificate_id: str
+    certificate_number: str
+    research_title: str
+    status: str
+    authors_count: int
+
+
+class BulkCertificateGenerateResponse(BaseModel):
+    batch_id: str
+    batch_name: str
+    certificate_type: str
+    total_requested: int
+    created_count: int
+    failed_count: int
+    created_certificates: List[BulkCertificateGenerateResultItem]
+    failed_items: List[Dict[str, Any]] = []
+
+
+class BulkSubmitDeanRequest(BaseModel):
+    certificate_ids: List[uuid.UUID] = Field(..., min_length=1)
+
+
+class BulkForwardVCRequest(BaseModel):
+    certificate_ids: List[uuid.UUID] = Field(..., min_length=1)
+
+
+class BulkApprovalActionRequest(BaseModel):
+    certificate_ids: List[uuid.UUID] = Field(..., min_length=1)
+    action: str = Field(..., pattern="^(APPROVE|REJECT)$")
+    remarks: Optional[str] = None
+
+
+class BulkApprovalResultItem(BaseModel):
+    certificate_id: str
+    certificate_number: str
+    previous_status: str
+    new_status: str
+    authority: str
+    action: str
+    success: bool
+    error: Optional[str] = None
+
+
+class BulkApprovalResponse(BaseModel):
+    operation_id: str
+    authority: str
+    action: str
+    total_requested: int
+    success_count: int
+    failure_count: int
+    results: List[BulkApprovalResultItem]
+
+
+class BatchSummaryItem(BaseModel):
+    batch_id: str
+    batch_name: str
+    certificate_type: str
+    created_at: str
+    total_certificates: int
+    pending_dean_count: int
+    pending_vc_count: int
+    issued_count: int
+    scheduled_count: int
+    rejected_count: int
+    archived_count: int
+
+
+class BatchListResponse(BaseModel):
+    total: int
+    items: List[BatchSummaryItem]
+
+
+class BatchDetailResponse(BaseModel):
+    batch_id: str
+    batch_name: str
+    certificate_type: str
+    created_at: str
+    total_certificates: int
+    status_counts: Dict[str, int]
+    certificates: List[Dict[str, Any]]
+
+
+# ============================================================================
+# 9. CERTIFICATE RESTORATION & ARCHIVED LEDGER SCHEMAS
+# ============================================================================
+
+class SingleRestoreCertificateRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500, description="Mandatory institutional reason for restoring certificate")
+
+
+class BulkRestoreCertificatesRequest(BaseModel):
+    certificate_ids: List[uuid.UUID] = Field(..., min_length=1, max_length=500)
+    reason: str = Field(..., min_length=3, max_length=500, description="Mandatory institutional reason for restoring certificates")
+
+
+class BulkRestoreFailureItem(BaseModel):
+    id: str
+    reason: str
+
+
+class BulkRestoreResultItem(BaseModel):
+    id: str
+    certificate_number: str
+    restored_to_status: str
+
+
+class BulkRestoreCertificatesResponse(BaseModel):
+    operation_id: str
+    total_requested: int
+    restored_count: int
+    failed_count: int
+    restored_items: List[BulkRestoreResultItem]
+    failed_items: List[BulkRestoreFailureItem]
+    audit_logged: bool = True
+
+
+class ArchivedCertificateItem(BaseModel):
+    id: uuid.UUID
+    certificate_number: str
+    title: str
+    certificate_type: str
+    research_title: Optional[str] = None
+    primary_recipient: Optional[str] = None
+    previous_status: str
+    archived_at: Optional[str] = None
+    archived_by_user_id: Optional[str] = None
+    archival_reason: Optional[str] = None
+    is_revoked: bool = False
+    verification_token: Optional[str] = None
+
+
+class ArchivedCertificateListResponse(BaseModel):
+    total: int
+    items: List[ArchivedCertificateItem]

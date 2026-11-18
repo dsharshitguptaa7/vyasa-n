@@ -247,7 +247,7 @@ export const GrievanceSubmitPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          NIVARAN
+          निवारण
         </button>
         <span style={{ color: '#cbd5e1' }}>&rsaquo;</span>
         <span style={{ color: '#64748b', fontWeight: 500 }}>Submit Grievance</span>
@@ -271,7 +271,7 @@ export const GrievanceSubmitPage: React.FC = () => {
 
               <p className="nivaran-case-meta" style={{ marginTop: '6px' }}>
                 <span className="nivaran-case-meta__item">
-                  NIVARAN &bull; AI-Assisted Grievance Redressal
+                  निवारण &bull; AI-Assisted Grievance Redressal
                 </span>
                 <span className="nivaran-case-meta__separator">&bull;</span>
                 <span className="nivaran-case-meta__item">

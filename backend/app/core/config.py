@@ -218,6 +218,20 @@ class Settings(BaseSettings):
         description="Gemini model identifier for institutional OCR extraction",
     )
 
+    # AI Knowledge Centre & Centralized Embedding Settings
+    GEMINI_EMBEDDING_MODEL: str = Field(
+        default="text-embedding-004",
+        description="Centralized Gemini embedding model identifier for institutional knowledge indexing and retrieval",
+    )
+    GEMINI_EMBEDDING_DIMENSIONS: int = Field(
+        default=768,
+        description="Target vector output dimensionality (e.g., 768 for text-embedding-004)",
+    )
+    ALLOW_OFFLINE_EMBEDDINGS: bool = Field(
+        default=False,
+        description="Explicit flag allowing deterministic offline embeddings in dev/test; strictly rejected in production",
+    )
+
     # Google Workspace / Google Meet Integration Settings
     GOOGLE_MEET_CLIENT_ID: Optional[str] = Field(
         default=None,
@@ -301,6 +315,13 @@ class Settings(BaseSettings):
         default=300.0,
         description="Maximum backoff ceiling in seconds for retries",
     )
+
+    @property
+    def is_production(self) -> bool:
+        """
+        Check whether the current runtime environment is production.
+        """
+        return (self.NODE_ENV or "").strip().lower() in ("production", "prod")
 
     @property
     def sync_database_url(self) -> str:

@@ -172,13 +172,28 @@ class PhdRetrievalService:
         )
 
         for chunk in all_chunks:
-            # 1. Semantic Cosine Similarity
+            # 1. Semantic Cosine Similarity (with dimension safety guard)
             semantic_score = 0.0
             if chunk.embedding and q_norm > 0:
-                c_vec = np.array(chunk.embedding, dtype=np.float32)
-                c_norm = np.linalg.norm(c_vec)
-                if c_norm > 0:
-                    semantic_score = float(np.dot(query_vector, c_vec) / (q_norm * c_norm))
+                try:
+                    c_vec = np.array(chunk.embedding, dtype=np.float32)
+                    if c_vec.ndim != 1 or len(c_vec) != len(query_vector):
+                        logger.warning(
+                            "Embedding dimension mismatch for chunk %s: expected %d, got %d. Skipping semantic score.",
+                            chunk.id, len(query_vector), len(c_vec),
+                        )
+                    elif not np.all(np.isfinite(c_vec)):
+                        logger.warning(
+                            "Embedding for chunk %s contains non-finite values. Skipping semantic score.",
+                            chunk.id,
+                        )
+                    else:
+                        c_norm = np.linalg.norm(c_vec)
+                        if c_norm > 0:
+                            semantic_score = float(np.dot(query_vector, c_vec) / (q_norm * c_norm))
+                except Exception as sim_exc:
+                    logger.warning("Error computing similarity for chunk %s: %s", chunk.id, sim_exc)
+                    semantic_score = 0.0
 
             # 2. Lexical Keyword Overlap
             lexical_score = self.compute_lexical_overlap(query_clean, chunk.chunk_text)

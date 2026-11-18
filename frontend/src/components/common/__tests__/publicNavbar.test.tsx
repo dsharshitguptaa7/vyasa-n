@@ -213,12 +213,12 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(header).toHaveClass('is-scrolled');
   });
 
-  it('14. Section navigation links render: Overview, The Vision, Four Domains, NIVARAN, Research & Innovation', () => {
+  it('14. Section navigation links render: Overview, The Vision, Four Domains, निवारण, Research & Innovation', () => {
     renderNavbar();
     expect(screen.getAllByRole('button', { name: /Overview/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /The Vision/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Four Domains/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /NIVARAN/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /निवारण/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: /Research & Innovation/i }).length).toBeGreaterThan(0);
   });
 
@@ -235,7 +235,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
   it('16. NIVARAN navigation respects authentication: routes unauthenticated to applicant login', async () => {
     renderNavbar();
-    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN/i })[0];
+    const nivaranBtn = screen.getAllByRole('button', { name: /निवारण/i })[0];
     fireEvent.click(nivaranBtn);
 
     expect(await screen.findByTestId('applicant-login-page')).toBeInTheDocument();
@@ -258,10 +258,10 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /NIVARAN/i })[0]).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /निवारण/i })[0]).toBeInTheDocument();
     });
 
-    const nivaranBtn = screen.getAllByRole('button', { name: /NIVARAN/i })[0];
+    const nivaranBtn = screen.getAllByRole('button', { name: /निवारण/i })[0];
     fireEvent.click(nivaranBtn);
 
     expect(await screen.findByTestId('dean-destination')).toBeInTheDocument();
@@ -294,7 +294,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(drawer).toHaveTextContent('Overview');
     expect(drawer).toHaveTextContent('The Vision');
     expect(drawer).toHaveTextContent('Four Domains');
-    expect(drawer).toHaveTextContent('NIVARAN');
+    expect(drawer).toHaveTextContent('निवारण');
 
     // Contains login & register
     expect(drawer).toHaveTextContent(/Applicant \/ Scholar/i);
@@ -309,13 +309,13 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(linkLabels).toContain('Overview');
     expect(linkLabels).toContain('The Vision');
     expect(linkLabels).toContain('Four Domains');
-    expect(linkLabels).toContain('NIVARANLive');
-    expect(linkLabels).toContain('SAMIKSHA');
+    expect(linkLabels).toContain('निवारणLive');
+    expect(linkLabels).toContain('समीक्षा');
     expect(linkLabels).toContain('Research & Innovation');
 
-    const nivaranIdx = linkLabels.findIndex((l) => l?.startsWith('NIVARAN'));
-    const samikshaIdx = linkLabels.indexOf('SAMIKSHA');
-    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('ANUDAAN'));
+    const nivaranIdx = linkLabels.findIndex((l) => l?.startsWith('निवारण'));
+    const samikshaIdx = linkLabels.indexOf('समीक्षा');
+    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('अनुदान'));
     const innovationIdx = linkLabels.indexOf('Research & Innovation');
 
     expect(nivaranIdx).toBeGreaterThan(-1);
@@ -326,7 +326,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
   it('21. Clicking SAMIKSHA navigates directly to the SAMIKSHA research portal', async () => {
     renderNavbar();
-    const samikshaBtn = screen.getAllByRole('button', { name: /^SAMIKSHA/i })[0];
+    const samikshaBtn = screen.getAllByRole('button', { name: /^समीक्षा/i })[0];
     expect(samikshaBtn).toBeInTheDocument();
     fireEvent.click(samikshaBtn);
 
@@ -352,7 +352,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
       </MemoryRouter>
     );
 
-    const samikshaBtn = screen.getAllByRole('button', { name: /^SAMIKSHA/i })[0];
+    const samikshaBtn = screen.getAllByRole('button', { name: /^समीक्षा/i })[0];
     expect(samikshaBtn).toHaveClass('is-active');
     expect(samikshaBtn).toHaveClass('vyasa-public-nav-link--samiksha');
   });
@@ -363,9 +363,9 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     fireEvent.click(toggleBtn);
 
     const drawer = screen.getByTestId('mobile-nav-drawer');
-    expect(drawer).toHaveTextContent('SAMIKSHA');
+    expect(drawer).toHaveTextContent('समीक्षा');
 
-    const mobileSamikshaLink = screen.getAllByRole('button', { name: /^SAMIKSHA/i }).find((btn) =>
+    const mobileSamikshaLink = screen.getAllByRole('button', { name: /^समीक्षा/i }).find((btn) =>
       btn.classList.contains('vyasa-mobile-nav-link')
     )!;
     expect(mobileSamikshaLink).toBeInTheDocument();
@@ -380,11 +380,11 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     const links = Array.from(navList.querySelectorAll('button'));
     const linkLabels = links.map((l) => l.textContent);
 
-    expect(linkLabels).toContain('SAMIKSHA');
-    expect(linkLabels.some((l) => l?.startsWith('ANUDAAN'))).toBe(true);
+    expect(linkLabels).toContain('समीक्षा');
+    expect(linkLabels.some((l) => l?.startsWith('अनुदान'))).toBe(true);
 
-    const samikshaIdx = linkLabels.indexOf('SAMIKSHA');
-    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('ANUDAAN'));
+    const samikshaIdx = linkLabels.indexOf('समीक्षा');
+    const anudaanIdx = linkLabels.findIndex((l) => l?.startsWith('अनुदान'));
     const innovationIdx = linkLabels.indexOf('Research & Innovation');
 
     expect(anudaanIdx).toBe(samikshaIdx + 1);
@@ -393,7 +393,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
 
   it('25. Clicking ANUDAAN navigates directly to the ANUDAAN portal', async () => {
     renderNavbar();
-    const anudaanBtn = screen.getAllByRole('button', { name: /^ANUDAAN/i })[0];
+    const anudaanBtn = screen.getAllByRole('button', { name: /^अनुदान/i })[0];
     expect(anudaanBtn).toBeInTheDocument();
     fireEvent.click(anudaanBtn);
 
@@ -411,7 +411,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
       </MemoryRouter>
     );
 
-    const anudaanBtn = screen.getAllByRole('button', { name: /^ANUDAAN/i })[0];
+    const anudaanBtn = screen.getAllByRole('button', { name: /^अनुदान/i })[0];
     expect(anudaanBtn.className).toContain('is-active');
     expect(anudaanBtn.className).toContain('vyasa-public-nav-link--anudaan');
   });
@@ -425,7 +425,7 @@ describe('VYASA Public Landing Page - Premium Navigation & Access UX Suite', () 
     expect(drawer.className).toContain('is-open');
 
     const mobileAnudaanBtn = Array.from(drawer.querySelectorAll('button')).find((b) =>
-      b.textContent?.startsWith('ANUDAAN')
+      b.textContent?.startsWith('अनुदान')
     );
     expect(mobileAnudaanBtn).toBeDefined();
 
