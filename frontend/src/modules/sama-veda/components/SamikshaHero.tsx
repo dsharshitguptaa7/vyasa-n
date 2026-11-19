@@ -138,6 +138,17 @@ export const SamikshaHero: React.FC<SamikshaHeroProps> = ({
                   clip: 'rect(0, 0, 0, 0)',
                 }}
               >
+                SAMIKSHA • Research, Recognition &amp; Innovation Portal
+              </span>
+              <span
+                style={{
+                  position: 'absolute',
+                  width: '1px',
+                  height: '1px',
+                  overflow: 'hidden',
+                  clip: 'rect(0, 0, 0, 0)',
+                }}
+              >
                 Sama Veda • Research Recognition & Communication
               </span>
             </div>

@@ -152,6 +152,9 @@ def _to_publication_out(pub: ResearchPublication) -> PublicationOut:
         created_at=pub.created_at or datetime.now(timezone.utc),
         updated_at=pub.updated_at or datetime.now(timezone.utc),
         author_links=author_links_out,
+        volume_number=pub.bulletin.volume_number if getattr(pub, "bulletin", None) else None,
+        issue_number=pub.bulletin.issue_number if getattr(pub, "bulletin", None) else None,
+        bulletin_title=pub.bulletin.title if getattr(pub, "bulletin", None) else None,
     )
 
 
@@ -1191,10 +1194,27 @@ def preview_certificate_pdf(
             pass
 
     try:
+        clean_preview_num = sama_cms_service.validate_manual_certificate_number(payload.certificate_number)
+    except ValueError:
+        clean_preview_num = None
+
+    try:
+        manual_preview_token = sama_cms_service.validate_manual_verification_identifier(
+            getattr(payload, "verification_identifier", None) or getattr(payload, "verification_token", None)
+        )
+    except ValueError:
+        manual_preview_token = None
+
+    preview_cert_no = clean_preview_num or "CSJMU/PREVIEW/DRAFT-0000"
+    preview_token = manual_preview_token or "PREVIEW"
+    base_url = _get_production_verification_base_url(request)
+    preview_url = f"{base_url}/verify/{preview_token}"
+
+    try:
         pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
-            certificate_number=payload.certificate_number or "CSJMU/PREVIEW/DRAFT-0000",
-            verification_token="PREVIEW",
-            verification_url=f"{str(request.base_url).rstrip('/')}/verify/preview-draft",
+            certificate_number=preview_cert_no,
+            verification_token=preview_token,
+            verification_url=preview_url,
             title=payload.title,
             certificate_type=payload.certificate_type or "RESEARCH_PUBLICATION",
             presentation_statement=payload.presentation_statement,
@@ -1420,10 +1440,33 @@ def issue_certificate(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:certificate:manage")),
 ):
-    if payload.certificate_number:
-        existing = sama_cms_service.get_certificate_by_number(db, payload.certificate_number)
+    try:
+        clean_cert_num = sama_cms_service.validate_manual_certificate_number(payload.certificate_number)
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+
+    try:
+        manual_token = sama_cms_service.validate_manual_verification_identifier(
+            getattr(payload, "verification_identifier", None) or getattr(payload, "verification_token", None)
+        )
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+
+    if clean_cert_num:
+        existing = sama_cms_service.get_certificate_by_number(db, clean_cert_num)
         if existing:
-            raise HTTPException(status_code=400, detail="Certificate number already exists.")
+            raise HTTPException(status_code=400, detail=f"Certificate number '{clean_cert_num}' is already assigned to another certificate.")
+        existing_tok = sama_cms_service.get_certificate_by_token(db, clean_cert_num)
+        if existing_tok:
+            raise HTTPException(status_code=400, detail=f"Certificate number '{clean_cert_num}' conflicts with an existing verification identifier.")
+
+    if manual_token:
+        existing_tok = sama_cms_service.get_certificate_by_token(db, manual_token)
+        if existing_tok:
+            raise HTTPException(status_code=400, detail=f"Verification identifier '{manual_token}' already belongs to an existing certificate.")
+        existing_num = sama_cms_service.get_certificate_by_number(db, manual_token)
+        if existing_num:
+            raise HTTPException(status_code=400, detail=f"Verification identifier '{manual_token}' conflicts with an existing certificate number.")
 
     if payload.bulletin_id:
         bulletin = sama_cms_service.get_bulletin_by_id(db, payload.bulletin_id)
@@ -1448,6 +1491,15 @@ def issue_certificate(
         db, payload, created_by_user_id=current_user.id, base_verification_url=base_url
     )
 
+    is_manual_num = bool(clean_cert_num)
+    is_manual_token = bool(manual_token)
+    override_type = (
+        "BOTH" if (is_manual_num and is_manual_token)
+        else "CERTIFICATE_NUMBER" if is_manual_num
+        else "VERIFICATION_IDENTIFIER" if is_manual_token
+        else "NONE"
+    )
+
     audit_service.log_from_request(
         request=request,
         db=db,
@@ -1458,10 +1510,16 @@ def issue_certificate(
         actor_user_id=current_user.id,
         details={
             "certificate_number": cert.certificate_number,
+            "verification_token": cert.verification_token,
             "author_id": str(cert.author_id),
             "bulletin_id": str(cert.bulletin_id),
             "submit_mode": "APPROVAL" if payload.submit_for_approval else "DIRECT_ISSUANCE",
             "direct_issue_justification": payload.direct_issue_justification if not payload.submit_for_approval else None,
+            "is_manual_certificate_number": is_manual_num,
+            "is_manual_verification_identifier": is_manual_token,
+            "manual_override_type": override_type,
+            "manual_certificate_number": cert.certificate_number if is_manual_num else None,
+            "manual_verification_identifier": cert.verification_token if is_manual_token else None,
         },
         fail_silent=False,
     )

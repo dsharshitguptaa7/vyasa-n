@@ -50,6 +50,7 @@ EXPECTED_SAMA_TABLES = [
     "sama_fellowship_schemes",
     "sama_researcher_spotlights",
     "sama_import_batches",
+    "sama_legacy_certificate_registry",
 ]
 
 
@@ -62,7 +63,7 @@ def test_sama_veda_tables_registered_in_metadata(table_name):
 def test_sama_veda_table_count():
     """Verifies exactly 10 physical tables are created for Sama Veda."""
     registered_sama = [t for t in Base.metadata.tables.keys() if t.startswith("sama_")]
-    assert len(registered_sama) == 14
+    assert len(registered_sama) == 15
     assert set(registered_sama) == set(EXPECTED_SAMA_TABLES)
 
 

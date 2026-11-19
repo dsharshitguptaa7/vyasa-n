@@ -12,6 +12,7 @@ from app.modules.sama_veda.models.certificate import (
     CertificateAuthor,
     CertificateApproval,
     CertificateVerificationEvent,
+    LegacyCertificateRegistry,
 )
 from app.modules.sama_veda.models.cam_project import CamAiProject
 from app.modules.sama_veda.models.fellowship import FellowshipScheme
@@ -29,6 +30,7 @@ __all__ = [
     "CertificateAuthor",
     "CertificateApproval",
     "CertificateVerificationEvent",
+    "LegacyCertificateRegistry",
     "CamAiProject",
     "FellowshipScheme",
     "ResearcherSpotlight",

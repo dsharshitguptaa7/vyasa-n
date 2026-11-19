@@ -463,6 +463,8 @@ export interface IssueCertificatePayload {
   submit_for_approval?: boolean;
   direct_issue_justification?: string;
   certificate_number?: string;
+  verification_identifier?: string;
+  verification_token?: string;
   bulletin_id?: string | null;
   author_id?: string | null;
   publication_id?: string | null;
@@ -483,6 +485,8 @@ export interface CertificatePreviewPayload {
   issue_date?: string;
   authors?: CertificateAuthorItem[];
   certificate_number?: string;
+  verification_identifier?: string;
+  verification_token?: string;
   config_overrides?: Record<string, any>;
 }
 
@@ -836,6 +840,9 @@ export interface BulkCertificateItemInput {
   research_contribution_statement?: string | null;
   publication_details?: Record<string, any> | null;
   incentive_details?: Record<string, any> | null;
+  certificate_number?: string;
+  verification_identifier?: string;
+  verification_token?: string;
 }
 
 export interface BulkCertificateUploadPayload {

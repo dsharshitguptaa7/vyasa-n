@@ -154,6 +154,7 @@ def applicant_user():
 @pytest.fixture
 def mock_db():
     session = MagicMock()
+    session.scalars.return_value.unique.return_value.first.side_effect = lambda: session.scalar.return_value
     return session
 
 
@@ -940,4 +941,74 @@ def test_bulk_update_publication_status_service_logic(mock_db):
     )
     assert pub1.status == "archived"
     assert pub1.archived_at is not None
+
+
+def test_list_public_publications_with_volume_and_issue_filter(client, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    bulletin = ResearchBulletin(
+        id=uuid.uuid4(),
+        volume_number=2,
+        issue_number=1,
+        title="Volume 2 • Issue 1",
+        publication_period="Jan-Mar 2026",
+        file_path="bulletin.pdf",
+        status="published",
+        is_active=True,
+    )
+    pub = ResearchPublication(
+        id=uuid.uuid4(),
+        bulletin_id=bulletin.id,
+        serial_no=1,
+        slug="v2-i1-r001",
+        title="Volume Issue Paper",
+        source_journal="Journal 1",
+        category="Article",
+        author_display="Author 1",
+        status="published",
+    )
+    pub.bulletin = bulletin
+    pub.author_links = []
+
+    mock_db.scalar.return_value = 1
+    mock_db.scalars.return_value.unique.return_value.all.return_value = [pub]
+
+    mock_row = MagicMock()
+    mock_row.bulletin_id = bulletin.id
+    mock_row.volume_number = 2
+    mock_row.issue_number = 1
+    mock_row.title = "Volume 2 • Issue 1"
+    mock_row.publication_count = 1
+    mock_db.execute.return_value.all.return_value = [mock_row]
+
+    resp = client.get("/api/modules/sama-veda/publications?volume_number=2&issue_number=1&category=Article")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["volume_number"] == 2
+    assert data["items"][0]["issue_number"] == 1
+    assert len(data["issue_counts"]) == 1
+    assert data["issue_counts"][0]["volume_number"] == 2
+    assert data["issue_counts"][0]["issue_number"] == 1
+    assert data["issue_counts"][0]["publication_count"] == 1
+
+
+def test_get_publication_issue_counts_endpoint(client, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    mock_row = MagicMock()
+    mock_row.bulletin_id = uuid.uuid4()
+    mock_row.volume_number = 1
+    mock_row.issue_number = 1
+    mock_row.title = "Volume 1 • Issue 1"
+    mock_row.publication_count = 12
+    mock_db.execute.return_value.all.return_value = [mock_row]
+
+    resp = client.get("/api/modules/sama-veda/publications/issue-counts")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert len(data) == 1
+    assert data[0]["volume_number"] == 1
+    assert data[0]["issue_number"] == 1
+    assert data[0]["publication_count"] == 12
 

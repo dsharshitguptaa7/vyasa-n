@@ -24,6 +24,17 @@ export interface PublicPublication {
     is_corresponding: boolean;
     department?: string | null;
   }>;
+  volume_number?: number | null;
+  issue_number?: number | null;
+  bulletin_title?: string | null;
+}
+
+export interface IssuePublicationCount {
+  bulletin_id?: string | null;
+  volume_number: number;
+  issue_number: number;
+  title?: string | null;
+  publication_count: number;
 }
 
 export interface PublicBulletin {
@@ -139,6 +150,15 @@ export interface CertificateVerificationResult {
   } | null;
   sha256_checksum: string;
   is_download_allowed: boolean;
+  is_legacy?: boolean;
+  historical_designation?: string;
+  has_legacy_collision?: boolean;
+  legacy_collision_info?: {
+    legacy_recipient: string;
+    legacy_token: string;
+    legacy_verification_url: string;
+    notice: string;
+  } | null;
   replacement_certificate?: {
     id: string;
     certificate_number: string;
@@ -216,22 +236,43 @@ export const samaVedaService = {
     limit?: number;
     category?: string;
     bulletin_id?: string;
+    volume_number?: number;
+    issue_number?: number;
+    year?: number | string;
     is_featured?: boolean;
     search?: string;
-  }): Promise<{ items: PublicPublication[]; total: number; skip: number; limit: number }> {
+  }): Promise<{
+    items: PublicPublication[];
+    total: number;
+    skip: number;
+    limit: number;
+    issue_counts?: IssuePublicationCount[];
+  }> {
     const searchParams = new URLSearchParams();
     if (params?.skip !== undefined) searchParams.append('skip', String(params.skip));
     if (params?.limit !== undefined) searchParams.append('limit', String(params.limit));
     if (params?.category) searchParams.append('category', params.category);
     if (params?.bulletin_id) searchParams.append('bulletin_id', params.bulletin_id);
+    if (params?.volume_number !== undefined) searchParams.append('volume_number', String(params.volume_number));
+    if (params?.issue_number !== undefined) searchParams.append('issue_number', String(params.issue_number));
+    if (params?.year !== undefined && params?.year !== '') searchParams.append('year', String(params.year));
     if (params?.is_featured !== undefined) searchParams.append('is_featured', String(params.is_featured));
     if (params?.search) searchParams.append('search', params.search);
 
     const q = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    const res = await apiClient.get<{ items: PublicPublication[]; total: number; skip: number; limit: number }>(
-      `/modules/sama-veda/publications${q}`
-    );
+    const res = await apiClient.get<{
+      items: PublicPublication[];
+      total: number;
+      skip: number;
+      limit: number;
+      issue_counts?: IssuePublicationCount[];
+    }>(`/modules/sama-veda/publications${q}`);
     return res.data!;
+  },
+
+  async getPublicationIssueCounts(): Promise<IssuePublicationCount[]> {
+    const res = await apiClient.get<IssuePublicationCount[]>('/modules/sama-veda/publications/issue-counts');
+    return res.data || [];
   },
 
   async getPublication(idOrSlug: string): Promise<PublicPublication> {

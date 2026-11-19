@@ -487,6 +487,8 @@ class FelicitationCertificate(Base):
     )
 
     def __init__(self, **kwargs):
+        if "id" not in kwargs or kwargs["id"] is None:
+            kwargs["id"] = uuid.uuid4()
         if "certificate_type" not in kwargs:
             kwargs["certificate_type"] = "RESEARCH_PUBLICATION"
         if "status" not in kwargs:
@@ -758,3 +760,135 @@ class CertificateVerificationEvent(Base):
 
     def __repr__(self) -> str:
         return f"<CertificateVerificationEvent(cert_id={self.certificate_id}, source='{self.verification_source}', at={self.verified_at})>"
+
+
+class LegacyCertificateRegistry(Base):
+    """
+    Dedicated historical certificate registry for SAMIKSHA archival recovery.
+    Stores immutable records of previously issued/printed physical certificates
+    (such as Issue 3 certificates) that were deleted from the active database ledger.
+    Guarantees public QR code verification and archival auditability without
+    mutating, overwriting, or corrupting the active certificate issuance ledger.
+    """
+    __tablename__ = "sama_legacy_certificate_registry"
+    __table_args__ = (
+        Index("ix_sama_legacy_cert_number", "certificate_number"),
+        Index("ix_sama_legacy_cert_verification_token", "verification_token", unique=True),
+        Index("ix_sama_legacy_cert_is_legacy", "is_legacy"),
+        Index("ix_sama_legacy_cert_type", "certificate_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    certificate_number: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="Original institutional serial number (e.g. 'CSJMU/SAMIKSHA/2026/000002')",
+    )
+    recipient_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="Meritorious recipient researcher name from physical certificate",
+    )
+    research_title: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Original research work or publication contribution title",
+    )
+    certificate_type: Mapped[str] = mapped_column(
+        String(50),
+        default="INCENTIVE_AWARD",
+        nullable=False,
+        comment="Historical certificate category: INCENTIVE_AWARD | SCHOLARLY_FELICITATION | APPRECIATION_AWARD",
+    )
+    issue_reference: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Bulletin volume and issue reference (e.g. 'Volume 2, Issue 3 (July - September 2026)')",
+    )
+    sanction_amount: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Sanctioned incentive award amount if applicable (e.g. 'INR 6,000')",
+    )
+    verification_token: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False,
+        comment="Original 32-character hex verification token embedded in physical QR code",
+    )
+    source_pdf_reference: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="File storage path or reference to original print-ready PDF",
+    )
+    source_sha256: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Original cryptographic SHA-256 document checksum if available",
+    )
+    is_legacy: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=text("true"),
+        nullable=False,
+        comment="Flag designating this record as an archival legacy certificate",
+    )
+    is_revoked: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+        comment="Whether the historical certificate has been formally revoked",
+    )
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp of formal revocation",
+    )
+    revocation_reason: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Audited reason for revocation if applicable",
+    )
+    recovery_source: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="Forensic source of recovery",
+    )
+    recovery_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'"),
+        nullable=False,
+        comment="Structured forensic recovery metadata",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    def __init__(self, **kwargs):
+        if 'id' not in kwargs or kwargs['id'] is None:
+            kwargs['id'] = uuid.uuid4()
+        if 'is_legacy' not in kwargs or kwargs['is_legacy'] is None:
+            kwargs['is_legacy'] = True
+        if 'is_revoked' not in kwargs or kwargs['is_revoked'] is None:
+            kwargs['is_revoked'] = False
+        if 'recovery_metadata' not in kwargs or kwargs['recovery_metadata'] is None:
+            kwargs['recovery_metadata'] = {}
+        super().__init__(**kwargs)
+
+    def __repr__(self) -> str:
+        return f"<LegacyCertificateRegistry(cert_no='{self.certificate_number}', recipient='{self.recipient_name}', token='{self.verification_token}')>"
+

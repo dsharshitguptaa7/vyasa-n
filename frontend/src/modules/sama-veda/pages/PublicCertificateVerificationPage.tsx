@@ -72,6 +72,7 @@ export const PublicCertificateVerificationPage: React.FC = () => {
 
   const isRevoked = result?.is_revoked || result?.status === 'REVOKED';
   const isSuperseded = result?.status === 'SUPERSEDED';
+  const isLegacy = Boolean(result?.is_legacy);
 
   return (
     <PublicShell currentTab="samiksha" onSelectTab={() => navigate('/')} onSignInClick={() => navigate('/applicant/login')}>
@@ -186,6 +187,8 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                           ? 'CERTIFICATE REVOKED'
                           : isSuperseded
                           ? 'CERTIFICATE SUPERSEDED'
+                          : isLegacy
+                          ? 'AUTHENTIC HISTORICAL CERTIFICATE (ARCHIVAL RECORD)'
                           : 'AUTHENTIC & VALID UNIVERSITY CERTIFICATE'}
                       </div>
                       <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px' }}>
@@ -229,6 +232,66 @@ export const PublicCertificateVerificationPage: React.FC = () => {
                     </Button>
                   ) : null}
                 </div>
+
+                {/* Historical Archival Certificate Advisory */}
+                {isLegacy && (
+                  <div
+                    style={{
+                      background: '#EFF6FF',
+                      border: '1.5px solid #BFDBFE',
+                      borderRadius: '10px',
+                      padding: '16px 20px',
+                      color: '#1E40AF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                    }}
+                  >
+                    <span style={{ fontSize: '24px' }}>📜</span>
+                    <div style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                      <strong>Official University Historical Archival Record:</strong> This physical certificate was issued and distributed under Volume 2, Issue 3. Its authenticity is verified against the University Historical Certificate Registry. Live administrative issuance workflows and future re-issuances are managed independently.
+                    </div>
+                  </div>
+                )}
+
+                {/* Serial Number Collision Disambiguation Advisory */}
+                {result.has_legacy_collision && result.legacy_collision_info && (
+                  <div
+                    style={{
+                      background: '#FFFBEB',
+                      border: '1.5px solid #FCD34D',
+                      borderRadius: '10px',
+                      padding: '16px 20px',
+                      color: '#92400E',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '14px' }}>
+                      <span>⚠️</span>
+                      <span>Serial Number Historical Coexistence Advisory</span>
+                    </div>
+                    <div style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                      {result.legacy_collision_info.notice}
+                    </div>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(result.legacy_collision_info!.legacy_verification_url)}
+                        style={{
+                          borderColor: '#B45309',
+                          color: '#B45309',
+                          fontWeight: 600,
+                          marginTop: '4px',
+                        }}
+                      >
+                        Verify Historical Printed Certificate ({result.legacy_collision_info.legacy_recipient}) &rarr;
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Inline Download Error Banner */}
                 {downloadError && (

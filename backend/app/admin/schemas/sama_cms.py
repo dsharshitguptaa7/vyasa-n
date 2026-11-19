@@ -9,6 +9,7 @@ from app.modules.sama_veda.schemas.cms import (
     PublicationStatusUpdate,
     PublicationOut,
     PublicationListResponse,
+    IssuePublicationCount,
     BulkDeletePublicationsRequest,
     BulkUpdatePublicationStatusRequest,
     BulkUpdatePublicationStatusResult,

@@ -11,6 +11,7 @@ import {
   PublicFellowship,
   PublicSpotlight,
   CertificateVerificationResult,
+  IssuePublicationCount,
 } from '../services/samaVedaService';
 import { SamikshaHero, MetricItem } from '../components/SamikshaHero';
 import { SamikshaAnalytics } from '../components/SamikshaAnalytics';
@@ -128,6 +129,9 @@ export const SamaVedaDashboardPage: React.FC = () => {
   const [pubSearch, setPubSearch] = useState('');
   const [pubCategory, setPubCategory] = useState('');
   const [pubYear, setPubYear] = useState('');
+  const [pubVolume, setPubVolume] = useState('');
+  const [pubIssue, setPubIssue] = useState('');
+  const [pubIssueCounts, setPubIssueCounts] = useState<IssuePublicationCount[]>([]);
   const [authorSearch, setAuthorSearch] = useState('');
 
   // Certificate Verification state
@@ -197,6 +201,9 @@ export const SamaVedaDashboardPage: React.FC = () => {
         if (pubResult.status === 'fulfilled') {
           setPublications(pubResult.value?.items || []);
           setTotalPublications(pubResult.value?.total || pubResult.value?.items?.length || 0);
+          if (pubResult.value?.issue_counts && pubResult.value.issue_counts.length > 0) {
+            setPubIssueCounts(pubResult.value.issue_counts);
+          }
           setPublicationsUnavailable(false);
         } else {
           setPublications([]);
@@ -251,11 +258,17 @@ export const SamaVedaDashboardPage: React.FC = () => {
           const res = await samaVedaService.getPublications({
             search: pubSearch || undefined,
             category: pubCategory || undefined,
+            year: pubYear || undefined,
+            volume_number: pubVolume ? parseInt(pubVolume, 10) : undefined,
+            issue_number: pubIssue ? parseInt(pubIssue, 10) : undefined,
             limit: 50,
           });
           if (isMounted) {
             setPublications(res?.items || []);
             setTotalPublications(res?.total || 0);
+            if (res?.issue_counts && res.issue_counts.length > 0) {
+              setPubIssueCounts(res.issue_counts);
+            }
           }
         } catch {
           if (isMounted) {
@@ -273,7 +286,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
         isMounted = false;
       };
     }
-  }, [activeTab, pubSearch, pubCategory]);
+  }, [activeTab, pubSearch, pubCategory, pubYear, pubVolume, pubIssue]);
 
   // Fetch authors on tab switch or search
   useEffect(() => {
@@ -562,7 +575,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
       {/* 3. Navigation Tabs Bar */}
       <nav
-        aria-label="समीक्षा Sections"
+        aria-label="SAMIKSHA Sections"
         className="samiksha-nav-bar"
       >
         {tabsList.map((tab) => {
@@ -694,6 +707,12 @@ export const SamaVedaDashboardPage: React.FC = () => {
           onPubCategoryChange={setPubCategory}
           selectedYear={pubYear}
           onSelectedYearChange={setPubYear}
+          bulletins={bulletins}
+          issueCounts={pubIssueCounts}
+          selectedVolume={pubVolume}
+          onSelectedVolumeChange={setPubVolume}
+          selectedIssue={pubIssue}
+          onSelectedIssueChange={setPubIssue}
         />
       )}
 

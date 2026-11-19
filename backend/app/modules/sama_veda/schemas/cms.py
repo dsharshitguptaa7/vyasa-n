@@ -1,8 +1,9 @@
+import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ============================================================================
@@ -85,6 +86,17 @@ class PublicationOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     author_links: List[PublicationAuthorOut] = []
+    volume_number: Optional[int] = None
+    issue_number: Optional[int] = None
+    bulletin_title: Optional[str] = None
+
+
+class IssuePublicationCount(BaseModel):
+    bulletin_id: Optional[uuid.UUID] = None
+    volume_number: int
+    issue_number: int
+    title: Optional[str] = None
+    publication_count: int
 
 
 class PublicationListResponse(BaseModel):
@@ -92,6 +104,7 @@ class PublicationListResponse(BaseModel):
     items: List[PublicationOut]
     skip: Optional[int] = 0
     limit: Optional[int] = 50
+    issue_counts: Optional[List[IssuePublicationCount]] = None
 
 
 class BulkUpdatePublicationStatusRequest(BaseModel):
@@ -475,6 +488,32 @@ class CertificateIssueRequest(BaseModel):
         max_length=1000,
         description="Mandatory institutional justification for exceptional direct issuance bypassing dual approval",
     )
+    verification_token: Optional[str] = Field(None, max_length=64, description="Optional manual verification identifier override")
+    verification_identifier: Optional[str] = Field(None, description="Optional manual verification identifier or pasted verification URL")
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_verification_identifier(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            raw_ident = data.get("verification_identifier") or data.get("verification_token")
+            if raw_ident is not None:
+                ident_str = str(raw_ident).strip()
+                if not ident_str:
+                    data["verification_token"] = None
+                    data["verification_identifier"] = None
+                else:
+                    if "://" in ident_str or ident_str.startswith("/"):
+                        url_pattern = r'^(?:https?://[^/]+)?(?:/api)?(?:/modules/sama-veda)?/(?:certificates/)?verify/([a-zA-Z0-9_\-]+)/?$'
+                        m = re.match(url_pattern, ident_str, re.IGNORECASE)
+                        if m:
+                            ident_str = m.group(1).strip()
+                        else:
+                            raise ValueError(
+                                "Invalid verification URL format. Pasted URL must match the application's verification route: /verify/{identifier}."
+                            )
+                    data["verification_token"] = ident_str
+                    data["verification_identifier"] = ident_str
+        return data
 
 
 class CertificateRevokeRequest(BaseModel):
@@ -767,6 +806,33 @@ class BulkCertificateItemInput(BaseModel):
     research_contribution_statement: Optional[str] = None
     publication_details: Optional[Dict[str, Any]] = None
     incentive_details: Optional[Dict[str, Any]] = None
+    certificate_number: Optional[str] = Field(None, max_length=100)
+    verification_token: Optional[str] = Field(None, max_length=64)
+    verification_identifier: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_bulk_item_identifiers(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            raw_ident = data.get("verification_identifier") or data.get("verification_token")
+            if raw_ident is not None:
+                ident_str = str(raw_ident).strip()
+                if not ident_str:
+                    data["verification_token"] = None
+                    data["verification_identifier"] = None
+                else:
+                    if "://" in ident_str or ident_str.startswith("/"):
+                        url_pattern = r'^(?:https?://[^/]+)?(?:/api)?(?:/modules/sama-veda)?/(?:certificates/)?verify/([a-zA-Z0-9_\-]+)/?$'
+                        m = re.match(url_pattern, ident_str, re.IGNORECASE)
+                        if m:
+                            ident_str = m.group(1).strip()
+                        else:
+                            raise ValueError(
+                                "Invalid verification URL format. Pasted URL must match the application's verification route: /verify/{identifier}."
+                            )
+                    data["verification_token"] = ident_str
+                    data["verification_identifier"] = ident_str
+        return data
 
 
 class BulkCertificateUploadPayload(BaseModel):

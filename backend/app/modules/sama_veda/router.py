@@ -1,9 +1,10 @@
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -25,12 +26,14 @@ from app.modules.sama_veda.models.author import ResearchAuthor
 from app.modules.sama_veda.models.cam_project import CamAiProject
 from app.modules.sama_veda.models.fellowship import FellowshipScheme
 from app.modules.sama_veda.models.spotlight import ResearcherSpotlight
-from app.modules.sama_veda.models.certificate import FelicitationCertificate, CertificateVerificationEvent
+from app.modules.sama_veda.models.certificate import FelicitationCertificate, CertificateVerificationEvent, LegacyCertificateRegistry
+from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
 from app.modules.sama_veda.services.cms_service import SamaCmsService
 from app.modules.sama_veda.schemas.cms import (
     PublicationOut,
     PublicationAuthorOut,
     PublicationListResponse,
+    IssuePublicationCount,
     BulletinOut,
     BulletinListResponse,
     CamProjectOut,
@@ -77,6 +80,9 @@ def _to_publication_out(pub: ResearchPublication) -> PublicationOut:
         created_at=pub.created_at or datetime.now(timezone.utc),
         updated_at=pub.updated_at or datetime.now(timezone.utc),
         author_links=author_links_out,
+        volume_number=pub.bulletin.volume_number if getattr(pub, "bulletin", None) else None,
+        issue_number=pub.bulletin.issue_number if getattr(pub, "bulletin", None) else None,
+        bulletin_title=pub.bulletin.title if getattr(pub, "bulletin", None) else None,
     )
 
 
@@ -107,6 +113,9 @@ def list_public_publications(
     limit: int = Query(50, ge=1, le=100),
     category: Optional[str] = None,
     bulletin_id: Optional[uuid.UUID] = None,
+    volume_number: Optional[int] = Query(None, ge=1),
+    issue_number: Optional[int] = Query(None, ge=1),
+    year: Optional[int] = Query(None, ge=1900, le=2100),
     is_featured: Optional[bool] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -114,10 +123,14 @@ def list_public_publications(
     """
     Public listing of verified CSJMU research publications.
     STRICT FILTER: ONLY records where status == 'published' are exposed.
+    Supports multi-facet filtering by category, bulletin, volume, issue, year, featured status, and fulltext search.
     """
     query = (
         select(ResearchPublication)
-        .options(joinedload(ResearchPublication.author_links).joinedload(PublicationAuthor.author))
+        .options(
+            joinedload(ResearchPublication.bulletin),
+            joinedload(ResearchPublication.author_links).joinedload(PublicationAuthor.author),
+        )
         .where(ResearchPublication.status == "published")
     )
     count_stmt = select(func.count(ResearchPublication.id)).where(ResearchPublication.status == "published")
@@ -128,6 +141,25 @@ def list_public_publications(
     if bulletin_id:
         query = query.where(ResearchPublication.bulletin_id == bulletin_id)
         count_stmt = count_stmt.where(ResearchPublication.bulletin_id == bulletin_id)
+    if volume_number is not None or issue_number is not None:
+        query = query.join(ResearchBulletin, ResearchPublication.bulletin_id == ResearchBulletin.id)
+        count_stmt = count_stmt.join(ResearchBulletin, ResearchPublication.bulletin_id == ResearchBulletin.id)
+        if volume_number is not None:
+            query = query.where(ResearchBulletin.volume_number == volume_number)
+            count_stmt = count_stmt.where(ResearchBulletin.volume_number == volume_number)
+        if issue_number is not None:
+            query = query.where(ResearchBulletin.issue_number == issue_number)
+            count_stmt = count_stmt.where(ResearchBulletin.issue_number == issue_number)
+    if year is not None:
+        year_filter = or_(
+            func.extract("year", ResearchPublication.published_at) == year,
+            and_(
+                ResearchPublication.published_at == None,
+                func.extract("year", ResearchPublication.created_at) == year,
+            ),
+        )
+        query = query.where(year_filter)
+        count_stmt = count_stmt.where(year_filter)
     if is_featured is not None:
         query = query.where(ResearchPublication.is_featured == is_featured)
         count_stmt = count_stmt.where(ResearchPublication.is_featured == is_featured)
@@ -156,10 +188,117 @@ def list_public_publications(
         total = 0
         formatted_items = []
 
+    # Compute issue-wise publication counts across the database
+    issue_counts_stmt = (
+        select(
+            ResearchBulletin.id.label("bulletin_id"),
+            ResearchBulletin.volume_number,
+            ResearchBulletin.issue_number,
+            ResearchBulletin.title,
+            func.count(
+                case(
+                    (ResearchPublication.status == "published", ResearchPublication.id),
+                    else_=None,
+                )
+            ).label("publication_count"),
+        )
+        .outerjoin(ResearchPublication, ResearchBulletin.id == ResearchPublication.bulletin_id)
+        .where(ResearchBulletin.status == "published")
+        .where(ResearchBulletin.is_active == True)
+        .group_by(
+            ResearchBulletin.id,
+            ResearchBulletin.volume_number,
+            ResearchBulletin.issue_number,
+            ResearchBulletin.title,
+        )
+        .order_by(
+            ResearchBulletin.volume_number.asc(),
+            ResearchBulletin.issue_number.asc(),
+        )
+    )
+    try:
+        issue_counts_rows = db.execute(issue_counts_stmt).all()
+        issue_counts = [
+            IssuePublicationCount(
+                bulletin_id=r.bulletin_id,
+                volume_number=r.volume_number,
+                issue_number=r.issue_number,
+                title=r.title,
+                publication_count=r.publication_count,
+            )
+            for r in issue_counts_rows
+        ]
+    except Exception as exc:
+        logger.warning("Failed to compute issue publication counts: %s", exc)
+        issue_counts = []
+
     return ApiResponse(
         success=True,
         message="Public research publications retrieved successfully.",
-        data=PublicationListResponse(total=total, items=formatted_items, skip=skip, limit=limit).model_dump(),
+        data=PublicationListResponse(
+            total=total,
+            items=formatted_items,
+            skip=skip,
+            limit=limit,
+            issue_counts=issue_counts,
+        ).model_dump(),
+    )
+
+
+@router.get("/publications/issue-counts", response_model=ApiResponse)
+def get_publication_issue_counts(db: Session = Depends(get_db)):
+    """
+    Returns exact issue-wise publication counts for all active published bulletins.
+    Calculated dynamically from published research publications in the database.
+    """
+    issue_counts_stmt = (
+        select(
+            ResearchBulletin.id.label("bulletin_id"),
+            ResearchBulletin.volume_number,
+            ResearchBulletin.issue_number,
+            ResearchBulletin.title,
+            func.count(
+                case(
+                    (ResearchPublication.status == "published", ResearchPublication.id),
+                    else_=None,
+                )
+            ).label("publication_count"),
+        )
+        .outerjoin(ResearchPublication, ResearchBulletin.id == ResearchPublication.bulletin_id)
+        .where(ResearchBulletin.status == "published")
+        .where(ResearchBulletin.is_active == True)
+        .group_by(
+            ResearchBulletin.id,
+            ResearchBulletin.volume_number,
+            ResearchBulletin.issue_number,
+            ResearchBulletin.title,
+        )
+        .order_by(
+            ResearchBulletin.volume_number.asc(),
+            ResearchBulletin.issue_number.asc(),
+        )
+    )
+    try:
+        rows = db.execute(issue_counts_stmt).all()
+        counts = [
+            IssuePublicationCount(
+                bulletin_id=r.bulletin_id,
+                volume_number=r.volume_number,
+                issue_number=r.issue_number,
+                title=r.title,
+                publication_count=r.publication_count,
+            ).model_dump()
+            for r in rows
+        ]
+    except SQLAlchemyError as exc:
+        logger.warning("Database query failed in get_publication_issue_counts: %s", exc)
+        db.rollback()
+        counts = []
+
+    return ApiResponse(
+        success=True,
+        message="Publication issue counts retrieved successfully.",
+        data=counts,
     )
 
 
@@ -656,6 +795,33 @@ def download_certificate_by_token(
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
     if not cert:
+        # Check Legacy Certificate Registry for historical certificates (unless globally contained)
+        legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
+        if not legacy_disabled:
+            try:
+                legacy_stmt = select(LegacyCertificateRegistry).where(
+                    LegacyCertificateRegistry.verification_token == clean_token,
+                    LegacyCertificateRegistry.is_legacy == True,
+                )
+                legacy_cert = db.scalars(legacy_stmt).first()
+                if legacy_cert:
+                    if legacy_cert.is_revoked:
+                        raise HTTPException(status_code=403, detail="Historical certificate has been revoked. Download is disabled.")
+                    pdf_path = LegacyRecoveryService.resolve_pdf_path(legacy_cert)
+                    if pdf_path and os.path.exists(pdf_path):
+                        filename = f"{legacy_cert.certificate_number.replace('/', '_')}.pdf"
+                        return FileResponse(
+                            path=str(pdf_path),
+                            filename=filename,
+                            media_type="application/pdf",
+                        )
+                    raise HTTPException(status_code=404, detail="Historical certificate PDF file not found in storage archive.")
+            except HTTPException:
+                raise
+            except SQLAlchemyError as exc:
+                logger.warning("Legacy lookup failed in download_certificate_by_token: %s", exc)
+                db.rollback()
+
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
     return validate_and_stream_certificate_pdf(
@@ -805,8 +971,54 @@ def verify_certificate(
         db.rollback()
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
 
+    legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
+
     if not cert or (cert.status == "ARCHIVED" and not cert.is_revoked) or cert.status in ["SCHEDULED", "DRAFT", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL", "REJECTED"]:
+        # Fallback to Legacy Certificate Registry for historical certificates (unless globally contained)
+        if not legacy_disabled:
+            try:
+                legacy_stmt = (
+                    select(LegacyCertificateRegistry)
+                    .where(
+                        LegacyCertificateRegistry.is_legacy == True,
+                        or_(
+                            LegacyCertificateRegistry.verification_token == clean_number,
+                            LegacyCertificateRegistry.certificate_number == clean_number,
+                        )
+                    )
+                )
+                legacy_cert = db.scalars(legacy_stmt).first()
+                if legacy_cert:
+                    return LegacyRecoveryService.build_legacy_verification_response(legacy_cert)
+            except SQLAlchemyError as exc:
+                logger.warning("Legacy lookup failed in verify_certificate: %s", exc)
+                db.rollback()
+
         raise HTTPException(status_code=404, detail="Certificate not found or invalid certificate number.")
+
+    # Check for historical serial collision (suppressed if legacy verification is globally contained or record disabled)
+    has_legacy_collision = False
+    legacy_collision_info = None
+    if not legacy_disabled:
+        try:
+            legacy_coll_stmt = (
+                select(LegacyCertificateRegistry)
+                .where(
+                    LegacyCertificateRegistry.certificate_number == cert.certificate_number,
+                    LegacyCertificateRegistry.is_legacy == True,
+                )
+            )
+            legacy_coll = db.scalars(legacy_coll_stmt).first()
+            if legacy_coll and legacy_coll.verification_token != cert.verification_token:
+                has_legacy_collision = True
+                legacy_collision_info = {
+                    "legacy_recipient": legacy_coll.recipient_name,
+                    "legacy_token": legacy_coll.verification_token,
+                    "legacy_verification_url": f"/verify/{legacy_coll.verification_token}",
+                    "notice": f"Notice: Certificate serial number {cert.certificate_number} is also held by a historical printed certificate ({legacy_coll.recipient_name}). To verify the physical printed document, verify using its unique QR verification token."
+                }
+        except Exception as exc:
+            logger.debug("Failed checking legacy collision: %s", exc)
 
     # Record verification event telemetry
     client_ip = request.client.host if request.client else None
@@ -932,6 +1144,8 @@ def verify_certificate(
                 "category": cert.publication.category,
                 "doi": cert.publication.doi,
             } if cert.publication else None,
+            "has_legacy_collision": has_legacy_collision,
+            "legacy_collision_info": legacy_collision_info,
         },
     )
 
@@ -969,6 +1183,36 @@ def download_public_certificate(
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
     if not cert:
+        # Check Legacy Certificate Registry for historical certificates (unless globally contained)
+        legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
+        if not legacy_disabled:
+            try:
+                legacy_stmt = select(LegacyCertificateRegistry).where(
+                    LegacyCertificateRegistry.is_legacy == True,
+                    or_(
+                        LegacyCertificateRegistry.verification_token == clean_number,
+                        LegacyCertificateRegistry.certificate_number == clean_number,
+                    )
+                )
+                legacy_cert = db.scalars(legacy_stmt).first()
+                if legacy_cert:
+                    if legacy_cert.is_revoked:
+                        raise HTTPException(status_code=403, detail="Historical certificate has been revoked. Download is disabled.")
+                    pdf_path = LegacyRecoveryService.resolve_pdf_path(legacy_cert)
+                    if pdf_path and os.path.exists(pdf_path):
+                        filename = f"{legacy_cert.certificate_number.replace('/', '_')}.pdf"
+                        return FileResponse(
+                            path=str(pdf_path),
+                            filename=filename,
+                            media_type="application/pdf",
+                        )
+                    raise HTTPException(status_code=404, detail="Historical certificate PDF file not found in storage archive.")
+            except HTTPException:
+                raise
+            except SQLAlchemyError as exc:
+                logger.warning("Legacy lookup failed in download_public_certificate: %s", exc)
+                db.rollback()
+
         raise HTTPException(status_code=404, detail="Certificate not found.")
 
     return validate_and_stream_certificate_pdf(
