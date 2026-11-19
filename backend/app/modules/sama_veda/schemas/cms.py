@@ -577,6 +577,12 @@ class CertificateOut(BaseModel):
     created_at: Optional[datetime] = None
     authors: List[CertificateAuthorOut] = []
     approvals: List[CertificateApprovalOut] = []
+    is_legacy: Optional[bool] = False
+    recovery_source: Optional[str] = None
+    issue_reference: Optional[str] = None
+    sanction_amount: Optional[str] = None
+    has_legacy_collision: Optional[bool] = False
+    legacy_collision_info: Optional[Dict[str, Any]] = None
 
 
 class CertificateListResponse(BaseModel):
@@ -594,6 +600,7 @@ class CertificateStatsOut(BaseModel):
     revoked_certificates: int
     reissued_certificates: int
     total_researchers_linked: int
+    historical_certificates: Optional[int] = 0
 
 
 # ============================================================================

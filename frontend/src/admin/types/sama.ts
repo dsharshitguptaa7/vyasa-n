@@ -293,7 +293,8 @@ export type CertificateStatus =
   | 'REJECTED'
   | 'REVOKED'
   | 'SUPERSEDED'
-  | 'ARCHIVED';
+  | 'ARCHIVED'
+  | 'HISTORICAL';
 
 export type AuthorityType = 'DEAN_RD' | 'VICE_CHANCELLOR';
 
@@ -401,6 +402,7 @@ export interface CertificateStatsRecord {
   revoked_certificates: number;
   reissued_certificates: number;
   total_researchers_linked: number;
+  historical_certificates?: number;
 }
 
 export interface FelicitationCertificateItem {
@@ -442,6 +444,18 @@ export interface FelicitationCertificateItem {
   template?: CertificateTemplateItem | null;
 
   verification_hash?: string;
+  is_legacy?: boolean;
+  recovery_source?: string | null;
+  issue_reference?: string | null;
+  sanction_amount?: string | null;
+  has_legacy_collision?: boolean;
+  legacy_collision_info?: {
+    colliding_serial: string;
+    is_active_duplicate: boolean;
+    active_recipient?: string | null;
+    historical_recipient?: string | null;
+    message: string;
+  } | null;
   author_name?: string | null;
   author_department?: string | null;
   bulletin_title?: string | null;

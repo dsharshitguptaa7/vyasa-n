@@ -640,6 +640,130 @@ def test_slash_containing_serial_route_resolution(test_client):
     assert resp_legacy.json()["data"]["is_legacy"] is True
 
 
+# =============================================================================
+# 11. SADMIN VISIBILITY & DUAL-REGISTRY LISTING INTEGRATION TESTS
+# =============================================================================
+
+def test_cms_service_list_certificates_origin_filtering(isolated_db_session):
+    """
+    Verifies that sama_cms_service.list_certificates correctly respects 'origin':
+    - origin='historical': returns exactly the 75 recovered historical certificates.
+    - origin='active': returns only active certificates from sama_felicitation_certificates.
+    - origin='all': seamlessly combines active and historical records with exact total count.
+    """
+    from app.modules.sama_veda.services.cms_service import sama_cms_service
+
+    # 1. Historical only
+    hist_total, hist_certs = sama_cms_service.list_certificates(
+        isolated_db_session, origin="historical", limit=100
+    )
+    assert hist_total == 75
+    assert len(hist_certs) == 75
+    assert all(c.is_legacy is True for c in hist_certs)
+    assert all(c.status == "HISTORICAL" for c in hist_certs)
+
+    # 2. Active only
+    active_total, active_certs = sama_cms_service.list_certificates(
+        isolated_db_session, origin="active", limit=100
+    )
+    assert all(c.is_legacy is False for c in active_certs)
+    assert all(c.status != "HISTORICAL" for c in active_certs)
+
+    # 3. All origins unified
+    all_total, all_certs = sama_cms_service.list_certificates(
+        isolated_db_session, origin="all", limit=100
+    )
+    assert all_total == active_total + 75
+    legacy_count = sum(1 for c in all_certs if c.is_legacy is True)
+    assert legacy_count > 0
+
+
+def test_cms_service_serial_000002_dual_listing_collision(isolated_db_session):
+    """
+    Verifies that certificate serial CSJMU/SAMIKSHA/2026/000002 returns BOTH
+    the Active record (Amrita Singh) and Historical record (Dr. Harshit Gupta)
+    without overwriting or collapsing, and sets collision flags on both.
+    """
+    from app.modules.sama_veda.services.cms_service import sama_cms_service
+
+    total, results = sama_cms_service.list_certificates(
+        isolated_db_session, search="000002", origin="all"
+    )
+    assert total == 2
+    assert len(results) == 2
+
+    # Verify both records exist and have distinct IDs
+    ids = {r.id for r in results}
+    assert len(ids) == 2
+
+    active_rec = next((r for r in results if not r.is_legacy), None)
+    legacy_rec = next((r for r in results if r.is_legacy), None)
+
+    assert active_rec is not None
+    assert legacy_rec is not None
+
+    # Check recipient identities
+    assert len(legacy_rec.authors) > 0
+    assert legacy_rec.authors[0].author_name_snapshot == "Harshit Gupta"
+
+    # Check collision metadata
+    assert active_rec.has_legacy_collision is True
+    assert active_rec.legacy_collision_info is not None
+    assert active_rec.legacy_collision_info["colliding_serial"] == "CSJMU/SAMIKSHA/2026/000002"
+
+    assert legacy_rec.has_legacy_collision is True
+    assert legacy_rec.legacy_collision_info is not None
+    assert legacy_rec.legacy_collision_info["colliding_serial"] == "CSJMU/SAMIKSHA/2026/000002"
+
+
+def test_cms_service_missing_serials_45_73_absent(isolated_db_session):
+    """
+    Verifies that missing serials 45 and 73 are never fabricated and
+    return 0 results across all origins.
+    """
+    from app.modules.sama_veda.services.cms_service import sama_cms_service
+
+    for serial in ["CSJMU/SAMIKSHA/2026/000045", "CSJMU/SAMIKSHA/2026/000073"]:
+        total_hist, _ = sama_cms_service.list_certificates(
+            isolated_db_session, search=serial, origin="historical"
+        )
+        assert total_hist == 0
+
+        total_all, _ = sama_cms_service.list_certificates(
+            isolated_db_session, search=serial, origin="all"
+        )
+        assert total_all == 0
+
+
+def test_sadmin_legacy_certificate_detail_and_stats(isolated_db_session):
+    """
+    Verifies get_certificate_stats includes historical_certificates count and
+    format_legacy_certificate_out populates all required metadata.
+    """
+    from app.modules.sama_veda.services.cms_service import sama_cms_service
+
+    stats = sama_cms_service.get_certificate_stats(isolated_db_session)
+    assert stats["historical_certificates"] == 75
+    assert stats["total_certificates"] >= 75
+
+    # Test format_legacy_certificate_out
+    reg = isolated_db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000006")
+    ).first()
+    assert reg is not None
+
+    out = sama_cms_service.format_legacy_certificate_out(reg, isolated_db_session)
+    assert out.is_legacy is True
+    assert out.status == "HISTORICAL"
+    assert out.certificate_number == "CSJMU/SAMIKSHA/2026/000006"
+    assert "Issue 3" in (out.issue_reference or "")
+    assert out.recovery_source is not None
+    assert out.verification_token == reg.verification_token
+    assert len(out.authors) > 0
+    assert out.authors[0].author_name_snapshot == "Subrat Mishra"
+
+
+
 
 
 

@@ -65,6 +65,9 @@ from app.modules.sama_veda.schemas.cms import (
     BatchSummaryItem,
     BatchDetailResponse,
     ArchivedCertificateItem,
+    CertificateOut,
+    CertificateAuthorOut,
+    CertificateApprovalOut,
 )
 from app.modules.sama_veda.models.publication import ResearchPublication, PublicationAuthor
 from app.modules.sama_veda.models.author import ResearchAuthor
@@ -77,6 +80,7 @@ from app.modules.sama_veda.models.certificate import (
     CertificateAuthor,
     CertificateApproval,
     CertificateVerificationEvent,
+    LegacyCertificateRegistry,
 )
 from app.core.storage import storage_service
 from app.modules.sama_veda.services.certificate_pdf_service import (
@@ -823,8 +827,127 @@ class SamaCmsService:
 
         return trimmed
 
-    @staticmethod
+    @classmethod
+    def format_legacy_certificate_out(cls, legacy: LegacyCertificateRegistry, db: Optional[Session] = None) -> CertificateOut:
+        meta = legacy.recovery_metadata or {}
+        author_out = CertificateAuthorOut(
+            id=legacy.id,
+            certificate_id=legacy.id,
+            researcher_id=None,
+            author_name_snapshot=legacy.recipient_name,
+            academic_title_snapshot=None,
+            scopus_id_snapshot=meta.get("scopus_id"),
+            affiliation_snapshot="Chhatrapati Shahu Ji Maharaj University, Kanpur",
+            department_snapshot=meta.get("department", "Department of Research & Innovation"),
+            designation_snapshot=None,
+            author_order=1,
+            author_role="CORRESPONDING_AUTHOR",
+            created_at=legacy.created_at,
+        )
+
+        has_collision = False
+        collision_info = None
+        if db:
+            active_cert = db.scalars(
+                select(FelicitationCertificate).where(
+                    FelicitationCertificate.certificate_number == legacy.certificate_number
+                )
+            ).first()
+            if active_cert and active_cert.verification_token != legacy.verification_token:
+                has_collision = True
+                active_author = (
+                    active_cert.authors[0].author_name_snapshot
+                    if active_cert.authors
+                    else "Active Digital Recipient"
+                )
+                collision_info = {
+                    "colliding_serial": legacy.certificate_number,
+                    "active_id": str(active_cert.id),
+                    "active_recipient": active_author,
+                    "active_token": active_cert.verification_token,
+                    "notice": f"Notice: Serial {legacy.certificate_number} is actively held by digital certificate issued to {active_author}."
+                }
+
+        return CertificateOut(
+            id=legacy.id,
+            certificate_number=legacy.certificate_number,
+            certificate_type=legacy.certificate_type,
+            status="REVOKED" if legacy.is_revoked else "HISTORICAL",
+            template_id=None,
+            template_version=1,
+            title=(
+                "Certificate of Appreciation for Research Publication"
+                if legacy.certificate_type == "INCENTIVE_AWARD"
+                else "Certificate of Appreciation & Research Excellence"
+            ),
+            presentation_statement="This certificate is proudly awarded to",
+            research_contribution_statement="in recognition of distinguished research productivity and scholarly impact under the University Publication Incentive Policy",
+            research_title=legacy.research_title,
+            congratulatory_statement="The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.",
+            publication_details={
+                "incentive_amount": legacy.sanction_amount,
+                "issue_reference": legacy.issue_reference or "Volume 2, Issue 3 (July - September 2026)",
+                "recovery_source": legacy.recovery_source,
+                "is_historical_archive": True,
+            },
+            verification_token=legacy.verification_token,
+            verification_url=f"/verify/{legacy.verification_token}",
+            bulletin_id=None,
+            bulletin_volume_snapshot=2,
+            bulletin_issue_snapshot=3,
+            bulletin_period_snapshot="July - September 2026",
+            author_id=None,
+            publication_id=None,
+            file_storage_path=legacy.source_pdf_reference,
+            checksum_sha256=legacy.source_sha256 or "",
+            download_count=0,
+            scheduled_issue_date=None,
+            activated_at=legacy.created_at,
+            is_scheduled=False,
+            time_until_activation_seconds=None,
+            issued_at=legacy.created_at,
+            approved_at=None,
+            is_revoked=legacy.is_revoked,
+            revoked_at=legacy.revoked_at,
+            revocation_reason=legacy.revocation_reason,
+            rejection_reason=None,
+            reissued_from_id=None,
+            reissued_reason=None,
+            created_at=legacy.created_at,
+            authors=[author_out],
+            approvals=[],
+            is_legacy=True,
+            recovery_source=legacy.recovery_source,
+            issue_reference=legacy.issue_reference,
+            sanction_amount=legacy.sanction_amount,
+            has_legacy_collision=has_collision,
+            legacy_collision_info=collision_info,
+        )
+
+    @classmethod
+    def format_active_certificate_out(cls, cert: FelicitationCertificate, db: Optional[Session] = None) -> CertificateOut:
+        out = CertificateOut.model_validate(cert)
+        if db:
+            legacy_coll = db.scalars(
+                select(LegacyCertificateRegistry).where(
+                    LegacyCertificateRegistry.certificate_number == cert.certificate_number,
+                    LegacyCertificateRegistry.is_legacy == True,
+                )
+            ).first()
+            if legacy_coll and legacy_coll.verification_token != cert.verification_token:
+                out.has_legacy_collision = True
+                out.legacy_collision_info = {
+                    "colliding_serial": cert.certificate_number,
+                    "legacy_id": str(legacy_coll.id),
+                    "legacy_recipient": legacy_coll.recipient_name,
+                    "legacy_token": legacy_coll.verification_token,
+                    "notice": f"Notice: Certificate serial number {cert.certificate_number} is also held by a historical printed certificate ({legacy_coll.recipient_name})."
+                }
+        return out
+
+    @classmethod
     def list_certificates(
+        cls,
         db: Session,
         *,
         skip: int = 0,
@@ -837,32 +960,43 @@ class SamaCmsService:
         certificate_type: Optional[str] = None,
         scope: Optional[str] = None,
         approval_stage: Optional[str] = None,
-    ) -> Tuple[int, List[FelicitationCertificate]]:
-        query = select(FelicitationCertificate).options(
+        origin: Optional[str] = None,
+    ) -> Tuple[int, List[CertificateOut]]:
+        scope_norm = (scope or "").strip().lower()
+        status_norm = (status or "").strip().upper()
+        origin_norm = (origin or "").strip().lower()
+
+        # Origin routing
+        if status_norm in ["HISTORICAL", "RECOVERED", "LEGACY"]:
+            origin_norm = "historical"
+        elif scope_norm == "approvals" or status_norm in ["PENDING", "PENDING_APPROVAL", "APPROVAL_QUEUE", "DRAFT", "SCHEDULED", "SUPERSEDED", "ARCHIVED"]:
+            origin_norm = "active"
+        elif not origin_norm:
+            if status_norm == "ISSUED" and not origin:
+                origin_norm = "active"
+            else:
+                origin_norm = "all"
+
+        # 1. Prepare Active Query
+        active_query = select(FelicitationCertificate).options(
             selectinload(FelicitationCertificate.authors),
             selectinload(FelicitationCertificate.approvals),
         )
-
-        filters = []
+        active_filters = []
 
         if bulletin_id:
-            filters.append(FelicitationCertificate.bulletin_id == bulletin_id)
+            active_filters.append(FelicitationCertificate.bulletin_id == bulletin_id)
         if author_id:
-            filters.append(
+            active_filters.append(
                 or_(
                     FelicitationCertificate.author_id == author_id,
                     FelicitationCertificate.authors.any(CertificateAuthor.researcher_id == author_id),
                 )
             )
         if certificate_type:
-            filters.append(FelicitationCertificate.certificate_type == certificate_type.strip().upper())
-
-        scope_norm = (scope or "").strip().lower()
-        status_norm = (status or "").strip().upper()
+            active_filters.append(FelicitationCertificate.certificate_type == certificate_type.strip().upper())
 
         if scope_norm == "ledger" or status_norm in ["ISSUED_LEDGER", "LEDGER"]:
-            # Issued Ledger lifecycle: All certificates that have actually reached the issued state
-            # (Issued & Active, Revoked, and Superseded). Strictly excludes DRAFT, SUBMITTED, PENDING, and SCHEDULED.
             ledger_base_cond = and_(
                 or_(
                     FelicitationCertificate.status.in_(["ISSUED", "REVOKED", "SUPERSEDED"]),
@@ -870,74 +1004,162 @@ class SamaCmsService:
                 ),
                 FelicitationCertificate.status.notin_(["DRAFT", "SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
             )
-
             if status_norm == "ISSUED":
-                filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
+                active_filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
             elif status_norm == "REVOKED" or is_revoked is True:
-                filters.append(or_(FelicitationCertificate.is_revoked == True, FelicitationCertificate.status == "REVOKED"))
+                active_filters.append(or_(FelicitationCertificate.is_revoked == True, FelicitationCertificate.status == "REVOKED"))
             elif status_norm == "SUPERSEDED":
-                filters.append(FelicitationCertificate.status == "SUPERSEDED")
+                active_filters.append(FelicitationCertificate.status == "SUPERSEDED")
             elif status_norm == "SCHEDULED":
-                filters.append(and_(FelicitationCertificate.status == "SCHEDULED", FelicitationCertificate.is_revoked == False))
+                active_filters.append(and_(FelicitationCertificate.status == "SCHEDULED", FelicitationCertificate.is_revoked == False))
             else:
-                filters.append(ledger_base_cond)
-                filters.append(FelicitationCertificate.status != "SCHEDULED")
-                filters.append(FelicitationCertificate.status != "ARCHIVED")
+                active_filters.append(ledger_base_cond)
+                active_filters.append(FelicitationCertificate.status != "SCHEDULED")
+                active_filters.append(FelicitationCertificate.status != "ARCHIVED")
         elif scope_norm == "approvals" or status_norm in ["PENDING", "PENDING_APPROVAL", "APPROVAL_QUEUE"]:
-            # Approval Queue lifecycle: certificates genuinely awaiting Dean R&D or Vice Chancellor approval
-            filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]))
-            filters.append(FelicitationCertificate.is_revoked == False)
+            active_filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]))
+            active_filters.append(FelicitationCertificate.is_revoked == False)
 
             stage_norm = (approval_stage or status or "").strip().upper()
             if stage_norm in ["DEAN", "DEAN_RD", "PENDING_DEAN_APPROVAL"]:
-                filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL"]))
+                active_filters.append(FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL"]))
             elif stage_norm in ["VC", "VICE_CHANCELLOR", "PENDING_VC_APPROVAL"]:
-                filters.append(FelicitationCertificate.status == "PENDING_VC_APPROVAL")
+                active_filters.append(FelicitationCertificate.status == "PENDING_VC_APPROVAL")
         else:
             if is_revoked is not None:
-                filters.append(FelicitationCertificate.is_revoked == is_revoked)
+                active_filters.append(FelicitationCertificate.is_revoked == is_revoked)
 
             if status:
                 if "," in status:
                     statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
-                    filters.append(FelicitationCertificate.status.in_(statuses))
+                    active_filters.append(FelicitationCertificate.status.in_(statuses))
                 elif status_norm in ["PENDING", "PENDING_APPROVAL"]:
-                    filters.append(and_(
+                    active_filters.append(and_(
                         FelicitationCertificate.status.in_(["SUBMITTED", "PENDING_DEAN_APPROVAL", "PENDING_VC_APPROVAL"]),
                         FelicitationCertificate.is_revoked == False,
                     ))
                 elif status_norm == "ISSUED_ACTIVE":
-                    filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
+                    active_filters.append(and_(FelicitationCertificate.status == "ISSUED", FelicitationCertificate.is_revoked == False))
+                elif status_norm in ["HISTORICAL", "RECOVERED", "LEGACY"]:
+                    # When specifically filtering for historical, active query matches nothing
+                    active_filters.append(FelicitationCertificate.id == None)
                 else:
-                    filters.append(FelicitationCertificate.status == status_norm)
+                    active_filters.append(FelicitationCertificate.status == status_norm)
             else:
-                filters.append(FelicitationCertificate.status != "ARCHIVED")
+                active_filters.append(FelicitationCertificate.status != "ARCHIVED")
 
         if search:
             search_pattern = f"%{search.strip()}%"
-            filters.append(
+            active_filters.append(
                 or_(
                     FelicitationCertificate.certificate_number.ilike(search_pattern),
                     FelicitationCertificate.title.ilike(search_pattern),
                     FelicitationCertificate.research_title.ilike(search_pattern),
                     FelicitationCertificate.authors.any(CertificateAuthor.author_name_snapshot.ilike(search_pattern)),
                     FelicitationCertificate.authors.any(CertificateAuthor.scopus_id_snapshot.ilike(search_pattern)),
+                    FelicitationCertificate.verification_token.ilike(search_pattern),
                 )
             )
 
-        count_stmt = select(func.count(FelicitationCertificate.id))
-        if filters:
-            query = query.where(*filters)
-            count_stmt = count_stmt.where(*filters)
+        # 2. Prepare Legacy Query
+        legacy_filters = [LegacyCertificateRegistry.is_legacy == True]
+        if is_revoked is not None:
+            legacy_filters.append(LegacyCertificateRegistry.is_revoked == is_revoked)
+        if certificate_type:
+            legacy_filters.append(LegacyCertificateRegistry.certificate_type == certificate_type.strip().upper())
+        if search:
+            search_pattern = f"%{search.strip()}%"
+            legacy_filters.append(
+                or_(
+                    LegacyCertificateRegistry.certificate_number.ilike(search_pattern),
+                    LegacyCertificateRegistry.recipient_name.ilike(search_pattern),
+                    LegacyCertificateRegistry.research_title.ilike(search_pattern),
+                    LegacyCertificateRegistry.verification_token.ilike(search_pattern),
+                )
+            )
+        if bulletin_id or author_id or scope_norm == "approvals":
+            legacy_filters.append(LegacyCertificateRegistry.id == None)
 
-        total = db.scalar(count_stmt) or 0
-        items = db.scalars(
-            query.order_by(FelicitationCertificate.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-        ).all()
+        # 3. Execution based on origin_norm
+        if origin_norm == "historical":
+            count_stmt = select(func.count(LegacyCertificateRegistry.id))
+            if legacy_filters:
+                count_stmt = count_stmt.where(*legacy_filters)
+            legacy_total = db.scalar(count_stmt) or 0
 
-        return total, list(items)
+            legacy_query = (
+                select(LegacyCertificateRegistry)
+                .where(*legacy_filters)
+                .order_by(LegacyCertificateRegistry.certificate_number.asc())
+                .offset(skip)
+                .limit(limit)
+            )
+            legacy_records = db.scalars(legacy_query).all()
+            return legacy_total, [cls.format_legacy_certificate_out(r, db) for r in legacy_records]
+
+        elif origin_norm == "active":
+            count_stmt = select(func.count(FelicitationCertificate.id))
+            if active_filters:
+                active_query = active_query.where(*active_filters)
+                count_stmt = count_stmt.where(*active_filters)
+            active_total = db.scalar(count_stmt) or 0
+
+            active_records = db.scalars(
+                active_query.order_by(FelicitationCertificate.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+            ).all()
+            return active_total, [cls.format_active_certificate_out(c, db) for c in active_records]
+
+        else:
+            # origin_norm == "all"
+            active_count_stmt = select(func.count(FelicitationCertificate.id))
+            if active_filters:
+                active_query = active_query.where(*active_filters)
+                active_count_stmt = active_count_stmt.where(*active_filters)
+            active_total = db.scalar(active_count_stmt) or 0
+
+            legacy_count_stmt = select(func.count(LegacyCertificateRegistry.id))
+            if legacy_filters:
+                legacy_count_stmt = legacy_count_stmt.where(*legacy_filters)
+            legacy_total = db.scalar(legacy_count_stmt) or 0
+
+            combined_total = active_total + legacy_total
+            result_items: List[CertificateOut] = []
+
+            if skip < active_total:
+                active_fetch_limit = min(limit, active_total - skip)
+                active_records = db.scalars(
+                    active_query.order_by(FelicitationCertificate.created_at.desc())
+                    .offset(skip)
+                    .limit(active_fetch_limit)
+                ).all()
+                result_items.extend([cls.format_active_certificate_out(c, db) for c in active_records])
+
+                remaining_needed = limit - len(result_items)
+                if remaining_needed > 0 and legacy_total > 0:
+                    legacy_query = (
+                        select(LegacyCertificateRegistry)
+                        .where(*legacy_filters)
+                        .order_by(LegacyCertificateRegistry.certificate_number.asc())
+                        .offset(0)
+                        .limit(remaining_needed)
+                    )
+                    legacy_records = db.scalars(legacy_query).all()
+                    result_items.extend([cls.format_legacy_certificate_out(r, db) for r in legacy_records])
+            else:
+                legacy_skip = skip - active_total
+                legacy_query = (
+                    select(LegacyCertificateRegistry)
+                    .where(*legacy_filters)
+                    .order_by(LegacyCertificateRegistry.certificate_number.asc())
+                    .offset(legacy_skip)
+                    .limit(limit)
+                )
+                legacy_records = db.scalars(legacy_query).all()
+                result_items.extend([cls.format_legacy_certificate_out(r, db) for r in legacy_records])
+
+            return combined_total, result_items
 
     @staticmethod
     def get_certificate_by_id(db: Session, certificate_id: uuid.UUID) -> Optional[FelicitationCertificate]:
@@ -1037,8 +1259,16 @@ class SamaCmsService:
         superseded = row.superseded or 0
         total_issued = issued_active + revoked + superseded
 
+        historical_count = 0
+        try:
+            historical_count = db.scalar(
+                select(func.count(LegacyCertificateRegistry.id)).where(LegacyCertificateRegistry.is_legacy == True)
+            ) or 0
+        except Exception:
+            historical_count = 0
+
         return {
-            "total_certificates": row.total or 0,
+            "total_certificates": (row.total or 0) + historical_count,
             "total_issued": total_issued,
             "draft_certificates": row.drafts or 0,
             "pending_approvals": row.pending or 0,
@@ -1047,6 +1277,7 @@ class SamaCmsService:
             "revoked_certificates": revoked,
             "reissued_certificates": superseded,
             "total_researchers_linked": total_authors,
+            "historical_certificates": historical_count,
         }
 
     @staticmethod

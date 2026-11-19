@@ -48,7 +48,8 @@ export const CertificatesPage: React.FC = () => {
 
   // Filters & Search (Issued Ledger)
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'revoked' | 'superseded' | 'archived'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'issued' | 'scheduled' | 'revoked' | 'superseded' | 'archived' | 'historical'>('all');
+  const [originFilter, setOriginFilter] = useState<'all' | 'active' | 'historical'>('all');
   const [page, setPage] = useState(1);
   const limit = 12;
 
@@ -81,6 +82,8 @@ export const CertificatesPage: React.FC = () => {
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [showReissueModal, setShowReissueModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsCert, setDetailsCert] = useState<CertificateRecord | null>(null);
   const [rescheduleCert, setRescheduleCert] = useState<CertificateRecord | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
@@ -284,6 +287,7 @@ export const CertificatesPage: React.FC = () => {
       let isRevokedParam: boolean | undefined = undefined;
       let statusParam: string | undefined = undefined;
       let scopeParam: 'ledger' | undefined = undefined;
+      let originParam: 'all' | 'active' | 'historical' | undefined = originFilter !== 'all' ? originFilter : undefined;
 
       if (statusFilter === 'all') {
         scopeParam = 'ledger';
@@ -298,6 +302,8 @@ export const CertificatesPage: React.FC = () => {
         statusParam = 'SUPERSEDED';
       } else if (statusFilter === 'archived') {
         statusParam = 'ARCHIVED';
+      } else if (statusFilter === 'historical') {
+        originParam = 'historical';
       }
 
       const res = await samaAdminService.getCertificates({
@@ -307,6 +313,7 @@ export const CertificatesPage: React.FC = () => {
         is_revoked: isRevokedParam,
         status: statusParam,
         scope: scopeParam,
+        origin: originParam,
       });
 
       setCertificates(res.items);
@@ -317,7 +324,7 @@ export const CertificatesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, originFilter]);
 
   const fetchApprovalQueue = useCallback(async () => {
     try {
@@ -950,6 +957,8 @@ export const CertificatesPage: React.FC = () => {
   // Bulk Selection, Deletion & Verification Handlers
   // ---------------------------------------------------------------------------
   const handleToggleSelectCert = (id: string) => {
+    const target = certificates.find((c) => c.id === id);
+    if (target?.is_legacy || target?.status === 'HISTORICAL') return;
     setSelectedCertIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -962,17 +971,18 @@ export const CertificatesPage: React.FC = () => {
   };
 
   const handleSelectAllCurrentPage = () => {
-    const allSelected = certificates.every((c) => selectedCertIds.has(c.id));
+    const selectableCerts = certificates.filter((c) => !c.is_legacy && c.status !== 'HISTORICAL');
+    const allSelected = selectableCerts.length > 0 && selectableCerts.every((c) => selectedCertIds.has(c.id));
     if (allSelected) {
       setSelectedCertIds((prev) => {
         const next = new Set(prev);
-        certificates.forEach((c) => next.delete(c.id));
+        selectableCerts.forEach((c) => next.delete(c.id));
         return next;
       });
     } else {
       setSelectedCertIds((prev) => {
         const next = new Set(prev);
-        certificates.forEach((c) => next.add(c.id));
+        selectableCerts.forEach((c) => next.add(c.id));
         return next;
       });
     }
@@ -1451,6 +1461,10 @@ export const CertificatesPage: React.FC = () => {
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#0284C7', textTransform: 'uppercase' }}>Linked Scholars</div>
             <div style={{ fontSize: '22px', fontWeight: 700, color: '#0284C7', marginTop: '4px' }}>{stats.total_researchers_linked ?? 0}</div>
           </div>
+          <div style={{ background: '#FFF', padding: '14px 16px', borderRadius: '10px', border: '1px solid #FDE68A', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#B45309', textTransform: 'uppercase' }}>📜 Recovered (Legacy)</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#B45309', marginTop: '4px' }}>{stats.historical_certificates ?? 0}</div>
+          </div>
         </div>
 
         {/* Global Notifications */}
@@ -1617,9 +1631,23 @@ export const CertificatesPage: React.FC = () => {
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               <div style={{ flex: '1 1 300px' }}>
                 <Input
-                  placeholder="Search certificate #, author name, Scopus ID, paper title..."
+                  placeholder="Search certificate #, author name, Scopus ID, paper title, token..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div style={{ width: '240px' }}>
+                <Select
+                  value={originFilter}
+                  onChange={(e) => {
+                    setOriginFilter(e.target.value as any);
+                    setPage(1);
+                  }}
+                  options={[
+                    { label: 'All Origins (Active + Historical)', value: 'all' },
+                    { label: 'Active Ledger Only', value: 'active' },
+                    { label: '📜 Historical Recovered Only', value: 'historical' },
+                  ]}
                 />
               </div>
               <div style={{ width: '280px' }}>
@@ -1632,6 +1660,7 @@ export const CertificatesPage: React.FC = () => {
                   options={[
                     { label: 'All Issued (Active, Revoked, Superseded)', value: 'all' },
                     { label: 'Issued & Active', value: 'issued' },
+                    { label: '📜 Historical / Recovered', value: 'historical' },
                     { label: 'Revoked', value: 'revoked' },
                     { label: 'Superseded', value: 'superseded' },
                     { label: 'Scheduled (Pre-Activation)', value: 'scheduled' },
@@ -1760,6 +1789,7 @@ export const CertificatesPage: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {certificates.map((cert) => {
+                  const isLegacy = !!cert.is_legacy || cert.status === 'HISTORICAL';
                   const isArchived = cert.status === 'ARCHIVED';
                   const isRevoked = cert.is_revoked || cert.status === 'REVOKED';
                   const isSuperseded = cert.status === 'SUPERSEDED';
@@ -1773,9 +1803,21 @@ export const CertificatesPage: React.FC = () => {
                     <div
                       key={cert.id}
                       style={{
-                        background: '#FFFFFF',
-                        border: isArchived ? '1px solid #CBD5E1' : isRevoked ? '1px solid #FECACA' : isSuperseded ? '1px solid #E2E8F0' : '1px solid #E2E8F0',
-                        borderLeft: isArchived
+                        background: isLegacy ? '#FFFDF5' : '#FFFFFF',
+                        border: cert.has_legacy_collision
+                          ? '1px solid #FCD34D'
+                          : isArchived
+                          ? '1px solid #CBD5E1'
+                          : isRevoked
+                          ? '1px solid #FECACA'
+                          : isSuperseded
+                          ? '1px solid #E2E8F0'
+                          : isLegacy
+                          ? '1px solid #FDE68A'
+                          : '1px solid #E2E8F0',
+                        borderLeft: isLegacy
+                          ? '5px solid #D97706'
+                          : isArchived
                           ? '5px solid #64748B'
                           : isRevoked
                           ? '5px solid #DC2626'
@@ -1802,14 +1844,26 @@ export const CertificatesPage: React.FC = () => {
                                 type="checkbox"
                                 checked={selectedCertIds.has(cert.id)}
                                 onChange={() => handleToggleSelectCert(cert.id)}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#DC2626', marginRight: '4px' }}
-                                title="Select certificate for bulk action"
+                                disabled={isLegacy}
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  cursor: isLegacy ? 'not-allowed' : 'pointer',
+                                  accentColor: '#DC2626',
+                                  marginRight: '4px',
+                                  opacity: isLegacy ? 0.3 : 1,
+                                }}
+                                title={isLegacy ? "Historical recovered certificates are immutable records and cannot be bulk deleted" : "Select certificate for bulk action"}
                               />
                             )}
                             <span style={{ fontSize: '15px', fontWeight: 700, color: '#0F2B48', fontFamily: 'monospace' }}>
                               {cert.certificate_number}
                             </span>
-                            {isArchived ? (
+                            {isLegacy ? (
+                              <Badge variant="neutral" style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A', fontWeight: 700 }}>
+                                📜 Historical / Recovered
+                              </Badge>
+                            ) : isArchived ? (
                               <Badge variant="neutral" style={{ background: '#F1F5F9', color: '#475569', borderColor: '#CBD5E1' }}>📦 ARCHIVED</Badge>
                             ) : isRevoked ? (
                               <Badge variant="neutral" style={{ color: '#DC2626', borderColor: '#FECACA' }}>REVOKED</Badge>
@@ -1828,6 +1882,16 @@ export const CertificatesPage: React.FC = () => {
                             ) : (
                               <Badge variant="teal">ISSUED & VERIFIED</Badge>
                             )}
+                            {cert.issue_reference && (
+                              <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#475569', fontSize: '11px', borderColor: '#E2E8F0' }}>
+                                {cert.issue_reference}
+                              </Badge>
+                            )}
+                            {cert.sanction_amount && (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#047857', background: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
+                                Sanction: {cert.sanction_amount}
+                              </span>
+                            )}
                             {isScheduled ? (
                               <span style={{ fontSize: '12px', color: '#0284C7', fontWeight: 600 }}>
                                 Scheduled Issue Date: {cert.scheduled_issue_date || (cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : '')}
@@ -1842,7 +1906,7 @@ export const CertificatesPage: React.FC = () => {
                               </span>
                             ) : (
                               <span style={{ fontSize: '12px', color: '#64748B' }}>
-                                Issued: {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : 'Pending'}
+                                Issued: {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : isLegacy ? 'Historical (Issue 3)' : 'Pending'}
                               </span>
                             )}
                           </div>
@@ -1856,10 +1920,44 @@ export const CertificatesPage: React.FC = () => {
                               "{cert.research_title}"
                             </div>
                           )}
+
+                          {cert.has_legacy_collision && (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              background: '#FFFBEB',
+                              border: '1px solid #FCD34D',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '12px',
+                              color: '#92400E',
+                            }}>
+                              <span style={{ fontSize: '14px' }}>⚠️</span>
+                              <span>
+                                <strong>Serial Collision Advisory:</strong> Certificate <code>{cert.certificate_number}</code> is simultaneously present in Active ledger ({cert.legacy_collision_info?.active_recipient || 'Active Recipient'}) and Historical registry ({cert.legacy_collision_info?.historical_recipient || 'Historical Recipient'}). Both records are cryptographically unique and preserved in independent registries.
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Action Buttons */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            style={{ color: '#0F2B48', borderColor: '#CBD5E1' }}
+                            onClick={() => {
+                              setDetailsCert(cert);
+                              setShowDetailsModal(true);
+                            }}
+                            title="View full certificate details & metadata"
+                          >
+                            <AppIcon name="file-text" size={14} style={{ marginRight: '4px' }} />
+                            Details
+                          </Button>
+
                           {isScheduled && isSuperAdmin && (
                             <Button
                               variant="outline"
@@ -1885,7 +1983,7 @@ export const CertificatesPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={downloadingId === cert.id || isRevoked || isSuperseded}
+                            disabled={downloadingId === cert.id || (!isLegacy && (isRevoked || isSuperseded))}
                             onClick={() => handleDownload(cert)}
                             title={
                               isRevoked
@@ -1894,6 +1992,8 @@ export const CertificatesPage: React.FC = () => {
                                 ? 'Superseded certificate cannot be downloaded'
                                 : isScheduled
                                 ? 'Download advance PDF for physical printing (Admin only; public access inactive until scheduled date)'
+                                : isLegacy
+                                ? 'Download Original Historical PDF'
                                 : 'Download Official PDF'
                             }
                           >
@@ -1901,60 +2001,68 @@ export const CertificatesPage: React.FC = () => {
                             {downloadingId === cert.id ? 'Downloading...' : isScheduled ? 'Print / PDF' : 'PDF'}
                           </Button>
 
-                          {!isRevoked && !isSuperseded && !isScheduled && isSuperAdmin && (
+                          {isLegacy ? (
+                            <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#64748B', borderColor: '#E2E8F0', fontSize: '11px' }}>
+                              🔒 Historical Immutable
+                            </Badge>
+                          ) : (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenReissue(cert)}
-                                title="Reissue / Supersede with corrections"
-                              >
-                                Reissue
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                                onClick={() => handleOpenRevoke(cert)}
-                                title="Permanently revoke certificate"
-                              >
-                                Revoke
-                              </Button>
-                            </>
-                          )}
+                              {!isRevoked && !isSuperseded && !isScheduled && isSuperAdmin && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenReissue(cert)}
+                                    title="Reissue / Supersede with corrections"
+                                  >
+                                    Reissue
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                    onClick={() => handleOpenRevoke(cert)}
+                                    title="Permanently revoke certificate"
+                                  >
+                                    Revoke
+                                  </Button>
+                                </>
+                              )}
 
-                          {isSuperAdmin && (
-                            isArchived ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                style={{ color: '#059669', borderColor: '#A7F3D0' }}
-                                onClick={() => handleOpenSingleRestore(cert)}
-                                title="Restore archived certificate to original state"
-                              >
-                                ♻️ Restore
-                              </Button>
-                            ) : cert.status === 'ISSUED' && !isRevoked ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                style={{ color: '#94A3B8', borderColor: '#E2E8F0', cursor: 'not-allowed' }}
-                                title="Active issued certificates cannot be archived directly; revoke or reissue first."
-                              >
-                                Archive (Revoke First)
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                style={{ color: '#DC2626', borderColor: '#FECACA' }}
-                                onClick={() => handleOpenSingleDelete(cert)}
-                                title="Soft-delete / archive certificate"
-                              >
-                                Archive
-                              </Button>
-                            )
+                              {isSuperAdmin && (
+                                isArchived ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    style={{ color: '#059669', borderColor: '#A7F3D0' }}
+                                    onClick={() => handleOpenSingleRestore(cert)}
+                                    title="Restore archived certificate to original state"
+                                  >
+                                    ♻️ Restore
+                                  </Button>
+                                ) : cert.status === 'ISSUED' && !isRevoked ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled
+                                    style={{ color: '#94A3B8', borderColor: '#E2E8F0', cursor: 'not-allowed' }}
+                                    title="Active issued certificates cannot be archived directly; revoke or reissue first."
+                                  >
+                                    Archive (Revoke First)
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                                    onClick={() => handleOpenSingleDelete(cert)}
+                                    title="Soft-delete / archive certificate"
+                                  >
+                                    Archive
+                                  </Button>
+                                )
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -5450,6 +5558,185 @@ export const CertificatesPage: React.FC = () => {
                 >
                   {isSingleDeleting ? 'Archiving...' : 'Confirm Delete'}
                 </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* MODAL: CERTIFICATE FULL DETAILS (ACTIVE & HISTORICAL) */}
+        {showDetailsModal && detailsCert && (
+          <Modal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setDetailsCert(null);
+            }}
+            title={`Certificate Details — ${detailsCert.certificate_number}`}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '75vh', overflowY: 'auto' }}>
+              {/* Collision Alert if present */}
+              {detailsCert.has_legacy_collision && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  background: '#FFFBEB',
+                  border: '1px solid #FCD34D',
+                  fontSize: '13px',
+                  color: '#92400E',
+                  lineHeight: '1.4',
+                }}>
+                  <strong>⚠️ Active / Historical Serial Collision Advisory:</strong>
+                  <div style={{ marginTop: '4px' }}>
+                    Serial <code>{detailsCert.certificate_number}</code> is assigned across both the Active ledger ({detailsCert.legacy_collision_info?.active_recipient || 'Active Recipient'}) and the Historical registry ({detailsCert.legacy_collision_info?.historical_recipient || 'Historical Recipient'}). Both records are cryptographically unique and strictly isolated.
+                  </div>
+                </div>
+              )}
+
+              {/* Origin & Status Row */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {detailsCert.is_legacy ? (
+                  <Badge variant="neutral" style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A', fontWeight: 700 }}>
+                    📜 Historical / Recovered Registry Record
+                  </Badge>
+                ) : (
+                  <Badge variant="teal" style={{ fontWeight: 600 }}>
+                    Active Ledger Record
+                  </Badge>
+                )}
+                <Badge variant="neutral">{detailsCert.status || 'ISSUED'}</Badge>
+                {detailsCert.certificate_type && (
+                  <Badge variant="neutral" style={{ background: '#F1F5F9', color: '#475569' }}>
+                    {detailsCert.certificate_type}
+                  </Badge>
+                )}
+                {detailsCert.issue_reference && (
+                  <Badge variant="neutral" style={{ background: '#EEF2FF', color: '#4338CA', borderColor: '#C7D2FE' }}>
+                    {detailsCert.issue_reference}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Recipient / Authors Section */}
+              <div style={{ background: '#F8FAFC', padding: '12px 14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Recipient(s) / Authors
+                </div>
+                {detailsCert.authors && detailsCert.authors.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {detailsCert.authors.map((auth, idx) => (
+                      <div key={idx} style={{ fontSize: '13px', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <strong>{auth.author_name_snapshot}</strong>
+                        {auth.designation_snapshot && <span style={{ color: '#64748B' }}>({auth.designation_snapshot})</span>}
+                        {auth.department_snapshot && <span style={{ color: '#475569' }}>— {auth.department_snapshot}</span>}
+                        {auth.affiliation_snapshot && <span style={{ color: '#64748B', fontSize: '12px' }}>[{auth.affiliation_snapshot}]</span>}
+                        {auth.scopus_id_snapshot && (
+                          <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 600 }}>
+                            Scopus: {auth.scopus_id_snapshot}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '11px', color: '#64748B' }}>({auth.author_role || 'Author'})</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '13px', color: '#1E293B' }}>
+                    {detailsCert.presentation_statement || 'Recipient Researcher'}
+                  </div>
+                )}
+              </div>
+
+              {/* Title & Research Title */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Certificate Title</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F2B48', marginTop: '2px' }}>
+                  {detailsCert.title || 'Certificate of Appreciation & Research Excellence'}
+                </div>
+              </div>
+
+              {detailsCert.research_title && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>Research Contribution</div>
+                  <div style={{ fontSize: '13px', color: '#334155', fontStyle: 'italic', marginTop: '2px' }}>
+                    "{detailsCert.research_title}"
+                  </div>
+                </div>
+              )}
+
+              {/* Financial Sanction / Details */}
+              {(detailsCert.sanction_amount || detailsCert.publication_details?.sanction_amount) && (
+                <div style={{ background: '#ECFDF5', padding: '10px 14px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#065F46', textTransform: 'uppercase' }}>Financial Sanction Amount</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#047857', marginTop: '2px' }}>
+                    {detailsCert.sanction_amount || detailsCert.publication_details?.sanction_amount}
+                  </div>
+                </div>
+              )}
+
+              {/* Recovery & Audit Metadata */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                {detailsCert.recovery_source && (
+                  <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Recovery Source</div>
+                    <div style={{ fontSize: '12px', color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px', wordBreak: 'break-all' }}>
+                      {detailsCert.recovery_source}
+                    </div>
+                  </div>
+                )}
+                <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Verification Token</div>
+                  <div style={{ fontSize: '12px', color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px', wordBreak: 'break-all' }}>
+                    {detailsCert.verification_token || 'N/A'}
+                  </div>
+                </div>
+                {detailsCert.checksum_sha256 && (
+                  <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>SHA-256 Digest</div>
+                    <div style={{ fontSize: '11px', color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px', wordBreak: 'break-all' }}>
+                      {detailsCert.checksum_sha256}
+                    </div>
+                  </div>
+                )}
+                {detailsCert.file_storage_path && (
+                  <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Storage Path / Key</div>
+                    <div style={{ fontSize: '11px', color: '#0F2B48', fontFamily: 'monospace', marginTop: '2px', wordBreak: 'break-all' }}>
+                      {detailsCert.file_storage_path}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyVerificationUrl(detailsCert)}
+                >
+                  <AppIcon name="clipboard" size={14} style={{ marginRight: '4px' }} />
+                  {copiedToken === (detailsCert.verification_token || detailsCert.certificate_number) ? 'Verification Link Copied' : 'Copy Verification Link'}
+                </Button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setDetailsCert(null);
+                    }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={downloadingId === detailsCert.id}
+                    onClick={() => handleDownload(detailsCert)}
+                  >
+                    <span style={{ marginRight: '4px' }}>&darr;</span>
+                    {downloadingId === detailsCert.id ? 'Downloading...' : 'Download PDF'}
+                  </Button>
+                </div>
               </div>
             </div>
           </Modal>

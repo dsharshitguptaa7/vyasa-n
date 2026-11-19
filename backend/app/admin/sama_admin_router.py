@@ -1265,6 +1265,7 @@ def list_admin_certificates(
     certificate_type: Optional[str] = None,
     scope: Optional[str] = Query(None, description="'ledger' or 'approvals'"),
     approval_stage: Optional[str] = Query(None, description="'DEAN' or 'VC'"),
+    origin: Optional[str] = Query(None, description="'all', 'active', or 'historical'"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:read")),
 ):
@@ -1281,10 +1282,11 @@ def list_admin_certificates(
             certificate_type=certificate_type,
             scope=scope,
             approval_stage=approval_stage,
+            origin=origin,
         )
     except Exception as exc:
         _handle_db_schema_exception(exc, "Felicitation certificates")
-    items = [CertificateOut.model_validate(c) for c in certs]
+    items = [c if isinstance(c, CertificateOut) else CertificateOut.model_validate(c) for c in certs]
     return ApiResponse(
         success=True,
         message="Felicitation certificates retrieved successfully.",
@@ -1388,13 +1390,25 @@ def get_admin_certificate(
     current_user: User = Depends(require_permission("sama:read")),
 ):
     cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
-    if not cert:
-        raise HTTPException(status_code=404, detail="Certificate not found.")
-    return ApiResponse(
-        success=True,
-        message="Certificate retrieved successfully.",
-        data=CertificateOut.model_validate(cert).model_dump(),
-    )
+    if cert:
+        data_out = sama_cms_service.format_active_certificate_out(cert, db)
+        return ApiResponse(
+            success=True,
+            message="Certificate retrieved successfully.",
+            data=data_out.model_dump(),
+        )
+
+    from app.modules.sama_veda.models.legacy_certificate import LegacyCertificateRegistry
+    legacy = db.get(LegacyCertificateRegistry, certificate_id)
+    if legacy:
+        data_out = sama_cms_service.format_legacy_certificate_out(legacy, db)
+        return ApiResponse(
+            success=True,
+            message="Historical certificate retrieved successfully.",
+            data=data_out.model_dump(),
+        )
+
+    raise HTTPException(status_code=404, detail="Certificate not found.")
 
 
 @sama_admin_router.post("/certificates/upload", response_model=ApiResponse)
@@ -2550,19 +2564,37 @@ def download_admin_certificate(
     Stream certificate PDF to authorized administrator.
     Validates storage key and cryptographic SHA-256 integrity without static public file mounting.
     Allows Super Admin and certificate managers to download SCHEDULED certificates in advance for physical printing.
+    Seamlessly falls back to Historical / Recovered certificates from sama_legacy_certificate_registry.
     """
     cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
-    if not cert:
-        raise HTTPException(status_code=404, detail="Certificate not found.")
+    if cert:
+        return validate_and_stream_certificate_pdf(
+            cert=cert,
+            request=request,
+            db=db,
+            current_user=current_user,
+            verification_source="ADMIN_PORTAL",
+            allow_scheduled=True,
+        )
 
-    return validate_and_stream_certificate_pdf(
-        cert=cert,
-        request=request,
-        db=db,
-        current_user=current_user,
-        verification_source="ADMIN_PORTAL",
-        allow_scheduled=True,
-    )
+    from app.modules.sama_veda.models.legacy_certificate import LegacyCertificateRegistry
+    from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
+    from fastapi.responses import FileResponse
+    legacy_cert = db.get(LegacyCertificateRegistry, certificate_id)
+    if legacy_cert:
+        if legacy_cert.is_revoked:
+            raise HTTPException(status_code=403, detail="Historical certificate has been revoked.")
+        pdf_path = LegacyRecoveryService.resolve_pdf_path(legacy_cert)
+        if pdf_path and os.path.exists(pdf_path):
+            filename = f"{legacy_cert.certificate_number.replace('/', '_')}.pdf"
+            return FileResponse(
+                path=str(pdf_path),
+                filename=filename,
+                media_type="application/pdf",
+            )
+        raise HTTPException(status_code=404, detail="Historical certificate PDF file not found in storage archive.")
+
+    raise HTTPException(status_code=404, detail="Certificate not found.")
 
 
 # ============================================================================
