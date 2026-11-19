@@ -3,7 +3,7 @@ Pydantic schemas and contracts for VYASAⁿ AI Knowledge Centre Administration.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 from pydantic import BaseModel, Field
 
