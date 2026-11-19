@@ -75,6 +75,10 @@ export const PublicationsPage: React.FC = () => {
   const [selectedPubIds, setSelectedPubIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [bulkTargetStatus, setBulkTargetStatus] = useState<ContentStatus | ''>('');
+  const [isBulkUpdatingStatus, setIsBulkUpdatingStatus] = useState(false);
+  const [bulkStatusError, setBulkStatusError] = useState<string | null>(null);
 
   // Permissions
   const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
@@ -308,6 +312,38 @@ export const PublicationsPage: React.FC = () => {
     }
   };
 
+  const handleBulkStatusSubmit = async () => {
+    if (selectedPubIds.size === 0 || !bulkTargetStatus) return;
+    try {
+      setIsBulkUpdatingStatus(true);
+      setBulkStatusError(null);
+      const res = await samaAdminService.bulkUpdatePublicationStatus(
+        Array.from(selectedPubIds),
+        bulkTargetStatus as ContentStatus
+      );
+      if (res.failed_count === 0) {
+        showFeedback(
+          `Successfully updated status to '${res.new_status}' for ${res.updated_count} publication(s).`
+        );
+      } else if (res.updated_count > 0) {
+        showFeedback(
+          `Updated status for ${res.updated_count} publication(s); ${res.failed_count} item(s) could not be updated.`
+        );
+      } else {
+        const errorDetail = res.failed_items.map((f) => f.reason).join(', ');
+        setBulkStatusError(`Failed to update publication status: ${errorDetail}`);
+        return;
+      }
+      setSelectedPubIds(new Set());
+      setIsBulkStatusModalOpen(false);
+      fetchPublications();
+    } catch (err: unknown) {
+      setBulkStatusError(err instanceof Error ? err.message : 'Failed to update publication status');
+    } finally {
+      setIsBulkUpdatingStatus(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return (
@@ -458,7 +494,24 @@ export const PublicationsPage: React.FC = () => {
                 Deselect All
               </button>
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!canPublish || isBulkUpdatingStatus}
+                onClick={() => {
+                  setBulkTargetStatus('');
+                  setBulkStatusError(null);
+                  setIsBulkStatusModalOpen(true);
+                }}
+                title={
+                  canPublish
+                    ? `Update status for ${selectedPubIds.size} publications`
+                    : 'Requires publishing permissions'
+                }
+              >
+                Change Status
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -938,6 +991,101 @@ export const PublicationsPage: React.FC = () => {
                 </Button>
                 <Button variant="primary" size="sm" onClick={handleStatusUpdateSubmit} disabled={isSubmitting}>
                   {isSubmitting ? 'Updating...' : 'Confirm Status Update'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Bulk Status Update Modal */}
+        {isBulkStatusModalOpen && (
+          <Modal
+            title="Bulk Update Publication Status"
+            isOpen={isBulkStatusModalOpen}
+            onClose={() => !isBulkUpdatingStatus && setIsBulkStatusModalOpen(false)}
+          >
+            <div
+              data-testid="bulk-status-modal"
+              style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13.5px', color: '#475569' }}
+            >
+              <p style={{ margin: 0, color: '#334155', lineHeight: 1.5 }}>
+                You are about to update the lifecycle status of <strong>{selectedPubIds.size}</strong> selected publication(s).
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#1e293b' }}>
+                  New Lifecycle Status *
+                </label>
+                <Select
+                  data-testid="bulk-status-select"
+                  value={bulkTargetStatus}
+                  onChange={(e) => {
+                    setBulkTargetStatus(e.target.value as ContentStatus | '');
+                    setBulkStatusError(null);
+                  }}
+                  disabled={isBulkUpdatingStatus}
+                  options={[
+                    { value: '', label: 'Select new lifecycle status...' },
+                    { value: 'draft', label: 'Draft — Visible only to administrators' },
+                    { value: 'in_review', label: 'In Review — Under editorial audit' },
+                    { value: 'published', label: 'Published — Live on public research portal' },
+                    { value: 'archived', label: 'Archived — Retired from active catalog' },
+                  ]}
+                />
+              </div>
+
+              {bulkTargetStatus && (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: '#166534',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <p style={{ fontWeight: 600, margin: '0 0 2px 0' }}>Confirmation Summary:</p>
+                  Update the status of <strong>{selectedPubIds.size}</strong> selected publication(s) to{' '}
+                  <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>
+                    {bulkTargetStatus.replace('_', ' ')}
+                  </span>
+                  ?
+                </div>
+              )}
+
+              {bulkStatusError && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#fff1f2',
+                    border: '1px solid #fecdd3',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: '#9f1239',
+                  }}
+                >
+                  {bulkStatusError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkStatusModalOpen(false)}
+                  disabled={isBulkUpdatingStatus}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleBulkStatusSubmit}
+                  disabled={!bulkTargetStatus || isBulkUpdatingStatus}
+                >
+                  {isBulkUpdatingStatus ? 'Updating Status...' : 'Confirm Bulk Status Update'}
                 </Button>
               </div>
             </div>

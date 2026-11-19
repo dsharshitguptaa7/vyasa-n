@@ -180,6 +180,7 @@ class SamaImportService:
                         record_summary={"title": title, "slug": slug or existing.slug}
                     ))
             else:
+                # File-provided bulletin_id is deliberately ignored; target bulletin takes precedence
                 items.append(ReconciliationItem(
                     action="create",
                     identifier=slug or f"row-{idx}",
@@ -192,6 +193,7 @@ class SamaImportService:
                         "serial_no": serial_no,
                         "doi": doi,
                         "author_display": r.get("author_display") or (", ".join(r.get("authors")) if isinstance(r.get("authors"), list) else r.get("authors")),
+                        "bulletin_id": str(default_bulletin_id) if default_bulletin_id else None,
                     }
                 ))
 
@@ -358,6 +360,7 @@ class SamaImportService:
         filename: str,
         content_bytes: bytes,
         user_id: Optional[uuid.UUID] = None,
+        bulletin_id: Optional[uuid.UUID] = None,
     ) -> ImportPreviewResponse:
         rows, fmt, parse_errors = self.parse_file_content(content_bytes, filename)
         batch_number = self.generate_batch_number(entity_type)
@@ -365,9 +368,23 @@ class SamaImportService:
         items: List[ReconciliationItem] = []
         errors = list(parse_errors)
 
+        target_bulletin: Optional[ResearchBulletin] = None
+        target_bulletin_title: Optional[str] = None
+
         if not parse_errors:
             if entity_type == "publications":
-                items, errors = self.preview_publications(db, rows)
+                if not bulletin_id:
+                    raise ValueError("Target bulletin ID is required for research publication imports.")
+                target_bulletin = db.execute(
+                    select(ResearchBulletin).where(ResearchBulletin.id == bulletin_id)
+                ).scalar_one_or_none()
+                if not target_bulletin:
+                    raise ValueError(f"Target bulletin with ID '{bulletin_id}' does not exist in the database.")
+
+                vol = target_bulletin.volume_number
+                iss = target_bulletin.issue_number
+                target_bulletin_title = f"Volume {vol} — Issue {iss}" + (f" • {target_bulletin.title}" if target_bulletin.title else "")
+                items, errors = self.preview_publications(db, rows, default_bulletin_id=target_bulletin.id)
             elif entity_type == "authors":
                 items, errors = self.preview_authors(db, rows)
             elif entity_type == "cam_projects":
@@ -385,7 +402,14 @@ class SamaImportService:
         fail_c = len([i for i in items if i.action == "fail"]) + len(errors)
 
         # Store preview in SamaImportBatch ledger
+        reconciliation_report: Dict[str, Any] = {"items": [i.model_dump() for i in items]}
+        if target_bulletin:
+            reconciliation_report["bulletin_id"] = str(target_bulletin.id)
+            reconciliation_report["target_bulletin_title"] = target_bulletin_title
+
+        batch_uuid = uuid.uuid4()
         batch = SamaImportBatch(
+            id=batch_uuid,
             batch_number=batch_number,
             entity_type=entity_type,
             source_filename=filename,
@@ -399,15 +423,30 @@ class SamaImportService:
             failed_count=fail_c,
             review_count=review_c,
             error_summary=[e.model_dump() for e in errors],
-            reconciliation_report={"items": [i.model_dump() for i in items]},
+            reconciliation_report=reconciliation_report,
             imported_by_id=user_id,
         )
         db.add(batch)
         db.commit()
-        db.refresh(batch)
+        try:
+            db.refresh(batch)
+        except Exception:
+            pass
+
+        reconciliation_summary: Dict[str, Any] = {
+            "batch_number": batch_number,
+            "created": create_c,
+            "updated": update_c,
+            "skipped": skip_c,
+            "review": review_c,
+            "failed": fail_c,
+        }
+        if target_bulletin:
+            reconciliation_summary["target_bulletin_id"] = str(target_bulletin.id)
+            reconciliation_summary["target_bulletin_title"] = target_bulletin_title
 
         return ImportPreviewResponse(
-            batch_id=batch.id,
+            batch_id=getattr(batch, "id", None) or batch_uuid,
             batch_number=batch_number,
             entity_type=entity_type,
             mode="preview",
@@ -419,14 +458,9 @@ class SamaImportService:
             fail_count=fail_c,
             errors=errors,
             items=items[:100],  # Return up to first 100 items for UI preview table
-            reconciliation_summary={
-                "batch_number": batch_number,
-                "created": create_c,
-                "updated": update_c,
-                "skipped": skip_c,
-                "review": review_c,
-                "failed": fail_c,
-            }
+            target_bulletin_id=target_bulletin.id if target_bulletin else None,
+            target_bulletin_title=target_bulletin_title if target_bulletin else None,
+            reconciliation_summary=reconciliation_summary,
         )
 
     def execute_batch(
@@ -435,6 +469,7 @@ class SamaImportService:
         batch_id: uuid.UUID,
         user_id: Optional[uuid.UUID] = None,
         request_context: Optional[Dict[str, Any]] = None,
+        bulletin_id: Optional[uuid.UUID] = None,
     ) -> ImportExecuteResponse:
         batch = db.execute(select(SamaImportBatch).where(SamaImportBatch.id == batch_id)).scalar_one_or_none()
         if not batch:
@@ -444,6 +479,38 @@ class SamaImportService:
 
         reconcile_data = batch.reconciliation_report or {}
         items = reconcile_data.get("items", [])
+
+        # Validate target bulletin for publications
+        target_bulletin: Optional[ResearchBulletin] = None
+        if batch.entity_type == "publications":
+            context_b_id = None
+            if isinstance(reconcile_data, dict):
+                raw_b_id = reconcile_data.get("bulletin_id")
+                if isinstance(raw_b_id, uuid.UUID):
+                    context_b_id = raw_b_id
+                elif isinstance(raw_b_id, str) and raw_b_id.strip():
+                    try:
+                        context_b_id = uuid.UUID(raw_b_id.strip())
+                    except ValueError:
+                        context_b_id = None
+
+            if bulletin_id is not None:
+                if context_b_id is not None and bulletin_id != context_b_id:
+                    raise ValueError(
+                        f"Execution bulletin ID '{bulletin_id}' does not match previewed bulletin context '{context_b_id}'."
+                    )
+                target_b_id = bulletin_id
+            else:
+                target_b_id = context_b_id
+
+            if not target_b_id:
+                raise ValueError("Target bulletin ID must be specified for publication import.")
+
+            target_bulletin = db.execute(
+                select(ResearchBulletin).where(ResearchBulletin.id == target_b_id)
+            ).scalar_one_or_none()
+            if not target_bulletin:
+                raise ValueError(f"Target bulletin with ID '{target_b_id}' does not exist in the database.")
 
         # Execute actions within savepoint / atomic transaction
         created_count = 0
@@ -460,14 +527,17 @@ class SamaImportService:
 
                 if act == "create":
                     if batch.entity_type == "publications":
+                        if not target_bulletin:
+                            raise ValueError("Cannot insert publication: target bulletin context is missing.")
                         pub = ResearchPublication(
+                            bulletin_id=target_bulletin.id,
                             slug=summary.get("slug") or f"pub-{uuid.uuid4().hex[:8]}",
                             title=summary.get("title"),
-                            source_journal=summary.get("source_journal"),
+                            source_journal=summary.get("source_journal") or "CSJMU Research",
                             category=summary.get("category") or "Article",
-                            serial_no=summary.get("serial_no") or 0,
+                            serial_no=summary.get("serial_no") or (created_count + 1),
                             doi=summary.get("doi"),
-                            author_display=summary.get("author_display"),
+                            author_display=summary.get("author_display") or "CSJMU Researcher",
                             authors_complete=False,
                             status="draft",  # Non-public
                             is_featured=False,
@@ -522,6 +592,9 @@ class SamaImportService:
                 elif act == "fail":
                     failed_count += 1
 
+            if batch.entity_type == "publications" and target_bulletin and created_count > 0:
+                target_bulletin.publication_count = (target_bulletin.publication_count or 0) + created_count
+
             batch.status = "completed"
             batch.mode = "execute"
             batch.created_count = created_count
@@ -536,6 +609,18 @@ class SamaImportService:
             db.commit()
 
             # Record audit event
+            audit_metadata: Dict[str, Any] = {
+                "batch_number": batch.batch_number,
+                "entity_type": batch.entity_type,
+                "created_count": created_count,
+                "updated_count": updated_count,
+                "skipped_count": skipped_count,
+                "review_count": review_count,
+                "failed_count": failed_count,
+            }
+            if target_bulletin:
+                audit_metadata["target_bulletin_id"] = str(target_bulletin.id)
+
             audit_event_id = audit_service.log_event(
                 db=db,
                 actor_id=user_id,
@@ -543,15 +628,7 @@ class SamaImportService:
                 action="IMPORT_EXECUTE",
                 entity_type="SamaImportBatch",
                 entity_id=str(batch.id),
-                metadata={
-                    "batch_number": batch.batch_number,
-                    "entity_type": batch.entity_type,
-                    "created_count": created_count,
-                    "updated_count": updated_count,
-                    "skipped_count": skipped_count,
-                    "review_count": review_count,
-                    "failed_count": failed_count,
-                },
+                metadata=audit_metadata,
                 request_context=request_context,
             )
 
@@ -568,6 +645,7 @@ class SamaImportService:
                 review_count=review_count,
                 executed_at=batch.executed_at,
                 audit_event_id=audit_event_id,
+                target_bulletin_id=target_bulletin.id if target_bulletin else None,
             )
 
         except Exception as e:

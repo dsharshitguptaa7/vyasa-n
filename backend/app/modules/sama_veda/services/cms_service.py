@@ -299,6 +299,49 @@ class SamaCmsService:
         return deleted_ids, failed_items
 
     # ========================================================================
+    @staticmethod
+    def bulk_update_publication_status(
+        db: Session,
+        publication_ids: List[uuid.UUID],
+        status: str,
+    ) -> Tuple[List[uuid.UUID], List[Dict[str, Any]]]:
+        if status not in {"draft", "in_review", "published", "archived"}:
+            raise ValueError(f"Invalid lifecycle status: {status}")
+
+        updated_ids: List[uuid.UUID] = []
+        failed_items: List[Dict[str, Any]] = []
+        now = datetime.now(timezone.utc)
+
+        for pub_id in publication_ids:
+            try:
+                pub = db.execute(
+                    select(ResearchPublication).where(ResearchPublication.id == pub_id)
+                ).scalar_one_or_none()
+
+                if not pub:
+                    failed_items.append({
+                        "id": str(pub_id),
+                        "reason": "Publication not found",
+                    })
+                    continue
+
+                pub.status = status
+                if status == "published" and not pub.published_at:
+                    pub.published_at = now
+                elif status == "archived":
+                    pub.archived_at = now
+
+                db.flush()
+                updated_ids.append(pub_id)
+            except Exception as e:
+                failed_items.append({
+                    "id": str(pub_id),
+                    "reason": f"Status update error: {str(e)}",
+                })
+
+        db.commit()
+        return updated_ids, failed_items
+
     # 2. AUTHORS
     # ========================================================================
 

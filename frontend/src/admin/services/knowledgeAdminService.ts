@@ -86,7 +86,7 @@ export const knowledgeAdminService = {
     if (payload.effective_from) formData.append('effective_from', payload.effective_from);
     if (payload.effective_until) formData.append('effective_until', payload.effective_until);
 
-    const res = await apiClient.post<KnowledgeDocumentItem>(`${BASE_PREFIX}/documents/upload`, formData);
+    const res = await apiClient.postFormData<KnowledgeDocumentItem>(`${BASE_PREFIX}/documents/upload`, formData);
     if (!res.data) {
       throw new Error(res.message || 'Failed to upload document.');
     }
@@ -103,7 +103,7 @@ export const knowledgeAdminService = {
     const formData = new FormData();
     formData.append('file', payload.file);
 
-    const res = await apiClient.post<KnowledgeDocumentVersionItem>(
+    const res = await apiClient.postFormData<KnowledgeDocumentVersionItem>(
       `${BASE_PREFIX}/documents/${documentId}/versions`,
       formData
     );

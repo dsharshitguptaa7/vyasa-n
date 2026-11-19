@@ -140,6 +140,7 @@ async def http_exception_handler(req: Request, exc: StarletteHTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(req: Request, exc: RequestValidationError):
     serialized_errors = []
+    error_summaries = []
     for err in exc.errors():
         item = dict(err)
         if "ctx" in item and isinstance(item["ctx"], dict):
@@ -148,13 +149,18 @@ async def validation_exception_handler(req: Request, exc: RequestValidationError
                 ctx["error"] = str(ctx["error"])
             item["ctx"] = ctx
         serialized_errors.append(item)
+        loc = ".".join(str(l) for l in item.get("loc", []) if l != "body")
+        msg = item.get("msg", "Invalid value")
+        error_summaries.append(f"{loc}: {msg}" if loc else msg)
+
+    summary_message = f"Request validation failed: {'; '.join(error_summaries)}" if error_summaries else "Request validation failed"
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         headers=_get_cors_headers(req),
         content=ApiResponse(
             success=False,
-            message="Request validation failed",
+            message=summary_message,
             error=ApiErrorDetail(code="VALIDATION_ERROR", details=serialized_errors),
         ).model_dump(),
     )

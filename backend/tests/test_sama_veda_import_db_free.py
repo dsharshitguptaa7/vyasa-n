@@ -204,13 +204,19 @@ def test_import_preview_endpoint_authorized(test_client):
         "skip_count": 0,
     }
 
-    app.dependency_overrides[get_db] = lambda: MagicMock()
+    mock_db = MagicMock()
+    bulletin_id = uuid.uuid4()
+    fake_bulletin = MagicMock()
+    fake_bulletin.id = bulletin_id
+    mock_db.execute.return_value.scalar_one_or_none.return_value = fake_bulletin
+
+    app.dependency_overrides[get_db] = lambda: mock_db
     app.dependency_overrides[get_current_user] = lambda: admin_user
 
     with patch.object(import_service, "preview_batch", return_value=fake_preview):
         resp = test_client.post(
             "/api/admin/sama/import/preview",
-            data={"entity_type": "publications"},
+            data={"entity_type": "publications", "bulletin_id": str(bulletin_id)},
             files={"file": ("test.json", b'[{"title": "Paper 1"}]', "application/json")},
         )
         assert resp.status_code == 200
@@ -301,6 +307,11 @@ def test_execute_batch_records_audit_event_cleanly():
     mock_db = MagicMock()
     batch_id = uuid.uuid4()
     user_id = uuid.uuid4()
+    bulletin_id = uuid.uuid4()
+
+    fake_bulletin = MagicMock()
+    fake_bulletin.id = bulletin_id
+    fake_bulletin.publication_count = 0
 
     fake_batch = MagicMock()
     fake_batch.id = batch_id
@@ -309,8 +320,12 @@ def test_execute_batch_records_audit_event_cleanly():
     fake_batch.status = 'previewed'
     fake_batch.raw_payload = []
     fake_batch.total_rows = 0
+    fake_batch.reconciliation_report = {
+        "items": [],
+        "bulletin_id": str(bulletin_id),
+    }
 
-    mock_db.execute.return_value.scalar_one_or_none.return_value = fake_batch
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [fake_batch, fake_bulletin]
 
     res = import_service.execute_batch(
         db=mock_db,
@@ -323,3 +338,289 @@ def test_execute_batch_records_audit_event_cleanly():
     assert res.batch_id == batch_id
     assert res.audit_event_id is not None
     assert mock_db.commit.called
+
+
+# =============================================================================
+# BULLETIN-AWARE PUBLICATIONS BULK IMPORT TESTS
+# =============================================================================
+
+def test_preview_publications_missing_bulletin_rejected(test_client):
+    """Missing bulletin ID for publications import is rejected with 400 Bad Request."""
+    admin_user = make_mock_user("sama_content_admin", ["sama:read", "sama:content:import"])
+    app.dependency_overrides[get_db] = lambda: MagicMock()
+    app.dependency_overrides[get_current_user] = lambda: admin_user
+
+    resp = test_client.post(
+        "/api/admin/sama/import/preview",
+        data={"entity_type": "publications"},
+        files={"file": ("papers.json", b'[{"title": "Paper 1"}]', "application/json")},
+    )
+    assert resp.status_code == 400
+    err_text = resp.json().get("detail") or resp.json().get("message") or ""
+    assert "Target bulletin ID is required" in err_text
+
+
+def test_preview_publications_invalid_bulletin_format_rejected(test_client):
+    """Malformed bulletin UUID is rejected with 400 Bad Request."""
+    admin_user = make_mock_user("sama_content_admin", ["sama:read", "sama:content:import"])
+    app.dependency_overrides[get_db] = lambda: MagicMock()
+    app.dependency_overrides[get_current_user] = lambda: admin_user
+
+    resp = test_client.post(
+        "/api/admin/sama/import/preview",
+        data={"entity_type": "publications", "bulletin_id": "not-a-uuid"},
+        files={"file": ("papers.json", b'[{"title": "Paper 1"}]', "application/json")},
+    )
+    assert resp.status_code == 400
+    err_text = resp.json().get("detail") or resp.json().get("message") or ""
+    assert "Invalid bulletin ID format" in err_text
+
+
+def test_preview_publications_nonexistent_bulletin_rejected(test_client):
+    """Non-existent bulletin UUID is rejected with 404 Not Found."""
+    admin_user = make_mock_user("sama_content_admin", ["sama:read", "sama:content:import"])
+    mock_db = MagicMock()
+    mock_db.execute.return_value.scalar_one_or_none.return_value = None
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: admin_user
+
+    missing_id = str(uuid.uuid4())
+    resp = test_client.post(
+        "/api/admin/sama/import/preview",
+        data={"entity_type": "publications", "bulletin_id": missing_id},
+        files={"file": ("papers.json", b'[{"title": "Paper 1"}]', "application/json")},
+    )
+    assert resp.status_code == 404
+    err_text = resp.json().get("detail") or resp.json().get("message") or ""
+    assert f"Target bulletin with ID '{missing_id}' does not exist" in err_text
+
+
+def test_preview_publications_valid_bulletin_accepted_and_context_bound():
+    """Valid bulletin is bound to the preview items and reconciliation report."""
+    mock_db = MagicMock()
+    bulletin_id = uuid.uuid4()
+    mock_bulletin = ResearchBulletin(
+        id=bulletin_id,
+        volume_number=2,
+        issue_number=1,
+        title="Volume 2 • Issue 1",
+        publication_period="2026",
+        file_path="storage/test.pdf",
+    )
+    # 1st execute for bulletin lookup, then no existing publications
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [mock_bulletin, None, None]
+
+    content = json.dumps([
+        {"title": "Paper A", "source_journal": "Nature", "category": "Article"},
+        {"title": "Paper B", "source_journal": "Science", "category": "Review", "bulletin_id": "malicious-client-id"},
+    ]).encode("utf-8")
+
+    preview = import_service.preview_batch(
+        db=mock_db,
+        entity_type="publications",
+        filename="papers.json",
+        content_bytes=content,
+        bulletin_id=bulletin_id,
+    )
+
+    assert preview.target_bulletin_id == bulletin_id
+    assert "Volume 2 — Issue 1" in preview.target_bulletin_title
+    assert preview.create_count == 2
+    for item in preview.items:
+        assert item.action == "create"
+        # Overrides any file-provided bulletin_id with validated target bulletin ID
+        assert item.record_summary["bulletin_id"] == str(bulletin_id)
+
+
+def test_execute_batch_assigns_selected_bulletin_to_all_publications():
+    """Every persisted publication in a batch receives the target bulletin ID."""
+    mock_db = MagicMock()
+    batch_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    bulletin_id = uuid.uuid4()
+
+    mock_bulletin = ResearchBulletin(
+        id=bulletin_id,
+        volume_number=2,
+        issue_number=1,
+        title="Volume 2 • Issue 1",
+        publication_period="2026",
+        file_path="storage/test.pdf",
+    )
+    mock_bulletin.publication_count = 10
+
+    fake_batch = SamaImportBatch(
+        id=batch_id,
+        batch_number="IMP-PUB-20261119-001",
+        entity_type="publications",
+        source_filename="papers.json",
+        file_format="json",
+        mode="preview",
+        status="previewed",
+        total_rows=2,
+        reconciliation_report={
+            "items": [
+                {
+                    "action": "create",
+                    "identifier": "pub-1",
+                    "reason": "New publication record",
+                    "record_summary": {
+                        "title": "Quantum ML in Agriculture",
+                        "slug": "qml-agri-01",
+                        "source_journal": "IEEE",
+                        "category": "Article",
+                        "serial_no": 1,
+                        "bulletin_id": "ignored-file-id",
+                    },
+                },
+                {
+                    "action": "create",
+                    "identifier": "pub-2",
+                    "reason": "New publication record",
+                    "record_summary": {
+                        "title": "Nanocatalysts for Hydrogen",
+                        "slug": "nano-h2-02",
+                        "source_journal": "JACS",
+                        "category": "Article",
+                        "serial_no": 2,
+                    },
+                },
+            ],
+            "bulletin_id": str(bulletin_id),
+            "target_bulletin_title": "Volume 2 — Issue 1",
+        },
+    )
+
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [fake_batch, mock_bulletin]
+
+    added_objects = []
+    def track_add(obj):
+        added_objects.append(obj)
+    mock_db.add.side_effect = track_add
+
+    res = import_service.execute_batch(
+        db=mock_db,
+        batch_id=batch_id,
+        user_id=user_id,
+        bulletin_id=bulletin_id,
+    )
+
+    assert res.status == "completed"
+    assert res.created_count == 2
+    assert res.target_bulletin_id == bulletin_id
+
+    # Verify all added publications strictly have target bulletin_id
+    pubs_added = [o for o in added_objects if isinstance(o, ResearchPublication)]
+    assert len(pubs_added) == 2
+    for pub in pubs_added:
+        assert pub.bulletin_id == bulletin_id
+        assert pub.bulletin_id is not None
+        assert pub.status == "draft"
+
+    # Verify bulletin publication_count incremented
+    assert mock_bulletin.publication_count == 12
+    assert mock_db.commit.called
+
+
+def test_execute_batch_mismatched_bulletin_context_rejected():
+    """Attempting to execute with a different bulletin than previewed raises ValueError."""
+    mock_db = MagicMock()
+    batch_id = uuid.uuid4()
+    preview_bulletin_id = uuid.uuid4()
+    different_bulletin_id = uuid.uuid4()
+
+    fake_batch = SamaImportBatch(
+        id=batch_id,
+        batch_number="IMP-PUB-20261119-002",
+        entity_type="publications",
+        source_filename="papers.json",
+        file_format="json",
+        mode="preview",
+        status="previewed",
+        total_rows=1,
+        reconciliation_report={
+            "items": [],
+            "bulletin_id": str(preview_bulletin_id),
+        },
+    )
+    mock_db.execute.return_value.scalar_one_or_none.return_value = fake_batch
+
+    with pytest.raises(ValueError, match="does not match previewed bulletin context"):
+        import_service.execute_batch(
+            db=mock_db,
+            batch_id=batch_id,
+            bulletin_id=different_bulletin_id,
+        )
+
+
+def test_execute_batch_atomic_rollback_on_failure():
+    """If an error occurs during publication persistence, the entire transaction rolls back."""
+    mock_db = MagicMock()
+    batch_id = uuid.uuid4()
+    bulletin_id = uuid.uuid4()
+
+    mock_bulletin = ResearchBulletin(
+        id=bulletin_id,
+        volume_number=2,
+        issue_number=1,
+        title="Volume 2 • Issue 1",
+        publication_period="2026",
+        file_path="storage/test.pdf",
+    )
+
+    fake_batch = SamaImportBatch(
+        id=batch_id,
+        batch_number="IMP-PUB-20261119-003",
+        entity_type="publications",
+        source_filename="papers.json",
+        file_format="json",
+        mode="preview",
+        status="previewed",
+        total_rows=2,
+        reconciliation_report={
+            "items": [
+                {
+                    "action": "create",
+                    "identifier": "pub-1",
+                    "record_summary": {"title": "Paper 1"},
+                },
+            ],
+            "bulletin_id": str(bulletin_id),
+        },
+    )
+
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [fake_batch, mock_bulletin]
+    # Simulate DB error on commit
+    mock_db.commit.side_effect = [Exception("Database foreign key constraint violation"), None]
+
+    with pytest.raises(RuntimeError, match="Import execution failed and was rolled back"):
+        import_service.execute_batch(
+            db=mock_db,
+            batch_id=batch_id,
+        )
+
+    assert mock_db.rollback.called
+    assert fake_batch.status == "failed"
+
+
+def test_non_publication_imports_unaffected_without_bulletin():
+    """Authors, CamProjects, Fellowships do not require or use bulletin_id."""
+    mock_db = MagicMock()
+    mock_db.execute.return_value.scalar_one_or_none.return_value = None
+
+    author_content = json.dumps([
+        {"name": "Dr. Namita Gupta", "scopus_id": "57218940100"},
+    ]).encode("utf-8")
+
+    preview = import_service.preview_batch(
+        db=mock_db,
+        entity_type="authors",
+        filename="authors.json",
+        content_bytes=author_content,
+    )
+
+    assert preview.entity_type == "authors"
+    assert preview.target_bulletin_id is None
+    assert preview.create_count == 1
+    assert preview.items[0].record_summary["name"] == "Dr. Namita Gupta"

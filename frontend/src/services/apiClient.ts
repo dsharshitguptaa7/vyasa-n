@@ -144,11 +144,32 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     // Check HTTP status or application-level failure
     if (!response.ok || (data && data.success === false)) {
-      const message =
+      let message =
         data?.message ||
         data?.detail ||
         (typeof data?.error === 'string' ? data.error : data?.error?.message) ||
         getFriendlyStatusMessage(response.status, false);
+
+      // Enhance generic "Request validation failed" (HTTP 422) with actionable field-level details
+      const rawDetails = data?.error?.details || data?.detail;
+      if (
+        (message === 'Request validation failed' || response.status === 422) &&
+        Array.isArray(rawDetails) &&
+        rawDetails.length > 0
+      ) {
+        const fieldDetails = rawDetails
+          .map((d: any) => {
+            if (typeof d === 'string') return d;
+            const loc = Array.isArray(d?.loc) ? d.loc.filter((l: any) => l !== 'body').join('.') : '';
+            const msg = d?.msg || 'Invalid value';
+            return loc ? `${loc}: ${msg}` : msg;
+          })
+          .filter(Boolean)
+          .join('; ');
+        if (fieldDetails) {
+          message = `Request validation failed: ${fieldDetails}`;
+        }
+      }
 
       const headerErrorCode = response.headers.get('x-error-code');
       const errorCode =
@@ -162,7 +183,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         message,
         response.status,
         errorCode,
-        data?.error?.details || data?.detail,
+        rawDetails,
         {
           status: response.status,
           data: {
@@ -209,19 +230,19 @@ export const apiClient = {
   post: <T>(endpoint: string, body?: unknown, headers?: HeadersInit) =>
     request<T>(endpoint, {
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: typeof FormData !== 'undefined' && body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       headers,
     }),
   patch: <T>(endpoint: string, body?: unknown, headers?: HeadersInit) =>
     request<T>(endpoint, {
       method: 'PATCH',
-      body: body ? JSON.stringify(body) : undefined,
+      body: typeof FormData !== 'undefined' && body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       headers,
     }),
   put: <T>(endpoint: string, body?: unknown, headers?: HeadersInit) =>
     request<T>(endpoint, {
       method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined,
+      body: typeof FormData !== 'undefined' && body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       headers,
     }),
   postFormData: <T>(endpoint: string, formData: FormData, headers?: HeadersInit) =>

@@ -25,7 +25,10 @@ from app.modules.sama_veda.services.cms_service import sama_cms_service
 from app.modules.sama_veda.services.certificate_download_service import validate_and_stream_certificate_pdf
 from app.modules.sama_veda.services.import_service import import_service
 from app.modules.sama_veda.models import SamaImportBatch
-from app.modules.sama_veda.schemas.import_schemas import HistoricalBundleImportRequest
+from app.modules.sama_veda.schemas.import_schemas import (
+    HistoricalBundleImportRequest,
+    ExecuteImportRequest,
+)
 from app.modules.sama_veda.models.publication import ResearchPublication
 from app.admin.schemas.sama_cms import (
     PublicationCreate,
@@ -35,6 +38,8 @@ from app.admin.schemas.sama_cms import (
     PublicationAuthorOut,
     PublicationListResponse,
     BulkDeletePublicationsRequest,
+    BulkUpdatePublicationStatusRequest,
+    BulkUpdatePublicationStatusResult,
     BulkDeleteAuthorsRequest,
     BulkDeleteBatchesRequest,
     BulkDeleteResult,
@@ -427,6 +432,71 @@ def bulk_delete_publications(
 
 
 # ============================================================================
+@sama_admin_router.patch("/publications/bulk-status", response_model=ApiResponse)
+@sama_admin_router.post("/publications/bulk-status", response_model=ApiResponse)
+def bulk_update_publication_status(
+    payload: BulkUpdatePublicationStatusRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:content:publish")),
+):
+    """
+    Bulk updates the lifecycle status of multiple research publications.
+    Restricted to authorized users with 'sama:content:publish' permission.
+    Safeguards:
+    - Validates status against allowed enum values.
+    - Updates published_at / archived_at timestamps appropriately.
+    - Logs detailed audit action including updated IDs and new status.
+    - Handles partial failures gracefully.
+    """
+    if not payload.publication_ids:
+        raise HTTPException(status_code=400, detail="No publication IDs provided for bulk status update.")
+
+    updated_ids, failed_items = sama_cms_service.bulk_update_publication_status(
+        db, payload.publication_ids, payload.status
+    )
+
+    batch_op_id = uuid.uuid4()
+    audit_service.log_from_request(
+        request=request,
+        db=db,
+        module="sama_veda",
+        action="publications_bulk_status_updated",
+        entity_name="ResearchPublication",
+        entity_id=batch_op_id,
+        actor_user_id=current_user.id,
+        details={
+            "requested_count": len(payload.publication_ids),
+            "updated_count": len(updated_ids),
+            "updated_ids": [str(i) for i in updated_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+            "new_status": payload.status,
+        },
+        fail_silent=False,
+    )
+
+    success = len(updated_ids) > 0 or len(payload.publication_ids) == 0
+    message = (
+        f"Successfully updated status to '{payload.status}' for {len(updated_ids)} publication(s)."
+        if len(failed_items) == 0
+        else f"Updated status for {len(updated_ids)} publication(s); {len(failed_items)} failed."
+    )
+
+    return ApiResponse(
+        success=success,
+        message=message,
+        data={
+            "updated_count": len(updated_ids),
+            "updated_ids": [str(i) for i in updated_ids],
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+            "total_requested": len(payload.publication_ids),
+            "new_status": payload.status,
+        },
+    )
+
+
 # 2. RESEARCH AUTHORS MANAGEMENT & SCOPUS REVIEW
 # ============================================================================
 
@@ -2594,6 +2664,7 @@ def delete_spotlight(
 async def preview_import_batch(
     entity_type: str = Form(...),
     file: UploadFile = File(...),
+    bulletin_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:content:import")),
 ):
@@ -2606,6 +2677,39 @@ async def preview_import_batch(
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    from app.modules.sama_veda.models.bulletin import ResearchBulletin
+
+    parsed_bulletin_id: Optional[uuid.UUID] = None
+    if entity_type == "publications":
+        if not bulletin_id or not bulletin_id.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Target bulletin ID is required for research publication imports.",
+            )
+        try:
+            parsed_bulletin_id = uuid.UUID(bulletin_id.strip())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid bulletin ID format: '{bulletin_id}' is not a valid UUID.",
+            )
+        bulletin = db.execute(
+            select(ResearchBulletin).where(ResearchBulletin.id == parsed_bulletin_id)
+        ).scalar_one_or_none()
+        if not bulletin:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Target bulletin with ID '{bulletin_id}' does not exist in the database.",
+            )
+    elif bulletin_id and bulletin_id.strip():
+        try:
+            parsed_bulletin_id = uuid.UUID(bulletin_id.strip())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid bulletin ID format: '{bulletin_id}' is not a valid UUID.",
+            )
+
     try:
         preview = import_service.preview_batch(
             db=db,
@@ -2613,12 +2717,19 @@ async def preview_import_batch(
             filename=file.filename or "uploaded_file",
             content_bytes=content,
             user_id=current_user.id,
+            bulletin_id=parsed_bulletin_id,
         )
         return ApiResponse(
             success=True,
             message="Data import preview generated successfully.",
             data=preview.model_dump(),
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not exist" in msg.lower() or "not found" in msg.lower() else 400
+        raise HTTPException(status_code=status_code, detail=msg)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to generate import preview: {str(e)}")
 
@@ -2627,6 +2738,7 @@ async def preview_import_batch(
 def execute_import_batch(
     batch_id: uuid.UUID,
     request: Request,
+    payload: Optional[ExecuteImportRequest] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:content:import")),
 ):
@@ -2640,6 +2752,7 @@ def execute_import_batch(
             batch_id=batch_id,
             user_id=current_user.id,
             request_context={"client_ip": request.client.host if request.client else None},
+            bulletin_id=payload.bulletin_id if payload else None,
         )
         return ApiResponse(
             success=True,
@@ -2647,7 +2760,11 @@ def execute_import_batch(
             data=res.model_dump(),
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() or "not exist" in msg.lower() else 400
+        raise HTTPException(status_code=status_code, detail=msg)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

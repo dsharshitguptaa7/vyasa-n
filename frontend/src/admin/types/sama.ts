@@ -83,6 +83,15 @@ export interface PublicationListResponse {
   items: ResearchPublicationItem[];
 }
 
+export interface BulkStatusUpdateResult {
+  updated_count: number;
+  updated_ids: string[];
+  failed_count: number;
+  failed_items: { id: string; reason: string }[];
+  total_requested: number;
+  new_status: ContentStatus;
+}
+
 // ============================================================================
 // 2. AUTHORS & SCOPUS
 // ============================================================================
@@ -655,6 +664,8 @@ export interface ImportPreviewResult {
   errors: ImportRowErrorItem[];
   items: ReconciliationItemRecord[];
   reconciliation_summary: Record<string, any>;
+  target_bulletin_id?: string | null;
+  target_bulletin_title?: string | null;
 }
 
 export interface ImportExecuteResult {
@@ -670,6 +681,7 @@ export interface ImportExecuteResult {
   review_count: number;
   executed_at?: string | null;
   audit_event_id?: string | null;
+  target_bulletin_id?: string | null;
 }
 
 

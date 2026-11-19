@@ -33,6 +33,12 @@ class ImportPreviewResponse(BaseModel):
     errors: List[ImportRowError] = []
     items: List[ReconciliationItem] = []
     reconciliation_summary: Dict[str, Any] = {}
+    target_bulletin_id: Optional[UUID] = None
+    target_bulletin_title: Optional[str] = None
+
+
+class ExecuteImportRequest(BaseModel):
+    bulletin_id: Optional[UUID] = None
 
 
 class ImportExecuteResponse(BaseModel):
@@ -48,6 +54,7 @@ class ImportExecuteResponse(BaseModel):
     review_count: int
     executed_at: Optional[datetime] = None
     audit_event_id: Optional[str] = None
+    target_bulletin_id: Optional[UUID] = None
 
 
 class ImportBatchOut(BaseModel):

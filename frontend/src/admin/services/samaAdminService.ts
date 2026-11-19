@@ -46,6 +46,7 @@ import {
   ImportPreviewResult,
   ImportExecuteResult,
   BulkDeleteResult,
+  BulkStatusUpdateResult,
   BulkDeleteCertificatesResponse,
   BulkRestoreCertificatesResponse,
   ArchivedCertificateListResponse,
@@ -114,6 +115,17 @@ export const samaAdminService = {
   async bulkDeletePublications(publicationIds: string[]): Promise<BulkDeleteResult> {
     const res = await apiClient.post<BulkDeleteResult>('/admin/sama/publications/bulk-delete', {
       publication_ids: publicationIds,
+    });
+    return res.data!;
+  },
+
+  async bulkUpdatePublicationStatus(
+    publicationIds: string[],
+    status: ContentStatus
+  ): Promise<BulkStatusUpdateResult> {
+    const res = await apiClient.patch<BulkStatusUpdateResult>('/admin/sama/publications/bulk-status', {
+      publication_ids: publicationIds,
+      status,
     });
     return res.data!;
   },
@@ -723,16 +735,20 @@ export const samaAdminService = {
   // =========================================================================
   // 7. DATA IMPORT & RECONCILIATION
   // =========================================================================
-  async previewImport(entityType: string, file: File): Promise<ImportPreviewResult> {
+  async previewImport(entityType: string, file: File, bulletinId?: string): Promise<ImportPreviewResult> {
     const formData = new FormData();
     formData.append('entity_type', entityType);
     formData.append('file', file);
+    if (bulletinId) {
+      formData.append('bulletin_id', bulletinId);
+    }
     const res = await apiClient.postFormData<ImportPreviewResult>('/admin/sama/import/preview', formData);
     return res.data!;
   },
 
-  async executeImport(batchId: string): Promise<ImportExecuteResult> {
-    const res = await apiClient.post<ImportExecuteResult>(`/admin/sama/import/execute/${batchId}`);
+  async executeImport(batchId: string, bulletinId?: string): Promise<ImportExecuteResult> {
+    const payload = bulletinId ? { bulletin_id: bulletinId } : {};
+    const res = await apiClient.post<ImportExecuteResult>(`/admin/sama/import/execute/${batchId}`, payload);
     return res.data!;
   },
 

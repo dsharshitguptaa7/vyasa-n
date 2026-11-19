@@ -29,10 +29,12 @@ export const UploadDocumentPage: React.FC = () => {
 
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [successResult, setSuccessResult] = useState<{ documentId: string; versionId: string } | null>(null);
 
   const handleFileChange = (selected: File | null) => {
     setErrorMsg(null);
+    setFieldErrors((prev) => ({ ...prev, file: '' }));
     if (!selected) {
       setFile(null);
       return;
@@ -40,17 +42,23 @@ export const UploadDocumentPage: React.FC = () => {
 
     const ext = '.' + selected.name.split('.').pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      setErrorMsg(`Invalid file type "${ext}". Supported formats: PDF (.pdf), Word (.docx), PowerPoint (.pptx), Plain text (.txt).`);
+      const msg = `Invalid file type "${ext}". Supported formats: PDF (.pdf), Word (.docx), PowerPoint (.pptx), Plain text (.txt).`;
+      setErrorMsg(msg);
+      setFieldErrors((prev) => ({ ...prev, file: msg }));
       return;
     }
 
     if (selected.size === 0) {
-      setErrorMsg('Cannot upload an empty (0 bytes) file.');
+      const msg = 'Cannot upload an empty (0 bytes) file.';
+      setErrorMsg(msg);
+      setFieldErrors((prev) => ({ ...prev, file: msg }));
       return;
     }
 
     if (selected.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMsg(`File exceeds maximum allowed upload size (50MB). Actual size: ${(selected.size / (1024 * 1024)).toFixed(1)}MB.`);
+      const msg = `File exceeds maximum allowed upload size (50MB). Actual size: ${(selected.size / (1024 * 1024)).toFixed(1)}MB.`;
+      setErrorMsg(msg);
+      setFieldErrors((prev) => ({ ...prev, file: msg }));
       return;
     }
 
@@ -70,21 +78,32 @@ export const UploadDocumentPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newFieldErrors: Record<string, string> = {};
+
     if (!file) {
-      setErrorMsg('Please select a valid document file to upload.');
-      return;
+      newFieldErrors.file = 'Please select a valid document file to upload.';
     }
     if (!title.trim()) {
-      setErrorMsg('Document title is mandatory.');
+      newFieldErrors.title = 'Document title is mandatory.';
+    }
+    if (academicSession && academicSession.trim() && !/^\d{4}-\d{2}(\d{2})?$/.test(academicSession.trim())) {
+      newFieldErrors.academic_session = 'Academic session must be in the format YYYY-YY or YYYY-YYYY (e.g. 2026-27 or 2026-2027).';
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      const firstMsg = Object.values(newFieldErrors)[0];
+      setErrorMsg(`Upload rejected: ${firstMsg}`);
       return;
     }
 
     try {
       setUploading(true);
       setErrorMsg(null);
+      setFieldErrors({});
 
       const res = await knowledgeAdminService.uploadDocument({
-        file,
+        file: file!,
         title: title.trim(),
         domain,
         document_type: documentType,
@@ -101,7 +120,48 @@ export const UploadDocumentPage: React.FC = () => {
         versionId: res.current_version_id || (res.current_version ? res.current_version.id : ''),
       });
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to upload document to Knowledge Centre.');
+      const serverFieldErrors: Record<string, string> = {};
+      const rawDetails = err.details || err.response?.data?.error?.details || err.response?.data?.detail;
+
+      if (Array.isArray(rawDetails)) {
+        rawDetails.forEach((d: any) => {
+          if (d && typeof d === 'object') {
+            const locKey = Array.isArray(d.loc)
+              ? d.loc[d.loc.length - 1]
+              : undefined;
+            if (locKey && typeof locKey === 'string') {
+              serverFieldErrors[locKey] = d.msg || 'Invalid field';
+            }
+          }
+        });
+      }
+      setFieldErrors(serverFieldErrors);
+
+      // Safe, meaningful error formatting distinguishing validation, conflict, permissions, and network
+      if (err.statusCode === 422 || err.errorCode === 'VALIDATION_ERROR') {
+        const detailSnippet = Object.entries(serverFieldErrors)
+          .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+          .join('; ');
+        setErrorMsg(
+          detailSnippet
+            ? `Upload rejected: ${detailSnippet}`
+            : (err.message && !err.message.includes('Request validation failed')
+                ? `Upload rejected: ${err.message}`
+                : 'Upload rejected: Required fields or formats are invalid. Please check the highlighted inputs.')
+        );
+      } else if (err.statusCode === 409 || err.errorCode === 'DUPLICATE_DOCUMENT') {
+        setErrorMsg(`Duplicate document: ${err.message || 'A document with identical content already exists in the Knowledge Centre.'}`);
+      } else if (err.statusCode === 413) {
+        setErrorMsg('Upload rejected: File size exceeds the maximum allowed server upload limit (50MB).');
+      } else if (err.statusCode === 415) {
+        setErrorMsg('Upload rejected: Unsupported file format.');
+      } else if (err.statusCode === 403) {
+        setErrorMsg('Access denied: You do not have Super Admin permissions to upload knowledge documents.');
+      } else if (err.statusCode === 0 || err.errorCode === 'NETWORK_ERROR') {
+        setErrorMsg('Network error: Unable to connect to VYASA backend service. Please verify your connection.');
+      } else {
+        setErrorMsg(err.message || 'Failed to upload document to Knowledge Centre.');
+      }
     } finally {
       setUploading(false);
     }
@@ -176,7 +236,7 @@ export const UploadDocumentPage: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* File Dropzone */}
-            <Card className="p-6 border-dashed border-2 border-gray-300 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-800/10">
+            <Card className={`p-6 border-dashed border-2 ${fieldErrors.file ? 'border-red-400 bg-red-50/20' : 'border-gray-300 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-800/10'}`}>
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
@@ -215,6 +275,9 @@ export const UploadDocumentPage: React.FC = () => {
                   </div>
                 )}
               </div>
+              {fieldErrors.file && (
+                <p className="text-xs text-red-500 text-center font-medium mt-1">{fieldErrors.file}</p>
+              )}
             </Card>
 
             {/* Document Metadata Form */}
@@ -233,9 +296,17 @@ export const UploadDocumentPage: React.FC = () => {
                   required
                   placeholder="e.g. CSJMU Ph.D. Ordinance 2026-27 (NEP Compliant)"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (fieldErrors.title) setFieldErrors((prev) => ({ ...prev, title: '' }));
+                  }}
+                  className={`w-full text-sm rounded-lg border ${
+                    fieldErrors.title ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                  } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                 />
+                {fieldErrors.title && (
+                  <p className="text-xs text-red-500 mt-1">{fieldErrors.title}</p>
+                )}
               </div>
 
               {/* Domain & Document Type */}
@@ -246,8 +317,13 @@ export const UploadDocumentPage: React.FC = () => {
                   </label>
                   <select
                     value={domain}
-                    onChange={(e) => setDomain(e.target.value as KnowledgeDomain)}
-                    className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      setDomain(e.target.value as KnowledgeDomain);
+                      if (fieldErrors.domain) setFieldErrors((prev) => ({ ...prev, domain: '' }));
+                    }}
+                    className={`w-full text-sm rounded-lg border ${
+                      fieldErrors.domain ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                    } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                   >
                     {KNOWLEDGE_DOMAINS.map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
@@ -256,6 +332,9 @@ export const UploadDocumentPage: React.FC = () => {
                   <div className="text-xs text-gray-500 mt-1">
                     Storage prefix: <span className="font-mono text-primary">vyasa-knowledge/{domain}/</span>
                   </div>
+                  {fieldErrors.domain && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.domain}</p>
+                  )}
                 </div>
 
                 <div>
@@ -264,13 +343,21 @@ export const UploadDocumentPage: React.FC = () => {
                   </label>
                   <select
                     value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                    className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      setDocumentType(e.target.value as DocumentType);
+                      if (fieldErrors.document_type) setFieldErrors((prev) => ({ ...prev, document_type: '' }));
+                    }}
+                    className={`w-full text-sm rounded-lg border ${
+                      fieldErrors.document_type ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                    } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                   >
                     {DOCUMENT_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
+                  {fieldErrors.document_type && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.document_type}</p>
+                  )}
                 </div>
               </div>
 
@@ -297,9 +384,17 @@ export const UploadDocumentPage: React.FC = () => {
                     type="text"
                     placeholder="e.g. 2026-27"
                     value={academicSession}
-                    onChange={(e) => setAcademicSession(e.target.value)}
-                    className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      setAcademicSession(e.target.value);
+                      if (fieldErrors.academic_session) setFieldErrors((prev) => ({ ...prev, academic_session: '' }));
+                    }}
+                    className={`w-full text-sm rounded-lg border ${
+                      fieldErrors.academic_session ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                    } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                   />
+                  {fieldErrors.academic_session && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.academic_session}</p>
+                  )}
                 </div>
               </div>
 
@@ -325,9 +420,17 @@ export const UploadDocumentPage: React.FC = () => {
                   <input
                     type="date"
                     value={effectiveFrom}
-                    onChange={(e) => setEffectiveFrom(e.target.value)}
-                    className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      setEffectiveFrom(e.target.value);
+                      if (fieldErrors.effective_from) setFieldErrors((prev) => ({ ...prev, effective_from: '' }));
+                    }}
+                    className={`w-full text-sm rounded-lg border ${
+                      fieldErrors.effective_from ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                    } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                   />
+                  {fieldErrors.effective_from && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.effective_from}</p>
+                  )}
                 </div>
 
                 <div>
@@ -337,9 +440,17 @@ export const UploadDocumentPage: React.FC = () => {
                   <input
                     type="date"
                     value={effectiveUntil}
-                    onChange={(e) => setEffectiveUntil(e.target.value)}
-                    className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    onChange={(e) => {
+                      setEffectiveUntil(e.target.value);
+                      if (fieldErrors.effective_until) setFieldErrors((prev) => ({ ...prev, effective_until: '' }));
+                    }}
+                    className={`w-full text-sm rounded-lg border ${
+                      fieldErrors.effective_until ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                    } bg-white dark:bg-gray-900 px-3 py-2 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                   />
+                  {fieldErrors.effective_until && (
+                    <p className="text-xs text-red-500 mt-1">{fieldErrors.effective_until}</p>
+                  )}
                 </div>
               </div>
 
@@ -352,9 +463,17 @@ export const UploadDocumentPage: React.FC = () => {
                   rows={3}
                   placeholder="Summary of statutory provisions, target departments, and relevance to AI question answering..."
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (fieldErrors.description) setFieldErrors((prev) => ({ ...prev, description: '' }));
+                  }}
+                  className={`w-full text-sm rounded-lg border ${
+                    fieldErrors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-primary'
+                  } bg-white dark:bg-gray-900 p-3 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2`}
                 />
+                {fieldErrors.description && (
+                  <p className="text-xs text-red-500 mt-1">{fieldErrors.description}</p>
+                )}
               </div>
             </Card>
 

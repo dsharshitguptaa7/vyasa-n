@@ -844,3 +844,100 @@ def test_bulk_delete_authors_partial_failure(client, sama_content_editor_user, m
         assert data["failed_count"] == 1
         assert data["failed_items"][0]["id"] == str(id2)
 
+
+def test_bulk_update_publication_status_as_publisher(client, sama_content_admin_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: sama_content_admin_user
+
+    id1 = uuid.uuid4()
+    id2 = uuid.uuid4()
+
+    with patch(
+        "app.modules.sama_veda.services.cms_service.sama_cms_service.bulk_update_publication_status",
+        return_value=([id1, id2], []),
+    ) as mock_bulk_status, patch.object(audit_service, "log_from_request") as mock_audit:
+
+        resp = client.patch(
+            "/api/admin/sama/publications/bulk-status",
+            json={"publication_ids": [str(id1), str(id2)], "status": "published"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["updated_count"] == 2
+        assert data["failed_count"] == 0
+        assert data["new_status"] == "published"
+        assert str(id1) in data["updated_ids"]
+        assert str(id2) in data["updated_ids"]
+        assert mock_audit.call_args.kwargs["action"] == "publications_bulk_status_updated"
+        assert mock_audit.call_args.kwargs["details"]["new_status"] == "published"
+
+
+def test_bulk_update_publication_status_forbidden_for_editor(client, sama_content_editor_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: sama_content_editor_user
+
+    id1 = uuid.uuid4()
+    resp = client.patch(
+        "/api/admin/sama/publications/bulk-status",
+        json={"publication_ids": [str(id1)], "status": "published"},
+    )
+    assert resp.status_code == 403
+
+
+def test_bulk_update_publication_status_validation_error(client, super_admin_user, mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: super_admin_user
+
+    # Invalid status
+    resp = client.patch(
+        "/api/admin/sama/publications/bulk-status",
+        json={"publication_ids": [str(uuid.uuid4())], "status": "invalid_status"},
+    )
+    assert resp.status_code == 422
+
+    # Empty IDs
+    resp = client.patch(
+        "/api/admin/sama/publications/bulk-status",
+        json={"publication_ids": [], "status": "published"},
+    )
+    assert resp.status_code == 422
+
+
+def test_bulk_update_publication_status_service_logic(mock_db):
+    from app.modules.sama_veda.services.cms_service import SamaCmsService
+
+    pub1 = ResearchPublication(
+        id=uuid.uuid4(),
+        bulletin_id=uuid.uuid4(),
+        serial_no=1,
+        slug="test-slug-1",
+        title="Test Title 1",
+        source_journal="Journal 1",
+        category="Article",
+        author_display="Author 1",
+        status="draft",
+        published_at=None,
+        archived_at=None,
+    )
+    missing_id = uuid.uuid4()
+
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [pub1, None]
+
+    # 1. Update to published
+    updated_ids, failed_items = SamaCmsService.bulk_update_publication_status(
+        mock_db, [pub1.id, missing_id], "published"
+    )
+    assert pub1.id in updated_ids
+    assert pub1.status == "published"
+    assert pub1.published_at is not None
+    assert len(failed_items) == 1
+    assert failed_items[0]["id"] == str(missing_id)
+
+    # 2. Update to archived
+    mock_db.execute.return_value.scalar_one_or_none.side_effect = [pub1]
+    updated_ids2, _ = SamaCmsService.bulk_update_publication_status(
+        mock_db, [pub1.id], "archived"
+    )
+    assert pub1.status == "archived"
+    assert pub1.archived_at is not None
+

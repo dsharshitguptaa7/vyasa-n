@@ -291,6 +291,121 @@ class TestDocumentUploadAndLifecycle:
         resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_user_reported_phd_ordinance_docx_upload_success(self, client_factory, sadmin_user_obj):
+        """
+        Regression test covering the exact scenario reported by the user:
+        - File: 'Ph.D. Ordinance CSJMU FINAL 2024-25 25.8.2-25.docx'
+        - MIME: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        - Knowledge Domain: 'academic-regulations'
+        - Document Type: 'ordinance'
+        - Academic Session: '2026-27'
+        - Description: populated
+        - Optional date fields: submitted as empty strings
+        """
+        client = client_factory(user_override=sadmin_user_obj)
+        docx_bytes = make_valid_docx()
+        files = {
+            "file": (
+                "Ph.D. Ordinance CSJMU FINAL 2024-25 25.8.2-25.docx",
+                docx_bytes,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        }
+        data = {
+            "title": "Ph.D. Ordinance CSJMU FINAL 2024-25",
+            "domain": "academic-regulations",
+            "document_type": "ordinance",
+            "academic_session": "2026-27",
+            "description": "Comprehensive Ph.D. research ordinance and guidelines for faculty and scholars.",
+            "effective_from": "",
+            "effective_until": "",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_201_CREATED
+        res_data = resp.json()["data"]
+        assert res_data["document_id"]
+        assert res_data["version_number"] == 1
+        assert "vyasa-knowledge/academic-regulations" in res_data["storage_key"]
+        assert res_data["checksum_sha256"] == hashlib.sha256(docx_bytes).hexdigest()
+
+    def test_upload_invalid_academic_session_rejected_with_422(self, client_factory, sadmin_user_obj):
+        client = client_factory(user_override=sadmin_user_obj)
+        files = {"file": ("sample.pdf", SAMPLE_PDF, "application/pdf")}
+        data = {
+            "title": "Invalid Session Doc",
+            "domain": "academic-regulations",
+            "document_type": "ordinance",
+            "academic_session": "2026/2027",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        body = resp.json()
+        error_text = body.get("message", "") or str(body.get("error", ""))
+        assert "Academic session must be in the format YYYY-YY or YYYY-YYYY" in error_text
+
+    def test_upload_invalid_document_type_rejected_with_422(self, client_factory, sadmin_user_obj):
+        client = client_factory(user_override=sadmin_user_obj)
+        files = {"file": ("sample.pdf", SAMPLE_PDF, "application/pdf")}
+        data = {
+            "title": "Invalid Type Doc",
+            "domain": "academic-regulations",
+            "document_type": "invalid_type",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        body = resp.json()
+        error_text = body.get("message", "") or str(body.get("error", ""))
+        assert "Invalid document type 'invalid_type'" in error_text
+
+    def test_upload_invalid_domain_rejected_with_422(self, client_factory, sadmin_user_obj):
+        client = client_factory(user_override=sadmin_user_obj)
+        files = {"file": ("sample.pdf", SAMPLE_PDF, "application/pdf")}
+        data = {
+            "title": "Invalid Domain Doc",
+            "domain": "non_existent_domain",
+            "document_type": "policy",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        body = resp.json()
+        error_text = body.get("message", "") or str(body.get("error", ""))
+        assert "Invalid knowledge domain 'non_existent_domain'" in error_text
+
+    def test_upload_missing_title_rejected_with_422(self, client_factory, sadmin_user_obj):
+        client = client_factory(user_override=sadmin_user_obj)
+        files = {"file": ("sample.pdf", SAMPLE_PDF, "application/pdf")}
+        data = {
+            "title": "   ",
+            "domain": "admissions",
+            "document_type": "policy",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        body = resp.json()
+        error_text = body.get("message", "") or str(body.get("error", ""))
+        assert "Document title is mandatory" in error_text
+
+    def test_upload_empty_optional_fields_succeeds(self, client_factory, sadmin_user_obj):
+        """Verifies empty strings submitted for optional fields do not fail datetime/string validation."""
+        client = client_factory(user_override=sadmin_user_obj)
+        unique_pdf = SAMPLE_PDF + b"% empty optional test\n"
+        files = {"file": ("empty_optional.pdf", unique_pdf, "application/pdf")}
+        data = {
+            "title": "Clean Optional Fields Doc",
+            "domain": "doctoral-studies",
+            "document_type": "guideline",
+            "description": "",
+            "subdomain": "",
+            "academic_session": "",
+            "issuing_authority": "",
+            "effective_from": "",
+            "effective_until": "",
+        }
+        resp = client.post("/api/v1/admin/knowledge-centre/documents/upload", files=files, data=data)
+        assert resp.status_code == status.HTTP_201_CREATED
+        res_data = resp.json()["data"]
+        assert res_data["version_number"] == 1
+
     def test_storage_cleanup_on_db_failure(self, mock_db_session, sadmin_user_obj, tmp_path):
         """Verifies that if the database transaction fails, the uploaded storage file is deleted."""
         provider = LocalStorageProvider(base_dir=tmp_path)

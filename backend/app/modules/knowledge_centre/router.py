@@ -6,6 +6,7 @@ All administrative endpoints are strictly protected by require_sadmin.
 
 from datetime import datetime
 import logging
+import re
 from typing import List, Optional
 import uuid
 
@@ -65,6 +66,51 @@ from app.modules.knowledge_centre.retrieval_service import (
 logger = logging.getLogger("vyasa.knowledge_centre.router")
 
 router = APIRouter(tags=["AI Knowledge Centre Administration"])
+
+ALLOWED_KNOWLEDGE_DOMAINS = {
+    "doctoral-studies",
+    "admissions",
+    "academic-regulations",
+    "research-development",
+    "university-administration",
+}
+
+ALLOWED_KNOWLEDGE_DOCUMENT_TYPES = {
+    "policy",
+    "ordinance",
+    "regulation",
+    "guideline",
+    "manual",
+    "circular",
+    "notification",
+    "brochure",
+    "report",
+    "form",
+    "presentation",
+    "other",
+}
+
+ACADEMIC_SESSION_REGEX = re.compile(r"^\d{4}-\d{2}(\d{2})?$")
+
+
+def _parse_optional_form_datetime(val: Optional[str], field_name: str) -> Optional[datetime]:
+    """
+    Safely parses an optional ISO date/datetime from multipart form data.
+    Gracefully handles empty string and whitespace as None, avoiding 422 errors on empty date inputs.
+    """
+    if val is None:
+        return None
+    cleaned = str(val).strip()
+    if not cleaned:
+        return None
+    try:
+        # Support both '2026-08-25' and '2026-08-25T00:00:00.000Z'
+        return datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid date format for '{field_name}'. Must be an ISO-8601 date (e.g. YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).",
+        ) from exc
 
 
 def run_background_extraction(document_id: uuid.UUID, version_id: uuid.UUID, job_id: Optional[uuid.UUID] = None):
@@ -168,8 +214,8 @@ async def upload_document(
     subdomain: Optional[str] = Form(None),
     academic_session: Optional[str] = Form(None),
     issuing_authority: Optional[str] = Form(None),
-    effective_from: Optional[datetime] = Form(None),
-    effective_until: Optional[datetime] = Form(None),
+    effective_from: Optional[str] = Form(None),
+    effective_until: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_sadmin),
 ):
@@ -181,8 +227,36 @@ async def upload_document(
     - Creates AiKnowledgeDocument and AiKnowledgeDocumentVersion (v1) in DRAFT state.
     - Dispatches background extraction and embedding task.
     """
-    if not file.filename:
+    if not file or not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file must have a valid filename.")
+
+    clean_title = (title or "").strip()
+    if not clean_title:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Document title is mandatory.")
+
+    clean_domain = (domain or "").strip().lower()
+    if clean_domain not in ALLOWED_KNOWLEDGE_DOMAINS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid knowledge domain '{domain}'. Allowed domains are: {', '.join(sorted(ALLOWED_KNOWLEDGE_DOMAINS))}.",
+        )
+
+    clean_doc_type = (document_type or "").strip().lower()
+    if clean_doc_type not in ALLOWED_KNOWLEDGE_DOCUMENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid document type '{document_type}'. Allowed types are: {', '.join(sorted(ALLOWED_KNOWLEDGE_DOCUMENT_TYPES))}.",
+        )
+
+    clean_session = (academic_session or "").strip() or None
+    if clean_session and not ACADEMIC_SESSION_REGEX.match(clean_session):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Academic session must be in the format YYYY-YY or YYYY-YYYY (e.g. 2026-27 or 2026-2027).",
+        )
+
+    dt_effective_from = _parse_optional_form_datetime(effective_from, "effective_from")
+    dt_effective_until = _parse_optional_form_datetime(effective_until, "effective_until")
 
     file_bytes = await file.read()
     if not file_bytes:
@@ -191,18 +265,18 @@ async def upload_document(
     try:
         doc, version = knowledge_service.create_document(
             db=db,
-            title=title.strip(),
-            domain=domain.strip(),
-            document_type=document_type.strip(),
+            title=clean_title,
+            domain=clean_domain,
+            document_type=clean_doc_type,
             filename=file.filename,
             file_bytes=file_bytes,
             uploaded_by=current_user,
-            description=description.strip() if description else None,
-            subdomain=subdomain.strip() if subdomain else None,
-            academic_session=academic_session.strip() if academic_session else None,
-            issuing_authority=issuing_authority.strip() if issuing_authority else None,
-            effective_from=effective_from,
-            effective_until=effective_until,
+            description=description.strip() if description and description.strip() else None,
+            subdomain=subdomain.strip() if subdomain and subdomain.strip() else None,
+            academic_session=clean_session,
+            issuing_authority=issuing_authority.strip() if issuing_authority and issuing_authority.strip() else None,
+            effective_from=dt_effective_from,
+            effective_until=dt_effective_until,
         )
         db.commit()
     except KnowledgeDuplicateDocumentError as exc:

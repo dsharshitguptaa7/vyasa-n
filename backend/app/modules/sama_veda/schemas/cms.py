@@ -94,6 +94,20 @@ class PublicationListResponse(BaseModel):
     limit: Optional[int] = 50
 
 
+class BulkUpdatePublicationStatusRequest(BaseModel):
+    publication_ids: List[uuid.UUID] = Field(..., min_length=1)
+    status: str = Field(..., pattern="^(draft|in_review|published|archived)$")
+
+
+class BulkUpdatePublicationStatusResult(BaseModel):
+    updated_count: int
+    updated_ids: List[str]
+    failed_count: int
+    failed_items: List[Dict[str, Any]] = []
+    total_requested: int
+    new_status: str
+
+
 class BulkDeletePublicationsRequest(BaseModel):
     publication_ids: List[uuid.UUID] = Field(..., min_length=1)
 

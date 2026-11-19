@@ -616,6 +616,194 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       const bulkDeleteBtn = screen.getByRole('button', { name: /Bulk Delete/i });
       expect(bulkDeleteBtn).toBeDisabled();
     });
+
+    it('supports multi-selection and bulk status update for authorized admin', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-admin',
+          email: 'admin@csjmu.ac.in',
+          first_name: 'Sama',
+          last_name: 'Admin',
+          role: 'sama_content_admin',
+          roles: ['sama_content_admin'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: true,
+        isSuperAdmin: false,
+      });
+
+      const bulkStatusSpy = vi
+        .spyOn(samaAdminService, 'bulkUpdatePublicationStatus')
+        .mockResolvedValue({
+          updated_count: 1,
+          updated_ids: ['pub-1'],
+          failed_count: 0,
+          failed_items: [],
+          total_requested: 1,
+          new_status: 'archived',
+        });
+
+      render(
+        <MemoryRouter>
+          <PublicationsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Quantum Machine Learning in Agricultural Remote Sensing')
+        ).toBeInTheDocument();
+      });
+
+      // Select row 1
+      const row1Checkbox = screen.getByLabelText('Select publication quantum-ml-agri');
+      fireEvent.click(row1Checkbox);
+
+      // Verify bulk action banner appears
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+      });
+
+      // Find and click Change Status button
+      const changeStatusBtn = screen.getByRole('button', { name: /Change Status/i });
+      expect(changeStatusBtn).not.toBeDisabled();
+      fireEvent.click(changeStatusBtn);
+
+      // Verify bulk status modal opens
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-status-modal')).toBeInTheDocument();
+        expect(screen.getByText(/You are about to update the lifecycle status of/i)).toBeInTheDocument();
+      });
+
+      // Confirm button disabled when no status selected
+      const confirmBtn = screen.getByRole('button', { name: /Confirm Bulk Status Update/i });
+      expect(confirmBtn).toBeDisabled();
+
+      // Select target status
+      const selectStatus = screen.getByTestId('bulk-status-select');
+      fireEvent.change(selectStatus, { target: { value: 'archived' } });
+
+      // Confirmation summary visible and confirm button enabled
+      expect(screen.getByText(/Confirmation Summary:/i)).toBeInTheDocument();
+      expect(confirmBtn).not.toBeDisabled();
+
+      // Submit
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(bulkStatusSpy).toHaveBeenCalledWith(['pub-1'], 'archived');
+      });
+    });
+
+    it('disables Change Status button in bulk action banner for users without publish permissions', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-editor',
+          email: 'editor@csjmu.ac.in',
+          first_name: 'Editor',
+          last_name: 'User',
+          role: 'sama_content_editor',
+          roles: ['sama_content_editor'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: false,
+        isSuperAdmin: false,
+      });
+
+      render(
+        <MemoryRouter>
+          <PublicationsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Quantum Machine Learning in Agricultural Remote Sensing')
+        ).toBeInTheDocument();
+      });
+
+      // Select row 1
+      const row1Checkbox = screen.getByLabelText('Select publication quantum-ml-agri');
+      fireEvent.click(row1Checkbox);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+      });
+
+      const changeStatusBtn = screen.getByRole('button', { name: /Change Status/i });
+      expect(changeStatusBtn).toBeDisabled();
+    });
+
+    it('preserves selection when bulk status update fails', async () => {
+      mockAuth({
+        user: {
+          id: 'usr-admin',
+          email: 'admin@csjmu.ac.in',
+          first_name: 'Admin',
+          last_name: 'User',
+          role: 'administrator',
+          roles: ['administrator'],
+          is_active: true,
+          is_verified: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+        isAdmin: true,
+        isSuperAdmin: false,
+      });
+
+      vi.spyOn(samaAdminService, 'bulkUpdatePublicationStatus').mockRejectedValueOnce(
+        new Error('Network connectivity lost')
+      );
+
+      render(
+        <MemoryRouter>
+          <PublicationsPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Quantum Machine Learning in Agricultural Remote Sensing')
+        ).toBeInTheDocument();
+      });
+
+      const row1Checkbox = screen.getByLabelText('Select publication quantum-ml-agri');
+      fireEvent.click(row1Checkbox);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Change Status/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-status-modal')).toBeInTheDocument();
+      });
+
+      const selectStatus = screen.getByTestId('bulk-status-select');
+      fireEvent.change(selectStatus, { target: { value: 'published' } });
+
+      const confirmBtn = screen.getByRole('button', { name: /Confirm Bulk Status Update/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Network connectivity lost')).toBeInTheDocument();
+      });
+
+      // Modal is still open with error, selection is preserved
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+      fireEvent.click(cancelBtn);
+
+      // Verify row is STILL selected and bulk action banner still shows
+      await waitFor(() => {
+        expect(screen.getByTestId('bulk-actions-banner')).toBeInTheDocument();
+        expect(row1Checkbox).toBeChecked();
+      });
+    });
   });
 
   // 3. Authors Page
@@ -956,6 +1144,252 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       });
     });
 
+    it('renders Target Bulletin dropdown dynamically for publications and disables preview until selection', async () => {
+      vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
+        items: [],
+        total: 0,
+        skip: 0,
+        limit: 10,
+      });
+
+      const getBulletinsSpy = vi.spyOn(samaAdminService, 'getBulletins').mockResolvedValue({
+        total: 2,
+        items: [
+          {
+            id: 'bull-101',
+            volume_number: 1,
+            issue_number: 1,
+            title: 'Inaugural Research Edition',
+            publication_period: 'Jan - Jun 2026',
+            file_path: 'bulletins/v1-i1.pdf',
+            file_size_bytes: 1024,
+            publication_count: 5,
+            is_active: true,
+            status: 'published',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'bull-102',
+            volume_number: 1,
+            issue_number: 2,
+            title: 'Monsoon Research Edition',
+            publication_period: 'Jul - Dec 2026',
+            file_path: 'bulletins/v1-i2.pdf',
+            file_size_bytes: 2048,
+            publication_count: 10,
+            is_active: true,
+            status: 'published',
+            created_at: '2026-07-01T00:00:00Z',
+          },
+        ],
+      });
+
+      render(
+        <MemoryRouter>
+          <ImportPage />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Custom File Import (JSON / CSV / Excel)'));
+
+      await waitFor(() => {
+        expect(getBulletinsSpy).toHaveBeenCalled();
+        expect(screen.getByLabelText('Target Bulletin *')).toBeInTheDocument();
+      });
+
+      const bulletinSelect = screen.getByLabelText('Target Bulletin *') as HTMLSelectElement;
+      // Default value is empty string (no bulletin selected by default)
+      expect(bulletinSelect.value).toBe('');
+      expect(screen.getByText('Select the bulletin in which these publications will be imported')).toBeInTheDocument();
+
+      // Dynamic options are loaded
+      expect(screen.getByText(/Volume 1 — Issue 1 \(Inaugural Research Edition • Jan - Jun 2026\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Volume 1 — Issue 2 \(Monsoon Research Edition • Jul - Dec 2026\)/i)).toBeInTheDocument();
+
+      // Preview button is disabled without bulletin selection
+      const previewBtn = screen.getByRole('button', { name: /Generate Dry-Run Preview/i });
+      expect(previewBtn).toBeDisabled();
+    });
+
+    it('sends selected bulletin ID in preview and execute requests and updates context on change', async () => {
+      vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
+        items: [],
+        total: 0,
+        skip: 0,
+        limit: 10,
+      });
+
+      vi.spyOn(samaAdminService, 'getBulletins').mockResolvedValue({
+        total: 1,
+        items: [
+          {
+            id: 'bull-101',
+            volume_number: 2,
+            issue_number: 1,
+            title: 'Spring Research Edition',
+            publication_period: 'Jan - Jun 2026',
+            file_path: 'bulletins/v2-i1.pdf',
+            file_size_bytes: 1024,
+            publication_count: 5,
+            is_active: true,
+            status: 'published',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      });
+
+      const previewSpy = vi.spyOn(samaAdminService, 'previewImport').mockResolvedValue({
+        batch_id: 'batch-preview-01',
+        batch_number: 'IMP-PUB-20261119-001',
+        entity_type: 'publications',
+        mode: 'preview',
+        total_rows: 2,
+        create_count: 2,
+        update_count: 0,
+        skip_count: 0,
+        review_count: 0,
+        fail_count: 0,
+        errors: [],
+        items: [],
+        reconciliation_summary: {},
+        target_bulletin_id: 'bull-101',
+        target_bulletin_title: 'Volume 2 — Issue 1 (Spring Research Edition)',
+      });
+
+      const executeSpy = vi.spyOn(samaAdminService, 'executeImport').mockResolvedValue({
+        batch_id: 'batch-preview-01',
+        batch_number: 'IMP-PUB-20261119-001',
+        entity_type: 'publications',
+        status: 'completed',
+        total_rows: 2,
+        created_count: 2,
+        updated_count: 0,
+        skipped_count: 0,
+        failed_count: 0,
+        review_count: 0,
+        target_bulletin_id: 'bull-101',
+      });
+
+      render(
+        <MemoryRouter>
+          <ImportPage />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Custom File Import (JSON / CSV / Excel)'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Target Bulletin *')).toBeInTheDocument();
+      });
+
+      // 1. Select bulletin
+      const bulletinSelect = screen.getByLabelText('Target Bulletin *');
+      fireEvent.change(bulletinSelect, { target: { value: 'bull-101' } });
+      expect((bulletinSelect as HTMLSelectElement).value).toBe('bull-101');
+
+      // 2. Select file
+      const file = new File(['[{"title": "Quantum ML"}]'], 'papers.json', { type: 'application/json' });
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      // 3. Button becomes enabled
+      const previewBtn = screen.getByRole('button', { name: /Generate Dry-Run Preview/i });
+      expect(previewBtn).not.toBeDisabled();
+
+      // 4. Click Preview -> previewImport called with target bulletin ID
+      fireEvent.click(previewBtn);
+      await waitFor(() => {
+        expect(previewSpy).toHaveBeenCalledWith('publications', file, 'bull-101');
+      });
+
+      // 5. Preview summary displays target bulletin information
+      await waitFor(() => {
+        expect(screen.getByTestId('preview-bulletin-summary')).toBeInTheDocument();
+        expect(screen.getByText(/Volume 2 — Issue 1 \(Spring Research Edition\)/i)).toBeInTheDocument();
+        expect(screen.getByText('All publications in this import batch will be assigned to the selected bulletin.')).toBeInTheDocument();
+      });
+
+      // 6. Click Execute Batch Import -> Modal opens showing target bulletin context
+      const execBtn = screen.getByRole('button', { name: /Execute Batch Import/i });
+      fireEvent.click(execBtn);
+
+      await waitFor(() => {
+        const modalInfo = screen.getByTestId('modal-bulletin-assignment-info');
+        expect(modalInfo).toBeInTheDocument();
+        expect(modalInfo).toHaveTextContent(/Volume 2 — Issue 1/i);
+        expect(modalInfo).toHaveTextContent(/2 record\(s\)/i);
+      });
+
+      // 7. Confirm execution -> executeImport called with batch ID and target bulletin ID
+      const confirmBtn = screen.getByRole('button', { name: /Confirm & Execute Import/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(executeSpy).toHaveBeenCalledWith('batch-preview-01', 'bull-101');
+      });
+    });
+
+    it('does not require bulletin selection for non-publication imports', async () => {
+      vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
+        items: [],
+        total: 0,
+        skip: 0,
+        limit: 10,
+      });
+
+      const previewSpy = vi.spyOn(samaAdminService, 'previewImport').mockResolvedValue({
+        batch_id: 'batch-preview-auth',
+        batch_number: 'IMP-AUT-20261119-001',
+        entity_type: 'authors',
+        mode: 'preview',
+        total_rows: 1,
+        create_count: 1,
+        update_count: 0,
+        skip_count: 0,
+        review_count: 0,
+        fail_count: 0,
+        errors: [],
+        items: [],
+        reconciliation_summary: {},
+      });
+
+      render(
+        <MemoryRouter>
+          <ImportPage />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Custom File Import (JSON / CSV / Excel)'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Target Bulletin *')).toBeInTheDocument();
+      });
+
+      // Switch entity type to authors
+      const entitySelect = screen.getByRole('combobox', { name: '' }) || document.querySelector('select');
+      // Find the entity select
+      const selects = screen.getAllByRole('combobox');
+      const targetEntitySelect = selects[0];
+      fireEvent.change(targetEntitySelect, { target: { value: 'authors' } });
+
+      // Target bulletin dropdown is now hidden
+      expect(screen.queryByLabelText('Target Bulletin *')).not.toBeInTheDocument();
+
+      // Upload file
+      const file = new File(['[{"name": "Dr. Verma"}]'], 'authors.json', { type: 'application/json' });
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      // Preview button is enabled without needing a bulletin
+      const previewBtn = screen.getByRole('button', { name: /Generate Dry-Run Preview/i });
+      expect(previewBtn).not.toBeDisabled();
+
+      fireEvent.click(previewBtn);
+      await waitFor(() => {
+        expect(previewSpy).toHaveBeenCalledWith('authors', file, undefined);
+      });
+    });
+
     it('displays bulk import guidelines, supported formats, and downloadable templates', async () => {
       vi.spyOn(samaAdminService, 'getImportBatches').mockResolvedValue({
         items: [],
@@ -984,6 +1418,31 @@ describe('Sama Veda CMS Admin Pages Suite', () => {
       expect(screen.getByText('Expected Column Headers (CSV / Excel) or JSON Keys:')).toBeInTheDocument();
       expect(screen.getByText('Download JSON Template')).toBeInTheDocument();
       expect(screen.getByText('Download CSV Template')).toBeInTheDocument();
+
+      // Bulletin Assignment dedicated section
+      const bulletinInfo = screen.getByTestId('bulletin-assignment-info');
+      expect(bulletinInfo).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 5, name: 'Bulletin Assignment' })).toBeInTheDocument();
+      expect(bulletinInfo).toHaveTextContent(/bulletin_id is automatically assigned by the system during import based on the selected target bulletin/i);
+      expect(bulletinInfo).toHaveTextContent(/You do not need to include bulletin_id in your JSON or CSV file/i);
+      expect(bulletinInfo).toHaveTextContent(/All publications in a bulk import will be associated with the selected bulletin/i);
+      expect(screen.getByText('Target bulletin must be selected during the import process.')).toBeInTheDocument();
+      expect(screen.getByText('Bulletin ID is resolved internally from the selected bulletin.')).toBeInTheDocument();
+      expect(bulletinInfo).toHaveTextContent(/bulletin_id is not required in the uploaded file/i);
+      expect(screen.getByText('All imported records will be linked to the selected bulletin.')).toBeInTheDocument();
+
+      // System-managed fields note
+      const systemFieldsNote = screen.getByTestId('system-managed-fields-note');
+      expect(systemFieldsNote).toBeInTheDocument();
+      expect(systemFieldsNote).toHaveTextContent(/System-managed fields:/i);
+      expect(systemFieldsNote).toHaveTextContent(/Fields such as bulletin_id are assigned internally during import and are not part of the publication upload schema/i);
+
+      // Template guidance note
+      const templateGuidance = screen.getByTestId('template-guidance-note');
+      expect(templateGuidance).toBeInTheDocument();
+      expect(templateGuidance).toHaveTextContent(/JSON and CSV files contain publication-level information only/i);
+      expect(templateGuidance).toHaveTextContent(/The same uploaded file can be reused for a different bulletin/i);
+      expect(templateGuidance).toHaveTextContent(/no database IDs should be manually added to the template/i);
     });
 
     it('supports batch selection and bulk delete for Super Admin', async () => {

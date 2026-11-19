@@ -7,6 +7,7 @@ import {
   ImportBatchRecord,
   ImportPreviewResult,
   ImportExecuteResult,
+  ResearchBulletinItem,
 } from '../../types/sama';
 
 interface FieldSpec {
@@ -47,6 +48,8 @@ const ENTITY_GUIDES: Record<string, EntityGuide> = {
     ],
     rules: [
       'Field "title" is mandatory. Any row missing a title will fail validation.',
+      'Bulletin association is handled by the import process; "bulletin_id" is system-managed and must not be included in the file.',
+      'Reusability: The same publication file can be reused across different bulletins by selecting a different target bulletin.',
       'Deduplication: The backend matches against existing records by "slug" or exact "title". Matches are flagged as SKIP (already exists).',
       'Slug Conflict: If an uploaded slug matches an existing publication with a different title, the row is marked as REVIEW for manual reconciliation.',
       'Safety policy: All successfully imported publications are safely initialized in non-public "draft" status.',
@@ -185,6 +188,11 @@ export const ImportPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showGuidelines, setShowGuidelines] = useState(true);
 
+  // Bulletins state (for publications import)
+  const [bulletins, setBulletins] = useState<ResearchBulletinItem[]>([]);
+  const [loadingBulletins, setLoadingBulletins] = useState(false);
+  const [selectedBulletinId, setSelectedBulletinId] = useState<string>('');
+
   // Preview state
   const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null);
   const [bundlePreviewResult, setBundlePreviewResult] = useState<Record<string, any> | null>(null);
@@ -209,8 +217,21 @@ export const ImportPage: React.FC = () => {
     }
   };
 
+  const fetchBulletins = async () => {
+    try {
+      setLoadingBulletins(true);
+      const res = await samaAdminService.getBulletins({ limit: 100 });
+      setBulletins(res.items || []);
+    } catch (err: any) {
+      console.error('Failed to load bulletins for bulk import:', err);
+    } finally {
+      setLoadingBulletins(false);
+    }
+  };
+
   useEffect(() => {
     fetchBatches();
+    fetchBulletins();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,11 +245,19 @@ export const ImportPage: React.FC = () => {
       setErrorMsg('Please select a file to import (JSON, CSV, or Excel).');
       return;
     }
+    if (entityType === 'publications' && !selectedBulletinId) {
+      setErrorMsg('Please select a target bulletin before generating the preview.');
+      return;
+    }
     try {
       setLoading(true);
       setErrorMsg(null);
       setSuccessMsg(null);
-      const res = await samaAdminService.previewImport(entityType, selectedFile);
+      const res = await samaAdminService.previewImport(
+        entityType,
+        selectedFile,
+        entityType === 'publications' ? selectedBulletinId : undefined
+      );
       setPreviewResult(res);
       setBundlePreviewResult(null);
       setSuccessMsg(`Preview generated for batch ${res.batch_number}. Review the reconciliation report below.`);
@@ -265,10 +294,18 @@ export const ImportPage: React.FC = () => {
 
   const handleConfirmExecute = async () => {
     if (previewResult) {
+      if (previewResult.entity_type === 'publications' && !selectedBulletinId && !previewResult.target_bulletin_id) {
+        setErrorMsg('Target bulletin must be selected before executing the import.');
+        return;
+      }
       try {
         setIsExecuting(true);
         setErrorMsg(null);
-        const res: ImportExecuteResult = await samaAdminService.executeImport(previewResult.batch_id);
+        const targetBId = previewResult.target_bulletin_id || selectedBulletinId;
+        const res: ImportExecuteResult = await samaAdminService.executeImport(
+          previewResult.batch_id,
+          previewResult.entity_type === 'publications' ? targetBId : undefined
+        );
         setSuccessMsg(`Batch ${res.batch_number} executed successfully: ${res.created_count} record(s) created in draft state, ${res.updated_count} updated, ${res.skipped_count} skipped.`);
         setPreviewResult(null);
         fetchBatches();
@@ -477,7 +514,10 @@ export const ImportPage: React.FC = () => {
                   </label>
                   <Select
                     value={entityType}
-                    onChange={(e) => setEntityType(e.target.value)}
+                    onChange={(e) => {
+                      setEntityType(e.target.value);
+                      setPreviewResult(null);
+                    }}
                     options={[
                       { label: 'Publications (Research Papers)', value: 'publications' },
                       { label: 'Authors & Scopus Identities', value: 'authors' },
@@ -486,6 +526,42 @@ export const ImportPage: React.FC = () => {
                     ]}
                   />
                 </div>
+
+                {entityType === 'publications' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#404040', marginBottom: '4px' }}>
+                      Target Bulletin <span style={{ color: '#e11d48' }}>*</span>
+                    </label>
+                    <Select
+                      aria-label="Target Bulletin *"
+                      value={selectedBulletinId}
+                      onChange={(e) => {
+                        setSelectedBulletinId(e.target.value);
+                        setPreviewResult(null);
+                      }}
+                      options={[
+                        {
+                          value: '',
+                          label: loadingBulletins
+                            ? 'Loading bulletins...'
+                            : 'Select the bulletin in which these publications will be imported',
+                        },
+                        ...bulletins.map((b) => {
+                          const vol = b.volume_number || b.volume || 1;
+                          const iss = b.issue_number || b.issue || 1;
+                          const period = b.publication_period || (b.publication_month && b.publication_year ? `${b.publication_month} ${b.publication_year}` : '');
+                          const extra = [b.title, period].filter(Boolean).join(' • ');
+                          const label = `Volume ${vol} — Issue ${iss}${extra ? ` (${extra})` : ''}`;
+                          return {
+                            value: b.id,
+                            label,
+                          };
+                        }),
+                      ]}
+                      disabled={loadingBulletins}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#404040', marginBottom: '4px' }}>
@@ -533,7 +609,7 @@ export const ImportPage: React.FC = () => {
                 <Button
                   variant="primary"
                   onClick={handleGenerateFilePreview}
-                  disabled={loading || !selectedFile}
+                  disabled={loading || !selectedFile || (entityType === 'publications' && !selectedBulletinId)}
                 >
                   {loading ? 'Validating File...' : 'Generate Dry-Run Preview'}
                 </Button>
@@ -573,6 +649,33 @@ export const ImportPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Template Scope & Reusability Note for Publications */}
+                {entityType === 'publications' && (
+                  <div
+                    data-testid="template-guidance-note"
+                    style={{
+                      padding: '12px 14px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      color: '#475569',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                      Template Scope &amp; Reusability:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: 1.5 }}>
+                      <li>JSON and CSV files contain publication-level information only.</li>
+                      <li>Bulletin association is handled by the import process; no database IDs should be manually added to the template.</li>
+                      <li>The same uploaded file can be reused for a different bulletin by selecting a different target bulletin.</li>
+                    </ul>
+                  </div>
+                )}
+
                 {/* Expected Column Headers Banner */}
                 <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#64748b', marginBottom: '6px' }}>
@@ -601,6 +704,65 @@ export const ImportPage: React.FC = () => {
                     })}
                   </div>
                 </div>
+
+                {/* Dedicated Bulletin Assignment Information Card */}
+                {entityType === 'publications' && (
+                  <div
+                    data-testid="bulletin-assignment-info"
+                    style={{
+                      padding: '14px 16px',
+                      background: '#f0f7ff',
+                      border: '1px solid #bae6fd',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                      <h5 style={{ fontSize: '13.5px', fontWeight: 700, color: '#0369a1', margin: 0 }}>
+                        Bulletin Assignment
+                      </h5>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: '#e0f2fe',
+                          color: '#0284c7',
+                          border: '1px solid #7dd3fc',
+                        }}
+                      >
+                        System Resolved
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 8px 0', lineHeight: 1.5, color: '#1e293b' }}>
+                      <code style={{ background: '#e0f2fe', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace', fontWeight: 600 }}>bulletin_id</code> is automatically assigned by the system during import based on the selected target bulletin. You do not need to include <code style={{ background: '#e0f2fe', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace', fontWeight: 600 }}>bulletin_id</code> in your JSON or CSV file. All publications in a bulk import will be associated with the selected bulletin.
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '18px', lineHeight: 1.6, color: '#334155' }}>
+                      <li>Target bulletin must be selected during the import process.</li>
+                      <li>Bulletin ID is resolved internally from the selected bulletin.</li>
+                      <li><code style={{ background: '#e2e8f0', padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace', fontSize: '11.5px' }}>bulletin_id</code> is not required in the uploaded file.</li>
+                      <li>All imported records will be linked to the selected bulletin.</li>
+                    </ul>
+                  </div>
+                )}
+
+                {/* System-Managed Fields Explanatory Note */}
+                {entityType === 'publications' && (
+                  <div
+                    data-testid="system-managed-fields-note"
+                    style={{
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      color: '#475569',
+                    }}
+                  >
+                    <strong style={{ color: '#1e293b' }}>System-managed fields:</strong> Fields such as <code style={{ fontFamily: 'monospace', background: '#e2e8f0', padding: '1px 4px', borderRadius: '3px', color: '#0f172a' }}>bulletin_id</code> are assigned internally during import and are not part of the publication upload schema.
+                  </div>
+                )}
 
                 {/* Field Specification Table */}
                 <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
@@ -757,6 +919,43 @@ export const ImportPage: React.FC = () => {
                 Execute Batch Import
               </Button>
             </div>
+
+            {/* Target Bulletin Context Summary for Publications */}
+            {previewResult.entity_type === 'publications' && (
+              <div
+                data-testid="preview-bulletin-summary"
+                style={{
+                  padding: '12px 16px',
+                  background: '#f0f7ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', color: '#0369a1' }}>
+                    <strong style={{ color: '#0c4a6e' }}>Target Bulletin:</strong>{' '}
+                    <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                      {previewResult.target_bulletin_title ||
+                        (() => {
+                          const b = bulletins.find((x) => x.id === (previewResult.target_bulletin_id || selectedBulletinId));
+                          if (!b) return 'Selected Bulletin';
+                          const vol = b.volume_number || b.volume || 1;
+                          const iss = b.issue_number || b.issue || 1;
+                          const period = b.publication_period || '';
+                          return `Volume ${vol} — Issue ${iss}${b.title ? ` • ${b.title}` : ''}${period ? ` (${period})` : ''}`;
+                        })()}
+                    </span>
+                  </div>
+                  <Badge variant="teal">Bulletin Linked</Badge>
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#0369a1' }}>
+                  All publications in this import batch will be assigned to the selected bulletin.
+                </div>
+              </div>
+            )}
 
             {/* Metrics Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
@@ -1055,6 +1254,44 @@ export const ImportPage: React.FC = () => {
             <p style={{ margin: 0 }}>
               Are you sure you want to execute this import batch into the समीक्षा repository?
             </p>
+
+            {previewResult && previewResult.entity_type === 'publications' && (
+              <div
+                data-testid="modal-bulletin-assignment-info"
+                style={{
+                  padding: '12px 14px',
+                  background: '#f0f7ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                <div>
+                  <strong style={{ color: '#0c4a6e' }}>Target Bulletin:</strong>{' '}
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                    {previewResult.target_bulletin_title ||
+                      (() => {
+                        const b = bulletins.find((x) => x.id === (previewResult.target_bulletin_id || selectedBulletinId));
+                        if (!b) return 'Selected Bulletin';
+                        const vol = b.volume_number || b.volume || 1;
+                        const iss = b.issue_number || b.issue || 1;
+                        return `Volume ${vol} — Issue ${iss}${b.title ? ` • ${b.title}` : ''}`;
+                      })()}
+                  </span>
+                </div>
+                <div>
+                  <strong style={{ color: '#0c4a6e' }}>Number of Publications to Import:</strong>{' '}
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>{previewResult.create_count} record(s)</span>
+                </div>
+                <div style={{ color: '#0284c7', marginTop: '2px', fontWeight: 500 }}>
+                  All publications in this import batch will be assigned to the selected bulletin.
+                </div>
+              </div>
+            )}
+
             <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', color: '#92400e', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div>• <strong>Draft Protection:</strong> All publications and bulletins will be initialized in non-public <code style={{ background: '#fef3c7', padding: '1px 3px' }}>draft</code> state.</div>
               <div>• <strong>Provisional Authors:</strong> Authors will remain marked as <code style={{ background: '#fef3c7', padding: '1px 3px' }}>is_verified=False</code>.</div>
