@@ -407,7 +407,7 @@ def test_case_11_retrieval_handles_dimension_mismatch_safely(mem_db):
 # ==============================================================================
 def test_case_12_existing_phd_rag_compatibility_preserved():
     """Verify existing Ph.D. RAG API contract (embed_text, embed_batch, constants)."""
-    assert DEFAULT_EMBEDDING_MODEL == "text-embedding-004"
+    assert DEFAULT_EMBEDDING_MODEL == "gemini-embedding-001"
     assert DEFAULT_EMBEDDING_DIMENSIONS == 768
     assert EMBEDDING_DIMENSIONS == 768
 

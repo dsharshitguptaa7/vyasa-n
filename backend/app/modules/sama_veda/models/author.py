@@ -101,7 +101,6 @@ class ResearchAuthor(Base):
     certificates: Mapped[List["FelicitationCertificate"]] = relationship(
         "FelicitationCertificate",
         back_populates="author",
-        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

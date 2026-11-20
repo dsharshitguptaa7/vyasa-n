@@ -330,6 +330,7 @@ def seed_institutional_authorities(
     specs: Optional[List[AuthoritySlotSpec]] = None,
     strict_16_slots: bool = True,
     strict_15_slots: Optional[bool] = None,
+    overwrite_existing: bool = False,
 ) -> Dict[str, Any]:
     """
     Idempotent seeding of institutional authority identities in VYASA Core.
@@ -400,15 +401,18 @@ def seed_institutional_authorities(
             users_created += 1
             logger.info("Created authority identity [%s]: %s (%s)", spec.slot, spec.email, spec.id)
         else:
-            user.email = spec.email
-            user.first_name = spec.first_name
-            user.last_name = spec.last_name
-            user.is_active = True
-            user.is_verified = True
-            if spec.password:
-                user.password_hash = hash_password(spec.password)
+            if overwrite_existing:
+                user.email = spec.email
+                user.first_name = spec.first_name
+                user.last_name = spec.last_name
+                user.is_active = True
+                user.is_verified = True
+                if spec.password:
+                    user.password_hash = hash_password(spec.password)
+                logger.info("Updated existing authority identity [%s]: %s (%s)", spec.slot, spec.email, spec.id)
+            else:
+                logger.info("Preserved existing authority identity [%s]: %s (%s)", spec.slot, user.email, user.id)
             users_updated += 1
-            logger.info("Updated existing authority identity [%s]: %s (%s)", spec.slot, spec.email, spec.id)
 
         # 4. Assign generic 'authority' role if not already assigned
         existing_role_ids = {r.id for r in user.roles}
@@ -436,6 +440,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="VYASA Institutional Authority Identity Seeder")
     parser.add_argument("--manifest", type=str, help="Path to authority manifest JSON file")
     parser.add_argument("--non-strict", action="store_true", help="Allow fewer than 16 slots (for testing/partial runs)")
+    parser.add_argument("--overwrite", action="store_true", help="Allow overwriting existing user details from manifest")
     args = parser.parse_args()
 
     strict = not args.non_strict
@@ -445,8 +450,8 @@ if __name__ == "__main__":
 
         if args.manifest:
             manifest_specs = load_manifest_from_file(args.manifest, strict_16_slots=strict)
-            result = seed_institutional_authorities(session, specs=manifest_specs, strict_16_slots=strict)
+            result = seed_institutional_authorities(session, specs=manifest_specs, strict_16_slots=strict, overwrite_existing=args.overwrite)
         else:
-            result = seed_institutional_authorities(session, strict_16_slots=strict)
+            result = seed_institutional_authorities(session, strict_16_slots=strict, overwrite_existing=args.overwrite)
 
         print(f"Authority seeding completed: {result}")

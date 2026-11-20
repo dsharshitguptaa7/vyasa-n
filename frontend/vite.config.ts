@@ -12,7 +12,21 @@ function spaFallbackPlugin() {
       const distDir = fileURLToPath(new URL('./dist', import.meta.url));
       const indexPath = path.join(distDir, 'index.html');
       if (fs.existsSync(indexPath)) {
-        const routes = ['phd-admission', 'vyasa-assistant', 'assistant', 'phd', 'applicant/login', 'dashboard'];
+        const routes = [
+          'phd-admission',
+          'vyasa-assistant',
+          'assistant',
+          'phd',
+          'applicant/login',
+          'dashboard',
+          'admin',
+          'admin/knowledge-centre',
+          'admin/knowledge-centre/documents',
+          'admin/knowledge-centre/upload',
+          'admin/knowledge-centre/approvals',
+          'admin/knowledge-centre/processing',
+          'admin/knowledge-centre/failed',
+        ];
         for (const route of routes) {
           const targetDir = path.join(distDir, route);
           fs.mkdirSync(targetDir, { recursive: true });

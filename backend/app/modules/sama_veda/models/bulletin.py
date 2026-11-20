@@ -109,13 +109,11 @@ class ResearchBulletin(Base):
     publications: Mapped[List["ResearchPublication"]] = relationship(
         "ResearchPublication",
         back_populates="bulletin",
-        cascade="all, delete-orphan",
         order_by="ResearchPublication.serial_no",
     )
     certificates: Mapped[List["FelicitationCertificate"]] = relationship(
         "FelicitationCertificate",
         back_populates="bulletin",
-        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

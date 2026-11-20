@@ -193,7 +193,10 @@ def resolve_assistant_dean(db: Session, email: str) -> Optional[NivaranAuthority
     return auth
 
 
-def seed_nivaran_subjects_and_clusters(db: Session) -> Dict[str, Any]:
+def seed_nivaran_subjects_and_clusters(
+    db: Session,
+    force_realign: bool = False,
+) -> Dict[str, Any]:
     """
     Idempotently seeds all 10 authoritative reference Subject Clusters and 56 Subjects into VYASA.
     
@@ -253,9 +256,8 @@ def seed_nivaran_subjects_and_clusters(db: Session) -> Dict[str, Any]:
                 "assistant_dean_id": str(asst_dean_id) if asst_dean_id else None,
             })
         else:
-            # Preserve existing cluster record; update assistant_dean if unassigned and resolved
-            if existing_cluster.assistant_dean_id is None and asst_dean_id is not None:
-                existing_cluster.assistant_dean_id = asst_dean_id
+            # Preserve existing cluster record completely.
+            # Never overwrite admin-configured values (including intentionally unassigned assistant_dean_id).
             cluster_record_map[num] = existing_cluster
             clusters_existing.append({
                 "id": str(existing_cluster.id),
@@ -294,8 +296,18 @@ def seed_nivaran_subjects_and_clusters(db: Session) -> Dict[str, Any]:
                     "cluster_id": str(cluster.id),
                 })
             else:
-                # Ensure mapping points to the authoritative cluster
-                if existing_subj.subject_cluster_id != cluster.id:
+                # Existing subject found:
+                # DO NOT overwrite admin-configured subject_cluster_id!
+                # Only populate cluster mapping if it is completely missing (orphan subject)
+                # or if force_realign is explicitly requested.
+                if force_realign and existing_subj.subject_cluster_id != cluster.id:
+                    existing_subj.subject_cluster_id = cluster.id
+                    subjects_realigned.append({
+                        "name": subj_name,
+                        "cluster_number": cluster_num,
+                        "cluster_id": str(cluster.id),
+                    })
+                elif existing_subj.subject_cluster_id is None:
                     existing_subj.subject_cluster_id = cluster.id
                     subjects_realigned.append({
                         "name": subj_name,

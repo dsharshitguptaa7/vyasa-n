@@ -165,38 +165,53 @@ class PhdIngestionService:
         db.add(doc_record)
         db.flush()
 
-        # Chunk document
-        chunks = self.parser.chunk_document(parse_res)
-        logger.info("Generated %d chunks for '%s'. Generating embeddings...", len(chunks), filename)
+        try:
+            # Chunk document
+            chunks = self.parser.chunk_document(parse_res)
+            logger.info("Generated %d chunks for '%s'. Generating embeddings...", len(chunks), filename)
 
-        # Batch embed chunk texts
-        chunk_texts = [c.chunk_text for c in chunks]
-        embeddings = self.embedder.embed_batch(chunk_texts)
+            # Batch embed chunk texts
+            chunk_texts = [c.chunk_text for c in chunks]
+            embeddings = self.embedder.embed_batch(chunk_texts)
 
-        # Store chunks in database
-        chunk_entities = []
-        for i, c in enumerate(chunks):
-            chunk_rec = PhdChunk(
-                id=uuid.uuid4(),
-                document_id=doc_record.id,
-                chunk_index=c.chunk_index,
-                doc_type=c.doc_type,
-                document_title=c.document_title,
-                source_filename=c.source_filename,
-                academic_session=c.academic_session,
-                page_number=c.page_number,
-                slide_number=c.slide_number,
-                section_heading=c.section_heading,
-                chunk_text=c.chunk_text,
-                token_count=c.token_count,
-                checksum_sha256=c.checksum_sha256,
-                embedding=embeddings[i] if i < len(embeddings) else None,
-            )
-            chunk_entities.append(chunk_rec)
+            # Store chunks in database
+            chunk_entities = []
+            for i, c in enumerate(chunks):
+                chunk_rec = PhdChunk(
+                    id=uuid.uuid4(),
+                    document_id=doc_record.id,
+                    chunk_index=c.chunk_index,
+                    doc_type=c.doc_type,
+                    document_title=c.document_title,
+                    source_filename=c.source_filename,
+                    academic_session=c.academic_session,
+                    page_number=c.page_number,
+                    slide_number=c.slide_number,
+                    section_heading=c.section_heading,
+                    chunk_text=c.chunk_text,
+                    token_count=c.token_count,
+                    checksum_sha256=c.checksum_sha256,
+                    embedding=embeddings[i] if i < len(embeddings) else None,
+                )
+                chunk_entities.append(chunk_rec)
 
-        db.add_all(chunk_entities)
-        doc_record.processing_status = "COMPLETED"
-        db.commit()
+            db.add_all(chunk_entities)
+            doc_record.processing_status = "COMPLETED"
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.error("Failed to extract and embed document '%s': %s", filename, exc, exc_info=True)
+            try:
+                doc_record = db.execute(
+                    select(PhdDocument).where(PhdDocument.filename == filename)
+                ).scalar_one_or_none()
+                if doc_record:
+                    doc_record.processing_status = "FAILED"
+                    doc_record.extraction_notes = f"Extraction/Embedding failure: {exc}"
+                    db.commit()
+            except Exception:
+                db.rollback()
+            raise
 
         logger.info("Successfully ingested '%s' (%d chunks).", filename, len(chunk_entities))
         return {

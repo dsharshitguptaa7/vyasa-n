@@ -36,7 +36,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to execute database seeding: %s", str(exc))
 
-    # 3. Start Periodic Scheduled Certificate Activation Worker
+    # 3. Validate Centralized Embedding Provider Configuration
+    try:
+        from app.modules.phd_rag.services.embedding_service import embedding_service
+        provider_health = embedding_service.validate_provider(check_live=False)
+        if provider_health["status"] == "HEALTHY":
+            logger.info(
+                "Embedding provider validated: model=%s, dimensions=%d, mode=%s",
+                provider_health["model"],
+                provider_health["dimensions"],
+                provider_health["mode"],
+            )
+        else:
+            logger.warning(
+                "Embedding provider warning [%s]: %s",
+                provider_health["status"],
+                "; ".join(provider_health["issues"]),
+            )
+    except Exception as emb_exc:
+        logger.warning("Embedding provider startup validation failed: %s", emb_exc)
+
+    # 4. Start Periodic Scheduled Certificate Activation Worker
     import asyncio
 
     def _run_scheduled_activation():

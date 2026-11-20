@@ -114,6 +114,7 @@ class SamaCmsService:
         is_featured: Optional[bool] = None,
     ) -> Tuple[int, List[ResearchPublication]]:
         query = select(ResearchPublication).options(
+            joinedload(ResearchPublication.bulletin),
             joinedload(ResearchPublication.author_links).joinedload(PublicationAuthor.author)
         )
 
@@ -177,41 +178,84 @@ class SamaCmsService:
 
     @staticmethod
     def create_publication(db: Session, data: PublicationCreate) -> ResearchPublication:
-        published_at = datetime.now(timezone.utc) if data.status == "published" else None
-        publication = ResearchPublication(
-            bulletin_id=data.bulletin_id,
-            serial_no=data.serial_no,
-            slug=data.slug,
-            title=data.title,
-            source_journal=data.source_journal,
-            category=data.category,
-            doi=data.doi,
-            author_display=data.author_display,
-            authors_complete=data.authors_complete,
-            status=data.status,
-            abstract=data.abstract,
-            external_url=data.external_url,
-            is_featured=data.is_featured,
-            published_at=published_at,
-        )
-        db.add(publication)
-        db.flush()
+        # 1. Validate target bulletin exists
+        bulletin = db.get(ResearchBulletin, data.bulletin_id)
+        if not bulletin:
+            raise ValueError(f"Referenced research bulletin with ID '{data.bulletin_id}' does not exist.")
 
-        # Link authors if provided
+        # 2. Slug validation and deterministic generation
+        clean_slug: str
+        if data.slug and data.slug.strip():
+            candidate = data.slug.strip()
+            existing = db.scalar(select(ResearchPublication).where(ResearchPublication.slug == candidate))
+            if existing:
+                raise ValueError(f"Publication with slug '{candidate}' already exists. Please choose a unique slug or leave blank to auto-generate.")
+            clean_slug = candidate
+        else:
+            base_slug = f"v{bulletin.volume_number}-i{bulletin.issue_number}-r{data.serial_no:03d}"
+            candidate_slug = base_slug
+            suffix = 1
+            while db.scalar(select(ResearchPublication).where(ResearchPublication.slug == candidate_slug)):
+                candidate_slug = f"{base_slug}-{suffix}"
+                suffix += 1
+            clean_slug = candidate_slug
+
+        # 3. Validate author links if provided
+        author_links_to_add = []
         if data.author_links:
-            for link in data.author_links:
+            seen_author_ids = set()
+            for idx, link in enumerate(data.author_links, start=1):
+                if link.author_id in seen_author_ids:
+                    raise ValueError(f"Duplicate researcher link for author ID '{link.author_id}'. Each author may only be linked once per publication.")
+                seen_author_ids.add(link.author_id)
+                author_links_to_add.append({
+                    "author_id": link.author_id,
+                    "author_order": link.author_order if link.author_order is not None else idx,
+                    "is_corresponding": bool(link.is_corresponding),
+                })
+            existing_authors = db.scalars(select(ResearchAuthor.id).where(ResearchAuthor.id.in_(seen_author_ids))).all()
+            missing = seen_author_ids - set(existing_authors)
+            if missing:
+                raise ValueError(f"Referenced researcher author ID '{next(iter(missing))}' does not exist in the institutional directory.")
+
+        published_at = datetime.now(timezone.utc) if data.status == "published" else None
+        try:
+            publication = ResearchPublication(
+                bulletin_id=data.bulletin_id,
+                serial_no=data.serial_no,
+                slug=clean_slug,
+                title=data.title,
+                source_journal=data.source_journal,
+                category=data.category,
+                doi=data.doi,
+                author_display=data.author_display,
+                authors_complete=data.authors_complete,
+                status=data.status,
+                abstract=data.abstract,
+                external_url=data.external_url,
+                is_featured=data.is_featured,
+                published_at=published_at,
+            )
+            db.add(publication)
+            db.flush()
+
+            # Link authors if provided
+            for link_data in author_links_to_add:
                 pa = PublicationAuthor(
                     publication_id=publication.id,
-                    author_id=link.author_id,
-                    author_order=link.author_order,
-                    is_corresponding=link.is_corresponding,
+                    author_id=link_data["author_id"],
+                    author_order=link_data["author_order"],
+                    is_corresponding=link_data["is_corresponding"],
                 )
                 db.add(pa)
             db.flush()
 
-        db.commit()
-        db.refresh(publication)
-        return publication
+            db.commit()
+            db.refresh(publication)
+            return publication
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def update_publication(
@@ -220,30 +264,75 @@ class SamaCmsService:
         update_dict = data.model_dump(exclude_unset=True)
         author_links_data = update_dict.pop("author_links", None)
 
+        if "bulletin_id" in update_dict and update_dict["bulletin_id"] is not None:
+            new_bulletin = db.get(ResearchBulletin, update_dict["bulletin_id"])
+            if not new_bulletin:
+                raise ValueError(f"Referenced research bulletin with ID '{update_dict['bulletin_id']}' does not exist.")
+
+        if "slug" in update_dict:
+            new_slug = update_dict["slug"]
+            if new_slug and new_slug.strip():
+                clean_slug = new_slug.strip()
+                if clean_slug != publication.slug:
+                    existing = db.scalar(
+                        select(ResearchPublication).where(
+                            ResearchPublication.slug == clean_slug,
+                            ResearchPublication.id != publication.id,
+                        )
+                    )
+                    if existing:
+                        raise ValueError(f"Publication with slug '{clean_slug}' already exists. Please choose a unique slug.")
+                    update_dict["slug"] = clean_slug
+            else:
+                update_dict.pop("slug", None)
+
         if "status" in update_dict and update_dict["status"] != publication.status:
             if update_dict["status"] == "published" and not publication.published_at:
                 publication.published_at = datetime.now(timezone.utc)
             elif update_dict["status"] == "archived":
                 publication.archived_at = datetime.now(timezone.utc)
 
-        for key, value in update_dict.items():
-            setattr(publication, key, value)
-
+        author_links_to_add = []
         if author_links_data is not None:
-            # Replace existing author links
-            db.query(PublicationAuthor).filter(PublicationAuthor.publication_id == publication.id).delete()
-            for link in author_links_data:
-                pa = PublicationAuthor(
-                    publication_id=publication.id,
-                    author_id=link["author_id"],
-                    author_order=link.get("author_order", 1),
-                    is_corresponding=link.get("is_corresponding", False),
-                )
-                db.add(pa)
+            seen_author_ids = set()
+            for idx, link in enumerate(author_links_data, start=1):
+                auth_id = link["author_id"] if isinstance(link, dict) else link.author_id
+                if auth_id in seen_author_ids:
+                    raise ValueError(f"Duplicate researcher link for author ID '{auth_id}'. Each author may only be linked once per publication.")
+                seen_author_ids.add(auth_id)
+                author_links_to_add.append({
+                    "author_id": auth_id,
+                    "author_order": (link.get("author_order") if isinstance(link, dict) else getattr(link, "author_order", None)) or idx,
+                    "is_corresponding": bool(link.get("is_corresponding") if isinstance(link, dict) else getattr(link, "is_corresponding", False)),
+                })
+            if seen_author_ids:
+                existing_authors = db.scalars(select(ResearchAuthor.id).where(ResearchAuthor.id.in_(seen_author_ids))).all()
+                missing = seen_author_ids - set(existing_authors)
+                if missing:
+                    raise ValueError(f"Referenced researcher author ID '{next(iter(missing))}' does not exist in the institutional directory.")
 
-        db.commit()
-        db.refresh(publication)
-        return publication
+        try:
+            for key, value in update_dict.items():
+                setattr(publication, key, value)
+
+            if author_links_data is not None:
+                # Replace existing author links
+                db.query(PublicationAuthor).filter(PublicationAuthor.publication_id == publication.id).delete()
+                for link_data in author_links_to_add:
+                    pa = PublicationAuthor(
+                        publication_id=publication.id,
+                        author_id=link_data["author_id"],
+                        author_order=link_data["author_order"],
+                        is_corresponding=link_data["is_corresponding"],
+                    )
+                    db.add(pa)
+
+            db.commit()
+            db.refresh(publication)
+            return publication
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def update_publication_status(
@@ -260,6 +349,23 @@ class SamaCmsService:
 
     @staticmethod
     def delete_publication(db: Session, publication: ResearchPublication) -> None:
+        issued_certs = db.scalar(
+            select(func.count(FelicitationCertificate.id)).where(
+                FelicitationCertificate.publication_id == publication.id,
+                FelicitationCertificate.status == "ISSUED",
+            )
+        ) or 0
+        if issued_certs > 0:
+            raise ValueError(
+                f"Cannot delete publication '{publication.title}': {issued_certs} legally issued felicitation certificate(s) depend on this publication record."
+            )
+
+        certs = db.execute(
+            select(FelicitationCertificate).where(FelicitationCertificate.publication_id == publication.id)
+        ).scalars().all()
+        for c in certs:
+            c.publication_id = None
+
         db.delete(publication)
         db.commit()
 
@@ -281,6 +387,19 @@ class SamaCmsService:
                     failed_items.append({
                         "id": str(pub_id),
                         "reason": "Publication not found",
+                    })
+                    continue
+
+                issued_certs = db.scalar(
+                    select(func.count(FelicitationCertificate.id)).where(
+                        FelicitationCertificate.publication_id == pub_id,
+                        FelicitationCertificate.status == "ISSUED",
+                    )
+                ) or 0
+                if issued_certs > 0:
+                    failed_items.append({
+                        "id": str(pub_id),
+                        "reason": f"Cannot delete publication: {issued_certs} legally issued felicitation certificate(s) depend on this publication record.",
                     })
                     continue
 
@@ -476,6 +595,32 @@ class SamaCmsService:
 
     @staticmethod
     def delete_author(db: Session, author: ResearchAuthor) -> None:
+        cert_count = db.scalar(
+            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.author_id == author.id)
+        ) or 0
+        multi_cert_count = db.scalar(
+            select(func.count(CertificateAuthor.id)).where(CertificateAuthor.researcher_id == author.id)
+        ) or 0
+        total_certs = cert_count + multi_cert_count
+        if total_certs > 0:
+            raise ValueError(
+                f"Cannot delete researcher '{author.full_name}': {total_certs} legally issued felicitation certificate(s) depend on this author identity."
+            )
+
+        pub_count = db.scalar(
+            select(func.count(PublicationAuthor.id)).where(PublicationAuthor.author_id == author.id)
+        ) or 0
+        if pub_count > 0:
+            raise ValueError(
+                f"Cannot delete researcher '{author.full_name}': associated as co-author on {pub_count} research publication(s). Please remove or reassign co-author links first."
+            )
+
+        spotlights = db.execute(
+            select(ResearcherSpotlight).where(ResearcherSpotlight.author_id == author.id)
+        ).scalars().all()
+        for s in spotlights:
+            s.author_id = None
+
         db.delete(author)
         db.commit()
 
@@ -497,6 +642,30 @@ class SamaCmsService:
                     failed_items.append({
                         "id": str(author_id),
                         "reason": "Author not found",
+                    })
+                    continue
+
+                cert_count = db.scalar(
+                    select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.author_id == author_id)
+                ) or 0
+                multi_cert_count = db.scalar(
+                    select(func.count(CertificateAuthor.id)).where(CertificateAuthor.researcher_id == author_id)
+                ) or 0
+                total_certs = cert_count + multi_cert_count
+                if total_certs > 0:
+                    failed_items.append({
+                        "id": str(author_id),
+                        "reason": f"Cannot delete researcher '{author.full_name}': {total_certs} legally issued felicitation certificate(s) depend on this author identity.",
+                    })
+                    continue
+
+                pub_count = db.scalar(
+                    select(func.count(PublicationAuthor.id)).where(PublicationAuthor.author_id == author_id)
+                ) or 0
+                if pub_count > 0:
+                    failed_items.append({
+                        "id": str(author_id),
+                        "reason": f"Cannot delete researcher '{author.full_name}': associated as co-author on {pub_count} research publication(s). Please remove or reassign co-author links first.",
                     })
                     continue
 
@@ -613,6 +782,22 @@ class SamaCmsService:
 
     @staticmethod
     def delete_bulletin(db: Session, bulletin: ResearchBulletin) -> None:
+        pub_count = db.scalar(
+            select(func.count(ResearchPublication.id)).where(ResearchPublication.bulletin_id == bulletin.id)
+        ) or 0
+        if pub_count > 0:
+            raise ValueError(
+                f"Cannot delete research bulletin '{bulletin.title}': {pub_count} publication(s) are associated with this edition. Please reassign or delete these publications first."
+            )
+
+        cert_count = db.scalar(
+            select(func.count(FelicitationCertificate.id)).where(FelicitationCertificate.bulletin_id == bulletin.id)
+        ) or 0
+        if cert_count > 0:
+            raise ValueError(
+                f"Cannot delete research bulletin '{bulletin.title}': {cert_count} legally issued felicitation certificate(s) depend on this bulletin issue."
+            )
+
         db.delete(bulletin)
         db.commit()
 

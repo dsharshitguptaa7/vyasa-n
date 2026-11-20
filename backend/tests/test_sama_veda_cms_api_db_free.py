@@ -624,6 +624,7 @@ def test_workflow_certificate_issuance_and_authorized_download(client, mock_db, 
     mock_db.get.return_value = mock_cert
 
     with patch("app.modules.sama_veda.services.cms_service.sama_cms_service.get_certificate_by_number", return_value=None), \
+         patch("app.modules.sama_veda.services.cms_service.sama_cms_service.get_certificate_by_token", return_value=None), \
          patch("app.modules.sama_veda.services.cms_service.sama_cms_service.get_bulletin_by_id", return_value=MagicMock()), \
          patch("app.modules.sama_veda.services.cms_service.sama_cms_service.get_author_by_id", return_value=MagicMock()), \
          patch("app.modules.sama_veda.services.cms_service.sama_cms_service.issue_certificate", return_value=mock_cert), \

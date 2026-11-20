@@ -23,7 +23,8 @@ export { AnudaanFelicitationPage } from './pages/anudaan/AnudaanFelicitationPage
 export { AnudaanGalleryPage } from './pages/anudaan/AnudaanGalleryPage';
 export { AnudaanConfigPage } from './pages/anudaan/AnudaanConfigPage';
 
-// AI Knowledge Centre Administration Pages
+// AI Knowledge Centre Administration Pages & Styles
+import './pages/knowledge/KnowledgeCenter.css';
 export { KnowledgeDashboardPage } from './pages/knowledge/KnowledgeDashboardPage';
 export { DocumentLibraryPage } from './pages/knowledge/DocumentLibraryPage';
 export { UploadDocumentPage } from './pages/knowledge/UploadDocumentPage';

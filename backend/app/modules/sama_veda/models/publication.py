@@ -31,7 +31,7 @@ class ResearchPublication(Base):
     )
     bulletin_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("sama_research_bulletins.id", ondelete="CASCADE"),
+        ForeignKey("sama_research_bulletins.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
         comment="Foreign key to the bulletin edition publishing this record",

@@ -10,7 +10,7 @@ Publication Eligibility Requirements:
 3. AiKnowledgeDocumentVersion.approval_status == 'approved'
 4. AiKnowledgeChunk.verification_status IN ('indexed', 'verified')
 5. Version extraction_status != 'failed'
-6. Embedding provenance matches active model (e.g. text-embedding-004) and 768 dimensions.
+6. Embedding provenance matches active model (e.g. gemini-embedding-001) and 768 dimensions.
 
 Guarantees:
 - Enforced directly at SQL query level; drafts, rejected, archived, historical, and unapproved versions are never returned.

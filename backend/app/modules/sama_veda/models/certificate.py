@@ -318,7 +318,7 @@ class FelicitationCertificate(Base):
     )
     bulletin_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("sama_research_bulletins.id", ondelete="CASCADE"),
+        ForeignKey("sama_research_bulletins.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
         comment="The research bulletin issue in which the work was felicitated (optional for direct issuances)",
@@ -340,7 +340,7 @@ class FelicitationCertificate(Base):
     )
     author_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("sama_research_authors.id", ondelete="CASCADE"),
+        ForeignKey("sama_research_authors.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
         comment="Primary felicitated author receiving this certificate (legacy / primary link)",

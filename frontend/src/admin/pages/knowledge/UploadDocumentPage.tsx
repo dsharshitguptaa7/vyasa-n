@@ -9,6 +9,7 @@ import {
   KnowledgeDomain,
   DocumentType,
 } from '../../types/knowledge';
+import './KnowledgeCenter.css';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.txt'];
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
@@ -171,8 +172,8 @@ export const UploadDocumentPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout activeTab="knowledge-centre">
-      <div className="space-y-6 p-6 max-w-4xl mx-auto">
+    <AdminLayout activeTab="knowledge-upload">
+      <div className="vyasa-kc-page space-y-6 p-6 max-w-4xl mx-auto">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
           <span onClick={() => navigate('/admin/knowledge-centre')} className="cursor-pointer hover:underline">
@@ -256,6 +257,7 @@ export const UploadDocumentPage: React.FC = () => {
                   type="file"
                   accept=".pdf,.docx,.pptx,.txt"
                   className="hidden"
+                  style={{ display: 'none' }}
                   onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null)}
                 />
                 <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">

@@ -165,7 +165,8 @@ def _serialize_document(d: AiKnowledgeDocument) -> KnowledgeDocumentItem:
     if d.current_version:
         cur_ver = _serialize_version(d.current_version)
     elif getattr(d, "versions", None) and len(d.versions) > 0:
-        cur_ver = _serialize_version(d.versions[0])
+        latest_ver = sorted(d.versions, key=lambda v: getattr(v, "version_number", 0), reverse=True)[0]
+        cur_ver = _serialize_version(latest_ver)
 
     chunk_cnt = len(getattr(d, "chunks", [])) if hasattr(d, "chunks") else 0
     version_cnt = len(getattr(d, "versions", [])) if hasattr(d, "versions") else 0

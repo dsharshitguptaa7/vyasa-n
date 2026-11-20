@@ -310,16 +310,18 @@ def test_publication_foreign_keys():
     assert len(fks) == 1
     fk = fks[0]
     assert fk.target_fullname == "sama_research_bulletins.id"
-    assert fk.ondelete == "CASCADE"
+    # Phase 2A: RESTRICT prevents silent cascading deletion of published research records
+    assert fk.ondelete == "RESTRICT"
 
 
 def test_certificate_foreign_keys():
     table = Base.metadata.tables["sama_felicitation_certificates"]
     fk_targets = {fk.target_fullname: fk.ondelete for fk in table.foreign_keys}
     assert "sama_research_bulletins.id" in fk_targets
-    assert fk_targets["sama_research_bulletins.id"] == "CASCADE"
+    # Phase 2A: RESTRICT prevents silent destruction of legal institutional certificates
+    assert fk_targets["sama_research_bulletins.id"] == "RESTRICT"
     assert "sama_research_authors.id" in fk_targets
-    assert fk_targets["sama_research_authors.id"] == "CASCADE"
+    assert fk_targets["sama_research_authors.id"] == "RESTRICT"
     assert "sama_research_publications.id" in fk_targets
     assert fk_targets["sama_research_publications.id"] == "SET NULL"
 

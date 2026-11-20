@@ -9,6 +9,7 @@ import {
   KnowledgeChunkItem,
   KNOWLEDGE_DOMAINS,
 } from '../../types/knowledge';
+import './KnowledgeCenter.css';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -193,8 +194,8 @@ export const DocumentDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <AdminLayout activeTab="knowledge-centre">
-        <div className="py-24 flex justify-center">
+      <AdminLayout activeTab="knowledge-library">
+        <div className="vyasa-kc-page py-24 flex justify-center">
           <LoadingState message="Loading document details and vector passages..." />
         </div>
       </AdminLayout>
@@ -207,8 +208,8 @@ export const DocumentDetailPage: React.FC = () => {
     const isAccessDenied = errorCode === 403 || Boolean(errorMsg?.toLowerCase().includes('access denied')) || Boolean(errorMsg?.toLowerCase().includes('forbidden'));
 
     return (
-      <AdminLayout activeTab="knowledge-centre">
-        <div className="p-8 max-w-lg mx-auto text-center space-y-4 my-12">
+      <AdminLayout activeTab="knowledge-library">
+        <div className="vyasa-kc-page p-8 max-w-lg mx-auto text-center space-y-4 my-12">
           <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-red-100 dark:bg-red-950/40 text-red-600">
             <AppIcon name="alert-circle" size={24} />
           </div>
@@ -251,8 +252,8 @@ export const DocumentDetailPage: React.FC = () => {
   const currentVer = document.current_version || (versions && versions.length > 0 ? versions[0] : null);
 
   return (
-    <AdminLayout activeTab="knowledge-centre">
-      <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    <AdminLayout activeTab="knowledge-library">
+      <div className="vyasa-kc-page space-y-6 p-6 max-w-7xl mx-auto">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
           <span onClick={() => navigate('/admin/knowledge-centre')} className="cursor-pointer hover:underline">

@@ -4,6 +4,7 @@ import { LoadingState, Button, Card, Badge, AppIcon, EmptyState } from '@vyasa/u
 import { AdminLayout } from '../../components/AdminLayout';
 import { knowledgeAdminService } from '../../services/knowledgeAdminService';
 import { KnowledgeDocumentItem, KNOWLEDGE_DOMAINS } from '../../types/knowledge';
+import './KnowledgeCenter.css';
 
 export const FailedProcessingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -55,8 +56,8 @@ export const FailedProcessingPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout activeTab="knowledge-centre">
-      <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    <AdminLayout activeTab="knowledge-failed">
+      <div className="vyasa-kc-page space-y-6 p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-5">
           <div>

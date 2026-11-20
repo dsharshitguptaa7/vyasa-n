@@ -1,0 +1,451 @@
+/**
+ * VYASA AI Knowledge Centre Design System Stylesheet
+ * 
+ * Stately Academic Governance & Authoritative Knowledge Repository
+ * Adheres to the core VYASA design system tokens and responsive architecture.
+ */
+
+/* ==========================================================================
+   1. Scope & Page Foundations
+   ========================================================================== */
+
+.vyasa-kc-page {
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  color: var(--vyasa-text, #19202a);
+  background-color: transparent;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   2. Layout Utilities & Spacing System
+   ========================================================================== */
+
+.max-w-7xl { max-width: 1280px; }
+.max-w-4xl { max-width: 896px; }
+.max-w-2xl { max-width: 672px; }
+.max-w-lg  { max-width: 512px; }
+.mx-auto   { margin-left: auto; margin-right: auto; }
+.w-full    { width: 100%; }
+.h-full    { height: 100%; }
+.w-12      { width: 48px; }
+.h-12      { height: 48px; }
+.w-9       { width: 36px; }
+.h-9       { height: 36px; }
+.w-4       { width: 16px; }
+.h-4       { height: 16px; }
+.w-3\.5    { width: 14px; }
+.h-3\.5    { height: 14px; }
+.min-w-\[200px\] { min-width: 200px; }
+
+/* Display & Flexbox */
+.flex         { display: flex; }
+.inline-flex  { display: inline-flex; }
+.hidden       { display: none !important; }
+.block        { display: block; }
+.inline-block { display: inline-block; }
+
+.flex-col     { flex-direction: column; }
+.flex-row     { flex-direction: row; }
+.flex-wrap    { flex-wrap: wrap; }
+.flex-1       { flex: 1 1 0%; }
+.flex-shrink-0 { flex-shrink: 0; }
+
+.items-center   { align-items: center; }
+.items-start    { align-items: flex-start; }
+.items-end      { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end    { justify-content: flex-end; }
+
+/* Gaps */
+.gap-1   { gap: 4px; }
+.gap-1\.5 { gap: 6px; }
+.gap-2   { gap: 8px; }
+.gap-2\.5 { gap: 10px; }
+.gap-3   { gap: 12px; }
+.gap-4   { gap: 16px; }
+.gap-5   { gap: 20px; }
+.gap-6   { gap: 24px; }
+.gap-8   { gap: 32px; }
+
+/* Spacing Units */
+.p-1   { padding: 4px; }
+.p-1\.5 { padding: 6px; }
+.p-2   { padding: 8px; }
+.p-2\.5 { padding: 10px; }
+.p-3   { padding: 12px; }
+.p-4   { padding: 16px; }
+.p-5   { padding: 20px; }
+.p-6   { padding: 24px; }
+.p-8   { padding: 32px; }
+
+.px-2   { padding-left: 8px; padding-right: 8px; }
+.px-2\.5 { padding-left: 10px; padding-right: 10px; }
+.px-3   { padding-left: 12px; padding-right: 12px; }
+.px-4   { padding-left: 16px; padding-right: 16px; }
+.py-0\.5 { padding-top: 2px; padding-bottom: 2px; }
+.py-1   { padding-top: 4px; padding-bottom: 4px; }
+.py-2   { padding-top: 8px; padding-bottom: 8px; }
+.py-3   { padding-top: 12px; padding-bottom: 12px; }
+.py-3\.5 { padding-top: 14px; padding-bottom: 14px; }
+.py-6   { padding-top: 24px; padding-bottom: 24px; }
+.py-20  { padding-top: 80px; padding-bottom: 80px; }
+.py-24  { padding-top: 96px; padding-bottom: 96px; }
+
+.pt-2   { padding-top: 8px; }
+.pt-3   { padding-top: 12px; }
+.pt-4   { padding-top: 16px; }
+.pb-2   { padding-bottom: 8px; }
+.pb-3   { padding-bottom: 12px; }
+.pb-5   { padding-bottom: 20px; }
+
+.mt-0\.5 { margin-top: 2px; }
+.mt-1   { margin-top: 4px; }
+.mt-2   { margin-top: 8px; }
+.mt-3   { margin-top: 12px; }
+.mt-4   { margin-top: 16px; }
+.mb-1   { margin-bottom: 4px; }
+.mb-3   { margin-bottom: 12px; }
+.ml-1   { margin-left: 4px; }
+.ml-2   { margin-left: 8px; }
+.my-12  { margin-top: 48px; margin-bottom: 48px; }
+
+/* Space Y (Flow spacing) */
+.space-y-1 > * + *   { margin-top: 4px; }
+.space-y-1\.5 > * + * { margin-top: 6px; }
+.space-y-2 > * + *   { margin-top: 8px; }
+.space-y-3 > * + *   { margin-top: 12px; }
+.space-y-4 > * + *   { margin-top: 16px; }
+.space-y-6 > * + *   { margin-top: 24px; }
+.space-y-8 > * + *   { margin-top: 32px; }
+
+/* Grid System */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* ==========================================================================
+   3. Typography & Text Utilities
+   ========================================================================== */
+
+.text-\[11px\] { font-size: 11px; line-height: 1.35; }
+.text-xs       { font-size: 12px; line-height: 1.4; }
+.text-sm       { font-size: 14px; line-height: 1.5; }
+.text-base     { font-size: 16px; line-height: 1.5; }
+.text-lg       { font-size: 18px; line-height: 1.4; }
+.text-xl       { font-size: 20px; line-height: 1.35; }
+.text-2xl      { font-size: 24px; line-height: 1.3; }
+.text-3xl      { font-size: 30px; line-height: 1.2; }
+
+.font-normal    { font-weight: 400; }
+.font-medium    { font-weight: 500; }
+.font-semibold  { font-weight: 600; }
+.font-bold      { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+
+.font-sans { font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif); }
+.font-mono { font-family: var(--vyasa-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace); }
+
+.uppercase       { text-transform: uppercase; }
+.capitalize      { text-transform: capitalize; }
+.tracking-wider  { letter-spacing: 0.05em; }
+.leading-relaxed { line-height: 1.625; }
+
+.text-left   { text-align: left; }
+.text-center { text-align: center; }
+.text-right  { text-align: right; }
+
+.whitespace-nowrap   { white-space: nowrap; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.break-all           { word-break: break-all; }
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cursor-pointer { cursor: pointer; }
+.underline      { text-decoration: underline; }
+.hover\:underline:hover { text-decoration: underline; }
+
+/* Text Colors */
+.text-primary       { color: var(--vyasa-primary, #0f2b48); }
+.text-gray-900      { color: var(--vyasa-text, #0f172a); }
+.text-gray-800      { color: #1e293b; }
+.text-gray-700      { color: #334155; }
+.text-gray-600      { color: var(--vyasa-text-secondary, #475569); }
+.text-gray-500      { color: var(--vyasa-text-muted, #64748b); }
+.text-gray-400      { color: #94a3b8; }
+.text-white         { color: #ffffff; }
+
+.text-teal-600      { color: #0d9488; }
+.text-teal-700      { color: var(--vyasa-teal, #0f766e); }
+.text-amber-600     { color: #d97706; }
+.text-amber-700     { color: #b45309; }
+.text-amber-800     { color: #92400e; }
+.text-amber-900     { color: #78350f; }
+.text-blue-600      { color: #2563eb; }
+.text-blue-800      { color: #1e40af; }
+.text-red-500       { color: #ef4444; }
+.text-red-600       { color: #dc2626; }
+.text-red-700       { color: #b91c1c; }
+.text-red-800       { color: #991b1b; }
+.text-red-900       { color: #7f1d1d; }
+.text-purple-600    { color: #9333ea; }
+.text-purple-700    { color: #7e22ce; }
+.text-green-600     { color: #16a34a; }
+.text-green-700     { color: #15803d; }
+
+.hover\:text-primary:hover   { color: var(--vyasa-primary-hover, #091c30); }
+.hover\:text-red-500:hover   { color: #ef4444; }
+.hover\:text-red-600:hover   { color: #dc2626; }
+
+/* ==========================================================================
+   4. Backgrounds & Borders
+   ========================================================================== */
+
+.bg-white        { background-color: var(--vyasa-surface, #ffffff); }
+.bg-gray-50      { background-color: #f8fafc; }
+.bg-gray-50\/50  { background-color: rgba(248, 250, 252, 0.7); }
+.bg-gray-100     { background-color: #f1f5f9; }
+
+.bg-primary\/5   { background-color: rgba(15, 43, 72, 0.05); }
+.bg-primary\/10  { background-color: var(--vyasa-primary-surface, rgba(15, 43, 72, 0.1)); }
+
+.bg-teal-50      { background-color: var(--vyasa-teal-light, #f0fdfa); }
+.bg-amber-50     { background-color: #fffbeb; }
+.bg-amber-50\/10 { background-color: rgba(254, 243, 199, 0.15); }
+.bg-amber-50\/20 { background-color: rgba(254, 243, 199, 0.25); }
+.bg-amber-50\/50 { background-color: rgba(254, 243, 199, 0.5); }
+.bg-amber-100    { background-color: #fef3c7; }
+.bg-amber-200\/60 { background-color: rgba(253, 230, 138, 0.6); }
+.bg-amber-600    { background-color: #d97706; }
+
+.bg-blue-50      { background-color: #eff6ff; }
+.bg-blue-50\/10  { background-color: rgba(239, 246, 255, 0.2); }
+.bg-blue-200\/60 { background-color: rgba(191, 219, 254, 0.6); }
+
+.bg-red-50       { background-color: var(--vyasa-danger-light, #fef2f2); }
+.bg-red-50\/10   { background-color: rgba(254, 242, 242, 0.2); }
+.bg-red-50\/20   { background-color: rgba(254, 242, 242, 0.4); }
+.bg-red-50\/50   { background-color: rgba(254, 242, 242, 0.7); }
+.bg-red-100      { background-color: #fee2e2; }
+.bg-red-100\/60  { background-color: rgba(254, 226, 226, 0.7); }
+.bg-red-200\/60  { background-color: rgba(254, 202, 202, 0.6); }
+.bg-red-600      { background-color: #dc2626; }
+
+.bg-purple-50    { background-color: #faf5ff; }
+.bg-green-50     { background-color: var(--vyasa-success-light, #f0fdf4); }
+.bg-green-50\/20 { background-color: rgba(240, 253, 244, 0.3); }
+.bg-green-100    { background-color: #dcfce7; }
+
+/* Hover Backgrounds */
+.hover\:bg-gray-50\/50:hover  { background-color: rgba(248, 250, 252, 0.8); }
+.hover\:bg-amber-100:hover    { background-color: #fef3c7; }
+.hover\:bg-amber-100\/60:hover { background-color: rgba(254, 243, 199, 0.8); }
+.hover\:bg-amber-700:hover    { background-color: #b45309; }
+.hover\:bg-blue-100\/60:hover  { background-color: rgba(219, 234, 254, 0.8); }
+.hover\:bg-red-100\/60:hover   { background-color: rgba(254, 226, 226, 0.8); }
+.hover\:bg-red-700:hover      { background-color: #b91c1c; }
+
+/* Borders */
+.border         { border: 1px solid var(--vyasa-border, #e2e8f0); }
+.border-b       { border-bottom: 1px solid var(--vyasa-border, #e2e8f0); }
+.border-t       { border-top: 1px solid var(--vyasa-border, #e2e8f0); }
+.border-b-2     { border-bottom-width: 2px; border-bottom-style: solid; }
+.border-2       { border-width: 2px; }
+.border-dashed  { border-style: dashed; }
+.border-transparent { border-color: transparent; }
+
+.border-gray-100  { border-color: #f1f5f9; }
+.border-gray-200  { border-color: var(--vyasa-border, #e2e8f0); }
+.border-gray-300  { border-color: #cbd5e1; }
+.border-primary   { border-color: var(--vyasa-primary, #0f2b48); }
+.border-amber-200 { border-color: #fde68a; }
+.border-amber-300 { border-color: #fcd34d; }
+.border-blue-200  { border-color: #bfdbfe; }
+.border-red-200   { border-color: #fecaca; }
+.border-red-400   { border-color: #f87171; }
+.border-green-200 { border-color: #bbf7d0; }
+
+.hover\:border-primary\/50:hover { border-color: rgba(15, 43, 72, 0.5); }
+
+/* Border Radii */
+.rounded-md   { border-radius: var(--vyasa-radius-md, 6px); }
+.rounded-lg   { border-radius: var(--vyasa-radius-lg, 8px); }
+.rounded-xl   { border-radius: 12px; }
+.rounded-full { border-radius: 9999px; }
+
+.overflow-hidden { overflow: hidden; }
+.overflow-x-auto { overflow-x: auto; }
+
+/* Shadows */
+.shadow-sm { box-shadow: var(--vyasa-shadow-sm, 0 1px 2px 0 rgba(15, 23, 42, 0.05)); }
+.hover\:shadow:hover { box-shadow: var(--vyasa-shadow-md, 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.1)); }
+
+/* Transitions */
+.transition-colors { transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1); }
+.transition-shadow { transition: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ==========================================================================
+   5. Form Inputs, Selects & Focus Rings
+   ========================================================================== */
+
+input[type="text"],
+input[type="date"],
+select,
+textarea {
+  box-sizing: border-box;
+  font-family: inherit;
+  color: var(--vyasa-text, #19202a);
+  background-color: var(--vyasa-surface, #ffffff);
+  border: 1px solid var(--vyasa-border, #cbd5e1);
+  border-radius: var(--vyasa-radius-md, 6px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus,
+.focus\:outline-none:focus {
+  outline: none;
+}
+
+.focus\:ring-2:focus {
+  outline: none;
+  border-color: var(--vyasa-primary, #0f2b48);
+  box-shadow: 0 0 0 3px rgba(15, 43, 72, 0.15);
+}
+
+.placeholder-gray-400::placeholder {
+  color: #94a3b8;
+}
+
+/* File Input Custom Styling */
+input[type="file"] {
+  color: var(--vyasa-text-secondary, #475569);
+}
+
+.file\:mr-4::file-selector-button { margin-right: 16px; }
+.file\:py-2::file-selector-button { padding-top: 8px; padding-bottom: 8px; }
+.file\:px-4::file-selector-button { padding-left: 16px; padding-right: 16px; }
+.file\:rounded-lg::file-selector-button { border-radius: var(--vyasa-radius-md, 6px); }
+.file\:border-0::file-selector-button { border: 0; }
+.file\:text-xs::file-selector-button { font-size: 12px; }
+.file\:font-semibold::file-selector-button { font-weight: 600; }
+.file\:bg-primary\/10::file-selector-button { background-color: var(--vyasa-primary-surface, rgba(15, 43, 72, 0.1)); }
+.file\:text-primary::file-selector-button { color: var(--vyasa-primary, #0f2b48); }
+.hover\:file\:bg-primary\/20:hover::file-selector-button { background-color: rgba(15, 43, 72, 0.2); }
+
+/* ==========================================================================
+   6. Table Architecture & Rows
+   ========================================================================== */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  box-sizing: border-box;
+}
+
+thead th {
+  font-family: var(--vyasa-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.divide-y > * + * {
+  border-top: 1px solid var(--vyasa-border, #f1f5f9);
+}
+
+.divide-gray-100 > * + * {
+  border-top-color: #f1f5f9;
+}
+
+/* ==========================================================================
+   7. Animations & Visual States
+   ========================================================================== */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==========================================================================
+   8. Responsive Media Queries (Tablet & Mobile Breakpoints)
+   ========================================================================== */
+
+/* SM Breakpoint: >= 640px */
+@media (min-width: 640px) {
+  .sm\:flex-row     { flex-direction: row; }
+  .sm\:items-center { align-items: center; }
+  .sm\:items-start  { align-items: flex-start; }
+  .sm\:justify-between { justify-content: space-between; }
+  .sm\:grid-cols-2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sm\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sm\:grid-cols-4  { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sm\:w-72         { width: 288px; }
+}
+
+/* MD Breakpoint: >= 768px */
+@media (min-width: 768px) {
+  .md\:flex-row     { flex-direction: row; }
+  .md\:items-center { align-items: center; }
+  .md\:items-start  { align-items: flex-start; }
+  .md\:grid-cols-2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* LG Breakpoint: >= 1024px */
+@media (min-width: 1024px) {
+  .lg\:flex-row     { flex-direction: row; }
+  .lg\:flex-col     { flex-direction: column; }
+  .lg\:items-start  { align-items: flex-start; }
+  .lg\:justify-between { justify-content: space-between; }
+  .lg\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4  { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Mobile Adjustments: <= 639px */
+@media (max-width: 639px) {
+  .vyasa-kc-page {
+    padding: 12px !important;
+  }
+  
+  .vyasa-kc-page table th,
+  .vyasa-kc-page table td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  .vyasa-kc-page .flex-wrap-mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

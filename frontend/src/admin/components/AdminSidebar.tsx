@@ -305,7 +305,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const isCurrentActive = (item: NavItem) => {
     if (activeTab && activeTab === item.id) return true;
-    if (item.path === '/admin' || item.path === '/admin/sama' || item.path === '/admin/anudaan') {
+    if (item.path === '/admin' || item.path === '/admin/sama' || item.path === '/admin/anudaan' || item.path === '/admin/knowledge-centre') {
       return location.pathname === item.path;
     }
     return location.pathname.startsWith(item.path);

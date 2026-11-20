@@ -518,8 +518,8 @@ def test_execute_batch_assigns_selected_bulletin_to_all_publications():
         assert pub.bulletin_id is not None
         assert pub.status == "draft"
 
-    # Verify bulletin publication_count incremented
-    assert mock_bulletin.publication_count == 12
+    # Verify bulletin publication_count is NOT mutated by draft imports (preserves archival count integrity)
+    assert mock_bulletin.publication_count == 10
     assert mock_db.commit.called
 
 

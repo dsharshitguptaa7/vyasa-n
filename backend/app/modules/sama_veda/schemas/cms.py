@@ -29,7 +29,7 @@ class PublicationAuthorOut(BaseModel):
 class PublicationCreate(BaseModel):
     bulletin_id: uuid.UUID
     serial_no: int = Field(..., ge=1)
-    slug: str = Field(..., min_length=2, max_length=100)
+    slug: Optional[str] = Field(None, min_length=2, max_length=100)
     title: str = Field(..., min_length=3)
     source_journal: str = Field(..., min_length=2, max_length=500)
     category: str = Field(..., min_length=2, max_length=100)
@@ -41,6 +41,14 @@ class PublicationCreate(BaseModel):
     external_url: Optional[str] = Field(None, max_length=500)
     is_featured: bool = False
     author_links: Optional[List[PublicationAuthorLinkInput]] = None
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def clean_slug(cls, v: Any) -> Optional[str]:
+        if isinstance(v, str):
+            v_stripped = v.strip()
+            return v_stripped if v_stripped else None
+        return v
 
 
 class PublicationUpdate(BaseModel):
@@ -58,6 +66,14 @@ class PublicationUpdate(BaseModel):
     external_url: Optional[str] = Field(None, max_length=500)
     is_featured: Optional[bool] = None
     author_links: Optional[List[PublicationAuthorLinkInput]] = None
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def clean_slug(cls, v: Any) -> Optional[str]:
+        if isinstance(v, str):
+            v_stripped = v.strip()
+            return v_stripped if v_stripped else None
+        return v
 
 
 class PublicationStatusUpdate(BaseModel):

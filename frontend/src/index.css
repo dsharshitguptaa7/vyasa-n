@@ -1,5 +1,6 @@
 /* Import Shared VYASA UI Design System Tokens and Components */
 @import '../../packages/ui/src/styles/index.css';
+@import './admin/pages/knowledge/KnowledgeCenter.css';
 
 /* Application Ground & Baseline */
 html, body {

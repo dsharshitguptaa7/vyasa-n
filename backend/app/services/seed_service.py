@@ -317,7 +317,7 @@ def seed_all(
     }
     if seed_authorities:
         from app.services.authority_seed_service import seed_institutional_authorities
-        auth_results = seed_institutional_authorities(db, strict_15_slots=False)
+        auth_results = seed_institutional_authorities(db, strict_15_slots=False, overwrite_existing=False)
         results["authorities"] = auth_results
     if seed_categories:
         try:
@@ -329,7 +329,7 @@ def seed_all(
     if seed_subjects:
         try:
             from app.modules.atharva_veda.nivaran.services.subject_seed_service import seed_nivaran_subjects_and_clusters
-            subj_results = seed_nivaran_subjects_and_clusters(db)
+            subj_results = seed_nivaran_subjects_and_clusters(db, force_realign=False)
             results["subjects"] = subj_results
         except Exception as e:
             logger.warning(f"Subject seeding note: {e}")

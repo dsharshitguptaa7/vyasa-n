@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, desc
-from sqlalchemy.exc import OperationalError, DBAPIError
+from sqlalchemy.exc import OperationalError, DBAPIError, IntegrityError
 
 from app.core.logging import logger
 from app.api.dependencies import get_db, get_current_user, require_permission, require_super_admin_user
@@ -242,11 +242,17 @@ def create_publication(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:content:edit")),
 ):
-    bulletin = sama_cms_service.get_bulletin_by_id(db, payload.bulletin_id)
-    if not bulletin:
-        raise HTTPException(status_code=400, detail="Referenced bulletin does not exist.")
-
-    pub = sama_cms_service.create_publication(db, payload)
+    try:
+        pub = sama_cms_service.create_publication(db, payload)
+    except ValueError as val_err:
+        err_msg = str(val_err)
+        status_code = status.HTTP_409_CONFLICT if "already exists" in err_msg else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=err_msg)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A publication with conflicting unique constraints (slug or serial number) already exists.",
+        )
 
     audit_service.log_from_request(
         request=request,
@@ -279,12 +285,17 @@ def update_publication(
     if not pub:
         raise HTTPException(status_code=404, detail="Research publication not found.")
 
-    if payload.bulletin_id and payload.bulletin_id != pub.bulletin_id:
-        bulletin = sama_cms_service.get_bulletin_by_id(db, payload.bulletin_id)
-        if not bulletin:
-            raise HTTPException(status_code=400, detail="Referenced bulletin does not exist.")
-
-    updated_pub = sama_cms_service.update_publication(db, pub, payload)
+    try:
+        updated_pub = sama_cms_service.update_publication(db, pub, payload)
+    except ValueError as val_err:
+        err_msg = str(val_err)
+        status_code = status.HTTP_409_CONFLICT if "already exists" in err_msg else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=err_msg)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A publication with conflicting unique constraints (slug or serial number) already exists.",
+        )
 
     audit_service.log_from_request(
         request=request,
@@ -351,7 +362,15 @@ def delete_publication(
         raise HTTPException(status_code=404, detail="Research publication not found.")
 
     slug = pub.slug
-    sama_cms_service.delete_publication(db, pub)
+    try:
+        sama_cms_service.delete_publication(db, pub)
+    except ValueError as val_err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(val_err))
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete publication due to existing database dependencies.",
+        )
 
     audit_service.log_from_request(
         request=request,
@@ -658,7 +677,15 @@ def delete_author(
         raise HTTPException(status_code=404, detail="Research author not found.")
 
     full_name = author.full_name
-    sama_cms_service.delete_author(db, author)
+    try:
+        sama_cms_service.delete_author(db, author)
+    except ValueError as val_err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(val_err))
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete researcher due to existing dependent certificates or publication links.",
+        )
 
     audit_service.log_from_request(
         request=request,
@@ -941,7 +968,15 @@ def delete_bulletin(
         raise HTTPException(status_code=404, detail="Research bulletin not found.")
 
     title = bulletin.title
-    sama_cms_service.delete_bulletin(db, bulletin)
+    try:
+        sama_cms_service.delete_bulletin(db, bulletin)
+    except ValueError as val_err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(val_err))
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete research bulletin due to existing dependent publications or certificates.",
+        )
 
     audit_service.log_from_request(
         request=request,

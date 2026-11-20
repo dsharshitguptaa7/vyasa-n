@@ -153,7 +153,7 @@ def test_03_stable_uuid_preservation(db_session: Session):
     updated_manifest["AUTHORITY_01"]["first_name"] = "UpdatedFirst"
     updated_specs = parse_and_validate_manifest(updated_manifest, strict_16_slots=True)
 
-    seed_institutional_authorities(db_session, specs=updated_specs, strict_16_slots=True)
+    seed_institutional_authorities(db_session, specs=updated_specs, strict_16_slots=True, overwrite_existing=True)
 
     user1 = db_session.execute(
         select(User).where(User.id == updated_specs[0].id)

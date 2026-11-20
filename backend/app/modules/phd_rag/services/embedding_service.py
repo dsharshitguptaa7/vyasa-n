@@ -27,11 +27,13 @@ from app.core.observability import assistant_observability
 logger = logging.getLogger("vyasa.phd_rag.embedding")
 
 # Centralized constants
-DEFAULT_EMBEDDING_MODEL = getattr(settings, "GEMINI_EMBEDDING_MODEL", "text-embedding-004")
+DEFAULT_EMBEDDING_MODEL = getattr(settings, "GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 DEFAULT_EMBEDDING_DIMENSIONS = int(getattr(settings, "GEMINI_EMBEDDING_DIMENSIONS", 768))
 
 # Backward compatibility alias
 EMBEDDING_DIMENSIONS = DEFAULT_EMBEDDING_DIMENSIONS
+
+_SENTINEL = object()
 
 
 # ==============================================================================
@@ -43,18 +45,43 @@ class EmbeddingError(Exception):
     pass
 
 
-class EmbeddingConfigurationError(EmbeddingError):
-    """Raised when embedding configuration or credentials are missing or invalid."""
-    pass
-
-
 class EmbeddingGenerationError(EmbeddingError):
     """Raised when embedding generation fails from provider/API in production or strict mode."""
     pass
 
 
-class EmbeddingValidationError(EmbeddingError):
+class EmbeddingPermanentError(EmbeddingGenerationError):
+    """Base exception for non-retryable embedding errors (e.g. 404 model not found, unsupported operation, 401/403)."""
+    pass
+
+
+class EmbeddingModelNotFoundError(EmbeddingPermanentError):
+    """Raised when configured embedding model is not found in Gemini API (e.g. 404 NOT_FOUND)."""
+    pass
+
+
+class EmbeddingUnsupportedOperationError(EmbeddingPermanentError):
+    """Raised when model does not support embedContent operation."""
+    pass
+
+
+class EmbeddingAuthenticationError(EmbeddingPermanentError):
+    """Raised when API credentials are missing, rejected, or unauthenticated (e.g. 401/403)."""
+    pass
+
+
+class EmbeddingConfigurationError(EmbeddingPermanentError):
+    """Raised when embedding configuration or credentials are missing or invalid."""
+    pass
+
+
+class EmbeddingValidationError(EmbeddingPermanentError):
     """Raised when embedding vector fails validation (NaN, Inf, wrong dimensions, empty)."""
+    pass
+
+
+class EmbeddingTransientError(EmbeddingGenerationError):
+    """Temporary failure eligible for retry (e.g. 429 rate limit, 503 unavailable, network timeout)."""
     pass
 
 
@@ -115,7 +142,7 @@ def validate_and_normalize_vector(
 class EmbeddingService:
     """
     Unified institutional embedding service:
-    1. Online (Production & Dev): Google Gemini API (default text-embedding-004, 768 dimensions)
+    1. Online (Production & Dev): Google Gemini API (default gemini-embedding-001, 768 dimensions)
        with explicit output_dimensionality and finite vector validation.
     2. Strict Production Guard: If is_production is True, missing credentials or API failures
        raise EmbeddingConfigurationError or EmbeddingGenerationError immediately.
@@ -127,18 +154,21 @@ class EmbeddingService:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: Any = _SENTINEL,
         model_name: Optional[str] = None,
         dimensions: Optional[int] = None,
         allow_offline: Optional[bool] = None,
         is_production: Optional[bool] = None,
     ):
-        self._api_key = (
-            api_key
-            or getattr(settings, "GEMINI_API_KEY", None)
-            or os.getenv("GEMINI_API_KEY", "")
-            or os.getenv("GOOGLE_API_KEY", "")
-        )
+        if api_key is _SENTINEL:
+            self._api_key = (
+                getattr(settings, "GEMINI_API_KEY", None)
+                or os.getenv("GEMINI_API_KEY", "")
+                or os.getenv("GOOGLE_API_KEY", "")
+            )
+        else:
+            self._api_key = api_key or ""
+
         if self._api_key:
             self._api_key = self._api_key.strip()
 
@@ -171,6 +201,93 @@ class EmbeddingService:
                 self.allow_offline = bool(getattr(settings, "ALLOW_OFFLINE_EMBEDDINGS", False))
 
         self._client = None
+
+    @staticmethod
+    def classify_api_error(exc: Exception) -> EmbeddingError:
+        """
+        Classifies external or internal API errors into explicit domain exceptions:
+        - 404 / NOT_FOUND / model not found -> EmbeddingModelNotFoundError (Permanent)
+        - "not supported for embedcontent" -> EmbeddingUnsupportedOperationError (Permanent)
+        - 401 / 403 / unauthenticated / invalid api key -> EmbeddingAuthenticationError (Permanent)
+        - 429 / rate limit / resource exhausted -> EmbeddingTransientError (Transient)
+        - Others -> EmbeddingGenerationError
+        """
+        err_str = str(exc).lower()
+        if "404" in err_str or "not_found" in err_str or "not found" in err_str:
+            return EmbeddingModelNotFoundError(f"Gemini API embedding generation failed: Configured model not found (404 NOT_FOUND): {exc}")
+        if "not supported for embedcontent" in err_str or "unsupported for embedcontent" in err_str:
+            return EmbeddingUnsupportedOperationError(f"Gemini API embedding generation failed: Model unsupported for embedContent: {exc}")
+        if any(w in err_str for w in ["401", "403", "unauthenticated", "permission_denied", "invalid_api_key", "api_key_invalid"]):
+            return EmbeddingAuthenticationError(f"Gemini API embedding generation failed: Authentication failed: {exc}")
+        if any(w in err_str for w in ["429", "rate limit", "resource_exhausted", "too many requests"]):
+            return EmbeddingTransientError(f"Gemini API embedding generation failed: {exc}")
+        return EmbeddingGenerationError(f"Gemini API embedding generation failed: {exc}")
+
+    def validate_provider(self, check_live: bool = False) -> Dict[str, Any]:
+        """
+        Validates provider configuration, credentials, model compatibility,
+        and output dimensionality without leaking sensitive keys.
+        """
+        has_key = bool(self._api_key)
+        mode = "online" if has_key else ("offline" if self.allow_offline else "unconfigured")
+
+        supported_gemini_models = {
+            "gemini-embedding-001",
+            "gemini-embedding-2",
+            "gemini-embedding-2-preview",
+        }
+        retired_models = {
+            "text-embedding-004",
+            "embedding-001",
+        }
+
+        is_known_retired = self.model_name in retired_models
+        is_known_supported = self.model_name in supported_gemini_models or not has_key
+
+        health_status = "HEALTHY"
+        issues: List[str] = []
+
+        if is_known_retired:
+            health_status = "MISCONFIGURED"
+            issues.append(f"Model '{self.model_name}' has been retired by Google. Use 'gemini-embedding-001'.")
+
+        if not has_key and self.is_production:
+            health_status = "MISCONFIGURED"
+            issues.append("Missing GEMINI_API_KEY in production.")
+        elif not has_key and not self.allow_offline:
+            health_status = "MISCONFIGURED"
+            issues.append("Missing GEMINI_API_KEY and offline embeddings disallowed.")
+
+        if self.dimensions != 768:
+            issues.append(f"Configured output dimensionality is {self.dimensions} (expected 768).")
+
+        live_result = None
+        if check_live and has_key and not is_known_retired:
+            try:
+                client = self._get_client()
+                if client:
+                    client.models.embed_content(
+                        model=self.model_name,
+                        contents="health_probe",
+                    )
+                    live_result = "SUCCESS"
+            except Exception as exc:
+                live_result = f"FAILED: {exc}"
+                health_status = "UNHEALTHY"
+                issues.append(f"Live connectivity test failed: {exc}")
+
+        return {
+            "status": health_status,
+            "provider": "google_genai" if has_key else "deterministic_offline",
+            "mode": mode,
+            "model": self.model_name,
+            "dimensions": self.dimensions,
+            "has_credentials": has_key,
+            "is_known_supported": is_known_supported and not is_known_retired,
+            "is_known_retired": is_known_retired,
+            "live_test": live_result,
+            "issues": issues,
+        }
 
     def _get_client(self):
         """
@@ -289,11 +406,11 @@ class EmbeddingService:
                 raise
             except Exception as e:
                 assistant_observability.record_embedding(round((time.time() - t0) * 1000, 2), success=False)
-                logger.warning("Gemini online embedding API call failed: %s", e)
-                if self.is_production or not self.allow_offline:
-                    raise EmbeddingGenerationError(
-                        f"Gemini API embedding generation failed: {e}"
-                    ) from e
+                classified_err = self.classify_api_error(e)
+                logger.warning("Gemini online embedding API call failed (%s): %s", type(classified_err).__name__, e)
+                # Permanent errors (such as 404 model not found) must NEVER be masked by offline fallback
+                if self.is_production or not self.allow_offline or isinstance(classified_err, EmbeddingPermanentError):
+                    raise classified_err from e
 
         # Fallback to offline embedding only if explicitly permitted in dev/test
         if not self.allow_offline:

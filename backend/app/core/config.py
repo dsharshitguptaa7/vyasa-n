@@ -220,12 +220,12 @@ class Settings(BaseSettings):
 
     # AI Knowledge Centre & Centralized Embedding Settings
     GEMINI_EMBEDDING_MODEL: str = Field(
-        default="text-embedding-004",
-        description="Centralized Gemini embedding model identifier for institutional knowledge indexing and retrieval",
+        default="gemini-embedding-001",
+        description="Centralized Gemini embedding model identifier for institutional knowledge indexing and retrieval (e.g., gemini-embedding-001)",
     )
     GEMINI_EMBEDDING_DIMENSIONS: int = Field(
         default=768,
-        description="Target vector output dimensionality (e.g., 768 for text-embedding-004)",
+        description="Target vector output dimensionality (e.g., 768 for gemini-embedding-001)",
     )
     ALLOW_OFFLINE_EMBEDDINGS: bool = Field(
         default=False,

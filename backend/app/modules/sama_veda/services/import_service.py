@@ -592,8 +592,8 @@ class SamaImportService:
                 elif act == "fail":
                     failed_count += 1
 
-            if batch.entity_type == "publications" and target_bulletin and created_count > 0:
-                target_bulletin.publication_count = (target_bulletin.publication_count or 0) + created_count
+            # Phase 2A Bulletin Count Safety: Do not inflate bulletin.publication_count with draft imported records.
+            # Publication counts remain derived from actual published database records via SamaAnalyticsService.
 
             batch.status = "completed"
             batch.mode = "execute"

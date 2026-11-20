@@ -8,6 +8,7 @@ import {
   KNOWLEDGE_DOMAINS,
   DOCUMENT_TYPES,
 } from '../../types/knowledge';
+import './KnowledgeCenter.css';
 
 export const DocumentLibraryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,8 +49,8 @@ export const DocumentLibraryPage: React.FC = () => {
       });
       setDocuments(res.items);
       setTotalCount(res.total);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to retrieve documents from knowledge repository.');
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to retrieve documents from knowledge repository.');
     } finally {
       setLoading(false);
     }
@@ -153,8 +154,8 @@ export const DocumentLibraryPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout activeTab="knowledge-centre">
-      <div className="space-y-6 p-6 max-w-7xl mx-auto">
+    <AdminLayout activeTab="knowledge-library">
+      <div className="vyasa-kc-page space-y-6 p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-5">
           <div>
