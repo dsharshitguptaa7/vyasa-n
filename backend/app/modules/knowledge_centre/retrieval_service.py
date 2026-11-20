@@ -375,7 +375,9 @@ class KnowledgeRetrievalService:
             # --- Embedding Provenance Validation ---
             # Exclude chunks whose embedding model does not match active embedding configuration
             chunk_model = meta.get("embedding_model")
-            if chunk_model and self.active_model and chunk_model != self.active_model:
+            norm_chunk_m = (chunk_model or "").replace("models/", "").strip().lower()
+            norm_active_m = (self.active_model or "").replace("models/", "").strip().lower()
+            if chunk_model and self.active_model and norm_chunk_m != norm_active_m:
                 warning_msg = (
                     f"Excluded chunk {chunk.id}: model '{chunk_model}' incompatible with active '{self.active_model}'."
                 )

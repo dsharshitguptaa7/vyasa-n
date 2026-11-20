@@ -710,7 +710,6 @@ frontend
         assets
             hero.png
             react.svg
-            vite.svg
         components
             auth
                 __tests__

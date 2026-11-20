@@ -1,7 +1,7 @@
 import logging
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.core.database import SessionLocal
 from app.models.role import Role
 from app.models.permission import Permission
@@ -302,6 +302,67 @@ def seed_default_pillars(db: Session) -> int:
     return seeded_count
 
 
+def is_governance_bootstrapped(db: Session, entity: Optional[str] = None) -> bool:
+    """
+    Checks if initial governance configuration (Subject Clusters, Subjects, Categories)
+    has already been bootstrapped.
+    Once bootstrapped, CMS-managed configuration is the persistent source of truth,
+    and startup seeding will never overwrite, realign, or resurrect administrator-modified records.
+    """
+    try:
+        from app.models.settings import SystemSetting
+        setting = db.scalar(
+            select(SystemSetting).where(SystemSetting.key == "governance.taxonomy_bootstrapped")
+        )
+        if setting and setting.value and setting.value.strip().lower() == "true":
+            return True
+    except Exception:
+        pass
+
+    # Entity-specific check if system_settings flag is not yet persisted
+    try:
+        from app.modules.atharva_veda.nivaran.models.taxonomy import SubjectCluster, Category
+        if entity == "clusters":
+            cluster_count = db.scalar(select(func.count(SubjectCluster.id))) or 0
+            return cluster_count > 0
+        elif entity == "categories":
+            cat_count = db.scalar(select(func.count(Category.id))) or 0
+            return cat_count > 0
+        else:
+            cluster_count = db.scalar(select(func.count(SubjectCluster.id))) or 0
+            cat_count = db.scalar(select(func.count(Category.id))) or 0
+            return cluster_count > 0 and cat_count > 0
+    except Exception:
+        pass
+
+    return False
+
+
+def mark_governance_bootstrapped(db: Session) -> None:
+    """
+    Records in system_settings that initial governance taxonomy has been bootstrapped.
+    """
+    try:
+        from app.models.settings import SystemSetting
+        setting = db.scalar(
+            select(SystemSetting).where(SystemSetting.key == "governance.taxonomy_bootstrapped")
+        )
+        if not setting:
+            setting = SystemSetting(
+                key="governance.taxonomy_bootstrapped",
+                value="true",
+                data_type="boolean",
+                description="Indicates initial governance taxonomy has been bootstrapped. CMS is persistent source of truth.",
+            )
+            db.add(setting)
+        else:
+            setting.value = "true"
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.debug(f"Could not persist governance.taxonomy_bootstrapped setting: {exc}")
+
+
 def seed_all(
     db: Session,
     seed_authorities: bool = True,
@@ -341,6 +402,9 @@ def seed_all(
         results["institutional_directory_sync"] = sync_results
     except Exception as e:
         logger.warning(f"Institutional Directory sync note: {e}")
+
+    # Mark governance taxonomy as bootstrapped so CMS remains persistent source of truth
+    mark_governance_bootstrapped(db)
 
     return results
 

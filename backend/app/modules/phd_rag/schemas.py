@@ -22,7 +22,11 @@ class ChatQueryRequest(BaseModel):
     )
     doc_type_filter: Optional[str] = Field(
         default=None,
-        description="Optional filter: 'brochure' | 'ordinance' | 'coursework_ppt'",
+        description="Optional filter: 'brochure' | 'ordinance' | 'coursework_ppt' | 'policy' | 'guideline'",
+    )
+    domain_filter: Optional[str] = Field(
+        default=None,
+        description="Optional domain filter: e.g. 'doctoral-studies', 'admissions'",
     )
 
 

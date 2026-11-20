@@ -49,17 +49,20 @@ export const PhdAssistantPage: React.FC = () => {
     const token = authService.getToken();
     setIsAuthenticated(Boolean(token));
 
-    // Load suggestions and status
+    // Load suggestions
     phdRagService
       .getSuggestedQuestions()
       .then((res) => setSuggestedQuestions(res.questions))
       .catch((err) => console.error('Failed to load questions:', err));
+  }, []);
 
+  // Synchronize status counts with currently selected domain
+  useEffect(() => {
     phdRagService
-      .getStatus()
+      .getStatus(selectedDomain)
       .then((res) => setStatusInfo(res))
       .catch((err) => console.error('Failed to load status:', err));
-  }, []);
+  }, [selectedDomain]);
 
   // Cleanup audio playback on component unmount
   useEffect(() => {
@@ -154,7 +157,12 @@ export const PhdAssistantPage: React.FC = () => {
 
         setMessages((prev) => [...prev, assistantMsg]);
       } else {
-        const response = await phdRagService.askQuestion(text, historyPayload);
+        const response = await phdRagService.askQuestion(
+          text,
+          historyPayload,
+          undefined,
+          selectedDomain && selectedDomain !== 'all' ? selectedDomain : undefined
+        );
 
         const assistantMsg: ChatMessage = {
           id: `assistant-${Date.now()}`,

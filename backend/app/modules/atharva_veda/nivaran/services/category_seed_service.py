@@ -94,17 +94,23 @@ APPROVED_NIVARAN_CATEGORIES: List[Dict[str, Any]] = [
 ]
 
 
+INITIAL_CANONICAL_CATEGORY_NAMES = {c["name"] for c in APPROVED_NIVARAN_CATEGORIES}
+
+
 def seed_nivaran_categories(
     db: Session,
     target_cluster: Optional[GrievanceCluster] = None,
 ) -> Dict[str, Any]:
     """
-    Idempotently seeds and ratifies all 16 approved institutional categories in nivaran_categories.
-    - If a category already exists: preserves its UUID, routing configuration, and active status.
-      Populates description if absent.
-    - If a category is missing: creates it cleanly under an active GrievanceCluster.
-    - Avoids duplicates and never introduces unapproved/test categories.
+    Idempotently seeds and ratifies institutional categories in nivaran_categories.
+    - If a category already exists: preserves its UUID, routing configuration, description, and active status.
+    - If a category is missing on initial install: creates it cleanly under an active GrievanceCluster.
+    - Post-bootstrap safety: respects CMS-managed configuration; never resurrects administrator-deleted
+      or administrator-renamed categories, and never overwrites custom routing or grievance cluster links.
     """
+    from app.services.seed_service import is_governance_bootstrapped
+    bootstrapped = is_governance_bootstrapped(db, entity="categories")
+
     # 1. Resolve fallback active GrievanceCluster if not provided
     if not target_cluster:
         target_cluster = db.scalar(
@@ -131,16 +137,20 @@ def seed_nivaran_categories(
 
         if existing:
             already_present.append(name)
-            # Update description if empty
-            if not existing.description:
+            # Only update description on initial install if empty; preserve CMS modifications post-bootstrap
+            if not bootstrapped and not existing.description:
                 existing.description = description
                 updated.append(name)
-            # If cluster is missing on a cluster-routed category, link it
-            if existing.routing_type in (CategoryRoutingType.CLUSTER, CategoryRoutingType.GRIEVANCE_CLUSTER):
+            if not bootstrapped and existing.routing_type in (CategoryRoutingType.CLUSTER, CategoryRoutingType.GRIEVANCE_CLUSTER):
                 if not existing.grievance_cluster_id and cluster_id:
                     existing.grievance_cluster_id = cluster_id
                     updated.append(name)
         else:
+            # If governance taxonomy is already bootstrapped, do not resurrect initial canonical categories
+            # that were deleted or renamed by administrators in CMS
+            if bootstrapped and name in INITIAL_CANONICAL_CATEGORY_NAMES:
+                continue
+
             new_cat = Category(
                 name=name,
                 description=description,

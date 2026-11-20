@@ -193,6 +193,10 @@ def resolve_assistant_dean(db: Session, email: str) -> Optional[NivaranAuthority
     return auth
 
 
+INITIAL_CANONICAL_CLUSTER_NUMBERS = {c["cluster_number"] for c in AUTHORITATIVE_SUBJECT_CLUSTERS}
+INITIAL_CANONICAL_SUBJECT_NAMES = {name for s_list in AUTHORITATIVE_SUBJECTS.values() for name in s_list}
+
+
 def seed_nivaran_subjects_and_clusters(
     db: Session,
     force_realign: bool = False,
@@ -206,7 +210,12 @@ def seed_nivaran_subjects_and_clusters(
     - Resolves Assistant Dean strictly by matching reference email to real active authorities.
       Unresolved reference emails are safely set to None (nullable in schema) for Admin Panel mapping.
     - Idempotent: safe to run multiple times without duplicating entries.
+    - Post-bootstrap safety: respects CMS-managed configuration; never resurrects administrator-deleted
+      or administrator-renamed clusters/subjects, and never overwrites custom subject-to-cluster mappings.
     """
+    from app.services.seed_service import is_governance_bootstrapped
+    bootstrapped = is_governance_bootstrapped(db, entity="clusters")
+
     clusters_created: List[Dict[str, Any]] = []
     clusters_existing: List[Dict[str, Any]] = []
     assistant_dean_resolutions: List[Dict[str, Any]] = []
@@ -238,7 +247,12 @@ def seed_nivaran_subjects_and_clusters(
         )
 
         if not existing_cluster:
-            # Create cluster
+            # If governance taxonomy is already bootstrapped, do not resurrect initial canonical clusters
+            # that were deleted or renumbered by administrators in CMS
+            if bootstrapped and num in INITIAL_CANONICAL_CLUSTER_NUMBERS:
+                continue
+
+            # Create cluster (initial install or new future release default cluster)
             cluster = SubjectCluster(
                 cluster_number=num,
                 name=name,
@@ -276,7 +290,8 @@ def seed_nivaran_subjects_and_clusters(
     for cluster_num, subject_names in AUTHORITATIVE_SUBJECTS.items():
         cluster = cluster_record_map.get(cluster_num)
         if not cluster:
-            raise ValueError(f"Target SubjectCluster {cluster_num} was not initialized.")
+            # Cluster was deleted or unmapped in CMS; do not force recreation
+            continue
 
         for subj_name in subject_names:
             existing_subj = db.scalar(
@@ -284,6 +299,11 @@ def seed_nivaran_subjects_and_clusters(
             )
 
             if not existing_subj:
+                # If governance taxonomy is already bootstrapped, do not resurrect initial canonical subjects
+                # that were deleted or renamed by administrators in CMS
+                if bootstrapped and subj_name in INITIAL_CANONICAL_SUBJECT_NAMES:
+                    continue
+
                 new_subj = Subject(
                     name=subj_name,
                     subject_cluster_id=cluster.id,
@@ -307,7 +327,7 @@ def seed_nivaran_subjects_and_clusters(
                         "cluster_number": cluster_num,
                         "cluster_id": str(cluster.id),
                     })
-                elif existing_subj.subject_cluster_id is None:
+                elif not bootstrapped and existing_subj.subject_cluster_id is None:
                     existing_subj.subject_cluster_id = cluster.id
                     subjects_realigned.append({
                         "name": subj_name,

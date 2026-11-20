@@ -37,6 +37,7 @@ export interface ChatQueryRequest {
   query: string;
   conversation_history?: Array<{ role: string; content: string }>;
   doc_type_filter?: string;
+  domain_filter?: string;
 }
 
 export interface ChatQueryResponse {
@@ -89,12 +90,14 @@ class PhdRagService {
   async askQuestion(
     query: string,
     history?: Array<{ role: string; content: string }>,
-    docTypeFilter?: string
+    docTypeFilter?: string,
+    domainFilter?: string
   ): Promise<ChatQueryResponse> {
     const payload: ChatQueryRequest = {
       query,
       conversation_history: history,
       doc_type_filter: docTypeFilter,
+      domain_filter: domainFilter,
     };
 
     const response = await fetch(`${this.baseUrl}/chat`, {
@@ -123,8 +126,11 @@ class PhdRagService {
     return await response.json();
   }
 
-  async getStatus(): Promise<PhdStatusResponse> {
-    const response = await fetch(`${this.baseUrl}/status`);
+  async getStatus(domain?: string): Promise<PhdStatusResponse> {
+    const url = domain && domain !== 'all'
+      ? `${this.baseUrl}/status?domain=${encodeURIComponent(domain)}`
+      : `${this.baseUrl}/status`;
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to load Ph.D. assistant status');
     }
