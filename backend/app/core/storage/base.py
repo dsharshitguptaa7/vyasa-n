@@ -7,7 +7,7 @@ import io
 import os
 from pathlib import Path
 import re
-from typing import BinaryIO, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, BinaryIO, Dict, List, Optional, Set, Tuple, Union
 import uuid
 import zipfile
 
