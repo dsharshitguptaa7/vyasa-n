@@ -28,6 +28,8 @@ class KnowledgeChunkItem(BaseModel):
     chunk_index: int
     content: str
     page_number: Optional[int] = None
+    section_heading: Optional[str] = None
+    token_count: Optional[int] = None
     metadata: Optional[dict] = None
     has_embedding: bool = False
     verification_status: str
@@ -80,7 +82,19 @@ class KnowledgeDocumentDetailResponse(BaseModel):
     """Full detail view for SADMIN document inspection."""
     document: KnowledgeDocumentItem
     versions: List[KnowledgeDocumentVersionItem] = Field(default_factory=list)
+    chunks: List[KnowledgeChunkItem] = Field(default_factory=list)
     chunks_sample: List[KnowledgeChunkItem] = Field(default_factory=list)
+    total_chunks: int = 0
+
+
+class KnowledgeChunkListResponse(BaseModel):
+    """Paginated chunks listing for a document or specific version."""
+    items: List[KnowledgeChunkItem]
+    total: int
+    skip: int
+    limit: int
+    document_id: uuid.UUID
+    version_id: Optional[uuid.UUID] = None
 
 
 class KnowledgeDocumentListResponse(BaseModel):
@@ -108,10 +122,12 @@ class KnowledgeRetryRequest(BaseModel):
 
 
 class KnowledgeUploadResponse(BaseModel):
-    """Upload acknowledgement."""
+    """Upload acknowledgement with canonical document and version IDs."""
     success: bool = True
+    id: uuid.UUID
     document_id: uuid.UUID
     version_id: uuid.UUID
+    current_version_id: Optional[uuid.UUID] = None
     version_number: int
     storage_key: str
     checksum_sha256: str

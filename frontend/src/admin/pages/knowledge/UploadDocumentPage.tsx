@@ -115,9 +115,12 @@ export const UploadDocumentPage: React.FC = () => {
         effective_until: effectiveUntil ? new Date(effectiveUntil).toISOString() : undefined,
       });
 
+      const canonicalDocId = res.id || res.document_id;
+      const canonicalVerId = res.current_version_id || res.version_id || '';
+
       setSuccessResult({
-        documentId: res.id,
-        versionId: res.current_version_id || (res.current_version ? res.current_version.id : ''),
+        documentId: canonicalDocId,
+        versionId: canonicalVerId,
       });
     } catch (err: any) {
       const serverFieldErrors: Record<string, string> = {};
@@ -227,7 +230,12 @@ export const UploadDocumentPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => navigate(`/admin/knowledge-centre/documents/${successResult.documentId}`)}
+                disabled={!successResult?.documentId}
+                onClick={() => {
+                  if (successResult?.documentId) {
+                    navigate(`/admin/knowledge-centre/documents/${successResult.documentId}`);
+                  }
+                }}
               >
                 Inspect Chunks & Details
               </Button>

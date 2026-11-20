@@ -74,6 +74,7 @@ from app.modules.atharva_veda.nivaran.services.google_meet_service import Google
 from app.modules.atharva_veda.nivaran.services.routing_service import DynamicRoutingEngine
 from app.schemas.notification import NotificationEventPayload
 from app.services.notifications.engine import engine as notification_engine
+from app.core.storage import storage_service, StorageFileNotFoundError, StorageError
 
 logger = logging.getLogger("vyasa.atharva.committee")
 STORAGE_BASE_DIR = Path("storage/uploads")
@@ -2187,15 +2188,14 @@ class CommitteeService:
 
         content_hash = hashlib.sha256(content_bytes).hexdigest()
 
-        target_dir = STORAGE_BASE_DIR / str(comm.grievance_id)
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        safe_name = os.path.basename(payload.file_name).replace(" ", "_")
-        safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-") or "evidence"
-        file_disk_path = target_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}"
-
-        with open(file_disk_path, "wb") as f:
-            f.write(content_bytes)
+        # Persist through central storage service
+        storage_res = storage_service.save_file(
+            content=content_bytes,
+            filename=payload.file_name,
+            subfolder=f"nivaran/committees/{comm.id}",
+            mime_type=payload.mime_type,
+            max_size_bytes=max_file_size,
+        )
 
         now_utc = datetime.now(timezone.utc)
         doc = Document(
@@ -2203,11 +2203,12 @@ class CommitteeService:
             grievance_id=comm.grievance_id,
             uploaded_by_vyasa_user_id=user.id,
             file_name=payload.file_name,
-            file_path=str(file_disk_path),
+            file_path=storage_res.storage_key,
+            storage_key=storage_res.storage_key,
             mime_type=payload.mime_type,
-            file_size=len(content_bytes),
+            file_size=storage_res.file_size_bytes,
             document_type=payload.document_type,
-            content_hash=content_hash,
+            content_hash=storage_res.sha256_checksum,
             ocr_status="COMPLETED" if ext in [".png", ".jpg", ".jpeg", ".pdf"] else "NOT_APPLICABLE",
             created_at=now_utc,
         )

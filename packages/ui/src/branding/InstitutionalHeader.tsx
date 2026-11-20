@@ -47,15 +47,13 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
         style={{
           backgroundColor: '#081726',
           color: '#ffffff',
-          padding: '0 20px',
           fontSize: '12px',
-          height: isCompact ? '52px' : undefined,
           minHeight: isCompact ? '52px' : undefined,
-          maxHeight: isCompact ? '52px' : undefined,
           display: 'flex',
           alignItems: 'center',
           transition: 'all 0.25s ease',
           boxSizing: 'border-box',
+          width: '100%',
         }}
       >
         <div
@@ -64,20 +62,25 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'nowrap',
             gap: '12px',
             width: '100%',
-            height: '100%',
-            paddingTop: 0,
-            paddingBottom: 0,
+            minHeight: '100%',
             boxSizing: 'border-box',
           }}
         >
           <div
+            className="csjmu-top-bar__brand-wrap"
             onClick={onLogoClick}
             role={onLogoClick ? "button" : undefined}
             tabIndex={onLogoClick ? 0 : undefined}
-            style={{ cursor: onLogoClick ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center' }}
+            style={{
+              cursor: onLogoClick ? 'pointer' : 'default',
+              display: 'inline-flex',
+              alignItems: 'center',
+              minWidth: 0,
+              maxWidth: '100%',
+              flexWrap: 'wrap',
+            }}
             onKeyDown={(e) => {
               if (onLogoClick && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
@@ -87,7 +90,16 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
           >
             <UniversityBrand size={isCompact ? "sm" : "md"} showAccreditation={true} theme="dark" />
             {isCompact && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '14px', gap: '8px' }}>
+              <div
+                className="csjmu-top-bar__compact-subbrand"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  marginLeft: '14px',
+                  gap: '8px',
+                  flexShrink: 0,
+                }}
+              >
                 <div style={{ width: '1px', height: '22px', backgroundColor: 'rgba(236, 223, 186, 0.25)', marginRight: '6px' }} />
                 <VyasaLogo size={26} />
                 <span
@@ -127,7 +139,7 @@ export const InstitutionalHeader: React.FC<InstitutionalHeaderProps> = ({
               {CSJMU_INSTITUTION.location}
             </span>
             {isCompact && actions && (
-              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <div className="csjmu-top-bar__actions" style={{ display: 'inline-flex', alignItems: 'center' }}>
                 {actions}
               </div>
             )}

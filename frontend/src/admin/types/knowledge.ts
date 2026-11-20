@@ -155,7 +155,38 @@ export interface KnowledgeDocumentDetailResponse {
   document: KnowledgeDocumentItem;
   versions: KnowledgeDocumentVersionItem[];
   chunks: KnowledgeChunkItem[];
+  chunks_sample?: KnowledgeChunkItem[];
   total_chunks: number;
+}
+
+export interface KnowledgeChunkListResponse {
+  items: KnowledgeChunkItem[];
+  total: number;
+  skip: number;
+  limit: number;
+  document_id: string;
+  version_id?: string;
+}
+
+export interface KnowledgeChunkFilterParams {
+  version_id?: string;
+  skip?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface KnowledgeUploadResponse {
+  success: boolean;
+  id: string;
+  document_id: string;
+  version_id: string;
+  current_version_id?: string;
+  version_number: number;
+  storage_key: string;
+  checksum_sha256: string;
+  status: KnowledgeDocumentStatus;
+  extraction_status: KnowledgeExtractionStatus;
+  message: string;
 }
 
 export interface KnowledgeUploadPayload {

@@ -16,18 +16,16 @@
   background-color: #081726;
   color: #ffffff;
   padding: 0;
-  height: 64px;
   min-height: 64px;
-  max-height: 68px;
   font-size: 12px;
   transition: all 0.25s ease;
   display: flex;
   align-items: center;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .vyasa-public-header.is-scrolled .csjmu-top-bar {
-  height: 56px;
   min-height: 56px;
 }
 
@@ -35,11 +33,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
   gap: 12px;
-  height: 100%;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
   padding-left: 24px;
   padding-right: 24px;
   max-width: 1440px !important;
@@ -47,16 +41,40 @@
   box-sizing: border-box;
 }
 
+@media (min-width: 769px) {
+  .csjmu-top-bar__inner {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: 100%;
+    flex-wrap: nowrap;
+  }
+}
+
 /* Style accreditation pill inside UniversityBrand */
+.csjmu-top-bar .university-brand__subtitle,
+.csjmu-top-bar .university-brand__accreditation,
 .csjmu-top-bar .university-brand span[style*="border-radius"] {
-  border-radius: 9999px !important;
-  font-size: 10.5px !important;
-  padding: 2px 9px !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  color: rgba(255, 255, 255, 0.9) !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.02em !important;
+  font-size: 10.5px;
+  padding: 2px 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 769px) {
+  .csjmu-top-bar .university-brand__subtitle,
+  .csjmu-top-bar .university-brand__accreditation,
+  .csjmu-top-bar .university-brand span[style*="border-radius"] {
+    border-radius: 9999px;
+  }
 }
 
 .csjmu-top-bar__meta {
@@ -73,6 +91,17 @@
   gap: 6px;
   letter-spacing: 0.02em;
   font-weight: 500;
+  white-space: normal;
+}
+
+.csjmu-top-bar__location::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--vyasa-gold, #c89528);
+  flex-shrink: 0;
 }
 
 /* 2. Solid Antique Gold Accent Divider Line */
@@ -706,50 +735,350 @@
   }
 }
 
-@media (max-width: 768px) {
-  .vyasa-public-header .csjmu-top-bar {
-    height: 58px;
-    min-height: 58px;
+@media (max-width: 1024px) {
+  .csjmu-top-bar__inner,
+  .vyasa-public-masthead__inner {
+    padding-left: 20px;
+    padding-right: 20px;
   }
+}
+
+@media (max-width: 768px) {
+  /* 1. Fully Fluid Institutional Affiliation Bar */
+  .vyasa-public-header .csjmu-top-bar,
+  .csjmu-top-bar {
+    height: auto !important;
+    min-height: unset !important;
+    max-height: none !important;
+    padding: 8px 0 !important;
+    align-items: flex-start;
+  }
+
+  .vyasa-public-header.is-scrolled .csjmu-top-bar {
+    height: auto !important;
+    min-height: unset !important;
+    padding: 6px 0 !important;
+  }
+
+  .csjmu-top-bar__inner {
+    height: auto !important;
+    min-height: unset !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+
+  .csjmu-top-bar .university-brand {
+    width: 100% !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .csjmu-top-bar .university-brand__logo-wrap {
+    margin-top: 2px;
+  }
+
+  .csjmu-top-bar .university-brand__content {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .csjmu-top-bar .university-brand__heading-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 3px !important;
+    width: 100% !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-en {
+    font-size: clamp(11.5px, 2.6vw, 13px) !important;
+    line-height: 1.25 !important;
+    display: block !important;
+  }
+
+  .csjmu-top-bar .university-brand__subtitle,
+  .csjmu-top-bar .university-brand__accreditation,
+  .csjmu-top-bar .university-brand span[style*="border-radius"] {
+    border-radius: 4px !important;
+    font-size: clamp(9.5px, 2.1vw, 10.5px) !important;
+    line-height: 1.35 !important;
+    padding: 2px 7px !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-hi {
+    font-size: clamp(10px, 2.2vw, 11px) !important;
+    line-height: 1.35 !important;
+    margin-top: 2px !important;
+    display: block !important;
+  }
+
+  .csjmu-top-bar__meta {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding-top: 5px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    font-size: 11px !important;
+  }
+
+  .csjmu-top-bar__location {
+    font-size: clamp(10px, 2.2vw, 11px) !important;
+  }
+
+  /* 2. Tier 2 VYASA Masthead on Tablet */
   .vyasa-public-masthead {
     height: 58px;
     min-height: 58px;
   }
-  .csjmu-top-bar__inner,
+
   .vyasa-public-masthead__inner {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
 }
 
 @media (max-width: 640px) {
-  .vyasa-public-header .csjmu-top-bar {
-    height: 54px;
-    min-height: 54px;
+  .vyasa-public-header .csjmu-top-bar,
+  .csjmu-top-bar {
+    padding: 7px 0 !important;
   }
+
   .csjmu-top-bar__inner {
-    justify-content: space-between;
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: max(14px, env(safe-area-inset-left)) !important;
+    padding-right: max(14px, env(safe-area-inset-right)) !important;
+    gap: 5px !important;
   }
+
+  .csjmu-top-bar .university-brand {
+    gap: 9px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-en {
+    font-size: clamp(11.2px, 2.8vw, 12.5px) !important;
+    line-height: 1.25 !important;
+  }
+
+  .csjmu-top-bar .university-brand__subtitle,
+  .csjmu-top-bar .university-brand__accreditation,
+  .csjmu-top-bar .university-brand span[style*="border-radius"] {
+    font-size: clamp(9.2px, 2.3vw, 10px) !important;
+    line-height: 1.32 !important;
+    padding: 1.5px 6px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-hi {
+    font-size: clamp(9.8px, 2.4vw, 10.5px) !important;
+    line-height: 1.32 !important;
+  }
+
   .csjmu-top-bar__meta {
-    font-size: 10.5px;
+    padding-top: 4px !important;
+    font-size: 10.5px !important;
   }
+
   .csjmu-top-bar__location {
-    font-size: 10.5px;
+    font-size: clamp(9.8px, 2.4vw, 10.5px) !important;
   }
+
   .vyasa-public-masthead {
     height: 56px;
     min-height: 56px;
   }
+
   .vyasa-public-masthead__inner {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    gap: 10px;
   }
+
+  .vyasa-public-logo-lockup {
+    gap: 8px;
+    padding: 2px 4px;
+    min-width: 0;
+  }
+
   .vyasa-public-logo-title {
-    font-size: 13px;
+    font-size: clamp(12.5px, 3.2vw, 13.5px);
   }
+
   .vyasa-public-logo-tagline {
-    display: none;
+    display: block;
+    font-size: clamp(8.5px, 2.2vw, 9.5px);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .vyasa-public-header .csjmu-top-bar,
+  .csjmu-top-bar {
+    padding: 6.5px 0 !important;
+  }
+
+  .csjmu-top-bar__inner {
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    gap: 4px !important;
+  }
+
+  .csjmu-top-bar .university-brand {
+    gap: 8px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-en {
+    font-size: clamp(11px, 3.1vw, 12px) !important;
+    line-height: 1.25 !important;
+  }
+
+  .csjmu-top-bar .university-brand__subtitle,
+  .csjmu-top-bar .university-brand__accreditation,
+  .csjmu-top-bar .university-brand span[style*="border-radius"] {
+    font-size: clamp(8.8px, 2.4vw, 9.5px) !important;
+    line-height: 1.3 !important;
+    padding: 1.5px 5px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-hi {
+    font-size: clamp(9.5px, 2.6vw, 10px) !important;
+    line-height: 1.3 !important;
+  }
+
+  .csjmu-top-bar__meta {
+    padding-top: 3.5px !important;
+    font-size: 10px !important;
+  }
+
+  .csjmu-top-bar__location {
+    font-size: clamp(9.2px, 2.5vw, 10px) !important;
+  }
+
+  .vyasa-public-masthead {
+    height: 54px;
+    min-height: 54px;
+  }
+
+  .vyasa-public-masthead__inner {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    gap: 8px;
+  }
+
+  .vyasa-public-logo-lockup {
+    gap: 7px;
+  }
+
+  .vyasa-public-logo-title {
+    font-size: 12px;
+  }
+
+  .vyasa-public-logo-tagline {
+    font-size: 8.5px;
+  }
+
+  .vyasa-mobile-toggle {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .vyasa-public-header .csjmu-top-bar,
+  .csjmu-top-bar {
+    padding: 5.5px 0 !important;
+  }
+
+  .csjmu-top-bar__inner {
+    padding-left: max(8px, env(safe-area-inset-left)) !important;
+    padding-right: max(8px, env(safe-area-inset-right)) !important;
+    gap: 3.5px !important;
+  }
+
+  .csjmu-top-bar .university-brand {
+    gap: 6.5px !important;
+  }
+
+  .csjmu-top-bar .university-brand__logo-wrap img,
+  .csjmu-top-bar .university-brand .csjmu-logo-container {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-en {
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  .csjmu-top-bar .university-brand__subtitle,
+  .csjmu-top-bar .university-brand__accreditation,
+  .csjmu-top-bar .university-brand span[style*="border-radius"] {
+    font-size: 8.5px !important;
+    line-height: 1.25 !important;
+    padding: 1px 4.5px !important;
+  }
+
+  .csjmu-top-bar .university-brand__name-hi {
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+
+  .csjmu-top-bar__meta {
+    padding-top: 3px !important;
+    font-size: 9px !important;
+  }
+
+  .csjmu-top-bar__location {
+    font-size: 9px !important;
+  }
+
+  .vyasa-public-masthead {
+    height: 52px;
+    min-height: 52px;
+  }
+
+  .vyasa-public-masthead__inner {
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    gap: 6px;
+  }
+
+  .vyasa-public-logo-lockup {
+    gap: 6px;
+    padding: 1px 3px;
+  }
+
+  .vyasa-public-logo-lockup .vyasa-logo-emblem,
+  .vyasa-public-logo-lockup svg {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .vyasa-public-logo-title {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .vyasa-public-logo-tagline {
+    font-size: 7.8px;
+  }
+
+  .vyasa-mobile-toggle {
+    padding: 5px 7px;
   }
 }

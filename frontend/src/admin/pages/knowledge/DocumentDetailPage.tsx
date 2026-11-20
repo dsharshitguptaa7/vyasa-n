@@ -10,6 +10,8 @@ import {
   KNOWLEDGE_DOMAINS,
 } from '../../types/knowledge';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const DocumentDetailPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export const DocumentDetailPage: React.FC = () => {
   const [chunkSearch, setChunkSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<number | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Modals
@@ -34,16 +37,27 @@ export const DocumentDetailPage: React.FC = () => {
 
   const loadDetail = useCallback(async () => {
     if (!documentId) return;
+    if (!UUID_REGEX.test(documentId)) {
+      setLoading(false);
+      setErrorCode(400);
+      setErrorMsg(`Invalid document identifier "${documentId}". Expected a valid UUID.`);
+      setDocument(null);
+      return;
+    }
     try {
       setLoading(true);
       setErrorMsg(null);
+      setErrorCode(null);
       const res = await knowledgeAdminService.getDocumentDetail(documentId);
       setDocument(res.document);
-      setVersions(res.versions);
-      setChunks(res.chunks);
-      setTotalChunks(res.total_chunks);
+      setVersions(res.versions || []);
+      const resolvedChunks = res.chunks || (res as any).chunks_sample || [];
+      setChunks(resolvedChunks);
+      setTotalChunks(res.total_chunks ?? resolvedChunks.length);
     } catch (err: any) {
+      setErrorCode(err.statusCode || err.status || (err.message?.includes('404') ? 404 : 500));
       setErrorMsg(err.message || 'Failed to retrieve document details.');
+      setDocument(null);
     } finally {
       setLoading(false);
     }
@@ -188,19 +202,53 @@ export const DocumentDetailPage: React.FC = () => {
   }
 
   if (!document) {
+    const isInvalidId = Boolean(documentId && !UUID_REGEX.test(documentId));
+    const isNotFound = errorCode === 404 || (!isInvalidId && Boolean(errorMsg?.toLowerCase().includes('not found')));
+    const isAccessDenied = errorCode === 403 || Boolean(errorMsg?.toLowerCase().includes('access denied')) || Boolean(errorMsg?.toLowerCase().includes('forbidden'));
+
     return (
       <AdminLayout activeTab="knowledge-centre">
-        <div className="p-8 text-center">
-          <div className="text-red-500 font-semibold mb-2">Document Not Found</div>
-          <Button variant="outline" size="sm" onClick={() => navigate('/admin/knowledge-centre/documents')}>
-            Return to Library
-          </Button>
+        <div className="p-8 max-w-lg mx-auto text-center space-y-4 my-12">
+          <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-red-100 dark:bg-red-950/40 text-red-600">
+            <AppIcon name="alert-circle" size={24} />
+          </div>
+
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {isInvalidId
+              ? 'Invalid Document Identifier'
+              : isNotFound
+              ? 'Document Not Found'
+              : isAccessDenied
+              ? 'Access Denied'
+              : 'Unable to Load Document'}
+          </h2>
+
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {isInvalidId
+              ? `The document identifier "${documentId}" is invalid or malformed. Expected a canonical UUID.`
+              : isNotFound
+              ? `Document with ID "${documentId}" could not be found in the knowledge repository. It may have been deleted or the link is incorrect.`
+              : isAccessDenied
+              ? 'You do not have the required Super Admin permissions to view this document.'
+              : errorMsg || 'An unexpected error occurred while communicating with the knowledge service.'}
+          </p>
+
+          <div className="pt-2 flex justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/knowledge-centre/documents')}>
+              Return to Library
+            </Button>
+            {!isInvalidId && !isNotFound && !isAccessDenied && (
+              <Button variant="primary" size="sm" onClick={loadDetail}>
+                Retry Loading
+              </Button>
+            )}
+          </div>
         </div>
       </AdminLayout>
     );
   }
 
-  const currentVer = document.current_version;
+  const currentVer = document.current_version || (versions && versions.length > 0 ? versions[0] : null);
 
   return (
     <AdminLayout activeTab="knowledge-centre">
@@ -236,6 +284,59 @@ export const DocumentDetailPage: React.FC = () => {
             </div>
             <button onClick={() => setSuccessMsg(null)} className="text-xs font-bold underline">Dismiss</button>
           </div>
+        )}
+
+        {/* Processing State Alert */}
+        {(document.status === 'processing' || currentVer?.extraction_status === 'pending') && (
+          <Card className="p-4 border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0 animate-pulse text-amber-600">
+                <AppIcon name="settings" size={20} />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Text Extraction & Embedding In Progress</div>
+                <div className="text-xs text-amber-700 dark:text-amber-400">
+                  Passage chunking and vector embeddings are currently being generated in the background. Extracted passages will appear automatically once complete.
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadDetail}
+              className="text-xs border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-1.5 flex-shrink-0"
+            >
+              <AppIcon name="settings" size={14} />
+              Refresh Status
+            </Button>
+          </Card>
+        )}
+
+        {/* Failed Processing Alert */}
+        {currentVer?.extraction_status === 'failed' && (
+          <Card className="p-4 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 text-red-900 dark:text-red-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0 text-red-600">
+                <AppIcon name="alert-circle" size={20} />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Document Text Extraction Failed</div>
+                <div className="text-xs text-red-700 dark:text-red-400">
+                  {currentVer?.processing_error || 'An error occurred during text extraction or vector embedding.'}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleRetry(currentVer?.id)}
+              disabled={actionInProgress}
+              className="text-xs bg-red-600 hover:bg-red-700 text-white flex items-center gap-1.5 flex-shrink-0"
+            >
+              <AppIcon name="settings" size={14} />
+              Retry Extraction
+            </Button>
+          </Card>
         )}
 
         {/* Header Card */}
@@ -293,6 +394,17 @@ export const DocumentDetailPage: React.FC = () => {
 
             {/* SADMIN Control Actions */}
             <div className="flex flex-wrap lg:flex-col gap-2.5 min-w-[200px]">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadDetail}
+                disabled={loading}
+                className="flex items-center gap-2 justify-center"
+              >
+                <AppIcon name="settings" size={16} />
+                Refresh Status
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -425,10 +537,36 @@ export const DocumentDetailPage: React.FC = () => {
             </div>
 
             {filteredChunks.length === 0 ? (
-              <Card className="p-8 text-center border border-gray-200 dark:border-gray-800 text-gray-500 text-sm">
-                {chunks.length === 0
-                  ? 'No passages extracted yet. Extraction is either running in the background or pending.'
-                  : 'No passages match your keyword filter.'}
+              <Card className="p-8 text-center border border-gray-200 dark:border-gray-800 text-gray-500 text-sm space-y-2">
+                {chunks.length === 0 ? (
+                  document.status === 'processing' || currentVer?.extraction_status === 'pending' ? (
+                    <div>
+                      <div className="font-semibold text-gray-800 dark:text-gray-200">Extraction in progress...</div>
+                      <div className="text-xs text-gray-500 mt-1">Passages are currently being extracted and embedded in the background.</div>
+                      <Button variant="outline" size="sm" onClick={loadDetail} className="mt-3 text-xs">
+                        Check for Passages
+                      </Button>
+                    </div>
+                  ) : currentVer?.extraction_status === 'failed' ? (
+                    <div>
+                      <div className="font-semibold text-red-600">No passages extracted due to failure</div>
+                      <div className="text-xs text-gray-500 mt-1">{currentVer.processing_error || 'Text extraction failed.'}</div>
+                      <Button variant="primary" size="sm" onClick={() => handleRetry(currentVer?.id)} className="mt-3 text-xs">
+                        Retry Extraction
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="font-semibold text-gray-700 dark:text-gray-300">No passages extracted</div>
+                      <div className="text-xs text-gray-500 mt-1">This document does not currently contain any extracted text passages.</div>
+                    </div>
+                  )
+                ) : (
+                  <div>
+                    <div className="font-semibold text-gray-700 dark:text-gray-300">No matching passages</div>
+                    <div className="text-xs text-gray-500 mt-1">No passages match your keyword filter &quot;{chunkSearch}&quot;.</div>
+                  </div>
+                )}
               </Card>
             ) : (
               <div className="space-y-3">

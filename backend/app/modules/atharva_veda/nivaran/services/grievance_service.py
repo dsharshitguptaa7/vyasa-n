@@ -43,6 +43,12 @@ from app.modules.atharva_veda.nivaran.services.submission_restriction_service im
     check_daily_submission_limit,
     check_similar_active_grievance,
 )
+from app.core.storage import (
+    storage_service,
+    StorageFileNotFoundError,
+    StorageError,
+    sanitize_filename,
+)
 
 logger = logging.getLogger("vyasa.atharva.grievance_service")
 
@@ -187,25 +193,24 @@ class GrievanceService:
                     detail=f"Uploaded file '{doc_item.file_name}' has empty payload.",
                 )
 
-            content_hash = hashlib.sha256(content_bytes).hexdigest()
-
-            # Sanitize file name to prevent path traversal
-            safe_name = os.path.basename(original_name).replace(" ", "_")
-            safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-") or "attachment"
-            file_disk_path = target_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}"
-
-            with open(file_disk_path, "wb") as f:
-                f.write(content_bytes)
+            # Store securely through centralized storage service
+            storage_res = storage_service.save_file(
+                content=content_bytes,
+                filename=original_name,
+                subfolder=f"nivaran/grievances/{grievance_id}",
+                mime_type=doc_item.mime_type,
+            )
 
             doc_record = Document(
                 grievance_id=grievance_id,
                 uploaded_by_vyasa_user_id=uploader_id,
                 file_name=doc_item.file_name,
-                file_path=str(file_disk_path),
+                file_path=storage_res.storage_key,
+                storage_key=storage_res.storage_key,
                 mime_type=doc_item.mime_type,
-                file_size=len(content_bytes),
+                file_size=storage_res.file_size_bytes,
                 document_type=doc_item.document_type,
-                content_hash=content_hash,
+                content_hash=storage_res.sha256_checksum,
                 ocr_status="COMPLETED" if ext in [".png", ".jpg", ".jpeg", ".webp", ".pdf"] else "NOT_APPLICABLE",
             )
             db.add(doc_record)
@@ -535,29 +540,27 @@ class GrievanceService:
         if file_size > cls.MAX_FILE_SIZE:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File size exceeds maximum limit of 20MB.")
 
-        # Save to disk
-        target_dir = STORAGE_BASE_DIR / str(grievance.id)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = os.path.basename(original_name).replace(" ", "_")
-        safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._-") or "attachment"
+        # Save securely through centralized storage service
         doc_id = uuid.uuid4()
-        disk_path = target_dir / f"{doc_id.hex[:8]}_{safe_name}"
-
-        with open(disk_path, "wb") as f:
-            f.write(file_bytes)
-
-        content_hash = hashlib.sha256(file_bytes).hexdigest()
+        storage_res = storage_service.save_file(
+            content=file_bytes,
+            filename=original_name,
+            subfolder=f"nivaran/grievances/{grievance.id}",
+            mime_type=mime_type or "application/octet-stream",
+            max_size_bytes=cls.MAX_FILE_SIZE,
+        )
 
         doc = Document(
             id=doc_id,
             grievance_id=grievance.id,
             uploaded_by_vyasa_user_id=current_user.id,
             file_name=original_name,
-            file_path=str(disk_path),
-            mime_type=mime_type or "application/octet-stream",
-            file_size=file_size,
+            file_path=storage_res.storage_key,
+            storage_key=storage_res.storage_key,
+            mime_type=storage_res.mime_type,
+            file_size=storage_res.file_size_bytes,
             document_type=document_type,
-            content_hash=content_hash,
+            content_hash=storage_res.sha256_checksum,
             ocr_status="COMPLETED" if ext in [".png", ".jpg", ".jpeg", ".webp", ".pdf"] else "NOT_APPLICABLE",
         )
         db.add(doc)
@@ -614,14 +617,19 @@ class GrievanceService:
                     detail="You do not have access to this document.",
                 )
 
-        file_path = Path(doc.file_path)
-        if not file_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document file does not exist on disk.",
-            )
+        lookup_ref = doc.storage_key or doc.file_path
+        try:
+            resolved_path = storage_service.get_file_path(lookup_ref)
+        except (StorageFileNotFoundError, StorageError):
+            if doc.file_path and os.path.isfile(doc.file_path):
+                resolved_path = Path(doc.file_path)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document file does not exist in storage.",
+                )
 
-        return file_path, doc.file_name, doc.mime_type
+        return resolved_path, doc.file_name, doc.mime_type
 
     @classmethod
     def get_applicant_grievances(

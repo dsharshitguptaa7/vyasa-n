@@ -7,6 +7,9 @@ import {
   KnowledgeDocumentVersionItem,
   KnowledgeDocumentListResponse,
   KnowledgeDocumentDetailResponse,
+  KnowledgeChunkListResponse,
+  KnowledgeChunkFilterParams,
+  KnowledgeUploadResponse,
   KnowledgeUploadPayload,
   KnowledgeUploadVersionPayload,
   KnowledgeApprovePayload,
@@ -58,6 +61,31 @@ export const knowledgeAdminService = {
     if (!res.data) {
       throw new Error(res.message || 'Failed to fetch document details.');
     }
+    const data = res.data;
+    data.chunks = data.chunks || data.chunks_sample || [];
+    data.total_chunks = data.total_chunks ?? data.chunks.length;
+    return data;
+  },
+
+  /**
+   * Retrieves paginated extracted passage chunks for a document or specific version.
+   */
+  async getDocumentChunks(
+    documentId: string,
+    params?: KnowledgeChunkFilterParams
+  ): Promise<KnowledgeChunkListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.skip !== undefined) searchParams.append('skip', String(params.skip));
+    if (params?.limit !== undefined) searchParams.append('limit', String(params.limit));
+    if (params?.version_id) searchParams.append('version_id', params.version_id);
+    if (params?.search) searchParams.append('search', params.search);
+
+    const queryStr = searchParams.toString();
+    const endpoint = `${BASE_PREFIX}/documents/${documentId}/chunks${queryStr ? `?${queryStr}` : ''}`;
+    const res = await apiClient.get<KnowledgeChunkListResponse>(endpoint);
+    if (!res.data) {
+      throw new Error(res.message || 'Failed to list document chunks.');
+    }
     return res.data;
   },
 
@@ -72,7 +100,7 @@ export const knowledgeAdminService = {
   /**
    * Uploads a new document file with institutional metadata.
    */
-  async uploadDocument(payload: KnowledgeUploadPayload): Promise<KnowledgeDocumentItem> {
+  async uploadDocument(payload: KnowledgeUploadPayload): Promise<KnowledgeUploadResponse> {
     const formData = new FormData();
     formData.append('file', payload.file);
     formData.append('title', payload.title);
@@ -86,7 +114,7 @@ export const knowledgeAdminService = {
     if (payload.effective_from) formData.append('effective_from', payload.effective_from);
     if (payload.effective_until) formData.append('effective_until', payload.effective_until);
 
-    const res = await apiClient.postFormData<KnowledgeDocumentItem>(`${BASE_PREFIX}/documents/upload`, formData);
+    const res = await apiClient.postFormData<KnowledgeUploadResponse>(`${BASE_PREFIX}/documents/upload`, formData);
     if (!res.data) {
       throw new Error(res.message || 'Failed to upload document.');
     }

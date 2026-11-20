@@ -184,6 +184,7 @@ class AiKnowledgeDocument(Base):
         back_populates="document",
         cascade="all, delete-orphan",
         foreign_keys="[AiKnowledgeChunk.document_id]",
+        order_by="AiKnowledgeChunk.chunk_index",
     )
     uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
     approved_by = relationship("User", foreign_keys=[approved_by_id])

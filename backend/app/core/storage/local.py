@@ -12,7 +12,8 @@ Implements:
 import hashlib
 import os
 from pathlib import Path
-from typing import BinaryIO, Optional, Set, Union
+import shutil
+from typing import Any, BinaryIO, Dict, Iterator, Optional, Set, Union
 import uuid
 
 from app.core.config import settings
@@ -91,6 +92,12 @@ class LocalStorageProvider(BaseStorageProvider):
             raise StorageError("Storage key cannot be empty.")
 
         clean_key = str(storage_key).strip().replace("\\", "/")
+        # Strip redundant leading storage root prefixes if present from legacy paths
+        if clean_key.startswith("backend/storage/"):
+            clean_key = clean_key[len("backend/storage/"):]
+        elif clean_key.startswith("storage/"):
+            clean_key = clean_key[len("storage/"):]
+
         if (
             clean_key.startswith("/")
             or "\0" in clean_key
@@ -186,6 +193,12 @@ class LocalStorageProvider(BaseStorageProvider):
             file_size_bytes=file_size,
             mime_type=effective_mime,
             absolute_path=final_path,
+            bucket="local",
+            storage_provider="local",
+            metadata={
+                "sha256": sha256,
+                "original_filename": safe_base,
+            },
         )
 
     def get_file_bytes(self, storage_key: str) -> bytes:
@@ -231,3 +244,63 @@ class LocalStorageProvider(BaseStorageProvider):
             raise StorageFileNotFoundError(f"File not found for storage key '{storage_key}'.")
         clean_key = str(storage_key).strip().replace("\\", "/")
         return f"/api/v1/storage/download?key={clean_key}"
+
+    def get_file_metadata(self, storage_key: str) -> Dict[str, Any]:
+        """
+        Retrieve file metadata for local file (size, MIME type, SHA-256 checksum, last modified).
+        """
+        path = self.get_file_path(storage_key)
+        st = path.stat()
+        content = path.read_bytes()
+        sha256 = hashlib.sha256(content).hexdigest()
+        from app.core.storage.base import infer_mime_type
+        effective_mime = infer_mime_type(content, path.name)
+        return {
+            "storage_key": storage_key,
+            "file_size_bytes": st.st_size,
+            "mime_type": effective_mime,
+            "sha256_checksum": sha256,
+            "original_filename": path.name,
+            "last_modified": st.st_mtime,
+            "etag": f'"{sha256[:16]}"',
+            "bucket": "local",
+            "provider": "local",
+        }
+
+    def get_file_url(self, storage_key: str, public: bool = False, expires_in_seconds: int = 3600) -> str:
+        """
+        Retrieve URL for a local file (download route).
+        """
+        clean_key = str(storage_key).strip().replace("\\", "/")
+        if public:
+            return f"/api/v1/storage/public?key={clean_key}"
+        return f"/api/v1/storage/download?key={clean_key}"
+
+    def copy_file(self, source_key: str, destination_key: str) -> str:
+        """
+        Copy a file locally from source_key to destination_key.
+        """
+        src_path = self.get_file_path(source_key)
+        dest_path = self._resolve_safe_path_from_key(destination_key)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_path, dest_path)
+        return destination_key
+
+    def move_file(self, source_key: str, destination_key: str) -> str:
+        """
+        Move a file locally from source_key to destination_key.
+        """
+        src_path = self.get_file_path(source_key)
+        dest_path = self._resolve_safe_path_from_key(destination_key)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src_path), str(dest_path))
+        return destination_key
+
+    def stream_file(self, storage_key: str, chunk_size: int = 65536) -> Iterator[bytes]:
+        """
+        Stream binary content for a local storage key in chunks.
+        """
+        path = self.get_file_path(storage_key)
+        with open(path, "rb") as f:
+            while chunk := f.read(chunk_size):
+                yield chunk

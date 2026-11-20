@@ -941,6 +941,33 @@ class KnowledgeCentreService:
         )
         return db.execute(stmt).unique().scalar_one_or_none()
 
+    def list_chunks(
+        self,
+        db: Session,
+        document_id: uuid.UUID,
+        version_id: Optional[uuid.UUID] = None,
+        skip: int = 0,
+        limit: int = 50,
+        search: Optional[str] = None,
+    ) -> Tuple[List[AiKnowledgeChunk], int]:
+        """
+        Retrieves paginated passage chunks for a document or specific version,
+        ordered by chunk_index.
+        """
+        stmt = select(AiKnowledgeChunk).where(AiKnowledgeChunk.document_id == document_id)
+        if version_id:
+            stmt = stmt.where(AiKnowledgeChunk.version_id == version_id)
+        if search:
+            q = f"%{search.strip()}%"
+            stmt = stmt.where(AiKnowledgeChunk.content.ilike(q))
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = db.scalar(count_stmt) or 0
+
+        stmt = stmt.order_by(AiKnowledgeChunk.chunk_index.asc()).offset(skip).limit(limit)
+        items = db.execute(stmt).scalars().all()
+        return list(items), total
+
 
 # Singleton instance
 knowledge_service = KnowledgeCentreService()

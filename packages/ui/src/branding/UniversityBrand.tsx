@@ -31,37 +31,72 @@ export const UniversityBrand: React.FC<UniversityBrandProps> = ({
     <div
       className={`university-brand ${className}`}
       style={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
-        gap: '10px',
+        gap: size === 'lg' ? '12px' : size === 'sm' ? '8px' : '10px',
+        minWidth: 0,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <CsjmuLogo size={logoSize} />
+      <div className="university-brand__logo-wrap" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+        <CsjmuLogo size={logoSize} />
+      </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+      <div
+        className="university-brand__content"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          flex: 1,
+          gap: '2px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          className="university-brand__heading-row"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexWrap: 'wrap',
+            minWidth: 0,
+          }}
+        >
           <span
+            className="university-brand__name-en"
             style={{
               fontSize: size === 'lg' ? '14px' : size === 'sm' ? '11px' : '12px',
               fontWeight: 600,
               color: primaryTextColor,
               letterSpacing: '0.2px',
-              lineHeight: 1.2,
+              lineHeight: 1.25,
+              whiteSpace: 'normal',
+              wordBreak: 'normal',
+              overflowWrap: 'break-word',
             }}
           >
             {CSJMU_INSTITUTION.nameEnglish}
           </span>
           {showAccreditation && CSJMU_INSTITUTION.accreditation && (
             <span
+              className="university-brand__subtitle university-brand__accreditation"
               style={{
-                fontSize: '10px',
-                padding: '1px 6px',
-                borderRadius: '3px',
-                backgroundColor: isLight ? 'var(--vyasa-primary-surface, #eff5fa)' : 'rgba(255, 255, 255, 0.1)',
+                fontSize: size === 'lg' ? '11px' : size === 'sm' ? '9.5px' : '10px',
+                padding: '1.5px 6px',
+                borderRadius: '4px',
+                backgroundColor: isLight ? 'var(--vyasa-primary-surface, #eff5fa)' : 'rgba(255, 255, 255, 0.08)',
                 border: isLight ? '1px solid var(--vyasa-primary-border, #cadbef)' : '1px solid rgba(255, 255, 255, 0.15)',
                 color: isLight ? 'var(--vyasa-primary, #0f2b48)' : '#ffffff',
                 fontWeight: 500,
-                whiteSpace: 'nowrap',
+                lineHeight: 1.35,
+                whiteSpace: 'normal',
+                wordBreak: 'normal',
+                overflowWrap: 'break-word',
+                display: 'inline-block',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
               }}
             >
               {CSJMU_INSTITUTION.accreditation}
@@ -71,13 +106,16 @@ export const UniversityBrand: React.FC<UniversityBrandProps> = ({
 
         {showHindiName && (
           <span
-            className="vyasa-devanagari"
+            className="vyasa-devanagari university-brand__name-hi"
             lang="hi"
             style={{
               fontSize: size === 'lg' ? '12px' : size === 'sm' ? '10px' : '11px',
               color: hindiTextColor,
               marginTop: '1px',
-              lineHeight: 1.2,
+              lineHeight: 1.35,
+              whiteSpace: 'normal',
+              wordBreak: 'normal',
+              overflowWrap: 'break-word',
             }}
           >
             {CSJMU_INSTITUTION.nameHindi}

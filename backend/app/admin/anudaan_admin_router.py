@@ -951,17 +951,23 @@ def upload_gallery_image(
         )
 
     try:
+        if hasattr(file.file, "seek"):
+            file.file.seek(0)
         content = file.file.read()
         result = storage_service.save_file(
-            file_data=content,
+            content=content,
             filename=file.filename,
             subfolder="anudaan/gallery",
             allowed_mime_types=allowed_mimes,
-            max_bytes=10485760,  # 10MB
+            max_size_bytes=10485760,  # 10MB
+            mime_type=file.content_type,
         )
     except StorageInvalidFileTypeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except StorageSizeLimitError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except StorageError as e:
+        logger.error(f"Gallery image storage error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Gallery image upload failed: {e}")
@@ -970,10 +976,10 @@ def upload_gallery_image(
     image = anudaan_showcase_service.add_gallery_image(
         db,
         item_id=item_id,
-        storage_key=result.storage_path,
-        filename=result.filename,
+        storage_key=result.storage_key,
+        filename=result.original_filename,
         mime_type=result.mime_type,
-        file_size=result.file_size,
+        file_size=result.file_size_bytes,
         caption=caption,
         is_cover=is_cover,
         display_order=display_order,

@@ -44,6 +44,7 @@ from app.modules.knowledge_centre.schemas import (
     KnowledgeChunkItem,
     KnowledgeDocumentListResponse,
     KnowledgeDocumentDetailResponse,
+    KnowledgeChunkListResponse,
     KnowledgeUploadResponse,
     KnowledgeApproveRequest,
     KnowledgeRejectRequest,
@@ -122,6 +123,21 @@ def run_background_extraction(document_id: uuid.UUID, version_id: uuid.UUID, job
         logger.error("Background extraction job failed for document %s, version %s: %s", document_id, version_id, exc, exc_info=True)
     finally:
         db.close()
+
+
+def _serialize_chunk(c: AiKnowledgeChunk) -> KnowledgeChunkItem:
+    meta = c.chunk_metadata or {}
+    return KnowledgeChunkItem(
+        id=c.id,
+        chunk_index=c.chunk_index,
+        content=c.content,
+        page_number=c.page_number,
+        section_heading=meta.get("section_heading"),
+        token_count=meta.get("token_count"),
+        metadata=meta,
+        has_embedding=c.embedding is not None,
+        verification_status=c.verification_status,
+    )
 
 
 def _serialize_version(v: AiKnowledgeDocumentVersion) -> KnowledgeDocumentVersionItem:
@@ -295,8 +311,10 @@ async def upload_document(
 
     payload = KnowledgeUploadResponse(
         success=True,
+        id=doc.id,
         document_id=doc.id,
         version_id=version.id,
+        current_version_id=version.id,
         version_number=version.version_number,
         storage_key=version.storage_key,
         checksum_sha256=version.checksum_sha256,
@@ -364,30 +382,61 @@ def get_document_detail(
     doc_item = _serialize_document(doc)
     versions_list = [_serialize_version(v) for v in doc.versions]
 
-    chunks_sample = []
-    if doc.chunks:
-        for c in doc.chunks[:20]:
-            chunks_sample.append(
-                KnowledgeChunkItem(
-                    id=c.id,
-                    chunk_index=c.chunk_index,
-                    content=c.content,
-                    page_number=c.page_number,
-                    metadata=c.chunk_metadata,
-                    has_embedding=c.embedding is not None,
-                    verification_status=c.verification_status,
-                )
-            )
+    all_chunks = [_serialize_chunk(c) for c in (doc.chunks or [])]
+    chunks_sample = all_chunks[:20]
 
     detail = KnowledgeDocumentDetailResponse(
         document=doc_item,
         versions=versions_list,
+        chunks=all_chunks,
         chunks_sample=chunks_sample,
+        total_chunks=len(all_chunks),
     )
     return ApiResponse(
         success=True,
         message="Document details retrieved successfully.",
         data=detail.model_dump(),
+    )
+
+
+@router.get("/documents/{document_id}/chunks", response_model=ApiResponse)
+def list_document_chunks(
+    document_id: uuid.UUID,
+    version_id: Optional[uuid.UUID] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_sadmin),
+):
+    """
+    Paginated retrieval of extracted passage chunks for a document or specific version.
+    """
+    doc = db.get(AiKnowledgeDocument, document_id)
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {document_id} not found.")
+
+    chunks, total = knowledge_service.list_chunks(
+        db=db,
+        document_id=document_id,
+        version_id=version_id,
+        skip=skip,
+        limit=limit,
+        search=search,
+    )
+    serialized = [_serialize_chunk(c) for c in chunks]
+    payload = KnowledgeChunkListResponse(
+        items=serialized,
+        total=total,
+        skip=skip,
+        limit=limit,
+        document_id=document_id,
+        version_id=version_id,
+    )
+    return ApiResponse(
+        success=True,
+        message="Document chunks retrieved successfully.",
+        data=payload.model_dump(),
     )
 
 
@@ -495,8 +544,10 @@ async def upload_new_version(
 
     payload = KnowledgeUploadResponse(
         success=True,
+        id=document_id,
         document_id=document_id,
         version_id=new_ver.id,
+        current_version_id=new_ver.id,
         version_number=new_ver.version_number,
         storage_key=new_ver.storage_key,
         checksum_sha256=new_ver.checksum_sha256,

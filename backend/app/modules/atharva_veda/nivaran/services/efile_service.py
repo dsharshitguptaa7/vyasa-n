@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,7 @@ from app.modules.atharva_veda.nivaran.services.efile_pdf_generator import create
 from app.modules.atharva_veda.nivaran.services.student_master_record_service import (
     StudentMasterRecordService,
 )
+from app.core.storage import storage_service, StorageFileNotFoundError, StorageError
 
 logger = logging.getLogger("vyasa.atharva.nivaran.services.efile")
 
@@ -212,19 +214,32 @@ class EFileService:
             sealed_by_authority=sealed_by_authority,
         )
 
-        # 5. Generate PDF file
+        # 5. Generate PDF file into temporary workspace
         clean_num = e_file_number.replace("/", "_")
-        pdf_dir = STORAGE_DIR / str(year)
-        pdf_dir.mkdir(parents=True, exist_ok=True)
         pdf_filename = f"{clean_num}.pdf"
-        pdf_path = pdf_dir / pdf_filename
+        temp_dir = Path(tempfile.gettempdir()) / "vyasa_efile_tmp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_pdf_path = temp_dir / f"tmp_{uuid.uuid4().hex}_{pdf_filename}"
 
-        page_count = create_efile_pdf(snapshot=snapshot, output_path=str(pdf_path))
+        page_count = create_efile_pdf(snapshot=snapshot, output_path=str(temp_pdf_path))
 
-        # 6. Calculate SHA-256 cryptographic digest of the compiled dossier
-        with open(pdf_path, "rb") as f:
+        # 6. Read compiled bytes and persist to centralized object storage
+        with open(temp_pdf_path, "rb") as f:
             pdf_bytes = f.read()
-        content_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+        storage_res = storage_service.save_file(
+            content=pdf_bytes,
+            filename=pdf_filename,
+            subfolder=f"nivaran/efiles/{year}",
+            allowed_mime_types=["application/pdf"],
+            mime_type="application/pdf",
+        )
+
+        # Cleanup temporary file
+        try:
+            temp_pdf_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
         # 7. Persist EFile record
         efile = EFile(
@@ -234,8 +249,8 @@ class EFileService:
             applicant_vyasa_user_id=grievance.applicant_vyasa_user_id,
             student_record_id=smr.id,
             status=EFileStatus.FINALIZED,
-            file_path=str(pdf_path).replace("\\", "/"),
-            content_hash=content_hash,
+            file_path=storage_res.storage_key,
+            content_hash=storage_res.sha256_checksum,
             page_count=page_count,
             is_sealed=True,
             sealed_at=now,
@@ -322,14 +337,23 @@ class EFileService:
                 detail="E-File not found",
             )
 
-        if not efile.file_path or not os.path.exists(efile.file_path):
+        if not efile.file_path:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="E-File physical PDF dossier document not found on storage disk",
+                detail="E-File physical PDF dossier document not found in storage",
             )
 
-        with open(efile.file_path, "rb") as f:
-            pdf_bytes = f.read()
+        try:
+            pdf_bytes = storage_service.get_file_bytes(efile.file_path)
+        except (StorageFileNotFoundError, StorageError):
+            if os.path.exists(efile.file_path):
+                with open(efile.file_path, "rb") as f:
+                    pdf_bytes = f.read()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="E-File physical PDF dossier document not found on storage disk",
+                )
 
         calculated_hash = hashlib.sha256(pdf_bytes).hexdigest()
         is_valid = (calculated_hash.lower() == (efile.content_hash or "").lower())
@@ -558,9 +582,19 @@ class EFileService:
         """
         detail = cls.get_efile_detail(db, efile_id, current_user, current_authority)
         path = detail.get("file_path")
-        if not path or not os.path.exists(path):
+        if not path:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="E-File physical PDF file not found in storage",
+            )
+
+        try:
+            cached_path = storage_service.get_file_path(path)
+            return str(cached_path)
+        except (StorageFileNotFoundError, StorageError):
+            if os.path.exists(path):
+                return path
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="E-File physical PDF file not found on disk",
             )
-        return path

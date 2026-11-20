@@ -699,14 +699,17 @@ class AnudaanService:
         verified_mime = _verify_magic_bytes(content)
         clean_name = sanitize_filename(file.filename or "upload.bin")
         ext = clean_name.split(".")[-1] if "." in clean_name else "bin"
-        storage_key = f"anudaan/applications/{app.id}/{document_type.value.lower()}_{uuid.uuid4().hex[:8]}.{ext}"
+        stored_name = f"{document_type.value.lower()}_{uuid.uuid4().hex[:8]}.{ext}"
 
         # Pluggable storage save
-        storage_service.save_file(
-            file_data=content,
-            destination_path=storage_key,
+        save_res = storage_service.save_file(
+            content=content,
+            filename=stored_name,
+            subfolder=f"anudaan/applications/{app.id}",
             mime_type=verified_mime,
+            max_size_bytes=MAX_FILE_SIZE_BYTES,
         )
+        storage_key = save_res.storage_key
 
         try:
             doc = AnudaanDocument(

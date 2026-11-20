@@ -232,6 +232,12 @@ class SpacesStorageProvider(BaseStorageProvider):
             file_size_bytes=file_size,
             mime_type=effective_mime,
             absolute_path=None,
+            bucket=self.bucket,
+            storage_provider="spaces",
+            metadata={
+                "sha256": sha256,
+                "original_filename": safe_base,
+            },
         )
 
     def get_file_bytes(self, storage_key: str) -> bytes:
@@ -338,3 +344,89 @@ class SpacesStorageProvider(BaseStorageProvider):
         except Exception as exc:
             logger.error("Failed to generate presigned URL for key '%s': %s", clean_key, exc)
             raise StorageError(f"Failed to generate presigned URL: {exc}") from exc
+
+    def get_file_metadata(self, storage_key: str) -> dict:
+        """
+        Retrieve object metadata from Spaces (ContentLength, ContentType, sha256, last_modified, etag).
+        """
+        clean_key = self._validate_storage_key(storage_key)
+        try:
+            head = self.s3_client.head_object(Bucket=self.bucket, Key=clean_key)
+            meta = head.get("Metadata", {}) or {}
+            return {
+                "storage_key": clean_key,
+                "file_size_bytes": head.get("ContentLength", 0),
+                "mime_type": head.get("ContentType", "application/octet-stream"),
+                "sha256_checksum": meta.get("sha256"),
+                "original_filename": meta.get("original_filename"),
+                "last_modified": head.get("LastModified"),
+                "etag": head.get("ETag"),
+                "bucket": self.bucket,
+                "provider": "spaces",
+            }
+        except Exception as exc:
+            if self._is_not_found_error(exc):
+                raise StorageFileNotFoundError(f"File not found in storage for key '{clean_key}'.") from exc
+            logger.error("Failed to fetch metadata from Spaces for key '%s': %s", clean_key, exc)
+            raise StorageError(f"Cloud storage metadata check failed for key '{clean_key}': {exc}") from exc
+
+    def get_file_url(self, storage_key: str, public: bool = False, expires_in_seconds: int = 3600) -> str:
+        """
+        Retrieve URL for an object: public direct Spaces URL or authenticated signed URL.
+        """
+        clean_key = self._validate_storage_key(storage_key)
+        if not public:
+            return self.generate_presigned_url(clean_key, expires_in_seconds=expires_in_seconds)
+        endpoint = self.endpoint_url.rstrip("/")
+        return f"{endpoint}/{self.bucket}/{clean_key}"
+
+    def copy_file(self, source_key: str, destination_key: str) -> str:
+        """
+        Copy an object to a new destination key within the Spaces bucket.
+        """
+        clean_src = self._validate_storage_key(source_key)
+        clean_dest = self._validate_storage_key(destination_key)
+        try:
+            self.s3_client.copy_object(
+                Bucket=self.bucket,
+                CopySource={"Bucket": self.bucket, "Key": clean_src},
+                Key=clean_dest,
+                ACL="private",
+            )
+            return clean_dest
+        except Exception as exc:
+            if self._is_not_found_error(exc):
+                raise StorageFileNotFoundError(f"Source file not found for copy: '{clean_src}'.") from exc
+            logger.error("Failed to copy object in Spaces from '%s' to '%s': %s", clean_src, clean_dest, exc)
+            raise StorageError(f"Cloud storage copy failed: {exc}") from exc
+
+    def move_file(self, source_key: str, destination_key: str) -> str:
+        """
+        Move an object from source_key to destination_key (copy then delete source).
+        """
+        dest = self.copy_file(source_key, destination_key)
+        self.delete_file(source_key)
+        return dest
+
+    def stream_file(self, storage_key: str, chunk_size: int = 65536):
+        """
+        Stream binary content for a storage key in chunks.
+        """
+        clean_key = self._validate_storage_key(storage_key)
+        try:
+            response = self.s3_client.get_object(Bucket=self.bucket, Key=clean_key)
+            body = response["Body"]
+            if hasattr(body, "iter_chunks"):
+                for chunk in body.iter_chunks(chunk_size):
+                    yield chunk
+            else:
+                while True:
+                    chunk = body.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        except Exception as exc:
+            if self._is_not_found_error(exc):
+                raise StorageFileNotFoundError(f"File not found in storage for key '{clean_key}'.") from exc
+            logger.error("Failed to stream file from Spaces for key '%s': %s", clean_key, exc)
+            raise StorageError(f"Cloud storage stream failed for key '{clean_key}': {exc}") from exc

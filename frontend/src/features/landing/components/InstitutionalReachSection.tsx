@@ -94,7 +94,7 @@ export const InstitutionalReachSection: React.FC = () => {
         <div className="vyasa-institutional-reach__header">
           <div className="vyasa-reach-eyebrow">
             <span className="vyasa-reach-eyebrow__pulse" aria-hidden="true" />
-            <span>University Engagement & Reach</span>
+            <span>Ecosystem Engagement & Reach</span>
           </div>
 
           <h2 className="vyasa-reach-title">VYASAᴺ — Institutional Reach</h2>

@@ -613,3 +613,129 @@ class TestDocumentUploadAndLifecycle:
         retry_resp = client.post(f"/api/v1/admin/knowledge-centre/documents/{doc_id}/retry", json={"version_id": str(ver_id)})
         assert retry_resp.status_code == status.HTTP_200_OK
         assert retry_resp.json()["data"]["status"] == "processing"
+
+    def test_upload_response_contains_canonical_ids(self, client_factory, sadmin_user_obj):
+        """Verifies canonical id contract: 'id' matches 'document_id' and version IDs are populated."""
+        client = client_factory(user_override=sadmin_user_obj)
+        resp = client.post(
+            "/api/v1/admin/knowledge-centre/documents/upload",
+            files={"file": ("canonical_id_test.txt", SAMPLE_TXT + b"canonical", "text/plain")},
+            data={"title": "Canonical ID Test", "domain": "academic-regulations", "document_type": "policy"},
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        body = resp.json()["data"]
+        assert "id" in body
+        assert "document_id" in body
+        assert body["id"] == body["document_id"]
+        assert "version_id" in body
+        assert "current_version_id" in body
+        assert body["current_version_id"] == body["version_id"]
+
+    def test_document_detail_contains_chunks_and_total_chunks(self, client_factory, sadmin_user_obj, mock_db_session):
+        """Verifies detail endpoint returns 'chunks', 'total_chunks', and 'chunks_sample' for frontend contract."""
+        client = client_factory(user_override=sadmin_user_obj)
+        up_resp = client.post(
+            "/api/v1/admin/knowledge-centre/documents/upload",
+            files={"file": ("chunks_contract.txt", SAMPLE_TXT + b"chunks_contract", "text/plain")},
+            data={"title": "Chunks Contract Document", "domain": "academic-regulations", "document_type": "ordinance"},
+        )
+        doc_id = uuid.UUID(up_resp.json()["data"]["document_id"])
+        ver_id = uuid.UUID(up_resp.json()["data"]["version_id"])
+
+        # Create two test chunks attached to this document and version
+        c1 = AiKnowledgeChunk(
+            id=uuid.uuid4(),
+            document_id=doc_id,
+            version_id=ver_id,
+            chunk_index=0,
+            content="Passage chunk index 0",
+            page_number=1,
+            chunk_metadata={"section_heading": "Section 1.1", "token_count": 25},
+            verification_status=KnowledgeVerificationStatus.INDEXED.value,
+        )
+        c2 = AiKnowledgeChunk(
+            id=uuid.uuid4(),
+            document_id=doc_id,
+            version_id=ver_id,
+            chunk_index=1,
+            content="Passage chunk index 1",
+            page_number=2,
+            chunk_metadata={"section_heading": "Section 1.2", "token_count": 30},
+            verification_status=KnowledgeVerificationStatus.INDEXED.value,
+        )
+        mock_db_session.add_all([c1, c2])
+        mock_db_session.commit()
+
+        detail_resp = client.get(f"/api/v1/admin/knowledge-centre/documents/{doc_id}")
+        assert detail_resp.status_code == status.HTTP_200_OK
+        data = detail_resp.json()["data"]
+        assert "chunks" in data
+        assert "total_chunks" in data
+        assert "chunks_sample" in data
+        assert data["total_chunks"] == 2
+        assert len(data["chunks"]) == 2
+        assert len(data["chunks_sample"]) == 2
+        assert data["chunks"][0]["section_heading"] == "Section 1.1"
+        assert data["chunks"][0]["token_count"] == 25
+
+    def test_document_chunks_endpoint_paginated(self, client_factory, sadmin_user_obj, mock_db_session):
+        """Verifies GET /documents/{id}/chunks provides paginated chunks with total count."""
+        client = client_factory(user_override=sadmin_user_obj)
+        up_resp = client.post(
+            "/api/v1/admin/knowledge-centre/documents/upload",
+            files={"file": ("paginated_chunks.txt", SAMPLE_TXT + b"paginated", "text/plain")},
+            data={"title": "Paginated Document", "domain": "admissions", "document_type": "brochure"},
+        )
+        doc_id = uuid.UUID(up_resp.json()["data"]["document_id"])
+        ver_id = uuid.UUID(up_resp.json()["data"]["version_id"])
+
+        for i in range(5):
+            chk = AiKnowledgeChunk(
+                id=uuid.uuid4(),
+                document_id=doc_id,
+                version_id=ver_id,
+                chunk_index=i,
+                content=f"Chunk passage content number {i}",
+                page_number=i + 1,
+                chunk_metadata={"section_heading": f"Chapter {i+1}", "token_count": 20 + i},
+                verification_status=KnowledgeVerificationStatus.INDEXED.value,
+            )
+            mock_db_session.add(chk)
+        mock_db_session.commit()
+
+        # Query page 1 with limit 2
+        p1 = client.get(f"/api/v1/admin/knowledge-centre/documents/{doc_id}/chunks?skip=0&limit=2")
+        assert p1.status_code == status.HTTP_200_OK
+        p1_data = p1.json()["data"]
+        assert p1_data["total"] == 5
+        assert len(p1_data["items"]) == 2
+        assert p1_data["items"][0]["chunk_index"] == 0
+
+        # Query page 2 with limit 2
+        p2 = client.get(f"/api/v1/admin/knowledge-centre/documents/{doc_id}/chunks?skip=2&limit=2")
+        assert p2.status_code == status.HTTP_200_OK
+        p2_data = p2.json()["data"]
+        assert len(p2_data["items"]) == 2
+        assert p2_data["items"][0]["chunk_index"] == 2
+
+    def test_document_detail_invalid_uuid_rejected_with_422(self, client_factory, sadmin_user_obj):
+        """Verifies that an invalid string like 'undefined' in path parameter yields HTTP 422."""
+        client = client_factory(user_override=sadmin_user_obj)
+        resp = client.get("/api/v1/admin/knowledge-centre/documents/undefined")
+        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_document_chunks_zero_chunks_handling(self, client_factory, sadmin_user_obj):
+        """Verifies that document with 0 chunks returns clean empty response without crashing."""
+        client = client_factory(user_override=sadmin_user_obj)
+        up_resp = client.post(
+            "/api/v1/admin/knowledge-centre/documents/upload",
+            files={"file": ("zero_chunks.txt", SAMPLE_TXT + b"zero", "text/plain")},
+            data={"title": "Zero Chunks Document", "domain": "university-administration", "document_type": "circular"},
+        )
+        doc_id = up_resp.json()["data"]["document_id"]
+
+        resp = client.get(f"/api/v1/admin/knowledge-centre/documents/{doc_id}/chunks")
+        assert resp.status_code == status.HTTP_200_OK
+        data = resp.json()["data"]
+        assert data["total"] == 0
+        assert data["items"] == []
