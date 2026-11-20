@@ -1,0 +1,310 @@
+/* =========================================================================
+   VYASA RESEARCHER RECOGNITION — PHOTO CAROUSEL COMPONENT
+   ========================================================================= */
+
+.anudaan-carousel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #0F172A;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  touch-action: pan-y;
+  outline: none;
+}
+
+.anudaan-carousel:focus-visible {
+  box-shadow: inset 0 0 0 2px #3B82F6, 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+
+/* Featured Ceremony variant */
+.anudaan-carousel--featured {
+  min-height: 320px;
+}
+
+/* Standard Supporting card variant */
+.anudaan-carousel--standard {
+  height: 200px;
+}
+
+/* Slide track */
+.anudaan-carousel__track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Individual slide */
+.anudaan-carousel__slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 500ms ease-in-out;
+}
+
+.anudaan-carousel__slide--active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+/* Image formatting */
+.anudaan-carousel__slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.anudaan-carousel:hover .anudaan-carousel__slide--active img {
+  transform: scale(1.03);
+}
+
+/* Image fallback/broken state */
+.anudaan-carousel__fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  color: #94A3B8;
+  font-size: 0.85rem;
+  padding: 16px;
+  text-align: center;
+}
+
+/* Empty state */
+.anudaan-carousel--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0F172A;
+  color: #94A3B8;
+}
+
+/* Top-Right Badges Container */
+.anudaan-carousel__badges {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__badges {
+  top: 12px;
+  right: 12px;
+}
+
+/* Navigation Arrow Buttons */
+.anudaan-carousel__nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  padding: 0;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__nav-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.anudaan-carousel:hover .anudaan-carousel__nav-btn,
+.anudaan-carousel:focus-within .anudaan-carousel__nav-btn {
+  opacity: 1;
+}
+
+.anudaan-carousel__nav-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.anudaan-carousel__nav-btn:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.anudaan-carousel__nav-btn--prev {
+  left: 8px;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__nav-btn--prev {
+  left: 12px;
+}
+
+.anudaan-carousel__nav-btn--next {
+  right: 8px;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__nav-btn--next {
+  right: 12px;
+}
+
+/* Pagination Dots */
+.anudaan-carousel__dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 6;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__dots {
+  bottom: 12px;
+}
+
+.anudaan-carousel__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+/* Enlarge hit area for touch */
+.anudaan-carousel__dot::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: -6px;
+  right: -6px;
+}
+
+.anudaan-carousel__dot:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.anudaan-carousel__dot--active {
+  width: 16px;
+  border-radius: 4px;
+  background: #FFFFFF;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.65);
+}
+
+.anudaan-carousel__dot--edge {
+  transform: scale(0.65);
+  opacity: 0.6;
+}
+
+/* Photo Counter */
+.anudaan-carousel__counter {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #F8FAFC;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  z-index: 6;
+  pointer-events: none;
+  user-select: none;
+}
+
+.anudaan-carousel--featured .anudaan-carousel__counter {
+  bottom: 12px;
+  right: 12px;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+}
+
+/* Touch & Mobile Responsiveness */
+@media (hover: none) {
+  .anudaan-carousel__nav-btn {
+    opacity: 0.85;
+  }
+}
+
+@media (max-width: 640px) {
+  .anudaan-carousel--featured {
+    min-height: 240px;
+  }
+
+  .anudaan-carousel__nav-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .anudaan-carousel__counter {
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    bottom: 8px;
+    right: 8px;
+  }
+
+  .anudaan-carousel__dots {
+    bottom: 8px;
+    gap: 4px;
+    padding: 2px 6px;
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .anudaan-carousel__slide {
+    transition: none !important;
+  }
+
+  .anudaan-carousel__slide img {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .anudaan-carousel__nav-btn {
+    transition: none !important;
+  }
+
+  .anudaan-carousel__dot {
+    transition: none !important;
+  }
+}

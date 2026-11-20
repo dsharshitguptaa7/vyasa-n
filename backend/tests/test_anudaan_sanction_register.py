@@ -344,11 +344,18 @@ class TestSanctionAggregationAndIntegrityIntegration:
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
         from app.modules.yajur_veda.models.anudaan import AnudaanApplication
-        from app.modules.yajur_veda.models.showcase import AnudaanSanctionEntry, AnudaanFelicitationCycle
+        from app.modules.yajur_veda.models.showcase import (
+            AnudaanSanctionEntry,
+            AnudaanFelicitationCycle,
+            AnudaanGalleryItem,
+            AnudaanGalleryImage,
+        )
 
         engine = create_engine("sqlite:///:memory:")
         AnudaanApplication.__table__.create(engine)
         AnudaanFelicitationCycle.__table__.create(engine)
+        AnudaanGalleryItem.__table__.create(engine)
+        AnudaanGalleryImage.__table__.create(engine)
         AnudaanSanctionEntry.__table__.create(engine)
 
         Session = sessionmaker(bind=engine)
@@ -532,5 +539,72 @@ class TestSanctionAggregationAndIntegrityIntegration:
                 fail_silent=True,
             )
             # Did not raise!
+
+    def test_public_showcase_cycles_retrieves_published_sanctions_even_if_upcoming(self, test_db):
+        """Proves: A cycle with status='UPCOMING' that has published sanctions exposes those sanctions in the showcase."""
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=2,
+            issue_number=3,
+            status="UPCOMING",
+            academic_year="2026-2027",
+            is_published=True,
+        )
+        test_db.add(cycle)
+        test_db.commit()
+
+        s = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Upcoming Achiever",
+            publication_title="Advanced Nanomaterials for Energy",
+            quartile="Q1",
+            sanctioned_amount=Decimal("50000.00"),
+            academic_year="2026-2027",
+            sanction_date=date(2026, 3, 1),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        test_db.add(s)
+        test_db.commit()
+
+        res = anudaan_showcase_service.get_public_showcase_cycles(test_db, academic_year="2026-2027")
+        assert res.total_cycles == 1
+        assert len(res.completed_cycles) == 1
+        assert res.completed_cycles[0].sanction_count == 1
+        assert res.completed_cycles[0].sanctions[0].researcher_name == "Dr. Upcoming Achiever"
+        assert res.completed_cycles[0].total_sanctioned_amount == Decimal("50000.00")
+
+    def test_public_showcase_cycles_academic_year_filtering(self, test_db):
+        """Proves: Filtering by academic year includes cycles whose sanctions match that academic year."""
+        # Cycle has academic_year 2025-2026, but sanction is recorded for 2026-2027
+        cycle = AnudaanFelicitationCycle(
+            id=uuid.uuid4(),
+            volume_number=2,
+            issue_number=2,
+            status="COMPLETED",
+            academic_year="2025-2026",
+            is_published=True,
+        )
+        test_db.add(cycle)
+        test_db.commit()
+
+        s = AnudaanSanctionEntry(
+            id=uuid.uuid4(),
+            researcher_name="Dr. Cross Year Researcher",
+            publication_title="Cross-Disciplinary Physics",
+            quartile="Q2",
+            sanctioned_amount=Decimal("25000.00"),
+            academic_year="2026-2027",
+            sanction_date=date(2026, 4, 1),
+            felicitation_cycle_id=cycle.id,
+            is_published=True,
+        )
+        test_db.add(s)
+        test_db.commit()
+
+        # Query for 2026-2027 should find this cycle because of the sanction
+        res = anudaan_showcase_service.get_public_showcase_cycles(test_db, academic_year="2026-2027")
+        assert any(c.id == cycle.id for c in res.completed_cycles)
+
 
 

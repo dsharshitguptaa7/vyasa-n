@@ -166,7 +166,7 @@ export const AnudaanWizardPage: React.FC = () => {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Button variant="primary" onClick={() => navigate('/modules/yajur-veda/anudaan')}>
-              Go to अनुदान Portal
+              Go to ANUDAAN Portal (अनुदान)
             </Button>
           </div>
         </div>

@@ -1,0 +1,701 @@
+/* =========================================================================
+   VYASA — INSTITUTIONAL FELICITATION SHOWCASE (VOLUME & ISSUE) STYLES
+   ========================================================================= */
+
+.vyasa-showcase {
+  margin-top: 36px;
+  margin-bottom: 40px;
+  font-family: inherit;
+}
+
+/* -------------------------------------------------------------------------
+   A. Showcase Header & Global Statistics Banner
+   ------------------------------------------------------------------------- */
+.vyasa-showcase__header {
+  background: linear-gradient(135deg, #0B2545 0%, #133E87 100%);
+  border-radius: 16px;
+  padding: 28px 32px;
+  color: #FFFFFF;
+  box-shadow: 0 4px 20px rgba(11, 37, 69, 0.12);
+  margin-bottom: 24px;
+}
+
+.vyasa-showcase__title-row {
+  display: flex;
+  justifyContent: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.vyasa-showcase__title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.vyasa-showcase__subtitle {
+  font-size: 0.925rem;
+  color: #CBD5E1;
+  margin: 0;
+  max-width: 680px;
+  line-height: 1.5;
+}
+
+.vyasa-showcase__filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vyasa-showcase__filter-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #E2E8F0;
+}
+
+.vyasa-showcase__select {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.vyasa-showcase__select option {
+  background-color: #0B2545;
+  color: #FFFFFF;
+}
+
+.vyasa-showcase__select:focus-visible {
+  border-color: #60A5FA;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+}
+
+/* Stats Row */
+.vyasa-showcase__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.vyasa-showcase__stat-item {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.vyasa-showcase__stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94A3B8;
+  margin-bottom: 4px;
+}
+
+.vyasa-showcase__stat-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.vyasa-showcase__quartiles-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.vyasa-showcase__quartile-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.vyasa-showcase__quartile-pill--q1 {
+  background-color: #ECFDF5;
+  color: #065F46;
+}
+
+.vyasa-showcase__quartile-pill--q2 {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.vyasa-showcase__quartile-pill--q3 {
+  background-color: #FFFBEB;
+  color: #B45309;
+}
+
+.vyasa-showcase__quartile-pill--q4 {
+  background-color: #F1F5F9;
+  color: #475569;
+}
+
+/* -------------------------------------------------------------------------
+   B. Issue Navigation System
+   ------------------------------------------------------------------------- */
+.vyasa-showcase__nav-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+  background-color: #FFFFFF;
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.vyasa-showcase__nav-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  padding: 4px 2px;
+  flex: 1;
+}
+
+.vyasa-showcase__nav-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.vyasa-showcase__nav-scroll::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 4px;
+}
+
+.vyasa-showcase__issue-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid #CBD5E1;
+  background-color: #FFFFFF;
+  color: #475569;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.vyasa-showcase__issue-tab:hover {
+  background-color: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0B2545;
+}
+
+.vyasa-showcase__issue-tab--active {
+  background-color: #0B2545;
+  border-color: #0B2545;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(11, 37, 69, 0.25);
+}
+
+.vyasa-showcase__issue-tab--active:hover {
+  background-color: #133E87;
+  color: #FFFFFF;
+}
+
+.vyasa-showcase__issue-tab:focus-visible {
+  box-shadow: 0 0 0 2px #3B82F6;
+}
+
+.vyasa-showcase__issue-tag {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.vyasa-showcase__issue-tab--active .vyasa-showcase__issue-tag--completed {
+  background-color: #10B981;
+  color: #FFFFFF;
+}
+
+.vyasa-showcase__issue-tab:not(.vyasa-showcase__issue-tab--active) .vyasa-showcase__issue-tag--completed {
+  background-color: #ECFDF5;
+  color: #065F46;
+}
+
+.vyasa-showcase__issue-tab--active .vyasa-showcase__issue-tag--upcoming {
+  background-color: #F59E0B;
+  color: #FFFFFF;
+}
+
+.vyasa-showcase__issue-tab:not(.vyasa-showcase__issue-tab--active) .vyasa-showcase__issue-tag--upcoming {
+  background-color: #FFFBEB;
+  color: #B45309;
+}
+
+.vyasa-showcase__nav-arrows {
+  display: flex;
+  gap: 6px;
+}
+
+.vyasa-showcase__arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #CBD5E1;
+  background-color: #FFFFFF;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.vyasa-showcase__arrow-btn:hover:not(:disabled) {
+  background-color: #0B2545;
+  color: #FFFFFF;
+  border-color: #0B2545;
+}
+
+.vyasa-showcase__arrow-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.vyasa-showcase__arrow-btn:focus-visible {
+  box-shadow: 0 0 0 2px #3B82F6;
+}
+
+/* -------------------------------------------------------------------------
+   C. Researcher Spotlight Carousel
+   ------------------------------------------------------------------------- */
+.vyasa-showcase__spotlight-wrapper {
+  position: relative;
+  background: #FFFFFF;
+  border-radius: 18px;
+  border: 1px solid #CBD5E1;
+  box-shadow: 0 4px 20px rgba(11, 37, 69, 0.06);
+  overflow: hidden;
+  margin-bottom: 28px;
+  transition: box-shadow 0.2s ease;
+}
+
+.vyasa-showcase__spotlight-wrapper:hover {
+  box-shadow: 0 6px 24px rgba(11, 37, 69, 0.09);
+}
+
+.vyasa-showcase__spotlight-banner {
+  background: linear-gradient(90deg, #F8FAFC 0%, #EFF6FF 100%);
+  padding: 12px 24px;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vyasa-showcase__spotlight-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1E40AF;
+}
+
+.vyasa-showcase__spotlight-counter {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748B;
+}
+
+/* Spotlight Card Body */
+.vyasa-showcase__spotlight-card {
+  padding: 32px 36px;
+  position: relative;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.vyasa-showcase__spotlight-content {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: center;
+}
+
+.vyasa-showcase__researcher-details {
+  flex: 1;
+}
+
+.vyasa-showcase__researcher-name {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0B2545;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.015em;
+  font-family: Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+.vyasa-showcase__department {
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vyasa-showcase__pub-box {
+  background-color: #F8FAFC;
+  border-left: 4px solid #133E87;
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.vyasa-showcase__pub-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.vyasa-showcase__pub-title {
+  font-size: 1.05rem;
+  font-style: italic;
+  font-weight: 600;
+  color: #0F172A;
+  margin: 0 0 4px 0;
+  line-height: 1.45;
+}
+
+.vyasa-showcase__project-title {
+  font-size: 0.82rem;
+  color: #64748B;
+  margin: 4px 0 0 0;
+}
+
+.vyasa-showcase__spotlight-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Financial Badge Area */
+.vyasa-showcase__amount-card {
+  background: linear-gradient(135deg, #FFFDF7 0%, #FEF3C7 100%);
+  border: 1px solid #FCD34D;
+  border-radius: 14px;
+  padding: 20px 26px;
+  text-align: center;
+  min-width: 220px;
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.07);
+}
+
+.vyasa-showcase__amount-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #92400E;
+  margin-bottom: 4px;
+}
+
+.vyasa-showcase__amount-value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #B45309;
+  letter-spacing: -0.02em;
+}
+
+.vyasa-showcase__amount-subtext {
+  font-size: 0.75rem;
+  color: #78350F;
+  margin-top: 4px;
+}
+
+/* Spotlight Controls Footer */
+.vyasa-showcase__spotlight-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #F1F5F9;
+  background-color: #FAFAFA;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vyasa-showcase__dots-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.vyasa-showcase__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #CBD5E1;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.vyasa-showcase__dot:hover {
+  background-color: #94A3B8;
+}
+
+.vyasa-showcase__dot--active {
+  width: 24px;
+  background-color: #0B2545;
+}
+
+.vyasa-showcase__dot:focus-visible {
+  box-shadow: 0 0 0 2px #3B82F6;
+}
+
+.vyasa-showcase__spotlight-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* -------------------------------------------------------------------------
+   D. Complete Recipient List
+   ------------------------------------------------------------------------- */
+.vyasa-showcase__recipients-section {
+  margin-top: 28px;
+}
+
+.vyasa-showcase__recipients-header {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.vyasa-showcase__recipients-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0B2545;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vyasa-showcase__badge-count {
+  font-size: 0.75rem;
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+/* Recipient Cards Grid */
+.vyasa-showcase__recipients-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.vyasa-showcase__recipient-card {
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  padding: 18px 20px;
+  box-shadow: 0 2px 6px rgba(11, 37, 69, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  cursor: pointer;
+  position: relative;
+}
+
+.vyasa-showcase__recipient-card:hover {
+  transform: translateY(-2px);
+  border-color: #93C5FD;
+  box-shadow: 0 6px 16px rgba(11, 37, 69, 0.08);
+}
+
+.vyasa-showcase__recipient-card--active {
+  border-color: #1E40AF;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.2), 0 4px 12px rgba(11, 37, 69, 0.06);
+}
+
+.vyasa-showcase__recipient-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #3B82F6;
+}
+
+.vyasa-showcase__card-top {
+  display: flex;
+  justifyContent: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.vyasa-showcase__card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0B2545;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.vyasa-showcase__card-dept {
+  font-size: 0.78rem;
+  color: #64748B;
+  margin-top: 2px;
+}
+
+.vyasa-showcase__card-title {
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.45;
+  font-style: italic;
+  margin: 8px 0 14px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vyasa-showcase__card-bottom {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.vyasa-showcase__card-amount {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #065F46;
+}
+
+.vyasa-showcase__card-active-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #1E40AF;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* -------------------------------------------------------------------------
+   E. Notice & Empty State
+   ------------------------------------------------------------------------- */
+.vyasa-showcase__notice {
+  background-color: #FFFDF7;
+  border-radius: 12px;
+  border: 1px solid #FDE68A;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.vyasa-showcase__notice-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #78350F;
+  margin: 0 0 6px 0;
+}
+
+.vyasa-showcase__notice-text {
+  font-size: 0.9rem;
+  color: #92400E;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vyasa-showcase__empty-box {
+  padding: 48px 24px;
+  text-align: center;
+  color: #64748B;
+  background-color: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* -------------------------------------------------------------------------
+   F. Reduced-Motion & Responsiveness
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .vyasa-showcase__issue-tab,
+  .vyasa-showcase__spotlight-card,
+  .vyasa-showcase__dot,
+  .vyasa-showcase__recipient-card {
+    transition: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .vyasa-showcase__spotlight-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .vyasa-showcase__amount-card {
+    min-width: unset;
+    text-align: left;
+    display: flex;
+    justifyContent: space-between;
+    align-items: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .vyasa-showcase__header {
+    padding: 20px 18px;
+  }
+  .vyasa-showcase__title {
+    font-size: 1.25rem;
+  }
+  .vyasa-showcase__spotlight-card {
+    padding: 20px 18px;
+  }
+  .vyasa-showcase__researcher-name {
+    font-size: 1.35rem;
+  }
+  .vyasa-showcase__recipients-grid {
+    grid-template-columns: 1fr;
+  }
+}

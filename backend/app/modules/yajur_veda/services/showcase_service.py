@@ -75,6 +75,16 @@ class AnudaanShowcaseService:
         years_query = years_query.distinct().order_by(desc(AnudaanSanctionEntry.academic_year))
 
         available_years = [y for y in db.scalars(years_query).all() if y]
+        # Also include any academic years present on published felicitation cycles
+        cycle_years_query = select(AnudaanFelicitationCycle.academic_year).where(
+            AnudaanFelicitationCycle.is_published.is_(True),
+            AnudaanFelicitationCycle.is_archived.is_(False),
+            AnudaanFelicitationCycle.academic_year.is_not(None),
+        ).distinct()
+        for cy in db.scalars(cycle_years_query).all():
+            if cy and cy not in available_years:
+                available_years.append(cy)
+        available_years.sort(reverse=True)
         if not available_years:
             available_years = ["2026-2027", "2025-2026"]
 
@@ -742,7 +752,21 @@ class AnudaanShowcaseService:
             )
         )
         if academic_year and academic_year.upper() != "ALL":
-            stmt = stmt.where(AnudaanFelicitationCycle.academic_year == academic_year)
+            cycle_ids_with_sanctions = (
+                select(AnudaanSanctionEntry.felicitation_cycle_id)
+                .where(
+                    AnudaanSanctionEntry.felicitation_cycle_id.is_not(None),
+                    AnudaanSanctionEntry.is_published.is_(True),
+                    AnudaanSanctionEntry.academic_year == academic_year,
+                )
+                .distinct()
+            )
+            stmt = stmt.where(
+                or_(
+                    AnudaanFelicitationCycle.academic_year == academic_year,
+                    AnudaanFelicitationCycle.id.in_(cycle_ids_with_sanctions),
+                )
+            )
 
         cycles = db.scalars(stmt).all()
 
@@ -801,73 +825,72 @@ class AnudaanShowcaseService:
                     )
                 )
 
-            if c.status == "COMPLETED":
-                sanctions = db.scalars(
-                    select(AnudaanSanctionEntry)
-                    .where(
-                        AnudaanSanctionEntry.felicitation_cycle_id == c.id,
-                        AnudaanSanctionEntry.is_published.is_(True),
-                    )
-                    .order_by(desc(AnudaanSanctionEntry.sanction_date))
-                ).all()
-
-                s_out = [
-                    AnudaanPublicSanctionOut(
-                        id=s.id,
-                        researcher_name=s.researcher_name,
-                        department_name=s.department_name,
-                        project_title=s.project_title,
-                        publication_title=s.publication_title,
-                        quartile=s.quartile,
-                        sanctioned_amount=s.sanctioned_amount,
-                        academic_year=s.academic_year,
-                        felicitation_cycle_id=c.id,
-                        volume_number=c.volume_number,
-                        issue_number=c.issue_number,
-                        cycle_display_title=c.display_title,
-                        cycle_status=c.status,
-                        felicitation_date=c.felicitation_date,
-                    )
-                    for s in sanctions
-                ]
-                total_sanctioned = sum((s.sanctioned_amount for s in sanctions), Decimal("0.00"))
-                distinct_researchers = len(set(s.researcher_name.lower().strip() for s in sanctions))
-
-                completed_cycles.append(
-                    AnudaanPublicFelicitationCycleOut(
-                        id=c.id,
-                        volume_number=c.volume_number,
-                        issue_number=c.issue_number,
-                        display_title=c.display_title,
-                        status=c.status,
-                        felicitation_date=c.felicitation_date,
-                        academic_year=c.academic_year,
-                        description=c.description,
-                        sanctions=s_out,
-                        total_sanctioned_amount=total_sanctioned,
-                        total_researchers=distinct_researchers,
-                        sanction_count=len(s_out),
-                        gallery_items=gal_out,
+            # Query published sanction entries for this cycle
+            sanctions_query = (
+                select(AnudaanSanctionEntry)
+                .where(
+                    AnudaanSanctionEntry.felicitation_cycle_id == c.id,
+                    AnudaanSanctionEntry.is_published.is_(True),
+                )
+            )
+            if academic_year and academic_year.upper() != "ALL":
+                sanctions_query = sanctions_query.where(
+                    or_(
+                        AnudaanSanctionEntry.academic_year == academic_year,
+                        c.academic_year == academic_year,
                     )
                 )
+            sanctions = db.scalars(
+                sanctions_query.order_by(
+                    desc(AnudaanSanctionEntry.sanction_date),
+                    desc(AnudaanSanctionEntry.created_at),
+                )
+            ).all()
+
+            s_out = [
+                AnudaanPublicSanctionOut(
+                    id=s.id,
+                    researcher_name=s.researcher_name,
+                    department_name=s.department_name,
+                    project_title=s.project_title,
+                    publication_title=s.publication_title,
+                    quartile=s.quartile,
+                    sanctioned_amount=s.sanctioned_amount,
+                    academic_year=s.academic_year,
+                    felicitation_cycle_id=c.id,
+                    volume_number=c.volume_number,
+                    issue_number=c.issue_number,
+                    cycle_display_title=c.display_title,
+                    cycle_status=c.status,
+                    felicitation_date=c.felicitation_date,
+                )
+                for s in sanctions
+            ]
+            total_sanctioned = sum((s.sanctioned_amount for s in sanctions), Decimal("0.00"))
+            distinct_researchers = len(set(s.researcher_name.lower().strip() for s in sanctions))
+
+            cycle_out = AnudaanPublicFelicitationCycleOut(
+                id=c.id,
+                volume_number=c.volume_number,
+                issue_number=c.issue_number,
+                display_title=c.display_title,
+                status=c.status,
+                felicitation_date=c.felicitation_date,
+                academic_year=c.academic_year,
+                description=c.description,
+                sanctions=s_out,
+                total_sanctioned_amount=total_sanctioned,
+                total_researchers=distinct_researchers,
+                sanction_count=len(s_out),
+                gallery_items=gal_out,
+            )
+
+            # A cycle belongs to completed / active cycles if it has completed status or contains published sanctions.
+            # Cycles with status UPCOMING and zero published sanctions are classified as upcoming ceremonies.
+            if c.status == "COMPLETED" or len(s_out) > 0:
+                completed_cycles.append(cycle_out)
             else:
-                upcoming_cycles.append(
-                    AnudaanPublicFelicitationCycleOut(
-                        id=c.id,
-                        volume_number=c.volume_number,
-                        issue_number=c.issue_number,
-                        display_title=c.display_title,
-                        status=c.status,
-                        felicitation_date=c.felicitation_date,
-                        academic_year=c.academic_year,
-                        description=c.description,
-                        sanctions=[],
-                        total_sanctioned_amount=Decimal("0.00"),
-                        total_researchers=0,
-                        sanction_count=0,
-                        gallery_items=gal_out,
-                    )
-                )
+                upcoming_cycles.append(cycle_out)
 
         return AnudaanPublicShowcaseCyclesResponse(
             total_cycles=len(completed_cycles) + len(upcoming_cycles),
