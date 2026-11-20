@@ -14,6 +14,7 @@ export const AnudaanFelicitationPage: React.FC = () => {
   // Cycles list state
   const [cycles, setCycles] = useState<AnudaanFelicitationCycleOut[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Modals state
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
@@ -40,6 +41,7 @@ export const AnudaanFelicitationPage: React.FC = () => {
   const fetchCycles = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await anudaanAdminService.getFelicitationCycles({
         status: selectedStatus === 'ALL' ? undefined : selectedStatus,
         academic_year: selectedYear === 'ALL' ? undefined : selectedYear,
@@ -47,10 +49,16 @@ export const AnudaanFelicitationPage: React.FC = () => {
         search: searchTerm.trim() || undefined,
         limit: 100,
       });
-      setCycles(res.items);
+      setCycles(res.items || []);
+      setLoadError(null);
     } catch (err: any) {
       console.error('Failed to load felicitation cycles:', err);
-      setFeedback({ type: 'error', message: err.message || 'Failed to load felicitation cycles' });
+      const rawMsg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'Failed to load felicitation cycles';
+      const cleanMsg = typeof rawMsg === 'string' && rawMsg.toLowerCase().includes('internal server error')
+        ? 'Unable to connect to felicitation cycles service. Please verify network or retry.'
+        : String(rawMsg);
+      setLoadError(cleanMsg);
+      setFeedback({ type: 'error', message: cleanMsg });
     } finally {
       setLoading(false);
     }
@@ -249,7 +257,27 @@ export const AnudaanFelicitationPage: React.FC = () => {
               fontSize: '0.875rem',
             }}
           >
-            <span>{feedback.message}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span>{feedback.message}</span>
+              {feedback.type === 'error' && (
+                <button
+                  type="button"
+                  onClick={() => fetchCycles()}
+                  style={{
+                    backgroundColor: '#DC2626',
+                    color: '#FFF',
+                    border: 'none',
+                    padding: '3px 10px',
+                    borderRadius: 4,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
             <button
               onClick={() => setFeedback(null)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 'bold' }}
@@ -383,6 +411,31 @@ export const AnudaanFelicitationPage: React.FC = () => {
         <div style={{ backgroundColor: '#FFF', borderRadius: 8, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#64748B' }}>Loading felicitation cycles...</div>
+          ) : loadError ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{ color: '#DC2626', fontWeight: 600, fontSize: '0.95rem', marginBottom: 8 }}>
+                {loadError}
+              </div>
+              <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: 16 }}>
+                There was a problem retrieving recognition cycles. Existing data remains safely stored.
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchCycles()}
+                style={{
+                  backgroundColor: '#0B2545',
+                  color: '#FFF',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: 6,
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Retry Request
+              </button>
+            </div>
           ) : cycles.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#64748B' }}>
               No felicitation cycles found matching the filters.

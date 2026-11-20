@@ -598,6 +598,16 @@ def test_spaces_pdf_download_integration(isolated_db_session, test_client, tmp_p
             return True
         def generate_presigned_url(self, storage_key: str, expires_in_seconds: int = 300):
             return f"https://mock-spaces/{storage_key}"
+        def copy_file(self, *args, **kwargs):
+            pass
+        def get_file_metadata(self, *args, **kwargs):
+            return {}
+        def get_file_url(self, storage_key: str, **kwargs):
+            return f"https://mock-spaces/{storage_key}"
+        def move_file(self, *args, **kwargs):
+            pass
+        def stream_file(self, *args, **kwargs):
+            yield b"%PDF-1.4 mock content"
 
     orig_provider = storage_service._provider
     try:

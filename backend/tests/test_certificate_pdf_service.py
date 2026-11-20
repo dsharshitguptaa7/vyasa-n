@@ -236,7 +236,125 @@ def test_incentive_certificate_metadata_box_formatting():
     page_text = reader.pages[0].extract_text()
     assert "SANCTIONED INCENTIVE AWARD" in page_text
     assert "INR 75,000" in page_text
-    assert "DATE OF ISSUANCE" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Volume 2, Issue 3" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
+
+
+def test_incentive_certificate_exact_layout_inr_6000_citation():
+    """
+    Verify exact target layout for SAMIKSHA incentive certificates:
+    Left Section:
+      - SANCTIONED INCENTIVE AWARD
+      - INR 6,000
+    Right Section:
+      - RESEARCH BULLETIN CITATION
+      - Volume 2, Issue 3 (July - September 2026)
+    No visible DATE OF ISSUANCE or calendar date in metadata container.
+    """
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000002",
+        verification_token="token_target_layout_6000",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_target_layout_6000",
+        title="CERTIFICATE OF APPRECIATION FOR RESEARCH PUBLICATION",
+        certificate_type="INCENTIVE_AWARD",
+        authors=[{"author_name_snapshot": "Dr. Harshit Gupta", "scopus_id_snapshot": "57200000001"}],
+        research_title="Machine Learning Applications in Phytochemical Bioactivity Prediction",
+        bulletin_volume=2,
+        bulletin_issue=3,
+        bulletin_period="July - September 2026",
+        incentive_details={
+            "incentive_amount": 6000,
+        },
+    )
+
+    assert len(pdf_bytes) > 1000
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) == 1
+    page_text = reader.pages[0].extract_text()
+
+    # Left metadata column
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 6,000" in page_text
+
+    # Right metadata column
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Volume 2, Issue 3 (July - September 2026)" in page_text
+
+    # Strictly no Date of Issuance or calendar issuance date
+    assert "DATE OF ISSUANCE" not in page_text
+    assert "November 20, 2026" not in page_text
+    assert "November" not in page_text
+
+
+def test_incentive_certificate_missing_citation_graceful_fallback():
+    """
+    Verify that an incentive certificate with no volume/issue/period specified
+    gracefully displays 'Official CSJMU Research Bulletin' under 'RESEARCH BULLETIN CITATION'
+    without displaying any issuance date.
+    """
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000003",
+        verification_token="token_fallback_nocitation",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_fallback_nocitation",
+        title="CERTIFICATE OF APPRECIATION FOR RESEARCH PUBLICATION",
+        certificate_type="INCENTIVE_AWARD",
+        authors=[{"author_name_snapshot": "Dr. Sunita Rani"}],
+        research_title="Comparative Efficacy of Biological Catalysts",
+        bulletin_volume=None,
+        bulletin_issue=None,
+        bulletin_period=None,
+        incentive_details={
+            "incentive_amount": 12000,
+        },
+    )
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    page_text = reader.pages[0].extract_text()
+
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 12,000" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Official CSJMU Research Bulletin" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
+
+
+def test_incentive_certificate_long_title_and_recipient():
+    """Verify incentive layout preserves geometry with multi-line title and long author name."""
+    pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
+        certificate_number="CSJMU/SAMIKSHA/2026/000004",
+        verification_token="token_long_title_4lines",
+        verification_url="https://samiksha.csjmu.ac.in/verify/token_long_title_4lines",
+        title="CERTIFICATE OF APPRECIATION FOR RESEARCH PUBLICATION",
+        certificate_type="INCENTIVE_AWARD",
+        authors=[{
+            "author_name_snapshot": "Prof. (Dr.) Chittaranjan Dasgupta Bhattacharya",
+            "scopus_id_snapshot": "57199998888",
+            "department_snapshot": "Department of Pharmaceutical Sciences and Drug Delivery Technology",
+        }],
+        research_title=(
+            "Synthesis, Characterization, In-Vitro Antimicrobial Evaluation, Molecular Docking, "
+            "and Density Functional Theory Studies of Novel Heterocyclic Chalcone Derivatives "
+            "Targeting Multidrug-Resistant Nosocomial Pathogens in Hospital Wastewater Streams"
+        ),
+        bulletin_volume=2,
+        bulletin_issue=3,
+        bulletin_period="July - September 2026",
+        incentive_details={
+            "incentive_amount": "6,000",
+            "sanction_order_ref": "CSJMU/R&D/INC/2026/042",
+        },
+    )
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    page_text = reader.pages[0].extract_text()
+
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 6,000" in page_text
+    assert "Ref: CSJMU/R&D/INC/2026/042" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Volume 2, Issue 3 (July - September 2026)" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
 
 
 def test_author_title_selection_and_fallback_prevention():

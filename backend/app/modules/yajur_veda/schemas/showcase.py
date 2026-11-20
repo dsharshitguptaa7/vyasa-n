@@ -6,7 +6,7 @@ disbursements financial ledger, and researcher recognition gallery.
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -357,16 +357,16 @@ class AnudaanFelicitationCycleOut(BaseModel):
     volume_number: int
     issue_number: int
     display_title: Optional[str] = None
-    status: str
+    status: str = "UPCOMING"
     felicitation_date: Optional[date] = None
     academic_year: Optional[str] = None
     description: Optional[str] = None
-    is_published: bool
-    is_archived: bool
+    is_published: bool = True
+    is_archived: bool = False
     sanction_count: int = 0
-    total_sanctioned_amount: Decimal = Decimal("0.00")
-    created_at: datetime
-    updated_at: datetime
+    total_sanctioned_amount: Union[Decimal, float, int] = Decimal("0.00")
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class AnudaanFelicitationCycleListResponse(BaseModel):

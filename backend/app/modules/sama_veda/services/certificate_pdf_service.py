@@ -1221,27 +1221,60 @@ class CertificatePDFEngine:
         text2_x = col2_start_x + icon_sz + 10.0
         col2_max_w = (box_x + box_w - 16.0) - text2_x
 
+        # Resolve incentive data and publication details
+        inc_data = incentive_details or publication_details or {}
+
+        # Resolve volume, issue, period, and title from explicit params or nested details dicts
+        resolved_vol = bulletin_volume if bulletin_volume is not None else (
+            inc_data.get("volume") or inc_data.get("bulletin_volume") or inc_data.get("volume_number")
+        )
+        resolved_issue = bulletin_issue if bulletin_issue is not None else (
+            inc_data.get("issue") or inc_data.get("bulletin_issue") or inc_data.get("issue_number")
+        )
+        resolved_period = bulletin_period if bulletin_period is not None else (
+            inc_data.get("period") or inc_data.get("publication_period") or inc_data.get("bulletin_period")
+        )
+        resolved_title = bulletin_title or inc_data.get("bulletin_title") or inc_data.get("bulletin_name")
+
         # Bulletin edition string resolution without hardcoded fallback
         bulletin_edition = self._format_bulletin_citation(
-            bulletin_title=bulletin_title,
-            volume=bulletin_volume,
-            issue=bulletin_issue,
-            period=bulletin_period,
-        ) or (bulletin_title or "Official CSJMU Research Bulletin")
+            bulletin_title=resolved_title,
+            volume=resolved_vol,
+            issue=resolved_issue,
+            period=resolved_period,
+        )
+        if not bulletin_edition:
+            bulletin_edition = (
+                inc_data.get("citation")
+                or inc_data.get("bulletin_citation")
+                or inc_data.get("issue_reference")
+                or resolved_title
+                or "Official CSJMU Research Bulletin"
+            )
 
-        if certificate_type == "INCENTIVE_AWARD":
-            inc_data = incentive_details or publication_details or {}
-            raw_amount = inc_data.get("incentive_amount") or inc_data.get("approved_amount")
+        is_incentive = (
+            certificate_type == "INCENTIVE_AWARD"
+            or str(certificate_type).upper() in ["INCENTIVE_AWARD", "INCENTIVE", "RESEARCH_INCENTIVE"]
+            or bool(incentive_details)
+        )
+
+        if is_incentive:
+            raw_amount = (
+                inc_data.get("incentive_amount")
+                or inc_data.get("approved_amount")
+                or inc_data.get("amount")
+            )
             sanction_ref = (
                 inc_data.get("sanction_order_ref")
                 or inc_data.get("sanction_order")
                 or inc_data.get("scheme_name")
             )
-            if raw_amount:
+            if raw_amount is not None and str(raw_amount).strip() != "":
+                clean_amt = str(raw_amount).replace("INR", "").replace("₹", "").replace(",", "").strip()
                 try:
-                    formatted_amt = f"INR {int(float(raw_amount)):,}"
+                    formatted_amt = f"INR {int(float(clean_amt)):,}"
                 except (ValueError, TypeError):
-                    formatted_amt = f"INR {raw_amount}"
+                    formatted_amt = f"INR {raw_amount}" if not str(raw_amount).strip().startswith("INR") else str(raw_amount).strip()
             else:
                 formatted_amt = "Approved Grant"
 
@@ -1257,14 +1290,14 @@ class CertificatePDFEngine:
                 award_line += f"  •  Ref: {sanction_ref}"
             self._draw_fitted_text(c, award_line, text1_x, box_base_y + 14.0, col1_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
-            # Column 2 (Right): Date of Issuance (matching Research Publication Certificate)
+            # Column 2 (Right): Research Bulletin Citation (Restored original layout - no date of issuance)
             self._draw_calendar_icon(c, col2_start_x, box_base_y + 18.0, size=icon_sz)
             c.setFont("Helvetica-Bold", 8.5)
             c.setFillColor(COLOR_MUTED)
-            c.drawString(text2_x, box_base_y + 34.0, "DATE OF ISSUANCE")
+            c.drawString(text2_x, box_base_y + 34.0, "RESEARCH BULLETIN CITATION")
 
             c.setFillColor(COLOR_NAVY_TITLE)
-            self._draw_fitted_text(c, date_str, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
+            self._draw_fitted_text(c, bulletin_edition, text2_x, box_base_y + 14.0, col2_max_w, font_name="Helvetica-Bold", base_size=10.0)
 
         else:
             # Column 1 (Left): Research Bulletin Volume/Issue
@@ -1343,9 +1376,10 @@ class CertificatePDFEngine:
             parts.append(bulletin_title)
 
         if period:
+            clean_period = str(period).strip().strip("()")
             if parts:
-                return f"{parts[0]} ({period})"
-            return f"Edition ({period})"
+                return f"{parts[0]} ({clean_period})"
+            return f"Edition ({clean_period})"
         elif parts:
             return parts[0]
         elif bulletin_title:

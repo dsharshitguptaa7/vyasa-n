@@ -148,11 +148,11 @@ def test_client(db_session):
 
 
 # ==============================================================================
-# 1. RESEARCH INCENTIVE CERTIFICATE — DATE OF ISSUANCE TESTS
+# 1. RESEARCH INCENTIVE CERTIFICATE — RESTORED CITATION LAYOUT (NO ISSUANCE DATE)
 # ==============================================================================
 
-def test_incentive_certificate_pdf_renders_date_of_issuance():
-    """Verify that INCENTIVE_AWARD PDF renders 'DATE OF ISSUANCE' and persisted date."""
+def test_incentive_certificate_pdf_renders_bulletin_citation_layout():
+    """Verify that INCENTIVE_AWARD PDF renders 'RESEARCH BULLETIN CITATION' and excludes 'DATE OF ISSUANCE'."""
     pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
         certificate_number="CSJMU/RD/SAM/2026/INC-001",
         verification_token="token-inc-1",
@@ -184,13 +184,16 @@ def test_incentive_certificate_pdf_renders_date_of_issuance():
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
     page_text = reader.pages[0].extract_text()
 
-    assert "DATE OF ISSUANCE" in page_text
-    assert "November 20, 2026" in page_text
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
     assert "INR 50,000" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Volume 4, Issue 2" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
+    assert "November 20, 2026" not in page_text
 
 
-def test_scheduled_incentive_certificate_pdf_renders_scheduled_date():
-    """Verify that a scheduled INCENTIVE_AWARD PDF renders the scheduled issue date."""
+def test_scheduled_incentive_certificate_pdf_renders_citation_without_issuance_date():
+    """Verify that a scheduled INCENTIVE_AWARD PDF renders bulletin citation without showing scheduled calendar date."""
     scheduled_d = date(2026, 12, 25)
     pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
         certificate_number="CSJMU/RD/SAM/2026/INC-SCHED",
@@ -211,6 +214,9 @@ def test_scheduled_incentive_certificate_pdf_renders_scheduled_date():
         incentive_details={
             "incentive_amount": 100000,
             "sanction_order_ref": "CSJMU/R&D/INC-2026/SCHED",
+            "volume": 2,
+            "issue": 3,
+            "period": "July - September 2026",
         },
     )
 
@@ -218,12 +224,16 @@ def test_scheduled_incentive_certificate_pdf_renders_scheduled_date():
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
     page_text = reader.pages[0].extract_text()
 
-    assert "DATE OF ISSUANCE" in page_text
-    assert "December 25, 2026" in page_text
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 100,000" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Volume 2, Issue 3 (July - September 2026)" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
+    assert "December 25, 2026" not in page_text
 
 
 def test_incentive_certificate_pdf_handles_legacy_iso_string_date():
-    """Verify safe fallback when issue_date is passed as an ISO string or datetime."""
+    """Verify safe handling of issue_date while strictly excluding visible date from incentive award layout."""
     pdf_bytes, sha256_hash = certificate_pdf_engine.render_certificate_pdf(
         certificate_number="CSJMU/RD/SAM/2026/INC-STR",
         verification_token="token-str",
@@ -243,8 +253,12 @@ def test_incentive_certificate_pdf_handles_legacy_iso_string_date():
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
     page_text = reader.pages[0].extract_text()
 
-    assert "DATE OF ISSUANCE" in page_text
-    assert "August 15, 2026" in page_text
+    assert "SANCTIONED INCENTIVE AWARD" in page_text
+    assert "INR 25,000" in page_text
+    assert "RESEARCH BULLETIN CITATION" in page_text
+    assert "Official CSJMU Research Bulletin" in page_text
+    assert "DATE OF ISSUANCE" not in page_text
+    assert "August 15, 2026" not in page_text
 
 
 # ==============================================================================

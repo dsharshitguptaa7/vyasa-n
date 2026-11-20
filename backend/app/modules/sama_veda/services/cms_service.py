@@ -1470,6 +1470,11 @@ class SamaCmsService:
                 if pub_obj and pub_obj.bulletin_id:
                     bulletin_obj = db.get(ResearchBulletin, pub_obj.bulletin_id)
 
+            b_vol = (bulletin_obj.volume_number if bulletin_obj else None) or cert.bulletin_volume_snapshot
+            b_issue = (bulletin_obj.issue_number if bulletin_obj else None) or cert.bulletin_issue_snapshot
+            b_period = (bulletin_obj.publication_period if bulletin_obj else None) or cert.bulletin_period_snapshot
+            b_title = (bulletin_obj.title if bulletin_obj else None) or (f"Volume {b_vol} • Issue {b_issue}" if b_vol and b_issue else None)
+
             try:
                 pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
                     certificate_number=cert_num,
@@ -1482,10 +1487,10 @@ class SamaCmsService:
                     research_contribution_statement=cert.research_contribution_statement,
                     research_title=cert.research_title,
                     publication_details=cert.publication_details,
-                    bulletin_title=bulletin_obj.title if bulletin_obj else None,
-                    bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
-                    bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
-                    bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+                    bulletin_title=b_title,
+                    bulletin_volume=b_vol,
+                    bulletin_issue=b_issue,
+                    bulletin_period=b_period,
                     incentive_details=cert.publication_details if cert.certificate_type == "INCENTIVE_AWARD" else None,
                     congratulatory_statement=cert.congratulatory_statement or "",
                     issue_date=sched_date,

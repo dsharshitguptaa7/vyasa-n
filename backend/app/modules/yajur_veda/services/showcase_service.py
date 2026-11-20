@@ -641,21 +641,22 @@ class AnudaanShowcaseService:
                 AnudaanSanctionEntry.felicitation_cycle_id == cycle.id
             )
         ) or Decimal("0.00")
+        now_ts = datetime.now(timezone.utc)
         return {
             "id": cycle.id,
             "volume_number": cycle.volume_number,
             "issue_number": cycle.issue_number,
             "display_title": cycle.display_title,
-            "status": cycle.status,
+            "status": cycle.status or "UPCOMING",
             "felicitation_date": cycle.felicitation_date,
             "academic_year": cycle.academic_year,
             "description": cycle.description,
-            "is_published": cycle.is_published,
-            "is_archived": cycle.is_archived,
-            "sanction_count": s_count,
-            "total_sanctioned_amount": Decimal(str(s_total)),
-            "created_at": cycle.created_at,
-            "updated_at": cycle.updated_at,
+            "is_published": bool(cycle.is_published) if cycle.is_published is not None else True,
+            "is_archived": bool(cycle.is_archived) if cycle.is_archived is not None else False,
+            "sanction_count": s_count or 0,
+            "total_sanctioned_amount": Decimal(str(s_total or 0)),
+            "created_at": cycle.created_at or now_ts,
+            "updated_at": cycle.updated_at or cycle.created_at or now_ts,
         }
 
     def list_felicitation_cycles(
@@ -675,10 +676,24 @@ class AnudaanShowcaseService:
             query = query.where(AnudaanFelicitationCycle.status == status.upper().strip())
         if academic_year and academic_year.upper() != "ALL":
             query = query.where(AnudaanFelicitationCycle.academic_year == academic_year)
-        if is_published is not None:
-            query = query.where(AnudaanFelicitationCycle.is_published.is_(is_published))
-        if is_archived is not None:
-            query = query.where(AnudaanFelicitationCycle.is_archived.is_(is_archived))
+        if is_published is True:
+            query = query.where(AnudaanFelicitationCycle.is_published.is_(True))
+        elif is_published is False:
+            query = query.where(
+                or_(
+                    AnudaanFelicitationCycle.is_published.is_(False),
+                    AnudaanFelicitationCycle.is_published.is_(None),
+                )
+            )
+        if is_archived is True:
+            query = query.where(AnudaanFelicitationCycle.is_archived.is_(True))
+        elif is_archived is False:
+            query = query.where(
+                or_(
+                    AnudaanFelicitationCycle.is_archived.is_(False),
+                    AnudaanFelicitationCycle.is_archived.is_(None),
+                )
+            )
         if search:
             s = f"%{search.strip().lower()}%"
             query = query.where(
@@ -700,6 +715,7 @@ class AnudaanShowcaseService:
         ).all()
 
         results = []
+        now_ts = datetime.now(timezone.utc)
         for c in cycles:
             s_count = db.scalar(
                 select(func.count(AnudaanSanctionEntry.id.distinct())).where(
@@ -717,16 +733,16 @@ class AnudaanShowcaseService:
                 "volume_number": c.volume_number,
                 "issue_number": c.issue_number,
                 "display_title": c.display_title,
-                "status": c.status,
+                "status": c.status or "UPCOMING",
                 "felicitation_date": c.felicitation_date,
                 "academic_year": c.academic_year,
                 "description": c.description,
-                "is_published": c.is_published,
-                "is_archived": c.is_archived,
-                "sanction_count": s_count,
-                "total_sanctioned_amount": Decimal(str(s_total)),
-                "created_at": c.created_at,
-                "updated_at": c.updated_at,
+                "is_published": bool(c.is_published) if c.is_published is not None else True,
+                "is_archived": bool(c.is_archived) if c.is_archived is not None else False,
+                "sanction_count": s_count or 0,
+                "total_sanctioned_amount": Decimal(str(s_total or 0)),
+                "created_at": c.created_at or now_ts,
+                "updated_at": c.updated_at or c.created_at or now_ts,
             })
         return results, total
 

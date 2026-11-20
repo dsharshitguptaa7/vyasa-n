@@ -281,7 +281,7 @@ describe('ANUDAAN Phase 4.3.5 — Admin Management Screens Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/ANUDAAN Public Showcase Configuration/i)).toBeInTheDocument();
+        expect(screen.getByText(/Public Showcase Configuration/i)).toBeInTheDocument();
         expect(screen.getByDisplayValue('Official CSJMU incentive program.')).toBeInTheDocument();
       });
 

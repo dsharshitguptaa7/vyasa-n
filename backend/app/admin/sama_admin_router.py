@@ -1210,6 +1210,12 @@ def preview_certificate_pdf(
     base_url = _get_production_verification_base_url(request)
     preview_url = f"{base_url}/verify/{preview_token}"
 
+    pub_dtls = payload.publication_details or {}
+    b_vol = (bulletin_obj.volume_number if bulletin_obj else None) or getattr(payload, "bulletin_volume_snapshot", None) or pub_dtls.get("volume") or pub_dtls.get("bulletin_volume")
+    b_issue = (bulletin_obj.issue_number if bulletin_obj else None) or getattr(payload, "bulletin_issue_snapshot", None) or pub_dtls.get("issue") or pub_dtls.get("bulletin_issue")
+    b_period = (bulletin_obj.publication_period if bulletin_obj else None) or getattr(payload, "bulletin_period_snapshot", None) or pub_dtls.get("period") or pub_dtls.get("publication_period")
+    b_title = (bulletin_obj.title if bulletin_obj else None) or pub_dtls.get("bulletin_title") or (f"Volume {b_vol} • Issue {b_issue}" if b_vol and b_issue else None)
+
     try:
         pdf_bytes, sha = certificate_pdf_engine.render_certificate_pdf(
             certificate_number=preview_cert_no,
@@ -1222,10 +1228,10 @@ def preview_certificate_pdf(
             research_contribution_statement=payload.research_contribution_statement,
             research_title=payload.research_title or "Exemplary Research Paper Title",
             publication_details=payload.publication_details,
-            bulletin_title=bulletin_obj.title if bulletin_obj else None,
-            bulletin_volume=bulletin_obj.volume_number if bulletin_obj else None,
-            bulletin_issue=bulletin_obj.issue_number if bulletin_obj else None,
-            bulletin_period=bulletin_obj.publication_period if bulletin_obj else None,
+            bulletin_title=b_title,
+            bulletin_volume=b_vol,
+            bulletin_issue=b_issue,
+            bulletin_period=b_period,
             incentive_details=payload.publication_details if payload.certificate_type == "INCENTIVE_AWARD" else None,
             congratulatory_statement=payload.congratulatory_statement,
             issue_date=payload.issue_date,

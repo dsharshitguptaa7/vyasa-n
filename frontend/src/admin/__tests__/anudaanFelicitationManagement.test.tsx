@@ -145,6 +145,53 @@ describe('ANUDAAN Felicitation Management & Enhanced Sanction Register Suite', (
       expect(screen.getByText(/Volume Number/i)).toBeInTheDocument();
       expect(screen.getByText(/Issue Number/i)).toBeInTheDocument();
     });
+
+    it('1.3 Displays distinct error state and retry button on API failure without showing empty state', async () => {
+      vi.spyOn(anudaanAdminService, 'getFelicitationCycles').mockRejectedValueOnce(
+        new Error('Unable to connect to felicitation cycles service. Please verify network or retry.')
+      );
+
+      render(
+        <BrowserRouter>
+          <AnudaanFelicitationPage />
+        </BrowserRouter>
+      );
+
+      await waitFor(() => {
+        // Should display the error message in the feedback and the table body
+        expect(screen.getAllByText(/Unable to connect to felicitation cycles service/i).length).toBeGreaterThan(0);
+        // Must NOT show false empty state
+        expect(screen.queryByText(/No felicitation cycles found matching the filters/i)).not.toBeInTheDocument();
+        // Must display Retry button
+        expect(screen.getAllByRole('button', { name: /retry/i }).length).toBeGreaterThan(0);
+      });
+    });
+
+    it('1.4 Recovers correctly when Retry is clicked after API failure', async () => {
+      const getCyclesSpy = vi.spyOn(anudaanAdminService, 'getFelicitationCycles')
+        .mockRejectedValueOnce(new Error('Internal server error'))
+        .mockResolvedValueOnce({
+          total: 2,
+          items: mockCycles,
+        });
+
+      render(
+        <BrowserRouter>
+          <AnudaanFelicitationPage />
+        </BrowserRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Retry Request/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Retry Request/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Volume 2 — Issue 2/i)).toBeInTheDocument();
+        expect(getCyclesSpy).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   describe('2. Enhanced Sanction Register Screen (/admin/anudaan)', () => {

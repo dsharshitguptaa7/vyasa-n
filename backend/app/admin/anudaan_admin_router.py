@@ -434,24 +434,33 @@ def list_admin_felicitation_cycles(
     current_user: User = Depends(require_permission("anudaan:read")),
 ):
     """Lists Volume & Issue felicitation cycles with computed metrics."""
-    items, total = anudaan_showcase_service.list_felicitation_cycles(
-        db,
-        skip=skip,
-        limit=limit,
-        status=status,
-        academic_year=academic_year,
-        is_published=is_published,
-        is_archived=is_archived,
-        search=search,
-    )
-    return ApiResponse(
-        success=True,
-        message="Felicitation cycles retrieved successfully.",
-        data=AnudaanFelicitationCycleListResponse(
-            total=total,
-            items=[AnudaanFelicitationCycleOut(**item) for item in items],
-        ).model_dump(),
-    )
+    try:
+        items, total = anudaan_showcase_service.list_felicitation_cycles(
+            db,
+            skip=skip,
+            limit=limit,
+            status=status,
+            academic_year=academic_year,
+            is_published=is_published,
+            is_archived=is_archived,
+            search=search,
+        )
+        return ApiResponse(
+            success=True,
+            message="Felicitation cycles retrieved successfully.",
+            data=AnudaanFelicitationCycleListResponse(
+                total=total,
+                items=[AnudaanFelicitationCycleOut(**item) for item in items],
+            ).model_dump(mode="json"),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to retrieve felicitation cycles: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to retrieve felicitation cycles: {str(exc)}",
+        )
 
 
 @anudaan_admin_router.post("/felicitations", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
@@ -489,7 +498,7 @@ def create_felicitation_cycle(
     return ApiResponse(
         success=True,
         message="Felicitation cycle created successfully.",
-        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(mode="json"),
     )
 
 
@@ -506,7 +515,7 @@ def get_felicitation_cycle_detail(
     return ApiResponse(
         success=True,
         message="Felicitation cycle details retrieved.",
-        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(mode="json"),
     )
 
 
@@ -549,7 +558,7 @@ def update_felicitation_cycle(
     return ApiResponse(
         success=True,
         message="Felicitation cycle updated successfully.",
-        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(mode="json"),
     )
 
 
@@ -576,7 +585,7 @@ def toggle_cycle_publication(
     return ApiResponse(
         success=True,
         message=f"Felicitation cycle {'published' if is_published else 'unpublished'} successfully.",
-        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(mode="json"),
     )
 
 
@@ -603,7 +612,7 @@ def toggle_cycle_archive(
     return ApiResponse(
         success=True,
         message=f"Felicitation cycle {'archived' if is_archived else 'unarchived'} successfully.",
-        data=AnudaanFelicitationCycleOut(**detail).model_dump(),
+        data=AnudaanFelicitationCycleOut(**detail).model_dump(mode="json"),
     )
 
 
