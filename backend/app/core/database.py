@@ -8,14 +8,21 @@ if "postgres" in settings.sync_database_url:
     connect_args["options"] = "-c timezone=Asia/Kolkata"
 
 # Create engine with pre-ping validation, session timezone, and connection recycling for Neon PostgreSQL
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "connect_args": connect_args,
+}
+if "sqlite" not in settings.sync_database_url:
+    engine_kwargs.update({
+        "pool_recycle": settings.DB_POOL_RECYCLE,
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_timeout": settings.DB_POOL_TIMEOUT,
+    })
+
 engine = create_engine(
     settings.sync_database_url,
-    pool_pre_ping=True,
-    pool_recycle=settings.DB_POOL_RECYCLE,
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    pool_timeout=settings.DB_POOL_TIMEOUT,
-    connect_args=connect_args,
+    **engine_kwargs,
 )
 
 # Session factory

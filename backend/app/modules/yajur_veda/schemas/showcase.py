@@ -305,6 +305,7 @@ class AnudaanPublicSanctionOut(BaseModel):
     quartile: str
     sanctioned_amount: Decimal
     academic_year: str
+    sanction_date: Optional[date] = None
     felicitation_cycle_id: Optional[uuid.UUID] = None
     volume_number: Optional[int] = None
     issue_number: Optional[int] = None

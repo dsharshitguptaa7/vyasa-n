@@ -15,9 +15,10 @@ import {
   AnudaanGalleryItemOut,
   AnudaanPublicConfigOut,
   AnudaanPublicShowcaseCyclesResponse,
+  AnudaanPublicSanctionOut,
 } from '../types/anudaan';
 import { RecognitionPhotoCarousel } from '../components/RecognitionPhotoCarousel';
-import { FelicitationShowcase } from '../components/FelicitationShowcase';
+import { InstitutionalIncentiveRecipients } from '../components/InstitutionalIncentiveRecipients';
 import './AnudaanPortalPage.css';
 
 export const AnudaanPortalPage: React.FC = () => {
@@ -67,7 +68,11 @@ export const AnudaanPortalPage: React.FC = () => {
   // Impact Dashboard State
   const [impactStats, setImpactStats] = useState<AnudaanPublicImpactStats | null>(null);
   const [impactLoading, setImpactLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<string>('2025-2026');
+  const [selectedYear, setSelectedYear] = useState<string>('ALL');
+
+  // Published Incentive Sanctions State
+  const [publicSanctions, setPublicSanctions] = useState<AnudaanPublicSanctionOut[]>([]);
+  const [sanctionsLoading, setSanctionsLoading] = useState(true);
 
   // Recognition Gallery State
   const [galleryItems, setGalleryItems] = useState<AnudaanGalleryItemOut[]>([]);
@@ -159,12 +164,31 @@ export const AnudaanPortalPage: React.FC = () => {
     }
   }, [selectedYear]);
 
+  // Fetch Published Incentive Sanctions Register
+  const fetchPublicSanctions = useCallback(async () => {
+    try {
+      setSanctionsLoading(true);
+      const res = await anudaanService.getPublicSanctions({
+        academic_year: selectedYear === 'ALL' ? undefined : selectedYear,
+        limit: 500,
+      });
+      if (res.success && res.data) {
+        setPublicSanctions(res.data.items);
+      }
+    } catch (err) {
+      console.error('Failed to load public incentive sanction records:', err);
+    } finally {
+      setSanctionsLoading(false);
+    }
+  }, [selectedYear]);
+
   useEffect(() => {
     if (publicConfig.impact_section_enabled) {
       fetchImpactStats();
       fetchShowcaseCycles();
+      fetchPublicSanctions();
     }
-  }, [fetchImpactStats, fetchShowcaseCycles, publicConfig.impact_section_enabled]);
+  }, [fetchImpactStats, fetchShowcaseCycles, fetchPublicSanctions, publicConfig.impact_section_enabled]);
 
   useEffect(() => {
     if (publicConfig.gallery_section_enabled) {
@@ -673,14 +697,16 @@ export const AnudaanPortalPage: React.FC = () => {
             </div>
 
             {/* ============================================================= */}
-            {/* VOLUME & ISSUE FELICITATION SHOWCASE */}
+            {/* INSTITUTIONAL INCENTIVE RECIPIENTS REGISTER */}
             {/* ============================================================= */}
-            <FelicitationShowcase
+            <InstitutionalIncentiveRecipients
+              sanctions={publicSanctions}
               showcaseCycles={showcaseCycles}
-              loading={cyclesLoading}
+              loading={sanctionsLoading || cyclesLoading}
               selectedYear={selectedYear}
               onYearChange={(yr) => setSelectedYear(yr)}
               availableYears={impactStats?.academic_years_available}
+              totalSanctionsFromStats={impactStats?.total_sanction_entries}
             />
 
 

@@ -609,6 +609,7 @@ export interface AnudaanPublicSanctionOut {
   quartile: 'Q1' | 'Q2' | 'Q3' | 'Q4' | string;
   sanctioned_amount: number | string;
   academic_year: string;
+  sanction_date?: string | null;
   felicitation_cycle_id?: string | null;
   volume_number?: number | null;
   issue_number?: number | null;

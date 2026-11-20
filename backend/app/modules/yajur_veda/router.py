@@ -693,7 +693,7 @@ def get_public_impact_statistics(
 )
 def get_public_sanction_register(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=1000),
     academic_year: Optional[str] = Query(None),
     quartile: Optional[str] = Query(None),
     cycle_id: Optional[uuid.UUID] = Query(None),
@@ -741,6 +741,7 @@ def get_public_sanction_register(
                 quartile=item.quartile,
                 sanctioned_amount=item.sanctioned_amount,
                 academic_year=item.academic_year,
+                sanction_date=item.sanction_date,
                 felicitation_cycle_id=item.felicitation_cycle_id,
                 volume_number=vol,
                 issue_number=iss,

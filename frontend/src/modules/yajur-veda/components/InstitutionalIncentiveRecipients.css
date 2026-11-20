@@ -1,0 +1,518 @@
+/**
+ * InstitutionalIncentiveRecipients.css
+ * Clean, institutional styling for the published researcher incentive register.
+ * Adheres to VYASA's Navy Blue (#0B2545), Emerald (#059669), and Amber (#B45309) institutional palette.
+ */
+
+.vyasa-recipients {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.05);
+  padding: 28px;
+  margin-top: 32px;
+  margin-bottom: 40px;
+  font-family: inherit;
+}
+
+/* =============================================================================
+   1. Header Section
+   ============================================================================= */
+
+.vyasa-recipients__header {
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.vyasa-recipients__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.vyasa-recipients__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1E40AF;
+  background-color: #EFF6FF;
+  border: 1px solid #DBEAFE;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  margin-bottom: 8px;
+}
+
+.vyasa-recipients__title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0B2545;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.vyasa-recipients__subtitle {
+  font-size: 0.9rem;
+  color: #64748B;
+  margin: 6px 0 0 0;
+  max-width: 780px;
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   2. Summary Statistics Banner
+   ============================================================================= */
+
+.vyasa-recipients__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.vyasa-recipients__stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.vyasa-recipients__stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 6px;
+}
+
+.vyasa-recipients__stat-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #0B2545;
+  line-height: 1.2;
+}
+
+.vyasa-recipients__stat-value--amount {
+  color: #047857;
+}
+
+.vyasa-recipients__quartiles-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* =============================================================================
+   3. Quartile Badges
+   ============================================================================= */
+
+.vyasa-quartile-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.vyasa-quartile-pill--q1 {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.vyasa-quartile-pill--q2 {
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+}
+
+.vyasa-quartile-pill--q3 {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.vyasa-quartile-pill--q4 {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+/* =============================================================================
+   4. Filter Bar
+   ============================================================================= */
+
+.vyasa-recipients__filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background-color: #FAFAFA;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+
+.vyasa-recipients__filters-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.vyasa-recipients__search-box {
+  position: relative;
+  min-width: 240px;
+  flex: 1;
+  max-width: 360px;
+}
+
+.vyasa-recipients__search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  font-size: 0.85rem;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  color: #0F172A;
+  background-color: #FFFFFF;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.vyasa-recipients__search-input:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.vyasa-recipients__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.vyasa-recipients__select-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vyasa-recipients__filter-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.vyasa-recipients__select {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.vyasa-recipients__select:focus {
+  border-color: #2563EB;
+}
+
+.vyasa-recipients__records-count {
+  font-size: 0.82rem;
+  color: #64748B;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   5. Recipient Records Grid / Cards View
+   ============================================================================= */
+
+.vyasa-recipients__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.vyasa-recipients__card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.vyasa-recipients__card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(11, 37, 69, 0.08);
+  border-color: #93C5FD;
+}
+
+.vyasa-recipients__card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.vyasa-recipients__card-researcher {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0B2545;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.vyasa-recipients__card-dept {
+  font-size: 0.82rem;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.vyasa-recipients__card-dept--missing {
+  color: #94A3B8;
+  font-style: italic;
+}
+
+.vyasa-recipients__card-pub-box {
+  background-color: #F8FAFC;
+  border: 1px solid #F1F5F9;
+  border-left: 3px solid #0B2545;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.vyasa-recipients__card-pub-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 4px;
+}
+
+.vyasa-recipients__card-pub-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1E293B;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.vyasa-recipients__card-project {
+  font-size: 0.8rem;
+  color: #475569;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.vyasa-recipients__card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  font-size: 0.78rem;
+  color: #64748B;
+}
+
+.vyasa-recipients__cycle-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #0B2545;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.vyasa-recipients__cycle-tag--direct {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+.vyasa-recipients__card-footer {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.vyasa-recipients__amount-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.04em;
+}
+
+.vyasa-recipients__amount-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #047857;
+  letter-spacing: -0.01em;
+}
+
+.vyasa-recipients__date-badge {
+  font-size: 0.75rem;
+  color: #64748B;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* =============================================================================
+   6. Structured Table View (Desktop Alternative)
+   ============================================================================= */
+
+.vyasa-recipients__table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.vyasa-recipients__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.vyasa-recipients__table th {
+  background-color: #F8FAFC;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 12px 16px;
+  border-bottom: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.vyasa-recipients__table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #F1F5F9;
+  vertical-align: top;
+  color: #1E293B;
+}
+
+.vyasa-recipients__table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+/* =============================================================================
+   7. Upcoming Ceremonies Notice Box
+   ============================================================================= */
+
+.vyasa-recipients__notice {
+  background-color: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-left: 4px solid #B45309;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vyasa-recipients__notice-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #92400E;
+  margin: 0 0 4px 0;
+}
+
+.vyasa-recipients__notice-text {
+  font-size: 0.825rem;
+  color: #78350F;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* =============================================================================
+   8. Empty State
+   ============================================================================= */
+
+.vyasa-recipients__empty-box {
+  background-color: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748B;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   9. Responsive Breakpoints
+   ============================================================================= */
+
+@media (max-width: 1024px) {
+  .vyasa-recipients__stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .vyasa-recipients {
+    padding: 18px 14px;
+  }
+
+  .vyasa-recipients__stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .vyasa-recipients__filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vyasa-recipients__search-box {
+    max-width: 100%;
+  }
+
+  .vyasa-recipients__grid {
+    grid-template-columns: 1fr;
+  }
+}
