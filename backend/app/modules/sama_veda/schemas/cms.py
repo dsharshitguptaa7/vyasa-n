@@ -192,6 +192,8 @@ class AuthorOut(BaseModel):
 class AuthorListResponse(BaseModel):
     total: int
     items: List[AuthorOut]
+    verified_count: int = 0
+    provisional_count: int = 0
 
 
 # ============================================================================
@@ -1047,3 +1049,72 @@ class ArchivedCertificateItem(BaseModel):
 class ArchivedCertificateListResponse(BaseModel):
     total: int
     items: List[ArchivedCertificateItem]
+
+
+# ============================================================================
+# 10. RESEARCH INTELLIGENCE & ANALYTICS SCHEMAS
+# ============================================================================
+
+class CategoryDistributionItem(BaseModel):
+    name: str
+    count: int
+    percentage: float
+
+
+class YearlyTrendItem(BaseModel):
+    year: str
+    count: int
+
+
+class ResearcherVerificationBreakdown(BaseModel):
+    total_researchers: int
+    verified_faculty: int
+    provisional_scholars: int
+
+
+class BulletinVolumeAnalyticsItem(BaseModel):
+    id: str
+    volume_number: int
+    issue_number: int
+    label: str
+    title: str
+    period: str
+    actual_publication_count: int
+    archival_count: int
+    file_size_bytes: int
+
+
+class IndexingMetrics(BaseModel):
+    doi_indexed: int
+    direct_peer_reviewed: int
+
+
+class AnalyticsSummary(BaseModel):
+    total_publications: int
+    total_researchers: int
+    verified_faculty: int
+    provisional_scholars: int
+    total_bulletins: int
+    cam_grants: int
+    active_fellows: int
+
+
+class AnalyticsReconciliation(BaseModel):
+    total_publications: int
+    category_sum: int
+    yearly_sum: int
+    bulletin_actual_sum: int
+    categories_reconciled: bool
+    bulletins_reconciled: bool
+
+
+class OverviewAnalyticsResponse(BaseModel):
+    summary: AnalyticsSummary
+    category_distribution: List[CategoryDistributionItem]
+    yearly_trends: List[YearlyTrendItem]
+    researcher_breakdown: ResearcherVerificationBreakdown
+    bulletin_volumes: List[BulletinVolumeAnalyticsItem]
+    indexing_metrics: IndexingMetrics
+    reconciliation: AnalyticsReconciliation
+    generated_at: str
+

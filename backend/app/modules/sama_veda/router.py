@@ -29,6 +29,7 @@ from app.modules.sama_veda.models.spotlight import ResearcherSpotlight
 from app.modules.sama_veda.models.certificate import FelicitationCertificate, CertificateVerificationEvent, LegacyCertificateRegistry
 from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
 from app.modules.sama_veda.services.cms_service import SamaCmsService
+from app.modules.sama_veda.services.analytics_service import sama_analytics_service
 from app.modules.sama_veda.schemas.cms import (
     PublicationOut,
     PublicationAuthorOut,
@@ -42,6 +43,7 @@ from app.modules.sama_veda.schemas.cms import (
     SpotlightListResponse,
     ResearcherOtpSendRequest,
     ResearcherOtpVerifyRequest,
+    OverviewAnalyticsResponse,
 )
 
 router = APIRouter(prefix="/modules/sama-veda", tags=["Sama Veda: Research Recognition & Communication"])
@@ -101,6 +103,34 @@ def get_sama_veda_status():
         message="Sama Veda module active and operational.",
         data=module.model_dump() if module else {"status": "active"},
     )
+
+
+# ============================================================================
+# 0b. AUTHORITATIVE RESEARCH INTELLIGENCE & ANALYTICS OVERVIEW
+# ============================================================================
+
+@router.get("/analytics/overview", response_model=ApiResponse)
+def get_overview_analytics(db: Session = Depends(get_db)):
+    """
+    Authoritative aggregated telemetry for the Research Intelligence & Analytics Overview dashboard.
+    Dynamically computes publication category distribution, yearly growth trends,
+    researcher verification breakdowns, and bulletin issue associations from live database records.
+    Guarantees that all overview metrics reconcile with their authoritative datasets.
+    """
+    try:
+        analytics = sama_analytics_service.get_full_overview_analytics(db)
+        return ApiResponse(
+            success=True,
+            message="Research Intelligence & Analytics overview telemetry retrieved successfully.",
+            data=analytics,
+        )
+    except SQLAlchemyError as exc:
+        logger.warning("Database error while computing research intelligence analytics: %s", exc)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to compute research intelligence analytics.",
+        )
 
 
 # ============================================================================
@@ -622,6 +652,20 @@ def list_public_authors(
 
     try:
         total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+        verified_count = db.scalar(
+            select(func.count()).select_from(query.where(ResearchAuthor.is_verified == True).subquery())
+        ) or 0
+        provisional_count = max(0, total - verified_count)
+
+        global_stmt = select(
+            func.count(ResearchAuthor.id).label("total"),
+            func.count(case((ResearchAuthor.is_verified == True, ResearchAuthor.id), else_=None)).label("verified"),
+        )
+        global_row = db.execute(global_stmt).one()
+        global_total = global_row.total or 0
+        global_verified = global_row.verified or 0
+        global_provisional = max(0, global_total - global_verified)
+
         authors = db.execute(query.order_by(ResearchAuthor.full_name.asc()).offset(skip).limit(limit)).scalars().all()
         items = [
             {
@@ -638,12 +682,27 @@ def list_public_authors(
         logger.warning("Database query failed in list_public_authors: %s", exc)
         db.rollback()
         total = 0
+        verified_count = 0
+        provisional_count = 0
+        global_total = 0
+        global_verified = 0
+        global_provisional = 0
         items = []
 
     return ApiResponse(
         success=True,
         message="Public researcher directory retrieved successfully.",
-        data={"total": total, "items": items, "skip": skip, "limit": limit},
+        data={
+            "total": total,
+            "verified_count": verified_count,
+            "provisional_count": provisional_count,
+            "global_total": global_total,
+            "global_verified_count": global_verified,
+            "global_provisional_count": global_provisional,
+            "items": items,
+            "skip": skip,
+            "limit": limit,
+        },
     )
 
 

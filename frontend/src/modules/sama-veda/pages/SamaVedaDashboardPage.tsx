@@ -12,6 +12,7 @@ import {
   PublicSpotlight,
   CertificateVerificationResult,
   IssuePublicationCount,
+  OverviewAnalyticsData,
 } from '../services/samaVedaService';
 import { SamikshaHero, MetricItem } from '../components/SamikshaHero';
 import { SamikshaAnalytics } from '../components/SamikshaAnalytics';
@@ -105,6 +106,10 @@ export const SamaVedaDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Authoritative Overview Analytics
+  const [analyticsData, setAnalyticsData] = useState<OverviewAnalyticsData | null>(null);
+  const [authorVerifiedCount, setAuthorVerifiedCount] = useState<number | null>(null);
+
   // Core Data States
   const [publications, setPublications] = useState<PublicPublication[]>([]);
   const [totalPublications, setTotalPublications] = useState(0);
@@ -146,18 +151,29 @@ export const SamaVedaDashboardPage: React.FC = () => {
     const loadOverviewData = async () => {
       try {
         setLoading(true);
-        const [bullResult, camResult, felResult, spotResult, pubResult, authResult] = await Promise.allSettled([
+        const [bullResult, camResult, felResult, spotResult, pubResult, authResult, analyticsResult] = await Promise.allSettled([
           samaVedaService.getBulletins({ limit: 50 }),
           samaVedaService.getCamProjects(),
           samaVedaService.getFellowships(),
           samaVedaService.getSpotlights(),
           samaVedaService.getPublications({ limit: 100 }),
           samaVedaService.getAuthors({ limit: 100 }),
+          samaVedaService.getOverviewAnalytics(),
         ]);
 
         if (!isMounted) return;
 
         const failedSections: string[] = [];
+
+        // 0. Authoritative Analytics Overview
+        if (analyticsResult.status === 'fulfilled') {
+          setAnalyticsData(analyticsResult.value);
+          if (analyticsResult.value?.summary) {
+            setTotalPublications(analyticsResult.value.summary.total_publications);
+            setTotalAuthors(analyticsResult.value.summary.total_researchers);
+            setAuthorVerifiedCount(analyticsResult.value.summary.verified_faculty);
+          }
+        }
 
         // 1. Bulletins
         if (bullResult.status === 'fulfilled') {
@@ -200,25 +216,40 @@ export const SamaVedaDashboardPage: React.FC = () => {
         // 5. Publications
         if (pubResult.status === 'fulfilled') {
           setPublications(pubResult.value?.items || []);
-          setTotalPublications(pubResult.value?.total || pubResult.value?.items?.length || 0);
+          if (!analyticsData?.summary.total_publications) {
+            setTotalPublications(pubResult.value?.total || pubResult.value?.items?.length || 0);
+          }
           if (pubResult.value?.issue_counts && pubResult.value.issue_counts.length > 0) {
             setPubIssueCounts(pubResult.value.issue_counts);
           }
           setPublicationsUnavailable(false);
         } else {
           setPublications([]);
-          setTotalPublications(0);
+          if (!analyticsData?.summary.total_publications) {
+            setTotalPublications(0);
+          }
           setPublicationsUnavailable(true);
         }
 
         // 6. Authors
         if (authResult.status === 'fulfilled') {
           setAuthors(authResult.value?.items || []);
-          setTotalAuthors(authResult.value?.total || authResult.value?.items?.length || 0);
+          if (authResult.value?.global_total) {
+            setTotalAuthors(authResult.value.global_total);
+          } else if (authResult.value?.total && !analyticsData?.summary.total_researchers) {
+            setTotalAuthors(authResult.value.total);
+          }
+          if (authResult.value?.global_verified_count !== undefined) {
+            setAuthorVerifiedCount(authResult.value.global_verified_count);
+          } else if (authResult.value?.verified_count !== undefined) {
+            setAuthorVerifiedCount(authResult.value.verified_count);
+          }
           setAuthorsUnavailable(false);
         } else {
           setAuthors([]);
-          setTotalAuthors(0);
+          if (!analyticsData?.summary.total_researchers) {
+            setTotalAuthors(0);
+          }
           setAuthorsUnavailable(true);
         }
 
@@ -301,12 +332,20 @@ export const SamaVedaDashboardPage: React.FC = () => {
           });
           if (isMounted) {
             setAuthors(res?.items || []);
-            setTotalAuthors(res?.total || 0);
+            if (res?.global_total) {
+              setTotalAuthors(res.global_total);
+            } else if (res?.total && !analyticsData?.summary.total_researchers) {
+              setTotalAuthors(res.total);
+            }
+            if (res?.global_verified_count !== undefined) {
+              setAuthorVerifiedCount(res.global_verified_count);
+            } else if (res?.verified_count !== undefined) {
+              setAuthorVerifiedCount(res.verified_count);
+            }
           }
         } catch {
           if (isMounted) {
             setAuthors([]);
-            setTotalAuthors(0);
           }
         } finally {
           if (isMounted) {
@@ -319,7 +358,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
         isMounted = false;
       };
     }
-  }, [activeTab, authorSearch]);
+  }, [activeTab, authorSearch, analyticsData]);
 
   const handleVerifyCertificate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,35 +410,35 @@ export const SamaVedaDashboardPage: React.FC = () => {
     return [
       {
         label: 'Publications',
-        value: totalPublications > 0 ? totalPublications : publications.length > 0 ? publications.length : 0,
+        value: analyticsData?.summary.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length > 0 ? publications.length : 0),
         loading,
         unavailable: publicationsUnavailable,
         tabKey: 'publications',
       },
       {
         label: 'Faculty Researchers',
-        value: totalAuthors > 0 ? totalAuthors : authors.length > 0 ? authors.length : 0,
+        value: analyticsData?.summary.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length > 0 ? authors.length : 0),
         loading,
         unavailable: authorsUnavailable,
         tabKey: 'authors',
       },
       {
         label: 'Research Bulletins',
-        value: bulletins.length,
+        value: analyticsData?.summary.total_bulletins ?? bulletins.length,
         loading,
         unavailable: bulletinsUnavailable,
         tabKey: 'bulletins',
       },
       {
         label: 'Active Fellows',
-        value: totalScholars > 0 ? totalScholars : null,
+        value: analyticsData?.summary.active_fellows ?? (totalScholars > 0 ? totalScholars : null),
         loading,
         unavailable: fellowshipsUnavailable,
         tabKey: 'fellowships',
       },
       {
         label: 'CAM-AI Grants',
-        value: camProjects.length,
+        value: analyticsData?.summary.cam_grants ?? camProjects.length,
         loading,
         unavailable: camProjectsUnavailable,
         tabKey: 'cam-projects',
@@ -411,6 +450,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
       },
     ].filter((m) => !m.unavailable);
   }, [
+    analyticsData,
     totalPublications,
     publications.length,
     totalAuthors,
@@ -661,11 +701,12 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
           {/* Interactive Research Analytics Dashboard */}
           <SamikshaAnalytics
+            analyticsData={analyticsData}
             publications={publications}
-            totalPublications={totalPublications}
+            totalPublications={analyticsData?.summary.total_publications ?? totalPublications}
             bulletins={bulletins}
             authors={authors}
-            totalAuthors={totalAuthors}
+            totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
             camProjects={camProjects}
             loading={loading}
             onSelectCategory={(cat) => {
@@ -686,11 +727,11 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
           {/* Research Discovery Pillars Grid */}
           <SamikshaDiscoveryGrid
-            totalPublications={totalPublications}
-            totalBulletins={bulletins.length}
-            totalAuthors={totalAuthors}
-            totalCamProjects={camProjects.length}
-            totalFellows={totalScholars}
+            totalPublications={analyticsData?.summary.total_publications ?? totalPublications}
+            totalBulletins={analyticsData?.summary.total_bulletins ?? bulletins.length}
+            totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
+            totalCamProjects={analyticsData?.summary.cam_grants ?? camProjects.length}
+            totalFellows={analyticsData?.summary.active_fellows ?? totalScholars}
             onNavigateTab={(tabKey) => handleTabChange(tabKey as ActiveTab)}
           />
         </div>
@@ -730,7 +771,9 @@ export const SamaVedaDashboardPage: React.FC = () => {
       {activeTab === 'authors' && (
         <SamikshaResearchersTab
           authors={authors}
-          totalAuthors={totalAuthors}
+          totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
+          authoritativeVerifiedCount={analyticsData?.summary.verified_faculty ?? authorVerifiedCount ?? undefined}
+          authoritativeTotalCount={analyticsData?.summary.total_researchers ?? totalAuthors}
           authorSearch={authorSearch}
           onAuthorSearchChange={setAuthorSearch}
           publications={publications}

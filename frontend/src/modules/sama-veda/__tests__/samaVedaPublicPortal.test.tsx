@@ -8,6 +8,54 @@ import { samaVedaService } from '../services/samaVedaService';
 describe('SamaVedaPublicPortal', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(samaVedaService, 'getOverviewAnalytics').mockResolvedValue({
+      summary: {
+        total_publications: 1,
+        total_researchers: 1,
+        verified_faculty: 1,
+        provisional_scholars: 0,
+        total_bulletins: 1,
+        cam_grants: 0,
+        active_fellows: 0,
+      },
+      category_distribution: [
+        { name: 'Article', count: 1, percentage: 100 },
+      ],
+      yearly_trends: [
+        { year: '2025', count: 1 },
+      ],
+      researcher_breakdown: {
+        total_researchers: 1,
+        verified_faculty: 1,
+        provisional_scholars: 0,
+      },
+      bulletin_volumes: [
+        {
+          id: 'b-1',
+          volume_number: 2,
+          issue_number: 1,
+          label: 'Vol 2 Iss 1',
+          title: 'Volume 2 • Issue 1',
+          period: 'Jan - Mar 2025',
+          actual_publication_count: 1,
+          archival_count: 1,
+          file_size_bytes: 1024,
+        },
+      ],
+      indexing_metrics: {
+        doi_indexed: 1,
+        direct_peer_reviewed: 0,
+      },
+      reconciliation: {
+        total_publications: 1,
+        category_sum: 1,
+        yearly_sum: 1,
+        bulletin_actual_sum: 1,
+        categories_reconciled: true,
+        bulletins_reconciled: true,
+      },
+      generated_at: '2025-03-15T10:00:00Z',
+    });
   });
 
   it('renders portal header, overview cards, and navigation tabs', async () => {
@@ -306,7 +354,7 @@ describe('SamaVedaPublicPortal', () => {
     });
 
     // Verify Category Bar for "Article" exists and is clickable
-    const articleBar = screen.getByText('Article');
+    const articleBar = await screen.findByText('Article');
     expect(articleBar).toBeInTheDocument();
     fireEvent.click(articleBar);
 

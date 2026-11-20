@@ -5,9 +5,11 @@ import {
   PublicBulletin,
   PublicAuthor,
   PublicCamProject,
+  OverviewAnalyticsData,
 } from '../services/samaVedaService';
 
 interface SamikshaAnalyticsProps {
+  analyticsData?: OverviewAnalyticsData | null;
   publications: PublicPublication[];
   totalPublications: number;
   bulletins: PublicBulletin[];
@@ -21,7 +23,37 @@ interface SamikshaAnalyticsProps {
   onSelectAuthorsTab?: () => void;
 }
 
+const CANONICAL_CATEGORIES: Record<string, string> = {
+  article: 'Article',
+  articles: 'Article',
+  'journal article': 'Article',
+  review: 'Review',
+  reviews: 'Review',
+  'review article': 'Review',
+  'book chapter': 'Book Chapter',
+  chapter: 'Book Chapter',
+  'conference paper': 'Conference Paper',
+  'conference proceedings': 'Conference Paper',
+  proceeding: 'Conference Paper',
+  proceedings: 'Conference Paper',
+  book: 'Book',
+  books: 'Book',
+};
+
+function normalizeCategoryName(raw?: string | null): string {
+  if (!raw || !raw.trim()) return 'Uncategorized';
+  const cleaned = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (CANONICAL_CATEGORIES[cleaned]) {
+    return CANONICAL_CATEGORIES[cleaned];
+  }
+  return cleaned
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
+  analyticsData,
   publications,
   totalPublications,
   bulletins,
@@ -34,8 +66,19 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   onSelectBulletin,
   onSelectAuthorsTab,
 }) => {
-  // Chart 1: Publication Trends by Year
+  // Authoritative total eligible publications
+  const effectiveTotalPubs = analyticsData?.summary.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length);
+
+  // Authoritative total researchers and verification counts
+  const effectiveTotalAuthors = analyticsData?.summary.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length);
+  const effectiveVerifiedFaculty = analyticsData?.summary.verified_faculty ?? authors.filter((a) => a.is_verified).length;
+  const effectiveProvisionalScholars = analyticsData?.summary.provisional_scholars ?? Math.max(0, effectiveTotalAuthors - effectiveVerifiedFaculty);
+
+  // Chart 1: Publication Trends by Year (Authoritative backend dataset with client fallback)
   const trendData = useMemo(() => {
+    if (analyticsData?.yearly_trends && analyticsData.yearly_trends.length > 0) {
+      return analyticsData.yearly_trends;
+    }
     if (!publications || publications.length === 0) return [];
 
     const yearCounts: Record<string, number> = {};
@@ -58,77 +101,80 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
       year: yr,
       count: yearCounts[yr],
     }));
-  }, [publications]);
+  }, [analyticsData, publications]);
 
-  // Chart 2: Output Distribution by Category
+  // Chart 2: Output Distribution by Category (Normalized & Reconciled)
   const categoryData = useMemo(() => {
+    if (analyticsData?.category_distribution && analyticsData.category_distribution.length > 0) {
+      return analyticsData.category_distribution;
+    }
     if (!publications || publications.length === 0) return [];
 
     const counts: Record<string, number> = {};
     for (const pub of publications) {
-      const cat = pub.category?.trim() || 'Uncategorized';
+      const cat = normalizeCategoryName(pub.category);
       counts[cat] = (counts[cat] || 0) + 1;
     }
 
+    const totalEligible = Object.values(counts).reduce((a, b) => a + b, 0);
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: totalEligible > 0 ? Math.round((count / totalEligible) * 100) : 0,
+      }))
       .sort((a, b) => b.count - a.count);
-  }, [publications]);
+  }, [analyticsData, publications]);
 
-  // Chart 3: Recognition & Verification Breakdown
-  const recognitionData = useMemo(() => {
-    const verifiedAuthorsCount = authors.filter((a) => a.is_verified).length;
-    const provisionalAuthorsCount = Math.max(0, authors.length - verifiedAuthorsCount);
-    const withDoiCount = publications.filter((p) => Boolean(p.doi)).length;
-    const directCitationCount = Math.max(0, publications.length - withDoiCount);
-
+  // Chart 3: Researcher Verification & Authenticity Breakdown (Strictly Researcher Entities)
+  const researcherSlices = useMemo(() => {
     const slices = [];
-    if (verifiedAuthorsCount > 0) {
+    if (effectiveVerifiedFaculty > 0) {
       slices.push({
         key: 'verified_faculty',
         label: 'Verified Faculty',
-        count: verifiedAuthorsCount,
+        count: effectiveVerifiedFaculty,
         color: '#0d9488', // Electric Teal
       });
     }
-    if (provisionalAuthorsCount > 0) {
+    if (effectiveProvisionalScholars > 0) {
       slices.push({
         key: 'provisional_faculty',
         label: 'Provisional Scholars',
-        count: provisionalAuthorsCount,
+        count: effectiveProvisionalScholars,
         color: '#64748b', // Slate
       });
     }
-    if (withDoiCount > 0) {
-      slices.push({
-        key: 'doi_indexed',
-        label: 'Scopus / DOI Indexed',
-        count: withDoiCount,
-        color: '#f59e0b', // Amber Gold
-      });
-    }
-    if (directCitationCount > 0) {
-      slices.push({
-        key: 'journal_works',
-        label: 'Peer-Reviewed Works',
-        count: directCitationCount,
-        color: '#06b6d4', // Cyan
-      });
-    }
-    if (camProjects && camProjects.length > 0) {
-      slices.push({
-        key: 'cam_grants',
-        label: 'CAM-AI Innovation Grants',
-        count: camProjects.length,
-        color: '#8b5cf6', // Violet
-      });
-    }
-
     return slices;
-  }, [authors, publications, camProjects]);
+  }, [effectiveVerifiedFaculty, effectiveProvisionalScholars]);
 
-  // Chart 4: Bulletin Publishing Volumes
+  // Distinct Output & Grant Metrics (Kept strictly as independent entities)
+  const indexingMetrics = useMemo(() => {
+    const doiCount = analyticsData?.indexing_metrics.doi_indexed ?? publications.filter((p) => Boolean(p.doi)).length;
+    const directCount =
+      analyticsData?.indexing_metrics.direct_peer_reviewed ?? Math.max(0, (effectiveTotalPubs || publications.length) - doiCount);
+    const grantsCount = analyticsData?.summary.cam_grants ?? (camProjects ? camProjects.length : 0);
+
+    return {
+      doiCount,
+      directCount,
+      grantsCount,
+    };
+  }, [analyticsData, publications, effectiveTotalPubs, camProjects]);
+
+  // Chart 4: Bulletin Publishing Volumes (Live database publication associations)
   const bulletinData = useMemo(() => {
+    if (analyticsData?.bulletin_volumes && analyticsData.bulletin_volumes.length > 0) {
+      return analyticsData.bulletin_volumes.map((b) => ({
+        id: b.id,
+        label: b.label,
+        title: b.title,
+        period: b.period,
+        count: b.actual_publication_count,
+        archivalCount: b.archival_count,
+        fileSizeMb: Math.round((b.file_size_bytes || 0) / (1024 * 1024)),
+      }));
+    }
     if (!bulletins || bulletins.length === 0) return [];
     return [...bulletins]
       .sort((a, b) => a.volume_number - b.volume_number || a.issue_number - b.issue_number)
@@ -138,9 +184,10 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
         title: b.title,
         period: b.publication_period,
         count: b.publication_count || 0,
+        archivalCount: b.publication_count || 0,
         fileSizeMb: Math.round(b.file_size_bytes / (1024 * 1024)),
       }));
-  }, [bulletins]);
+  }, [analyticsData, bulletins]);
 
   // Tooltip & Hover states
   const [hoveredTrendIdx, setHoveredTrendIdx] = useState<number | null>(null);
@@ -184,16 +231,15 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   // Max for Category Chart
   const maxCatCount = Math.max(1, ...categoryData.map((c) => c.count));
 
-  // Donut Chart Math
-  const totalRecognitionItems = recognitionData.reduce((acc, s) => acc + s.count, 0);
+  // Donut Chart Math (Researcher Registry Only)
   const donutSize = 160;
   const donutCenter = donutSize / 2;
   const donutRadius = 66;
   const donutInnerRadius = 42;
 
   let cumulativeAngle = 0;
-  const donutArcs = recognitionData.map((slice) => {
-    const sliceAngle = totalRecognitionItems > 0 ? (slice.count / totalRecognitionItems) * 360 : 0;
+  const donutArcs = researcherSlices.map((slice) => {
+    const sliceAngle = effectiveTotalAuthors > 0 ? (slice.count / effectiveTotalAuthors) * 360 : 0;
     const startAngle = cumulativeAngle;
     const endAngle = cumulativeAngle + sliceAngle;
     cumulativeAngle += sliceAngle;
@@ -228,7 +274,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
       ...slice,
       pathData,
       sliceAngle,
-      percentage: totalRecognitionItems > 0 ? Math.round((slice.count / totalRecognitionItems) * 100) : 0,
+      percentage: effectiveTotalAuthors > 0 ? Math.round((slice.count / effectiveTotalAuthors) * 100) : 0,
     };
   });
 
@@ -270,7 +316,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               boxShadow: '0 0 6px #10b981',
             }}
           />
-          <span>Telemetry derived from verified CSJMU institutional records</span>
+          <span>Authoritative telemetry dynamically reconciled with CSJMU database</span>
         </div>
       </div>
 
@@ -303,7 +349,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               <span className="samiksha-pill-badge cyan" style={{ padding: '2px 8px', fontSize: '10.5px' }}>By Year</span>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-              Scholarly works verified and cataloged across academic years. Click a year to filter archive.
+              Authoritative annual distribution of verified scholarly works cataloged in the institutional repository.
             </p>
           </div>
 
@@ -421,8 +467,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                   <div style={{ fontWeight: 700, color: '#f59e0b' }}>Year {points[hoveredTrendIdx].year}</div>
                   <div>
                     {points[hoveredTrendIdx].count} Publications (
-                    {totalPublications > 0
-                      ? Math.round((points[hoveredTrendIdx].count / totalPublications) * 100)
+                    {effectiveTotalPubs > 0
+                      ? Math.round((points[hoveredTrendIdx].count / effectiveTotalPubs) * 100)
                       : 100}
                     %)
                   </div>
@@ -453,7 +499,7 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               <span className="samiksha-pill-badge teal" style={{ padding: '2px 8px', fontSize: '10.5px' }}>Categorical</span>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-              Distribution across articles, reviews, chapters, and papers. Click a bar to filter catalog.
+              Authoritative categorization across {effectiveTotalPubs} published works. Click any bar to inspect.
             </p>
           </div>
 
@@ -465,7 +511,12 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {categoryData.map((cat) => {
                 const isHovered = hoveredCat === cat.name;
-                const pct = totalPublications > 0 ? Math.round((cat.count / totalPublications) * 100) : 0;
+                const pct =
+                  cat.percentage !== undefined
+                    ? Math.round(cat.percentage)
+                    : effectiveTotalPubs > 0
+                    ? Math.round((cat.count / effectiveTotalPubs) * 100)
+                    : 0;
                 const barWidth = Math.max(6, (cat.count / maxCatCount) * 100);
 
                 return (
@@ -555,118 +606,179 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
               <span className="samiksha-pill-badge amber" style={{ padding: '2px 8px', fontSize: '10.5px' }}>Authenticity</span>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-              Breakdown of {totalAuthors > 0 ? `${totalAuthors} researchers, ` : ''}verified faculty authors, DOI-registered works, and grants.
+              Authoritative verification status of {effectiveTotalAuthors} researchers and indexed academic works.
             </p>
           </div>
 
-          {recognitionData.length === 0 ? (
+          {effectiveTotalAuthors === 0 ? (
             <div style={{ textAlign: 'center', padding: '36px 0', color: '#94a3b8', fontSize: '12.5px' }}>
               {loading ? 'Evaluating recognition telemetry...' : 'No verified recognition records available.'}
             </div>
           ) : (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-              }}
-            >
-              {/* Donut SVG */}
-              <div style={{ position: 'relative', width: `${donutSize}px`, height: `${donutSize}px` }}>
-                <svg
-                  viewBox={`0 0 ${donutSize} ${donutSize}`}
-                  style={{ width: '100%', height: '100%', overflow: 'visible' }}
-                  aria-label="Recognition Donut Chart"
-                >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                }}
+              >
+                {/* Donut SVG for Researcher Verification */}
+                <div style={{ position: 'relative', width: `${donutSize}px`, height: `${donutSize}px` }}>
+                  <svg
+                    viewBox={`0 0 ${donutSize} ${donutSize}`}
+                    style={{ width: '100%', height: '100%', overflow: 'visible' }}
+                    aria-label="Researcher Verification Donut Chart"
+                  >
+                    {donutArcs.map((arc) => {
+                      const isHovered = hoveredRecogKey === arc.key;
+                      return (
+                        <path
+                          key={arc.key}
+                          d={arc.pathData}
+                          fill={arc.color}
+                          stroke="#ffffff"
+                          strokeWidth="2.5"
+                          opacity={isHovered ? 1 : 0.9}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'opacity 0.15s ease, transform 0.15s ease',
+                            transformOrigin: `${donutCenter}px ${donutCenter}px`,
+                            transform: isHovered ? 'scale(1.04)' : 'scale(1)',
+                          }}
+                          onMouseEnter={() => setHoveredRecogKey(arc.key)}
+                          onMouseLeave={() => setHoveredRecogKey(null)}
+                          onClick={() => {
+                            if (onSelectAuthorsTab) onSelectAuthorsTab();
+                          }}
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  {/* Donut Center Label (Explicitly Researchers, Never "Records") */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <div style={{ fontSize: '17px', fontWeight: 800, color: '#0f2b48', lineHeight: 1 }}>
+                      {effectiveTotalAuthors}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>
+                      Researchers
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legends for Researcher Verification */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '130px', flex: 1 }}>
                   {donutArcs.map((arc) => {
                     const isHovered = hoveredRecogKey === arc.key;
                     return (
-                      <path
+                      <div
                         key={arc.key}
-                        d={arc.pathData}
-                        fill={arc.color}
-                        stroke="#ffffff"
-                        strokeWidth="2.5"
-                        opacity={isHovered ? 1 : 0.9}
-                        style={{
-                          cursor: 'pointer',
-                          transition: 'opacity 0.15s ease, transform 0.15s ease',
-                          transformOrigin: `${donutCenter}px ${donutCenter}px`,
-                          transform: isHovered ? 'scale(1.04)' : 'scale(1)',
-                        }}
                         onMouseEnter={() => setHoveredRecogKey(arc.key)}
                         onMouseLeave={() => setHoveredRecogKey(null)}
-                      />
+                        onClick={() => {
+                          if (onSelectAuthorsTab) onSelectAuthorsTab();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '11.5px',
+                          color: isHovered ? '#0f2b48' : '#475569',
+                          fontWeight: isHovered ? 700 : 500,
+                          padding: '4px 6px',
+                          borderRadius: '6px',
+                          background: isHovered ? 'rgba(15, 43, 72, 0.05)' : 'transparent',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              background: arc.color,
+                            }}
+                          />
+                          <span>{arc.label}</span>
+                        </div>
+                        <span style={{ fontWeight: 700 }}>
+                          {arc.count} ({arc.percentage}%)
+                        </span>
+                      </div>
                     );
                   })}
-                </svg>
-
-                {/* Donut Center Label */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    textAlign: 'center',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <div style={{ fontSize: '17px', fontWeight: 800, color: '#0f2b48', lineHeight: 1 }}>
-                    {totalRecognitionItems}
-                  </div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>
-                    Records
-                  </div>
                 </div>
               </div>
 
-              {/* Legends */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '130px', flex: 1 }}>
-                {donutArcs.map((arc) => {
-                  const isHovered = hoveredRecogKey === arc.key;
-                  return (
-                    <div
-                      key={arc.key}
-                      onMouseEnter={() => setHoveredRecogKey(arc.key)}
-                      onMouseLeave={() => setHoveredRecogKey(null)}
-                      onClick={() => {
-                        if (arc.key.includes('faculty') && onSelectAuthorsTab) {
-                          onSelectAuthorsTab();
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '11.5px',
-                        color: isHovered ? '#0f2b48' : '#475569',
-                        fontWeight: isHovered ? 700 : 500,
-                        padding: '3px 6px',
-                        borderRadius: '6px',
-                        background: isHovered ? 'rgba(15, 43, 72, 0.05)' : 'transparent',
-                        cursor: arc.key.includes('faculty') ? 'pointer' : 'default',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: arc.color,
-                          }}
-                        />
-                        <span>{arc.label}</span>
-                      </div>
-                      <span style={{ fontWeight: 700 }}>{arc.count}</span>
+              {/* Distinct Output & Grants Metrics Strip (Separated Entity Counts) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: '8px',
+                  paddingTop: '10px',
+                  borderTop: '1px solid #f1f5f9',
+                }}
+              >
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Scopus / DOI Indexed</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f2b48' }}>
+                    {indexingMetrics.doiCount}{' '}
+                    <span style={{ fontSize: '10.5px', fontWeight: 500, color: '#94a3b8' }}>works</span>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Peer-Reviewed Direct</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f2b48' }}>
+                    {indexingMetrics.directCount}{' '}
+                    <span style={{ fontSize: '10.5px', fontWeight: 500, color: '#94a3b8' }}>works</span>
+                  </div>
+                </div>
+                {indexingMetrics.grantsCount > 0 && (
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>CAM-AI Grants</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#8b5cf6' }}>
+                      {indexingMetrics.grantsCount}{' '}
+                      <span style={{ fontSize: '10.5px', fontWeight: 500, color: '#94a3b8' }}>awards</span>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -744,7 +856,15 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                       <span>
                         {b.label} &bull; {b.period}
                       </span>
-                      <span>{b.count} works ({b.fileSizeMb} MB)</span>
+                      <span>
+                        {b.count} works{' '}
+                        {b.archivalCount && b.archivalCount !== b.count ? (
+                          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400 }}>
+                            ({b.archivalCount} print index)
+                          </span>
+                        ) : null}{' '}
+                        ({b.fileSizeMb} MB)
+                      </span>
                     </div>
                     <div
                       style={{

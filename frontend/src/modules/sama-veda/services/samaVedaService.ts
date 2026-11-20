@@ -230,6 +230,56 @@ export interface ResearcherAuthChallenge {
   message: string;
 }
 
+export interface OverviewAnalyticsData {
+  summary: {
+    total_publications: number;
+    total_researchers: number;
+    verified_faculty: number;
+    provisional_scholars: number;
+    total_bulletins: number;
+    cam_grants: number;
+    active_fellows: number;
+  };
+  category_distribution: Array<{
+    name: string;
+    count: number;
+    percentage: number;
+  }>;
+  yearly_trends: Array<{
+    year: string;
+    count: number;
+  }>;
+  researcher_breakdown: {
+    total_researchers: number;
+    verified_faculty: number;
+    provisional_scholars: number;
+  };
+  bulletin_volumes: Array<{
+    id: string;
+    volume_number: number;
+    issue_number: number;
+    label: string;
+    title: string;
+    period: string;
+    actual_publication_count: number;
+    archival_count: number;
+    file_size_bytes: number;
+  }>;
+  indexing_metrics: {
+    doi_indexed: number;
+    direct_peer_reviewed: number;
+  };
+  reconciliation: {
+    total_publications: number;
+    category_sum: number;
+    yearly_sum: number;
+    bulletin_actual_sum: number;
+    categories_reconciled: boolean;
+    bulletins_reconciled: boolean;
+  };
+  generated_at: string;
+}
+
 export const samaVedaService = {
   async getPublications(params?: {
     skip?: number;
@@ -312,7 +362,17 @@ export const samaVedaService = {
     limit?: number;
     department?: string;
     search?: string;
-  }): Promise<{ items: PublicAuthor[]; total: number; skip: number; limit: number }> {
+  }): Promise<{
+    items: PublicAuthor[];
+    total: number;
+    verified_count?: number;
+    provisional_count?: number;
+    global_total?: number;
+    global_verified_count?: number;
+    global_provisional_count?: number;
+    skip: number;
+    limit: number;
+  }> {
     const searchParams = new URLSearchParams();
     if (params?.skip !== undefined) searchParams.append('skip', String(params.skip));
     if (params?.limit !== undefined) searchParams.append('limit', String(params.limit));
@@ -320,9 +380,22 @@ export const samaVedaService = {
     if (params?.search) searchParams.append('search', params.search);
 
     const q = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    const res = await apiClient.get<{ items: PublicAuthor[]; total: number; skip: number; limit: number }>(
-      `/modules/sama-veda/authors${q}`
-    );
+    const res = await apiClient.get<{
+      items: PublicAuthor[];
+      total: number;
+      verified_count?: number;
+      provisional_count?: number;
+      global_total?: number;
+      global_verified_count?: number;
+      global_provisional_count?: number;
+      skip: number;
+      limit: number;
+    }>(`/modules/sama-veda/authors${q}`);
+    return res.data!;
+  },
+
+  async getOverviewAnalytics(): Promise<OverviewAnalyticsData> {
+    const res = await apiClient.get<OverviewAnalyticsData>('/modules/sama-veda/analytics/overview');
     return res.data!;
   },
 

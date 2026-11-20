@@ -10,6 +10,8 @@ interface SamikshaResearchersTabProps {
   publications?: PublicPublication[];
   onSelectAuthorPublications?: (authorName: string) => void;
   onSelectAuthorCertificates?: (authorName: string) => void;
+  authoritativeVerifiedCount?: number;
+  authoritativeTotalCount?: number;
 }
 
 export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
@@ -20,9 +22,16 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
   publications = [],
   onSelectAuthorPublications,
   onSelectAuthorCertificates,
+  authoritativeVerifiedCount,
+  authoritativeTotalCount,
 }) => {
   const [selectedDept, setSelectedDept] = useState('');
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'provisional'>('all');
+
+  const effectiveTotal = authoritativeTotalCount ?? (totalAuthors > 0 ? totalAuthors : authors.length);
+  const effectiveVerified = authoritativeVerifiedCount !== undefined
+    ? authoritativeVerifiedCount
+    : authors.filter((a) => a.is_verified).length;
 
   // Extract unique departments
   const departments = useMemo(() => {
@@ -66,8 +75,6 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
       return true;
     });
   }, [authors, selectedDept, verificationFilter]);
-
-  const verifiedCount = authors.filter((a) => a.is_verified).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -137,7 +144,7 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               minWidth: '105px',
             }}
           >
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f2b48' }}>{totalAuthors}</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f2b48' }}>{effectiveTotal}</div>
             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Researchers</div>
           </div>
           <div
@@ -150,7 +157,7 @@ export const SamikshaResearchersTab: React.FC<SamikshaResearchersTabProps> = ({
               minWidth: '105px',
             }}
           >
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0d9488' }}>{verifiedCount}</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#0d9488' }}>{effectiveVerified}</div>
             <div style={{ fontSize: '11px', color: '#0f766e', fontWeight: 600 }}>Verified Faculty</div>
           </div>
         </div>
