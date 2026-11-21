@@ -290,16 +290,69 @@ class LegacyRecoveryService:
                     pass
 
     @classmethod
+    def validate_storage_key(cls, key: str) -> str:
+        """
+        Validates and sanitizes a manually entered DigitalOcean Spaces object key.
+        Rejects path traversal, drive letters, protocols, and non-pdf extensions.
+        """
+        if not key or not isinstance(key, str):
+            raise ValueError("Storage key cannot be empty.")
+        clean = key.strip().replace("\\", "/")
+        if clean.startswith("http://") or clean.startswith("https://"):
+            raise ValueError("Storage key cannot be an external URL. Enter the relative Spaces object key (e.g. 'sama_veda/certificates/filename.pdf').")
+        if re.match(r"^[a-zA-Z]:", clean):
+            raise ValueError("Storage key cannot be an absolute filesystem drive path.")
+        if ".." in clean:
+            raise ValueError("Storage key contains invalid path traversal sequences ('..').")
+        if clean.startswith("/"):
+            raise ValueError("Storage key must be a relative object key and cannot begin with a root slash ('/').")
+        if not clean:
+            raise ValueError("Storage key cannot be empty or root slash.")
+        if not clean.lower().endswith(".pdf"):
+            raise ValueError("Storage key must target a PDF file ending in .pdf.")
+        if any(c in clean for c in '<>"|?*'):
+            raise ValueError("Storage key contains invalid characters.")
+        return clean
+
+    @classmethod
+    def validate_scopus_id(cls, scopus_id: str) -> str:
+        """
+        Validates Scopus Author ID.
+        Must be a numeric string of 8 to 12 digits.
+        """
+        if not scopus_id or not isinstance(scopus_id, str):
+            raise ValueError("Scopus ID cannot be empty.")
+        clean = scopus_id.strip()
+        if not re.match(r"^\d{8,12}$", clean):
+            raise ValueError(f"Invalid Scopus Author ID '{clean}'. Scopus IDs must be an 8 to 12-digit numeric identifier.")
+        return clean
+
+    @classmethod
     def get_candidate_storage_keys(cls, legacy: LegacyCertificateRegistry) -> List[str]:
         """
         Determines candidate storage keys in DigitalOcean Spaces / local storage
-        for a historical certificate based on institutional naming conventions.
+        for a historical certificate based on institutional naming conventions and manual assignment.
+        Priority:
+        1. Manually assigned original PDF storage key.
+        2. Existing recovered PDF reference / filename.
+        3. Existing known certificate-number-based candidate keys.
+        4. Existing token-based candidate keys.
+        5. Existing safe local recovery/archive candidates.
         """
         candidates = []
-        cert_no_clean = (legacy.certificate_number or "").replace("/", "_").strip()
-        if cert_no_clean:
-            candidates.append(f"sama_veda/certificates/{cert_no_clean}.pdf")
+        meta = legacy.recovery_metadata or {}
 
+        # 1. Manually assigned original PDF storage key
+        manual_key = meta.get("storage_key")
+        if manual_key and isinstance(manual_key, str) and manual_key.strip():
+            clean_man = manual_key.strip().replace("\\", "/").lstrip("/")
+            for prefix in ("backend/storage/", "storage/", "./"):
+                if clean_man.startswith(prefix):
+                    clean_man = clean_man[len(prefix):]
+            if clean_man:
+                candidates.append(clean_man)
+
+        # 2. Existing recovered PDF reference
         ref = (legacy.source_pdf_reference or "").strip().replace("\\", "/")
         if ref:
             for prefix in ("backend/storage/", "storage/", "./"):
@@ -311,6 +364,19 @@ class LegacyRecoveryService:
                 candidates.append(base)
             candidates.append(ref)
 
+        orig_fn = meta.get("original_filename")
+        if orig_fn and isinstance(orig_fn, str) and orig_fn.strip():
+            clean_fn = orig_fn.strip().replace("\\", "/").lstrip("/")
+            candidates.append(f"sama_veda/certificates/{clean_fn}")
+            candidates.append(clean_fn)
+
+        # 3. Existing known certificate-number-based candidate keys
+        cert_no_clean = (legacy.certificate_number or "").replace("/", "_").strip()
+        if cert_no_clean:
+            candidates.append(f"sama_veda/certificates/{cert_no_clean}.pdf")
+            candidates.append(f"{cert_no_clean}.pdf")
+
+        # 4. Existing token-based candidate keys
         tok = (legacy.verification_token or "").strip()
         if tok:
             candidates.append(f"sama_veda/certificates/{tok}.pdf")
@@ -332,9 +398,39 @@ class LegacyRecoveryService:
     def resolve_pdf_path(cls, legacy: LegacyCertificateRegistry) -> Optional[str]:
         """
         Resolves the physical or cloud-cached PDF file path for a historical certificate.
-        First inspects local disk; if not present locally, delegates to DigitalOcean Spaces
-        via the core storage_service proxy, which downloads and caches the object atomically.
+        First inspects manually assigned storage key / direct local disk;
+        then delegates to DigitalOcean Spaces via the core storage_service proxy,
+        which downloads and caches the object atomically.
         """
+        meta = legacy.recovery_metadata or {}
+        manual_key = meta.get("storage_key")
+
+        # 1. If manual key is assigned, attempt resolution for it first
+        if manual_key and isinstance(manual_key, str) and manual_key.strip():
+            clean_manual = manual_key.strip().replace("\\", "/").lstrip("/")
+            for base_dir in [Path.cwd(), Path.cwd() / "backend", Path.cwd().parent]:
+                candidate = (base_dir / clean_manual).resolve()
+                if candidate.is_file():
+                    return str(candidate)
+            try:
+                from app.core.storage import storage_service
+                cached_path = None
+                if hasattr(storage_service, "get_file_path"):
+                    try:
+                        cached_path = storage_service.get_file_path(clean_manual)
+                    except Exception:
+                        pass
+                if not cached_path and hasattr(storage_service, "download_file"):
+                    try:
+                        cached_path = storage_service.download_file(clean_manual)
+                    except Exception:
+                        pass
+                if cached_path and Path(cached_path).is_file():
+                    return str(Path(cached_path).resolve())
+            except Exception as exc:
+                logger.debug(f"Manual storage key '{clean_manual}' not resolved via storage_service: {exc}")
+
+        # 2. Existing recovered PDF reference
         ref = legacy.source_pdf_reference
         if ref:
             p = Path(ref)
@@ -349,19 +445,134 @@ class LegacyRecoveryService:
                     if sub_candidate.is_file():
                         return str(sub_candidate)
 
+        # 3. Candidate keys in priority order via storage_service
         try:
-            from app.core.storage import storage_service, StorageFileNotFoundError, StorageError
+            from app.core.storage import storage_service
             for key in cls.get_candidate_storage_keys(legacy):
                 try:
-                    cached_path = storage_service.get_file_path(key)
-                    if cached_path and cached_path.is_file():
-                        return str(cached_path)
-                except (StorageFileNotFoundError, StorageError, Exception):
+                    if storage_service.exists(key):
+                        cached_path = None
+                        if hasattr(storage_service, "get_file_path"):
+                            try:
+                                cached_path = storage_service.get_file_path(key)
+                            except Exception:
+                                pass
+                        if not cached_path and hasattr(storage_service, "download_file"):
+                            try:
+                                cached_path = storage_service.download_file(key)
+                            except Exception:
+                                pass
+                        if cached_path and Path(cached_path).is_file():
+                            return str(Path(cached_path).resolve())
+                except Exception:
                     continue
         except Exception as exc:
             logger.debug(f"Failed resolving PDF via storage_service for {legacy.certificate_number}: {exc}")
 
         return None
+
+    @classmethod
+    def test_pdf_availability(
+        cls,
+        legacy: LegacyCertificateRegistry,
+        candidate_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Actively tests whether the historical certificate PDF exists in DigitalOcean Spaces or local storage.
+        If candidate_key is provided, tests that specific key; otherwise checks candidate keys in priority order.
+        Returns detailed status: found, missing, or error.
+        """
+        from app.core.config import settings
+        from app.core.storage import storage_service, StorageFileNotFoundError, StorageError
+
+        active_provider = storage_service.get_provider()
+        provider_name = getattr(active_provider, "provider_name", None) or getattr(settings, "STORAGE_PROVIDER", "spaces")
+
+        keys_to_test = []
+        if candidate_key and candidate_key.strip():
+            clean_test_key = cls.validate_storage_key(candidate_key)
+            keys_to_test.append(clean_test_key)
+        else:
+            keys_to_test = cls.get_candidate_storage_keys(legacy)
+
+        # First check if legacy has a direct valid local path
+        if not candidate_key and legacy.source_pdf_reference:
+            ref = legacy.source_pdf_reference
+            for base_dir in [Path.cwd(), Path.cwd() / "backend", Path.cwd().parent]:
+                candidate_p = (base_dir / ref).resolve()
+                if candidate_p.is_file():
+                    try:
+                        size = candidate_p.stat().st_size
+                        return {
+                            "status": "found",
+                            "storage_key": ref,
+                            "provider": "local_storage",
+                            "exists": True,
+                            "file_size_bytes": size,
+                            "resolved_path": str(candidate_p),
+                            "message": f"Historical PDF verified on local storage ({size:,} bytes).",
+                        }
+                    except Exception:
+                        pass
+
+        last_error = None
+        for key in keys_to_test:
+            try:
+                if storage_service.exists(key):
+                    size = None
+                    try:
+                        meta = storage_service.get_file_metadata(key)
+                        size = meta.get("content_length") or meta.get("size")
+                    except Exception:
+                        pass
+                    if size is None:
+                        try:
+                            fpath = storage_service.get_file_path(key)
+                            if fpath and fpath.is_file():
+                                size = fpath.stat().st_size
+                        except Exception:
+                            pass
+
+                    size_str = f" ({size:,} bytes)" if size else ""
+                    return {
+                        "status": "found",
+                        "storage_key": key,
+                        "provider": provider_name,
+                        "exists": True,
+                        "file_size_bytes": size,
+                        "resolved_path": key,
+                        "message": f"Historical PDF verified in {provider_name.title()}{size_str}.",
+                    }
+            except (StorageFileNotFoundError, FileNotFoundError):
+                continue
+            except StorageError as serr:
+                last_error = str(serr)
+                continue
+            except Exception as exc:
+                last_error = str(exc)
+                continue
+
+        if last_error:
+            return {
+                "status": "error",
+                "storage_key": keys_to_test[0] if keys_to_test else None,
+                "provider": provider_name,
+                "exists": False,
+                "file_size_bytes": None,
+                "resolved_path": None,
+                "message": f"Storage provider communication error: {last_error}",
+            }
+
+        tested_repr = f"'{keys_to_test[0]}'" if len(keys_to_test) == 1 else f"{len(keys_to_test)} candidate keys"
+        return {
+            "status": "missing",
+            "storage_key": keys_to_test[0] if keys_to_test else None,
+            "provider": provider_name,
+            "exists": False,
+            "file_size_bytes": None,
+            "resolved_path": None,
+            "message": f"Historical certificate PDF object not found in {provider_name} for {tested_repr}.",
+        }
 
     @classmethod
     def is_pdf_available(cls, legacy: LegacyCertificateRegistry) -> bool:

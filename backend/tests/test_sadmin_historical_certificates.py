@@ -531,3 +531,271 @@ def test_nonexistent_certificate_id_returns_404(client):
     assert resp.status_code == 404
     resp_dl = client.get(f"/api/admin/sama/certificates/{random_id}/download")
     assert resp_dl.status_code == 404
+
+
+def test_update_historical_recovery_metadata_success(client, db_session):
+    """Admin can repair Scopus ID and storage key, and Scopus ID is immediately searchable."""
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000008")
+    ).first()
+    assert reg is not None
+
+    payload = {
+        "scopus_id": "57219876543",
+        "storage_key": "sama_veda/certificates/recovered_000008.pdf",
+        "original_filename": "orig_000008_signed.pdf",
+        "recipient_name": "Dr. Repaired Recipient",
+        "department": "Biotechnology",
+    }
+
+    resp = client.patch(f"/api/admin/sama/certificates/{reg.id}/recovery-metadata", json=payload)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+
+    # Verify response reflects update
+    assert data["scopus_id"] == "57219876543"
+    assert data["recipient_name"] == "Dr. Repaired Recipient"
+    assert data["department"] == "Biotechnology"
+
+    # Verify DB persistence
+    db_session.refresh(reg)
+    assert reg.recovery_metadata.get("scopus_id") == "57219876543"
+    assert reg.recovery_metadata.get("storage_key") == "sama_veda/certificates/recovered_000008.pdf"
+    assert reg.source_pdf_reference == "sama_veda/certificates/recovered_000008.pdf"
+
+    # Verify immediate searchability in SAdmin certificates search
+    search_resp = client.get("/api/admin/sama/certificates?search=57219876543")
+    assert search_resp.status_code == 200
+    search_items = search_resp.json()["data"]["items"]
+    assert any(i["id"] == str(reg.id) for i in search_items)
+
+
+def test_partial_update_preserves_untouched_metadata(client, db_session):
+    """Updating a single field does not overwrite untouched recovery metadata fields."""
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000008")
+    ).first()
+    assert reg is not None
+
+    # Update only department
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"department": "Advanced Bioengineering"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["department"] == "Advanced Bioengineering"
+    # Scopus ID and storage key are preserved
+    assert data["scopus_id"] == "57219876543"
+
+    db_session.refresh(reg)
+    assert reg.recovery_metadata.get("scopus_id") == "57219876543"
+    assert reg.recovery_metadata.get("storage_key") == "sama_veda/certificates/recovered_000008.pdf"
+
+
+def test_update_historical_metadata_validation(client, db_session):
+    """Validation rejects invalid Scopus IDs and unsafe storage keys."""
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000009")
+    ).first()
+    assert reg is not None
+
+    # Invalid Scopus ID (non-numeric)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"scopus_id": "SCOPUS_ABC_123"},
+    )
+    assert resp.status_code == 422
+    assert "8 to 12" in resp.json()["detail"]
+
+    # Invalid Scopus ID (too short)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"scopus_id": "12345"},
+    )
+    assert resp.status_code == 422
+
+    # Unsafe storage key (path traversal)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"storage_key": "../../etc/passwd.pdf"},
+    )
+    assert resp.status_code == 422
+    assert "traversal" in resp.json()["detail"].lower()
+
+    # Unsafe storage key (root slash)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"storage_key": "/absolute/path/file.pdf"},
+    )
+    assert resp.status_code == 422
+
+    # Unsafe storage key (Windows drive)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"storage_key": "C:\\certs\\file.pdf"},
+    )
+    assert resp.status_code == 422
+
+    # Unsafe storage key (external URL)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"storage_key": "https://malicious.com/fake.pdf"},
+    )
+    assert resp.status_code == 422
+
+    # Unsafe storage key (not a PDF)
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"storage_key": "sama_veda/certificates/malware.exe"},
+    )
+    assert resp.status_code == 422
+
+
+def test_active_certificate_rejected_on_recovery_metadata(client, db_session):
+    """Active certificate ledger records cannot be modified via recovery metadata endpoint (400)."""
+    active_cert = db_session.scalars(
+        select(FelicitationCertificate).where(FelicitationCertificate.certificate_number == "CSJMU/SAMIKSHA/2026/000001")
+    ).first()
+    assert active_cert is not None
+
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{active_cert.id}/recovery-metadata",
+        json={"scopus_id": "57211112222"},
+    )
+    assert resp.status_code == 400
+    assert "strictly restricted to historical certificates" in resp.json()["detail"]
+
+
+def test_test_pdf_availability_endpoint(client, db_session, monkeypatch):
+    """Test PDF availability endpoint correctly inspects storage provider without exposing secrets."""
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000010")
+    ).first()
+    assert reg is not None
+
+    # 1. Missing file check
+    resp = client.post(
+        f"/api/admin/sama/certificates/{reg.id}/test-pdf",
+        json={"storage_key": "sama_veda/certificates/definitely_missing_file_99999.pdf"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["status"] == "missing"
+    assert data["storage_key"] == "sama_veda/certificates/definitely_missing_file_99999.pdf"
+
+    # 2. Existing file check (mocked storage provider)
+    class MockStorageProvider:
+        provider_name = "digitalocean_spaces"
+
+        def exists(self, key: str) -> bool:
+            return key == "sama_veda/certificates/present_file.pdf"
+
+        def get_file_metadata(self, key: str):
+            if key == "sama_veda/certificates/present_file.pdf":
+                return {"size": 1048576, "content_length": 1048576}
+            return {}
+
+        def get_file_path(self, key: str):
+            return None
+
+    monkeypatch.setattr(storage_service, "_provider", MockStorageProvider())
+
+    resp = client.post(
+        f"/api/admin/sama/certificates/{reg.id}/test-pdf",
+        json={"storage_key": "sama_veda/certificates/present_file.pdf"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["status"] == "found"
+    assert data["file_size_bytes"] == 1048576
+    assert data["provider"] == "digitalocean_spaces"
+
+    # 3. Active certificate rejected on test-pdf
+    active_cert = db_session.scalars(
+        select(FelicitationCertificate).where(FelicitationCertificate.certificate_number == "CSJMU/SAMIKSHA/2026/000001")
+    ).first()
+    resp_act = client.post(
+        f"/api/admin/sama/certificates/{active_cert.id}/test-pdf",
+        json={"storage_key": "sama_veda/certificates/test.pdf"},
+    )
+    assert resp_act.status_code == 400
+
+
+def test_download_resolves_manually_assigned_storage_key_priority(client, db_session, tmp_path, monkeypatch):
+    """When a historical certificate has a manually assigned storage_key, it takes precedence in download."""
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000012")
+    ).first()
+    assert reg is not None
+
+    # Create dummy PDF file for download
+    custom_pdf = tmp_path / "custom_manual_target.pdf"
+    custom_pdf.write_bytes(b"%PDF-1.4\n%Manual Priority PDF\n%%EOF")
+
+    class ManualPriorityProvider:
+        provider_name = "digitalocean_spaces"
+
+        def exists(self, key: str) -> bool:
+            return key == "sama_veda/certificates/custom_manual_target.pdf"
+
+        def download_file(self, key: str) -> Path:
+            if key == "sama_veda/certificates/custom_manual_target.pdf":
+                return custom_pdf
+            raise FileNotFoundError(f"Missing {key}")
+
+        def get_file_path(self, key: str) -> Path:
+            if key == "sama_veda/certificates/custom_manual_target.pdf":
+                return custom_pdf
+            raise FileNotFoundError(f"Missing {key}")
+
+    monkeypatch.setattr(storage_service, "_provider", ManualPriorityProvider())
+
+    # Set manual storage_key in recovery metadata
+    meta = dict(reg.recovery_metadata or {})
+    meta["storage_key"] = "sama_veda/certificates/custom_manual_target.pdf"
+    reg.recovery_metadata = meta
+    reg.source_pdf_reference = "sama_veda/certificates/custom_manual_target.pdf"
+    db_session.commit()
+
+    # Trigger download
+    dl_resp = client.get(f"/api/admin/sama/certificates/{reg.id}/download")
+    assert dl_resp.status_code == 200
+    assert dl_resp.headers["content-type"] == "application/pdf"
+    assert b"%Manual Priority PDF" in dl_resp.content
+
+
+def test_audit_logging_on_recovery_metadata_update(client, db_session):
+    """Verifies that an audit log entry is recorded with changed fields, without secrets or tokens."""
+    from app.models.audit import AuditLog
+
+    reg = db_session.scalars(
+        select(LegacyCertificateRegistry).where(LegacyCertificateRegistry.certificate_number == "CSJMU/SAMIKSHA/2026/000013")
+    ).first()
+    assert reg is not None
+
+    resp = client.patch(
+        f"/api/admin/sama/certificates/{reg.id}/recovery-metadata",
+        json={"scopus_id": "57299887766", "department": "Department of Physics"},
+    )
+    assert resp.status_code == 200
+
+    # Query audit logs for this entity
+    audit_entry = db_session.scalars(
+        select(AuditLog).where(
+            AuditLog.entity_name == "LegacyCertificateRegistry",
+            AuditLog.entity_id == str(reg.id),
+            AuditLog.action == "historical_recovery_metadata_updated",
+        )
+    ).first()
+
+    assert audit_entry is not None
+    assert audit_entry.module == "sama_veda"
+    details = audit_entry.details or {}
+    assert "changed_fields" in details
+    assert "scopus_id" in details["changed_fields"]
+    assert "department" in details["changed_fields"]
+    # Ensure verification_token is never in audit details
+    details_str = json.dumps(details)
+    assert "verification_token" not in details_str
+    assert reg.verification_token not in details_str

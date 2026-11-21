@@ -731,6 +731,32 @@ class CertificateRescheduleRequest(BaseModel):
     scheduled_issue_date: date = Field(..., description="New scheduled Date of Issue (YYYY-MM-DD)")
 
 
+class LegacyRecoveryMetadataUpdate(BaseModel):
+    scopus_id: Optional[str] = Field(None, description="Scopus Author ID (numeric)")
+    storage_key: Optional[str] = Field(None, description="Original PDF storage object key in DigitalOcean Spaces")
+    original_filename: Optional[str] = Field(None, description="Original filename of historical PDF")
+    recipient_name: Optional[str] = Field(None, description="Corrected recipient name")
+    research_title: Optional[str] = Field(None, description="Corrected research title")
+    department: Optional[str] = Field(None, description="Department / affiliation snapshot")
+    publication_details: Optional[str] = Field(None, description="Publication details / journal citation")
+    issue_reference: Optional[str] = Field(None, description="Bulletin volume/issue citation")
+    sanction_amount: Optional[Union[float, str]] = Field(None, description="Incentive award amount")
+
+
+class TestPdfAvailabilityRequest(BaseModel):
+    storage_key: Optional[str] = Field(None, description="Optional candidate key to test; defaults to certificate's configured key")
+
+
+class TestPdfAvailabilityResponse(BaseModel):
+    status: str
+    storage_key: Optional[str] = None
+    provider: str = "spaces"
+    exists: bool = False
+    file_size_bytes: Optional[int] = None
+    resolved_path: Optional[str] = None
+    message: str
+
+
 class CertificateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -779,6 +805,11 @@ class CertificateOut(BaseModel):
     sanction_amount: Optional[str] = None
     has_legacy_collision: Optional[bool] = False
     legacy_collision_info: Optional[Dict[str, Any]] = None
+    recipient_name: Optional[str] = None
+    department: Optional[str] = None
+    scopus_id: Optional[str] = None
+    storage_key: Optional[str] = None
+    original_filename: Optional[str] = None
 
 
 class CertificateListResponse(BaseModel):

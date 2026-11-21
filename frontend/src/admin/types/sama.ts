@@ -468,6 +468,33 @@ export interface FelicitationCertificateItem {
   bulletin_title?: string | null;
   bulletin_volume?: number | null;
   bulletin_issue?: number | null;
+  recipient_name?: string | null;
+  department?: string | null;
+  scopus_id?: string | null;
+  storage_key?: string | null;
+  original_filename?: string | null;
+}
+
+export interface UpdateHistoricalRecoveryMetadataPayload {
+  scopus_id?: string | null;
+  storage_key?: string | null;
+  original_filename?: string | null;
+  recipient_name?: string | null;
+  research_title?: string | null;
+  department?: string | null;
+  publication_details?: string | null;
+  issue_reference?: string | null;
+  sanction_amount?: number | string | null;
+}
+
+export interface TestPdfAvailabilityResponse {
+  status: 'found' | 'missing' | 'error';
+  storage_key?: string | null;
+  provider?: string | null;
+  exists: boolean;
+  file_size_bytes?: number | null;
+  resolved_path?: string | null;
+  message: string;
 }
 
 export interface IssueCertificatePayload {

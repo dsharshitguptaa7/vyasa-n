@@ -102,6 +102,32 @@ export const CertificatesPage: React.FC = () => {
   const [singleDeleteReason, setSingleDeleteReason] = useState('');
   const [isSingleDeleting, setIsSingleDeleting] = useState(false);
 
+  // Historical Recovery Metadata & PDF Repair State
+  const [showEditRecoveryModal, setShowEditRecoveryModal] = useState(false);
+  const [recoveryTargetCert, setRecoveryTargetCert] = useState<CertificateRecord | null>(null);
+  const [recoveryRecipientName, setRecoveryRecipientName] = useState('');
+  const [recoveryScopusId, setRecoveryScopusId] = useState('');
+  const [recoveryResearchTitle, setRecoveryResearchTitle] = useState('');
+  const [recoveryDepartment, setRecoveryDepartment] = useState('');
+  const [recoveryPublicationDetails, setRecoveryPublicationDetails] = useState('');
+  const [recoveryIssueReference, setRecoveryIssueReference] = useState('');
+  const [recoveryStorageKey, setRecoveryStorageKey] = useState('');
+  const [recoveryOriginalFilename, setRecoveryOriginalFilename] = useState('');
+  const [isSavingRecovery, setIsSavingRecovery] = useState(false);
+  const [recoveryModalError, setRecoveryModalError] = useState<string | null>(null);
+  const [recoveryModalSuccess, setRecoveryModalSuccess] = useState<string | null>(null);
+
+  // PDF Testing state
+  const [isTestingPdf, setIsTestingPdf] = useState(false);
+  const [pdfTestResult, setPdfTestResult] = useState<{
+    status: 'found' | 'missing' | 'error';
+    message: string;
+    provider?: string | null;
+    file_size_bytes?: number | null;
+    storage_key?: string | null;
+    exists?: boolean;
+  } | null>(null);
+
   // Restoration State
   const [showBulkRestoreModal, setShowBulkRestoreModal] = useState(false);
   const [bulkRestoreReason, setBulkRestoreReason] = useState('');
@@ -957,6 +983,138 @@ export const CertificatesPage: React.FC = () => {
     setCopiedToken(token);
     setSuccessMessage(`Public verification URL copied to clipboard: ${url}`);
     setTimeout(() => setCopiedToken(null), 3000);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Historical Recovery Metadata & Storage Repair Handlers
+  // ---------------------------------------------------------------------------
+  const handleOpenEditRecoveryMetadata = (cert: CertificateRecord) => {
+    setRecoveryTargetCert(cert);
+    const pubMeta = (cert.publication_details || {}) as Record<string, any>;
+    const firstAuthor = cert.authors && cert.authors[0];
+
+    setRecoveryRecipientName(
+      cert.recipient_name || firstAuthor?.author_name_snapshot || ''
+    );
+    setRecoveryScopusId(
+      cert.scopus_id || pubMeta.scopus_id || firstAuthor?.scopus_id_snapshot || ''
+    );
+    setRecoveryResearchTitle(cert.research_title || '');
+    setRecoveryDepartment(
+      cert.department || pubMeta.department || firstAuthor?.department_snapshot || ''
+    );
+    setRecoveryPublicationDetails(
+      typeof pubMeta.publication_details === 'string'
+        ? pubMeta.publication_details
+        : pubMeta.publication_details ? JSON.stringify(pubMeta.publication_details) : ''
+    );
+    setRecoveryIssueReference(
+      cert.issue_reference || pubMeta.issue_reference || ''
+    );
+    setRecoveryStorageKey(
+      cert.storage_key || pubMeta.storage_key || cert.file_storage_path || ''
+    );
+    setRecoveryOriginalFilename(
+      cert.original_filename || pubMeta.original_filename || ''
+    );
+    setRecoveryModalError(null);
+    setRecoveryModalSuccess(null);
+    setPdfTestResult(null);
+    setShowEditRecoveryModal(true);
+  };
+
+  const handleTestPdfAvailability = async () => {
+    if (!recoveryTargetCert) return;
+    setIsTestingPdf(true);
+    setPdfTestResult(null);
+    setRecoveryModalError(null);
+    try {
+      const res = await samaAdminService.testPdfAvailability(
+        recoveryTargetCert.id,
+        recoveryStorageKey.trim() || undefined
+      );
+      setPdfTestResult(res);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setPdfTestResult({
+        status: 'error',
+        message: e.response?.data?.message || e.response?.data?.detail || e.message || 'Storage check connection error.',
+        exists: false,
+      });
+    } finally {
+      setIsTestingPdf(false);
+    }
+  };
+
+  const handleSaveRecoveryMetadata = async () => {
+    if (!recoveryTargetCert) return;
+    setIsSavingRecovery(true);
+    setRecoveryModalError(null);
+    setRecoveryModalSuccess(null);
+
+    // Validate Scopus ID format if provided
+    if (recoveryScopusId.trim()) {
+      if (!/^\d{8,12}$/.test(recoveryScopusId.trim())) {
+        setRecoveryModalError("Scopus Author ID must be an 8 to 12 digit numeric identifier.");
+        setIsSavingRecovery(false);
+        return;
+      }
+    }
+
+    // Validate storage key if provided
+    if (recoveryStorageKey.trim()) {
+      const key = recoveryStorageKey.trim();
+      if (key.startsWith('http://') || key.startsWith('https://')) {
+        setRecoveryModalError("Storage key cannot be an external URL. Enter the relative Spaces object key (e.g. 'sama_veda/certificates/filename.pdf').");
+        setIsSavingRecovery(false);
+        return;
+      }
+      if (/^[a-zA-Z]:/.test(key) || key.startsWith('/') || key.startsWith('\\')) {
+        setRecoveryModalError("Storage key must be a relative object key and cannot be an absolute server or drive path.");
+        setIsSavingRecovery(false);
+        return;
+      }
+      if (key.includes('..')) {
+        setRecoveryModalError("Storage key cannot contain directory traversal ('..').");
+        setIsSavingRecovery(false);
+        return;
+      }
+      if (!key.toLowerCase().endsWith('.pdf')) {
+        setRecoveryModalError("Storage key must target a PDF file ending in .pdf.");
+        setIsSavingRecovery(false);
+        return;
+      }
+    }
+
+    try {
+      const updated = await samaAdminService.updateHistoricalRecoveryMetadata(
+        recoveryTargetCert.id,
+        {
+          recipient_name: recoveryRecipientName.trim() || null,
+          scopus_id: recoveryScopusId.trim() || null,
+          research_title: recoveryResearchTitle.trim() || null,
+          department: recoveryDepartment.trim() || null,
+          publication_details: recoveryPublicationDetails.trim() || null,
+          issue_reference: recoveryIssueReference.trim() || null,
+          storage_key: recoveryStorageKey.trim() || null,
+          original_filename: recoveryOriginalFilename.trim() || null,
+        }
+      );
+
+      setRecoveryModalSuccess('Recovery metadata and PDF storage references updated successfully.');
+      setCertificates((prev) => prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
+      setRecoveryTargetCert(updated);
+      setTimeout(() => {
+        setShowEditRecoveryModal(false);
+      }, 1200);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      setRecoveryModalError(
+        e.response?.data?.message || e.response?.data?.detail || e.message || 'Failed to update recovery metadata.'
+      );
+    } finally {
+      setIsSavingRecovery(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -2013,9 +2171,20 @@ export const CertificatesPage: React.FC = () => {
                           </Button>
 
                           {isLegacy ? (
-                            <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#64748B', borderColor: '#E2E8F0', fontSize: '11px' }}>
-                              🔒 Historical Immutable
-                            </Badge>
+                            <>
+                              <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#64748B', borderColor: '#E2E8F0', fontSize: '11px' }}>
+                                🔒 Historical Immutable
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditRecoveryMetadata(cert)}
+                                title="Edit Recovery Metadata & Storage References"
+                                style={{ borderColor: '#6366F1', color: '#4F46E5', fontWeight: 600 }}
+                              >
+                                Edit Recovery Metadata
+                              </Button>
+                            </>
                           ) : (
                             <>
                               {!isRevoked && !isSuperseded && !isScheduled && isSuperAdmin && (
@@ -5728,6 +5897,20 @@ export const CertificatesPage: React.FC = () => {
                   {copiedToken === (detailsCert.verification_token || detailsCert.certificate_number) ? 'Verification Link Copied' : 'Copy Verification Link'}
                 </Button>
                 <div style={{ display: 'flex', gap: '8px' }}>
+                  {(detailsCert.is_legacy || detailsCert.record_type === 'historical') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const target = detailsCert;
+                        setShowDetailsModal(false);
+                        handleOpenEditRecoveryMetadata(target);
+                      }}
+                      style={{ borderColor: '#6366F1', color: '#4F46E5', fontWeight: 600 }}
+                    >
+                      Edit Recovery Metadata
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -5748,6 +5931,340 @@ export const CertificatesPage: React.FC = () => {
                     {downloadingId === detailsCert.id ? 'Downloading...' : 'Download PDF'}
                   </Button>
                 </div>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* =================================================================== */}
+        {/* MODAL: EDIT HISTORICAL RECOVERY METADATA & PDF REPAIR */}
+        {/* =================================================================== */}
+        {showEditRecoveryModal && recoveryTargetCert && (
+          <Modal
+            isOpen={showEditRecoveryModal}
+            onClose={() => !isSavingRecovery && setShowEditRecoveryModal(false)}
+            title={`Edit Recovery Metadata — ${recoveryTargetCert.certificate_number}`}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '75vh', overflowY: 'auto' }}>
+              {/* Context Notice */}
+              <div
+                style={{
+                  background: '#EEF2FF',
+                  border: '1px solid #C7D2FE',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#3730A3',
+                  lineHeight: '1.4',
+                }}
+              >
+                <strong>🏛️ Historical Certificate Repair Mode:</strong>
+                <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                  This tool repairs incomplete metadata, Scopus linkage, and DigitalOcean Spaces storage keys for recovered certificate records without regenerating files or altering the active certificate ledger.
+                </div>
+              </div>
+
+              {recoveryModalError && (
+                <div
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    color: '#991B1B',
+                    fontSize: '13px',
+                  }}
+                >
+                  {recoveryModalError}
+                </div>
+              )}
+
+              {recoveryModalSuccess && (
+                <div
+                  style={{
+                    background: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    color: '#166534',
+                    fontSize: '13px',
+                  }}
+                >
+                  {recoveryModalSuccess}
+                </div>
+              )}
+
+              {/* SECTION 1: RESEARCH METADATA */}
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px', background: '#FFFFFF' }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#0F2B48', fontWeight: 600 }}>
+                  1. Research Metadata & Author Linkage
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      Recipient Name
+                    </label>
+                    <input
+                      type="text"
+                      value={recoveryRecipientName}
+                      onChange={(e) => setRecoveryRecipientName(e.target.value)}
+                      placeholder="e.g. Dr. Jane Doe"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      Scopus Author ID (8–12 digits)
+                    </label>
+                    <input
+                      type="text"
+                      value={recoveryScopusId}
+                      onChange={(e) => setRecoveryScopusId(e.target.value)}
+                      placeholder="e.g. 57201234567"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                      Validated numeric ID; immediately searchable in SAdmin search.
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                    Research Title
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={recoveryResearchTitle}
+                    onChange={(e) => setRecoveryResearchTitle(e.target.value)}
+                    placeholder="Full research publication title"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      resize: 'vertical',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      Department / Affiliation
+                    </label>
+                    <input
+                      type="text"
+                      value={recoveryDepartment}
+                      onChange={(e) => setRecoveryDepartment(e.target.value)}
+                      placeholder="e.g. Department of Physics"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                      Research Bulletin Citation
+                    </label>
+                    <input
+                      type="text"
+                      value={recoveryIssueReference}
+                      onChange={(e) => setRecoveryIssueReference(e.target.value)}
+                      placeholder="e.g. Volume 2, Issue 3 (July - September 2026)"
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                    Publication Details / Citation Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={recoveryPublicationDetails}
+                    onChange={(e) => setRecoveryPublicationDetails(e.target.value)}
+                    placeholder="e.g. Nature Materials, Vol. 25, pp. 112-120"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 2: PDF STORAGE REFERENCE & AVAILABILITY TEST */}
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px', background: '#FFFFFF' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ margin: 0, fontSize: '14px', color: '#0F2B48', fontWeight: 600 }}>
+                    2. PDF Storage Reference & Availability
+                  </h4>
+                  <Badge variant="info" style={{ fontSize: '11px', background: '#F0F9FF', color: '#0369A1', borderColor: '#BAE6FD' }}>
+                    ☁️ DigitalOcean Spaces (S3-Compatible)
+                  </Badge>
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '12px' }}>
+                  Spaces credentials and secret keys are securely isolated on the backend. Only relative object keys are stored and inspected.
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                    Original PDF Storage Key / Object Path *
+                  </label>
+                  <input
+                    type="text"
+                    value={recoveryStorageKey}
+                    onChange={(e) => setRecoveryStorageKey(e.target.value)}
+                    placeholder="e.g. sama_veda/certificates/CSJMU_SAMIKSHA_2026_000001.pdf"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      fontFamily: 'monospace',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
+                    Safe relative key format: <code>sama_veda/certificates/&lt;filename&gt;.pdf</code>. Path traversals, absolute drives, and external URLs are rejected.
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
+                    Original Filename (Optional metadata reference)
+                  </label>
+                  <input
+                    type="text"
+                    value={recoveryOriginalFilename}
+                    onChange={(e) => setRecoveryOriginalFilename(e.target.value)}
+                    placeholder="e.g. CSJMU_SAMIKSHA_2026_000001_signed.pdf"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                {/* PDF Availability Test Button & Results */}
+                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px dashed #E2E8F0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestPdfAvailability}
+                      disabled={isTestingPdf}
+                      style={{ borderColor: '#0284C7', color: '#0369A1', fontWeight: 600 }}
+                    >
+                      {isTestingPdf ? 'Checking Storage...' : '⚡ Test PDF Availability'}
+                    </Button>
+                    <span style={{ fontSize: '12px', color: '#64748B' }}>
+                      Directly verifies object existence on Spaces before saving.
+                    </span>
+                  </div>
+
+                  {pdfTestResult && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        background:
+                          pdfTestResult.status === 'found'
+                            ? '#F0FDF4'
+                            : pdfTestResult.status === 'missing'
+                            ? '#FFFBEB'
+                            : '#FEF2F2',
+                        border: `1px solid ${
+                          pdfTestResult.status === 'found'
+                            ? '#BBF7D0'
+                            : pdfTestResult.status === 'missing'
+                            ? '#FDE68A'
+                            : '#FECACA'
+                        }`,
+                        color:
+                          pdfTestResult.status === 'found'
+                            ? '#166534'
+                            : pdfTestResult.status === 'missing'
+                            ? '#92400E'
+                            : '#991B1B',
+                      }}
+                    >
+                      <div style={{ fontWeight: 600 }}>
+                        {pdfTestResult.status === 'found' && '✓ Object Verified in Storage'}
+                        {pdfTestResult.status === 'missing' && '✗ Object Not Found in Storage'}
+                        {pdfTestResult.status === 'error' && '⚠️ Storage Verification Error'}
+                      </div>
+                      <div style={{ marginTop: '4px' }}>{pdfTestResult.message}</div>
+                      {pdfTestResult.file_size_bytes && (
+                        <div style={{ marginTop: '2px', fontFamily: 'monospace' }}>
+                          File size: {(pdfTestResult.file_size_bytes / 1024).toFixed(1)} KB ({pdfTestResult.file_size_bytes.toLocaleString()} bytes)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* MODAL FOOTER ACTIONS */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditRecoveryModal(false)}
+                  disabled={isSavingRecovery}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveRecoveryMetadata}
+                  disabled={isSavingRecovery}
+                  style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
+                >
+                  {isSavingRecovery ? 'Saving Corrections...' : 'Save Recovery Metadata'}
+                </Button>
               </div>
             </div>
           </Modal>

@@ -75,6 +75,9 @@ from app.admin.schemas.sama_cms import (
     BulkRestoreCertificatesResponse,
     ArchivedCertificateItem,
     ArchivedCertificateListResponse,
+    LegacyRecoveryMetadataUpdate,
+    TestPdfAvailabilityRequest,
+    TestPdfAvailabilityResponse,
     BulkVerifyCertificatesRequest,
     BulkVerifyCertificatesResponse,
     CertificateVerificationItem,
@@ -2673,6 +2676,193 @@ def download_admin_certificate(
         raise HTTPException(status_code=404, detail="Historical certificate PDF file not found in storage archive.")
 
     raise HTTPException(status_code=404, detail="Certificate not found.")
+
+
+@sama_admin_router.patch("/certificates/{certificate_id}/recovery-metadata", response_model=ApiResponse)
+def update_historical_recovery_metadata(
+    certificate_id: uuid.UUID,
+    payload: LegacyRecoveryMetadataUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:certificate:manage")),
+):
+    from app.modules.sama_veda.models.certificate import LegacyCertificateRegistry
+    from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
+
+    # 1. Reject active certificates
+    active_cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
+    if active_cert:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recovery metadata repair is strictly restricted to historical certificates. Active ledger records cannot be modified via this endpoint.",
+        )
+
+    # 2. Retrieve historical record
+    legacy_cert = db.get(LegacyCertificateRegistry, certificate_id)
+    if not legacy_cert:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Historical certificate not found.",
+        )
+
+    # 3. Field validation
+    cleaned_scopus_id = None
+    if payload.scopus_id is not None:
+        try:
+            cleaned_scopus_id = LegacyRecoveryService.validate_scopus_id(payload.scopus_id)
+        except ValueError as ve:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
+
+    cleaned_storage_key = None
+    if payload.storage_key is not None:
+        try:
+            cleaned_storage_key = LegacyRecoveryService.validate_storage_key(payload.storage_key)
+        except ValueError as ve:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
+
+    # 4. Partial update preserving existing metadata
+    existing_meta = dict(legacy_cert.recovery_metadata or {})
+    changed_fields = []
+
+    if payload.scopus_id is not None:
+        if cleaned_scopus_id:
+            existing_meta["scopus_id"] = cleaned_scopus_id
+        else:
+            existing_meta.pop("scopus_id", None)
+        changed_fields.append("scopus_id")
+
+    if payload.storage_key is not None:
+        if cleaned_storage_key:
+            existing_meta["storage_key"] = cleaned_storage_key
+            legacy_cert.source_pdf_reference = cleaned_storage_key
+        else:
+            existing_meta.pop("storage_key", None)
+            legacy_cert.source_pdf_reference = None
+        changed_fields.append("storage_key")
+
+    if payload.original_filename is not None:
+        val = payload.original_filename.strip()
+        if val:
+            existing_meta["original_filename"] = val
+        else:
+            existing_meta.pop("original_filename", None)
+        changed_fields.append("original_filename")
+
+    if payload.recipient_name is not None:
+        val = payload.recipient_name.strip()
+        if val:
+            existing_meta["recipient_name"] = val
+        else:
+            existing_meta.pop("recipient_name", None)
+        changed_fields.append("recipient_name")
+
+    if payload.research_title is not None:
+        val = payload.research_title.strip()
+        if val:
+            existing_meta["research_title"] = val
+        else:
+            existing_meta.pop("research_title", None)
+        changed_fields.append("research_title")
+
+    if payload.department is not None:
+        val = payload.department.strip()
+        if val:
+            existing_meta["department"] = val
+        else:
+            existing_meta.pop("department", None)
+        changed_fields.append("department")
+
+    if payload.publication_details is not None:
+        val = payload.publication_details.strip()
+        if val:
+            existing_meta["publication_details"] = val
+        else:
+            existing_meta.pop("publication_details", None)
+        changed_fields.append("publication_details")
+
+    if payload.issue_reference is not None:
+        val = payload.issue_reference.strip()
+        if val:
+            existing_meta["issue_reference"] = val
+        else:
+            existing_meta.pop("issue_reference", None)
+        changed_fields.append("issue_reference")
+
+    if payload.sanction_amount is not None:
+        existing_meta["sanction_amount"] = float(payload.sanction_amount)
+        changed_fields.append("sanction_amount")
+
+    legacy_cert.recovery_metadata = existing_meta
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(legacy_cert, "recovery_metadata")
+
+    db.commit()
+    db.refresh(legacy_cert)
+
+    # 5. Audit Logging (sanitized, no tokens or credentials)
+    try:
+        audit_service.log_from_request(
+            request=request,
+            db=db,
+            module="sama_veda",
+            action="historical_recovery_metadata_updated",
+            entity_name="LegacyCertificateRegistry",
+            entity_id=legacy_cert.id,
+            actor_user_id=current_user.id,
+            details={
+                "certificate_number": legacy_cert.certificate_number,
+                "changed_fields": changed_fields,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            commit=True,
+            fail_silent=True,
+        )
+    except Exception as exc:
+        logger.warning(f"Audit log failed for historical metadata update {certificate_id}: {exc}")
+
+    formatted = sama_cms_service.format_legacy_certificate_out(legacy_cert, db)
+    return ApiResponse(
+        success=True,
+        message="Historical certificate recovery metadata updated successfully.",
+        data=formatted.model_dump(),
+    )
+
+
+@sama_admin_router.post("/certificates/{certificate_id}/test-pdf", response_model=ApiResponse)
+def test_historical_pdf_availability(
+    certificate_id: uuid.UUID,
+    payload: TestPdfAvailabilityRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("sama:read")),
+):
+    from app.modules.sama_veda.models.certificate import LegacyCertificateRegistry
+    from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
+
+    # 1. Reject active certificates
+    active_cert = sama_cms_service.get_certificate_by_id(db, certificate_id)
+    if active_cert:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PDF availability testing is applicable to historical certificates.",
+        )
+
+    # 2. Retrieve historical record
+    legacy_cert = db.get(LegacyCertificateRegistry, certificate_id)
+    if not legacy_cert:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Historical certificate not found.",
+        )
+
+    # 3. Test availability
+    result = LegacyRecoveryService.test_pdf_availability(legacy_cert, candidate_key=payload.storage_key)
+
+    return ApiResponse(
+        success=True,
+        message=result["message"],
+        data=result,
+    )
 
 
 # ============================================================================

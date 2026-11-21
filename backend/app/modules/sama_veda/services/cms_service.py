@@ -1114,15 +1114,22 @@ class SamaCmsService:
     @classmethod
     def format_legacy_certificate_out(cls, legacy: LegacyCertificateRegistry, db: Optional[Session] = None) -> CertificateOut:
         meta = legacy.recovery_metadata or {}
+        recipient_name = meta.get("recipient_name") or legacy.recipient_name
+        research_title = meta.get("research_title") or legacy.research_title
+        department = meta.get("department") or "Department of Research & Innovation"
+        scopus_id = meta.get("scopus_id")
+        storage_key = meta.get("storage_key") or legacy.source_pdf_reference
+        original_filename = meta.get("original_filename")
+
         author_out = CertificateAuthorOut(
             id=legacy.id,
             certificate_id=legacy.id,
             researcher_id=None,
-            author_name_snapshot=legacy.recipient_name,
+            author_name_snapshot=recipient_name,
             academic_title_snapshot=None,
-            scopus_id_snapshot=meta.get("scopus_id"),
+            scopus_id_snapshot=scopus_id,
             affiliation_snapshot="Chhatrapati Shahu Ji Maharaj University, Kanpur",
-            department_snapshot=meta.get("department", "Department of Research & Innovation"),
+            department_snapshot=department,
             designation_snapshot=None,
             author_order=1,
             author_role="CORRESPONDING_AUTHOR",
@@ -1148,7 +1155,7 @@ class SamaCmsService:
                     "colliding_serial": legacy.certificate_number,
                     "active_id": str(active_cert.id),
                     "active_recipient": active_author,
-                    "historical_recipient": legacy.recipient_name,
+                    "historical_recipient": recipient_name,
                     "active_token": active_cert.verification_token,
                     "historical_token": legacy.verification_token,
                     "notice": f"Notice: Serial {legacy.certificate_number} is actively held by digital certificate issued to {active_author}."
@@ -1169,13 +1176,18 @@ class SamaCmsService:
             ),
             presentation_statement="This certificate is proudly awarded to",
             research_contribution_statement="in recognition of distinguished research productivity and scholarly impact under the University Publication Incentive Policy",
-            research_title=legacy.research_title,
+            research_title=research_title,
             congratulatory_statement="The University acknowledges the distinguished scholarly dedication and meritorious contribution to academic research.",
             publication_details={
                 "incentive_amount": legacy.sanction_amount,
                 "issue_reference": legacy.issue_reference or "Volume 2, Issue 3 (July - September 2026)",
                 "recovery_source": legacy.recovery_source,
                 "is_historical_archive": True,
+                "scopus_id": scopus_id,
+                "storage_key": storage_key,
+                "original_filename": original_filename,
+                "department": department,
+                "publication_details": meta.get("publication_details"),
             },
             verification_token=legacy.verification_token,
             verification_url=f"/verify/{legacy.verification_token}",
@@ -1185,7 +1197,7 @@ class SamaCmsService:
             bulletin_period_snapshot="July - September 2026",
             author_id=None,
             publication_id=None,
-            file_storage_path=legacy.source_pdf_reference,
+            file_storage_path=storage_key or legacy.source_pdf_reference,
             checksum_sha256=legacy.source_sha256 or "",
             download_count=0,
             scheduled_issue_date=None,
@@ -1209,6 +1221,11 @@ class SamaCmsService:
             sanction_amount=legacy.sanction_amount,
             has_legacy_collision=has_collision,
             legacy_collision_info=collision_info,
+            recipient_name=recipient_name,
+            department=department,
+            scopus_id=scopus_id,
+            storage_key=storage_key,
+            original_filename=original_filename,
         )
 
     @classmethod
@@ -1235,6 +1252,10 @@ class SamaCmsService:
                     "notice": f"Notice: Certificate serial number {cert.certificate_number} is also held by a historical printed certificate ({legacy_coll.recipient_name})."
                 }
         out.record_type = "active"
+        if cert.authors:
+            out.recipient_name = cert.authors[0].author_name_snapshot
+            out.department = cert.authors[0].department_snapshot
+            out.scopus_id = cert.authors[0].scopus_id_snapshot
         return out
 
     @classmethod

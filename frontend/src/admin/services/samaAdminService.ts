@@ -58,6 +58,8 @@ import {
   BulkApprovalResponse,
   BatchListResponse,
   BatchDetailResponse,
+  UpdateHistoricalRecoveryMetadataPayload,
+  TestPdfAvailabilityResponse,
 } from '../types/sama';
 
 export const samaAdminService = {
@@ -512,6 +514,28 @@ export const samaAdminService = {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  async updateHistoricalRecoveryMetadata(
+    id: string,
+    payload: UpdateHistoricalRecoveryMetadataPayload
+  ): Promise<FelicitationCertificateItem> {
+    const res = await apiClient.patch<FelicitationCertificateItem>(
+      `/admin/sama/certificates/${id}/recovery-metadata`,
+      payload
+    );
+    return res.data!;
+  },
+
+  async testPdfAvailability(
+    id: string,
+    storageKey?: string
+  ): Promise<TestPdfAvailabilityResponse> {
+    const res = await apiClient.post<TestPdfAvailabilityResponse>(
+      `/admin/sama/certificates/${id}/test-pdf`,
+      { storage_key: storageKey || null }
+    );
+    return res.data!;
   },
 
   async getCertificateStats(): Promise<CertificateStatsRecord> {
