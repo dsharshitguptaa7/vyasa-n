@@ -205,6 +205,10 @@ export interface DiscoveredCertificateItem {
   verification_url: string;
   is_download_allowed: boolean;
   download_url: string;
+  record_type?: string;
+  is_legacy?: boolean;
+  sanction_amount?: string | null;
+  recipient_name?: string | null;
 }
 
 export interface ResearcherDiscoveryData {

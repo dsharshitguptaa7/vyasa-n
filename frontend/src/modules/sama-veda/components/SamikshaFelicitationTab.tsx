@@ -690,9 +690,14 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                         >
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                              <Badge variant={cert.is_revoked ? 'saffron' : cert.status === 'SUPERSEDED' ? 'neutral' : 'teal'}>
-                                {cert.is_revoked ? 'REVOKED' : cert.status === 'SUPERSEDED' ? 'SUPERSEDED' : 'VALID & AUTHENTIC'}
-                              </Badge>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <Badge variant={cert.is_revoked ? 'saffron' : cert.status === 'SUPERSEDED' ? 'neutral' : 'teal'}>
+                                  {cert.is_revoked ? 'REVOKED' : cert.status === 'SUPERSEDED' ? 'SUPERSEDED' : 'VALID & AUTHENTIC'}
+                                </Badge>
+                                {cert.is_legacy && (
+                                  <Badge variant="neutral">Historical / Recovered</Badge>
+                                )}
+                              </div>
                               <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
                                 {cert.issue_date || 'Issued'}
                               </span>
@@ -793,7 +798,19 @@ export const SamikshaFelicitationTab: React.FC<SamikshaFelicitationTabProps> = (
                         }}
                       >
                         <div>
-                          <Badge variant="gold">INCENTIVE AWARD</Badge>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <Badge variant="gold">INCENTIVE AWARD</Badge>
+                              {cert.is_legacy && (
+                                <Badge variant="neutral">Historical / Recovered</Badge>
+                              )}
+                            </div>
+                            {cert.sanction_amount && (
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#B2811A', background: '#FEF3C7', padding: '2px 8px', borderRadius: '4px' }}>
+                                {cert.sanction_amount}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F2B48', marginTop: '8px' }}>
                             {cert.title}
                           </div>

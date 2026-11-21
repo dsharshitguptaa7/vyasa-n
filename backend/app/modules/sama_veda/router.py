@@ -754,7 +754,7 @@ def discover_researcher_certificates(
     SamaCmsService.activate_due_certificates(db)
 
     # Retrieve all certificates across both categories publicly
-    cert_data = ResearcherDiscoveryService.get_researcher_certificates(author, db)
+    cert_data = ResearcherDiscoveryService.get_researcher_certificates(author, db, clean_scopus)
 
     return ApiResponse(
         success=True,
@@ -838,13 +838,24 @@ def download_certificate_by_token(
     """
     clean_token = token.strip()
     SamaCmsService.activate_due_certificates(db)
+
+    clean_uuid = None
+    try:
+        clean_uuid = uuid.UUID(clean_token)
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    active_conditions = [FelicitationCertificate.verification_token == clean_token]
+    if clean_uuid:
+        active_conditions.append(FelicitationCertificate.id == clean_uuid)
+
     stmt = (
         select(FelicitationCertificate)
         .options(
             joinedload(FelicitationCertificate.authors),
             joinedload(FelicitationCertificate.author),
         )
-        .where(FelicitationCertificate.verification_token == clean_token)
+        .where(or_(*active_conditions))
     )
     try:
         cert = db.scalars(stmt).unique().first()
@@ -858,9 +869,13 @@ def download_certificate_by_token(
         legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
         if not legacy_disabled:
             try:
+                legacy_conditions = [LegacyCertificateRegistry.verification_token == clean_token]
+                if clean_uuid:
+                    legacy_conditions.append(LegacyCertificateRegistry.id == clean_uuid)
+
                 legacy_stmt = select(LegacyCertificateRegistry).where(
-                    LegacyCertificateRegistry.verification_token == clean_token,
                     LegacyCertificateRegistry.is_legacy == True,
+                    or_(*legacy_conditions),
                 )
                 legacy_cert = db.scalars(legacy_stmt).first()
                 if legacy_cert:
@@ -1221,18 +1236,27 @@ def download_public_certificate(
     """
     clean_number = certificate_number.strip()
     SamaCmsService.activate_due_certificates(db)
+
+    clean_uuid = None
+    try:
+        clean_uuid = uuid.UUID(clean_number)
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    active_conditions = [
+        FelicitationCertificate.certificate_number == clean_number,
+        FelicitationCertificate.verification_token == clean_number,
+    ]
+    if clean_uuid:
+        active_conditions.append(FelicitationCertificate.id == clean_uuid)
+
     stmt = (
         select(FelicitationCertificate)
         .options(
             joinedload(FelicitationCertificate.authors),
             joinedload(FelicitationCertificate.author),
         )
-        .where(
-            or_(
-                FelicitationCertificate.certificate_number == clean_number,
-                FelicitationCertificate.verification_token == clean_number,
-            )
-        )
+        .where(or_(*active_conditions))
     )
     try:
         cert = db.scalars(stmt).unique().first()
@@ -1246,12 +1270,16 @@ def download_public_certificate(
         legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
         if not legacy_disabled:
             try:
+                legacy_conditions = [
+                    LegacyCertificateRegistry.verification_token == clean_number,
+                    LegacyCertificateRegistry.certificate_number == clean_number,
+                ]
+                if clean_uuid:
+                    legacy_conditions.append(LegacyCertificateRegistry.id == clean_uuid)
+
                 legacy_stmt = select(LegacyCertificateRegistry).where(
                     LegacyCertificateRegistry.is_legacy == True,
-                    or_(
-                        LegacyCertificateRegistry.verification_token == clean_number,
-                        LegacyCertificateRegistry.certificate_number == clean_number,
-                    )
+                    or_(*legacy_conditions),
                 )
                 legacy_cert = db.scalars(legacy_stmt).first()
                 if legacy_cert:

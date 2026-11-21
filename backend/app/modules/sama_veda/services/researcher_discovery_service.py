@@ -13,11 +13,13 @@ Implements Phase 2, 3, and 4 requirements:
 5. Employs rate-limiting and audit telemetry.
 """
 
+import os
 import time
+import uuid
 import secrets
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, cast, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import User
@@ -26,6 +28,7 @@ from app.modules.sama_veda.models.certificate import (
     FelicitationCertificate,
     CertificateAuthor,
     CertificateVerificationEvent,
+    LegacyCertificateRegistry,
 )
 from app.core.security import create_access_token, decode_access_token
 
@@ -80,10 +83,69 @@ class ResearcherDiscoveryService:
     """Core service for discovering researcher certificates and verifying identity."""
 
     @staticmethod
+    def _find_legacy_records_by_scopus(scopus_id: str, db: Session) -> List[LegacyCertificateRegistry]:
+        """
+        Safely retrieves historical certificate records from sama_legacy_certificate_registry
+        where recovery_metadata['scopus_id'] exactly matches normalized scopus_id.
+        Excludes revoked records.
+        Supports both PostgreSQL JSONB queries and SQLite in-memory test databases.
+        Strict string comparison prevents partial false matches (e.g. '608' != '60860734300').
+        """
+        norm_scopus = normalize_scopus_id(scopus_id)
+        if not norm_scopus:
+            return []
+
+        legacy_disabled = os.getenv("DISABLE_LEGACY_CERTIFICATE_VERIFICATION", "FALSE").upper() == "TRUE"
+        if legacy_disabled:
+            return []
+
+        clean_scopus = str(norm_scopus).strip()
+
+        try:
+            bind = db.get_bind()
+            dialect_name = bind.dialect.name if bind else ""
+        except Exception:
+            dialect_name = ""
+
+        # Base query: legacy certificates that are not revoked
+        stmt = select(LegacyCertificateRegistry).where(
+            LegacyCertificateRegistry.is_legacy == True,
+            LegacyCertificateRegistry.is_revoked == False,
+        )
+
+        if dialect_name == "postgresql":
+            try:
+                pg_stmt = stmt.where(
+                    func.trim(LegacyCertificateRegistry.recovery_metadata["scopus_id"].astext) == clean_scopus
+                )
+                return list(db.scalars(pg_stmt).all())
+            except Exception as exc:
+                logger.warning("PostgreSQL JSONB astext query failed, falling back to Python filter: %s", exc)
+                db.rollback()
+
+        # SQLite / fallback exact string match in Python
+        try:
+            candidates = db.scalars(stmt).all()
+        except Exception as exc:
+            logger.warning("Failed querying LegacyCertificateRegistry: %s", exc)
+            return []
+
+        matched = []
+        for r in candidates:
+            meta = r.recovery_metadata or {}
+            rec_scopus = meta.get("scopus_id")
+            if rec_scopus is not None:
+                clean_rec = str(rec_scopus).strip()
+                if clean_rec.lower() == clean_scopus.lower():
+                    matched.append(r)
+        return matched
+
+    @staticmethod
     def find_researcher_by_scopus_id(scopus_id: str, db: Session) -> Optional[ResearchAuthor]:
         """
         Finds a researcher in the SAMIKSHA directory matching normalized Scopus ID.
-        Checks both primary author records and historical certificate snapshots.
+        Checks primary author records, historical certificate snapshots, and
+        recovered legacy certificate registry.
         """
         norm_scopus = normalize_scopus_id(scopus_id)
         if not norm_scopus:
@@ -108,6 +170,22 @@ class ResearcherDiscoveryService:
         cert_auth = db.scalar(cert_auth_stmt)
         if cert_auth and cert_auth.researcher:
             return cert_auth.researcher
+
+        # 3. Tertiary lookup in sama_legacy_certificate_registry recovery_metadata
+        legacy_records = ResearcherDiscoveryService._find_legacy_records_by_scopus(norm_scopus, db)
+        if legacy_records:
+            first_legacy = legacy_records[0]
+            meta = first_legacy.recovery_metadata or {}
+            recip_name = meta.get("recipient_name") or first_legacy.recipient_name
+            dept = meta.get("department")
+            # Construct transient ResearchAuthor instance so historical-only researcher can be resolved
+            return ResearchAuthor(
+                id=uuid.uuid5(uuid.NAMESPACE_DNS, f"legacy-author-{norm_scopus}"),
+                full_name=recip_name,
+                department=dept,
+                institutional_affiliation="Chhatrapati Shahu Ji Maharaj University, Kanpur",
+                scopus_id=norm_scopus,
+            )
 
         return None
 
@@ -245,18 +323,24 @@ class ResearcherDiscoveryService:
         }
 
     @staticmethod
-    def get_researcher_certificates(author: ResearchAuthor, db: Session) -> Dict[str, Any]:
+    def get_researcher_certificates(
+        author: ResearchAuthor,
+        db: Session,
+        scopus_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Retrieves all certificates associated with the researcher across:
         - Primary author link (`author_id == author.id`)
         - Multi-author association (`CertificateAuthor.researcher_id == author.id`)
         - Scopus snapshot match (`CertificateAuthor.scopus_id_snapshot == author.scopus_id`)
+        - Recovered historical certificates from `sama_legacy_certificate_registry` where
+          recovery_metadata['scopus_id'] matches
         
         Separates certificates into:
         1. Research Work Certificates (Recognition, Excellence, Publication)
         2. Incentive Certificates (Awards linked to incentives)
         """
-        norm_scopus = normalize_scopus_id(author.scopus_id)
+        norm_scopus = normalize_scopus_id(scopus_id) or normalize_scopus_id(author.scopus_id)
 
         # 0. Activate any due certificates before discovery lookup
         from app.modules.sama_veda.services.cms_service import SamaCmsService
@@ -353,6 +437,8 @@ class ResearcherDiscoveryService:
                 "certificate_number": cert.certificate_number,
                 "title": cert.title,
                 "certificate_type": cert.certificate_type,
+                "record_type": "active",
+                "is_legacy": False,
                 "category": "INCENTIVE" if cert_type in incentive_types else "RESEARCH_WORK",
                 "category_display": "Research Incentive Certificate" if cert_type in incentive_types else "Research Publication Certificate",
                 "publication_title": pub_title,
@@ -380,6 +466,65 @@ class ResearcherDiscoveryService:
                 incentive_certs.append(cert_payload)
             else:
                 research_certs.append(cert_payload)
+
+        # 2. Retrieve recovered historical certificates matching Scopus ID
+        if norm_scopus:
+            legacy_records = ResearcherDiscoveryService._find_legacy_records_by_scopus(norm_scopus, db)
+            seen_tokens = {c["verification_token"] for c in (research_certs + incentive_certs) if c.get("verification_token")}
+
+            for legacy in legacy_records:
+                if legacy.is_revoked:
+                    continue
+                if legacy.verification_token in seen_tokens:
+                    continue
+                seen_tokens.add(legacy.verification_token)
+
+                meta = legacy.recovery_metadata or {}
+                recip_name = meta.get("recipient_name") or legacy.recipient_name
+                res_title = meta.get("research_title") or legacy.research_title or "Archival Felicitation Certificate"
+                pub_details = meta.get("publication_details") or meta.get("research_title") or legacy.research_title
+                dept = meta.get("department") or "Department of Research & Innovation"
+                issue_ref = legacy.issue_reference or meta.get("bulletin_citation") or "Archival Felicitation"
+
+                leg_type = (legacy.certificate_type or "INCENTIVE_AWARD").upper()
+                is_incentive = leg_type in incentive_types
+
+                hist_payload = {
+                    "id": str(legacy.id),
+                    "certificate_number": legacy.certificate_number,
+                    "title": res_title,
+                    "recipient_name": recip_name,
+                    "certificate_type": legacy.certificate_type,
+                    "record_type": "historical",
+                    "is_legacy": True,
+                    "category": "INCENTIVE" if is_incentive else "RESEARCH_WORK",
+                    "category_display": "Research Incentive Certificate" if is_incentive else "Research Publication Certificate",
+                    "publication_title": pub_details,
+                    "bulletin_volume": None,
+                    "bulletin_issue": None,
+                    "bulletin_period": None,
+                    "bulletin_title": issue_ref,
+                    "bulletin_group_key": issue_ref,
+                    "author_department": dept,
+                    "author_designation": None,
+                    "affiliation_line": dept if (dept and dept.strip().lower() != "department of research") else "Chhatrapati Shahu Ji Maharaj University, Kanpur",
+                    "issue_date": legacy.created_at.strftime("%d %B %Y") if legacy.created_at else None,
+                    "issued_at": legacy.created_at.isoformat() if legacy.created_at else None,
+                    "status": "REVOKED" if legacy.is_revoked else "ISSUED",
+                    "is_revoked": legacy.is_revoked,
+                    "revocation_reason": legacy.revocation_reason if legacy.is_revoked else None,
+                    "reissued_reason": None,
+                    "verification_token": legacy.verification_token,
+                    "verification_url": f"/verify/{legacy.verification_token}",
+                    "is_download_allowed": not legacy.is_revoked,
+                    "download_url": f"/api/modules/sama-veda/certificates/verify/{legacy.verification_token}/download",
+                    "sanction_amount": legacy.sanction_amount,
+                }
+
+                if is_incentive:
+                    incentive_certs.append(hist_payload)
+                else:
+                    research_certs.append(hist_payload)
 
         # Audit ANUDAAN incentive applications for this researcher
         anudaan_summary = {
@@ -418,7 +563,7 @@ class ResearcherDiscoveryService:
                 "full_name": author.full_name,
                 "department": res_dept,
                 "institutional_affiliation": author.institutional_affiliation,
-                "scopus_id": author.scopus_id,
+                "scopus_id": norm_scopus or author.scopus_id,
             },
             "research_certificates": research_certs,
             "incentive_certificates": incentive_certs,
