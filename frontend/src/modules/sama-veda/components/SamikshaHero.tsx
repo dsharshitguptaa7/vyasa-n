@@ -127,7 +127,7 @@ export const SamikshaHero: React.FC<SamikshaHeroProps> = ({
               }}
             >
               <AppIcon name="book-open" size={13} color="#f59e0b" />
-              <span>समीक्षा • Research, Recognition &amp; Innovation Portal</span>
+              <span>3rd Pillar • Sama Veda • Research Recognition & Communication</span>
               {/* Backwards-compatibility text for test assertions & legacy search */}
               <span
                 style={{
@@ -165,7 +165,7 @@ export const SamikshaHero: React.FC<SamikshaHeroProps> = ({
                 textShadow: '0 2px 10px rgba(0,0,0,0.3)',
               }}
             >
-              Discover. Research. Inspire.
+              समीक्षा
               {/* Backwards-compatibility text for test assertions */}
               <span
                 style={{

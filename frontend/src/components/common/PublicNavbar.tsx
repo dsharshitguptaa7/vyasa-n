@@ -22,10 +22,10 @@ const PUBLIC_SECTIONS: NavSection[] = [
   { id: 'overview', label: 'Overview', hash: '#overview' },
   { id: 'vision', label: 'The Vision', hash: '#vision' },
   { id: 'domains', label: 'Four Domains', hash: '#domains' },
-  { id: 'nivaran', label: 'निवारण', hash: '#nivaran', isOperational: true },
-  { id: 'samiksha', label: 'समीक्षा', hash: '#samiksha' },
-  { id: 'anudaan', label: 'अनुदान', hash: '#anudaan', isOperational: true },
-  { id: 'innovation', label: 'Research & Innovation', hash: '#innovation' },
+  { id: 'anudaan', label: '1. जल्दी आ रहा है', hash: ''},
+  { id: 'anudaan', label: '2. अनुदान', hash: '#anudaan', isOperational: true },
+  { id: 'samiksha', label: '3. समीक्षा', hash: '#samiksha', isOperational: true },
+  { id: 'nivaran', label: '4. निवारण', hash: '#nivaran', isOperational: true }
 ];
 
 export const PublicNavbar: React.FC<PublicNavbarProps> = ({
