@@ -88,7 +88,11 @@ describe('SamikshaErrorBoundary Suite', () => {
     expect(() => {
       const parsed = parseResearcherFromSpotlight(malformedSpotlight, []);
       expect(parsed).toBeDefined();
-      expect(parsed.name).toBe('Distinguished Faculty Researcher');
+      expect(parsed.name).toBeUndefined();
+      expect(parsed.headline).toBe('Researcher Interview');
+      expect(parsed.designation).toBeUndefined();
+      expect(parsed.department).toBeUndefined();
+      expect(parsed.summary).toBeUndefined();
     }).not.toThrow();
   });
 

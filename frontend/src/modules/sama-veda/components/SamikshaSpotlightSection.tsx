@@ -3,14 +3,15 @@ import { Badge, AppIcon } from '@vyasa/ui';
 import { PublicSpotlight, PublicAuthor } from '../services/samaVedaService';
 
 export interface ParsedResearcherInfo {
-  name: string;
-  designation: string;
-  department: string;
-  researchArea: string;
   headline: string;
-  summary: string;
-  isVerified: boolean;
+  name?: string;
+  designation?: string;
+  department?: string;
+  researchArea?: string;
+  summary?: string;
+  isVerified?: boolean;
   authorId?: string;
+  contributorType?: 'faculty' | 'phd_scholar' | 'research_scholar' | 'contributor';
 }
 
 export function parseResearcherFromSpotlight(
@@ -19,30 +20,28 @@ export function parseResearcherFromSpotlight(
 ): ParsedResearcherInfo {
   if (!spotlight) {
     return {
-      name: 'Distinguished Faculty Researcher',
-      designation: 'Faculty Researcher & Principal Investigator',
-      department: 'Department of Advanced Research & Innovation',
-      researchArea: 'Interdisciplinary Studies',
-      headline: 'Advances in Academic Excellence & Research Innovation',
-      summary: 'Conversations with distinguished faculty researchers at CSJMU.',
-      isVerified: true,
+      headline: 'Researcher Interview',
     };
   }
+
+  const rawHeadline = typeof spotlight.headline === 'string' ? spotlight.headline.trim() : '';
+  const headline = rawHeadline || 'Researcher Interview';
 
   // 1. Try matching with authors by author_id
   let matchedAuthor: PublicAuthor | undefined;
   const authorId = (spotlight as any)?.author_id;
-  if (authorId && authors && authors.length > 0) {
+  if (authorId && Array.isArray(authors) && authors.length > 0) {
     matchedAuthor = authors.find((a) => a?.id === authorId);
   }
 
   // 2. Try matching with authors by name inside headline or summary
-  if (!matchedAuthor && authors && authors.length > 0) {
+  if (!matchedAuthor && Array.isArray(authors) && authors.length > 0) {
     const hl = (spotlight.headline || '').toLowerCase();
     const sum = (spotlight.summary || '').toLowerCase();
     matchedAuthor = authors.find((a) => {
       if (!a?.full_name) return false;
       const cleanAuthorName = a.full_name.toLowerCase().trim();
+      if (cleanAuthorName.length < 3) return false;
       return (
         (hl && hl.includes(cleanAuthorName)) ||
         (sum && sum.includes(cleanAuthorName))
@@ -50,61 +49,170 @@ export function parseResearcherFromSpotlight(
     });
   }
 
-  // 3. Extract researcher name from headline if needed
-  let rawName = '';
-  let headlineClean = spotlight.headline ? spotlight.headline.trim() : '';
-
-  // Handle common prefixes like "Researcher Spotlight: Prof. Nand Lal" or "Faculty Spotlight: ..."
-  const spotlightPrefixRegex = /^(?:Researcher|Faculty|Scholar|Research)\s+Spotlight:?\s*/i;
-  if (spotlightPrefixRegex.test(headlineClean)) {
-    const afterPrefix = headlineClean.replace(spotlightPrefixRegex, '').trim();
-    if (afterPrefix.includes(' - ')) {
-      const parts = afterPrefix.split(' - ');
-      rawName = parts[0].trim();
-      headlineClean = parts.slice(1).join(' - ').trim();
-    } else if (afterPrefix.includes(' | ')) {
-      const parts = afterPrefix.split(' | ');
-      rawName = parts[0].trim();
-      headlineClean = parts.slice(1).join(' | ').trim();
-    } else {
-      rawName = afterPrefix;
-      headlineClean = matchedAuthor?.department
-        ? `Research Frontiers in ${matchedAuthor.department}`
-        : 'Advances in Academic Excellence & Research Innovation';
+  // 3. Extract researcher name from metadata or headline without inventing identities
+  let extractedName: string | undefined = undefined;
+  if (spotlight.researcher_name && typeof spotlight.researcher_name === 'string' && spotlight.researcher_name.trim()) {
+    extractedName = spotlight.researcher_name.trim();
+  } else if (spotlight.author_name && typeof spotlight.author_name === 'string' && spotlight.author_name.trim()) {
+    extractedName = spotlight.author_name.trim();
+  } else if (matchedAuthor?.full_name?.trim()) {
+    extractedName = matchedAuthor.full_name.trim();
+  } else if (rawHeadline) {
+    const prefixRegex = /^(?:Researcher|Faculty|Scholar|Research|PhD|Doctoral)\s+Spotlight:?\s*/i;
+    let candidate = '';
+    if (prefixRegex.test(rawHeadline)) {
+      const afterPrefix = rawHeadline.replace(prefixRegex, '').trim();
+      if (afterPrefix.includes(' - ')) {
+        candidate = afterPrefix.split(' - ')[0].trim();
+      } else if (afterPrefix.includes(' | ')) {
+        candidate = afterPrefix.split(' | ')[0].trim();
+      } else {
+        candidate = afterPrefix;
+      }
+    } else if (rawHeadline.includes(' - ')) {
+      const firstPart = rawHeadline.split(' - ')[0].trim();
+      const roleOrHonorific = /^(?:Prof\.|Dr\.|Professor|Associate\s+Prof(?:essor)?|Assistant\s+Prof(?:essor)?|Mr\.|Ms\.|Mrs\.|Shri|Ph\.?D\.?\s+Scholar|PhD\s+Candidate|Doctoral\s+Scholar|Research\s+Scholar)\b/i;
+      if (roleOrHonorific.test(firstPart)) {
+        candidate = firstPart;
+      }
+    } else if (rawHeadline.includes(' | ')) {
+      const firstPart = rawHeadline.split(' | ')[0].trim();
+      const roleOrHonorific = /^(?:Prof\.|Dr\.|Professor|Associate\s+Prof(?:essor)?|Assistant\s+Prof(?:essor)?|Mr\.|Ms\.|Mrs\.|Shri|Ph\.?D\.?\s+Scholar|PhD\s+Candidate|Doctoral\s+Scholar|Research\s+Scholar)\b/i;
+      if (roleOrHonorific.test(firstPart)) {
+        candidate = firstPart;
+      }
     }
-  } else if (headlineClean.includes(' - ')) {
-    const parts = headlineClean.split(' - ');
-    if (/^(Prof\.|Dr\.|Professor|Dean|Associate|Assistant)/i.test(parts[0].trim())) {
-      rawName = parts[0].trim();
-      headlineClean = parts.slice(1).join(' - ').trim();
+
+    if (candidate) {
+      const scholarPrefix = /^(?:Ph\.?D\.?\s+Scholar|PhD\s+Candidate|Doctoral\s+Scholar|Research\s+Scholar)\s+/i;
+      let nameCandidate = candidate;
+      if (scholarPrefix.test(candidate)) {
+        nameCandidate = candidate.replace(scholarPrefix, '').trim();
+      }
+
+      const nonNameWords = /\b(Breakthrough|Excellence|Innovation|Advances|Overview|Department|University|College|Institute|Center|Frontiers|Report|Journal|Series|Studies|Engineering|Science|Technology|Annual|Conference)\b/i;
+      const looksLikeName =
+        /^(?:Prof\.|Dr\.|Professor|Associate\s+Prof|Assistant\s+Prof|Mr\.|Ms\.|Mrs\.|Shri)\s+[A-Z]/i.test(nameCandidate) ||
+        (!nonNameWords.test(nameCandidate) && /^[A-Z][a-zA-Z'.]+(?:\s+[A-Z][a-zA-Z'.]+){1,3}$/.test(nameCandidate));
+
+      if (looksLikeName) {
+        extractedName = nameCandidate;
+      }
     }
   }
 
-  const finalName = matchedAuthor?.full_name || rawName || 'Distinguished Faculty Researcher';
-  const finalDept = matchedAuthor?.department || 'Department of Advanced Research & Innovation';
-  const finalDesignation =
-    matchedAuthor?.institutional_affiliation || 'Faculty Researcher & Principal Investigator';
-  const finalSummary =
-    spotlight.summary ||
-    `${finalName} discusses critical academic breakthroughs, interdisciplinary inquiry, and research impact at CSJMU.`;
-  const researchArea = matchedAuthor?.department || 'Interdisciplinary Studies';
+  // 4. Designation and contributor type (supporting faculty, PhD scholars, and research scholars)
+  let designation: string | undefined = undefined;
+  let contributorType: 'faculty' | 'phd_scholar' | 'research_scholar' | 'contributor' | undefined = undefined;
+
+  const rawDesignation =
+    spotlight.designation ||
+    spotlight.scholar_category ||
+    (spotlight as any).role ||
+    matchedAuthor?.designation ||
+    matchedAuthor?.scholar_category ||
+    matchedAuthor?.academic_title;
+
+  if (rawDesignation && typeof rawDesignation === 'string' && rawDesignation.trim()) {
+    designation = rawDesignation.trim();
+  } else if (matchedAuthor?.institutional_affiliation && typeof matchedAuthor.institutional_affiliation === 'string') {
+    const aff = matchedAuthor.institutional_affiliation.trim();
+    if (/\b(?:Professor|Dean|Director|Associate Professor|Assistant Professor|Lecturer|Scientist|Fellow|Scholar|HOD|Chair)\b/i.test(aff)) {
+      designation = aff;
+    }
+  }
+
+  const fullContext = `${rawHeadline} ${spotlight.summary || ''} ${extractedName || ''}`;
+
+  if (/\b(?:Ph\.?D\.?\s+Scholar|PhD\s+Candidate|Doctoral\s+Scholar|Doctoral\s+Candidate|Doctoral\s+Researcher)\b/i.test(fullContext)) {
+    contributorType = 'phd_scholar';
+    if (!designation) designation = 'PhD Scholar';
+  } else if (/\b(?:Junior\s+Research\s+Fellow|JRF)\b/i.test(fullContext)) {
+    contributorType = 'research_scholar';
+    if (!designation) designation = 'Junior Research Fellow (JRF)';
+  } else if (/\b(?:Senior\s+Research\s+Fellow|SRF)\b/i.test(fullContext)) {
+    contributorType = 'research_scholar';
+    if (!designation) designation = 'Senior Research Fellow (SRF)';
+  } else if (/\b(?:Postdoctoral\s+(?:Fellow|Researcher)|Post-?doc)\b/i.test(fullContext)) {
+    contributorType = 'research_scholar';
+    if (!designation) designation = 'Postdoctoral Fellow';
+  } else if (/\b(?:Research\s+Scholar)\b/i.test(fullContext)) {
+    contributorType = 'research_scholar';
+    if (!designation) designation = 'Research Scholar';
+  } else if (/\b(?:Associate\s+Professor)\b/i.test(fullContext) || (designation && /\bAssociate\s+Professor\b/i.test(designation))) {
+    contributorType = 'faculty';
+    if (!designation) designation = 'Associate Professor';
+  } else if (/\b(?:Assistant\s+Professor)\b/i.test(fullContext) || (designation && /\bAssistant\s+Professor\b/i.test(designation))) {
+    contributorType = 'faculty';
+    if (!designation) designation = 'Assistant Professor';
+  } else if (/\b(?:Professor\s+Emeritus)\b/i.test(fullContext) || (designation && /\bProfessor\s+Emeritus\b/i.test(designation))) {
+    contributorType = 'faculty';
+    if (!designation) designation = 'Professor Emeritus';
+  } else if (
+    /\b(?:Professor|Dean|Principal\s+Investigator)\b/i.test(fullContext) ||
+    (extractedName && /^Prof\./i.test(extractedName)) ||
+    (designation && /\b(?:Professor|Dean)\b/i.test(designation))
+  ) {
+    contributorType = 'faculty';
+    if (!designation) designation = 'Professor';
+  } else if (designation) {
+    contributorType = 'contributor';
+  }
+
+  // Remove any remaining fabricated placeholder strings if present
+  if (designation && (
+    /Faculty Researcher & Principal Investigator/i.test(designation) ||
+    /Distinguished Faculty Researcher/i.test(designation)
+  )) {
+    designation = undefined;
+  }
+
+  // 5. Department / School
+  let department: string | undefined = undefined;
+  const rawDept = spotlight.department || (spotlight as any).school || matchedAuthor?.department;
+  if (rawDept && typeof rawDept === 'string' && rawDept.trim()) {
+    const trimmed = rawDept.trim();
+    if (!/Department of Advanced Research & Innovation/i.test(trimmed)) {
+      department = trimmed;
+    }
+  }
+
+  // 6. Research Area
+  let researchArea: string | undefined = undefined;
+  const rawArea = spotlight.research_area || (spotlight as any).researchArea || (spotlight as any).domain;
+  if (rawArea && typeof rawArea === 'string' && rawArea.trim()) {
+    const trimmed = rawArea.trim();
+    if (!/Interdisciplinary Studies/i.test(trimmed)) {
+      researchArea = trimmed;
+    }
+  }
+
+  // 7. Summary
+  let summary: string | undefined = undefined;
+  if (spotlight.summary && typeof spotlight.summary === 'string' && spotlight.summary.trim()) {
+    const sumTrimmed = spotlight.summary.trim();
+    if (!/discusses critical academic breakthroughs, interdisciplinary inquiry/i.test(sumTrimmed)) {
+      summary = sumTrimmed;
+    }
+  }
 
   return {
-    name: finalName,
-    designation: finalDesignation,
-    department: finalDept,
+    headline,
+    name: extractedName,
+    designation,
+    department,
     researchArea,
-    headline: headlineClean,
-    summary: finalSummary,
-    isVerified: matchedAuthor?.is_verified ?? true,
+    summary,
+    isVerified: matchedAuthor?.is_verified,
     authorId: matchedAuthor?.id || authorId,
+    contributorType,
   };
 }
 
 interface SpotlightThumbnailProps {
   videoUrl?: string | null;
   mediaUrl?: string | null;
-  researcherName: string;
+  researcherName?: string;
   isFeatured?: boolean;
   onPlayClick: () => void;
 }
@@ -154,7 +262,7 @@ const SpotlightThumbnail: React.FC<SpotlightThumbnailProps> = ({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Play interview with ${researcherName}`}
+      aria-label={researcherName ? `Play interview with ${researcherName}` : 'Play interview video'}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -237,7 +345,7 @@ const SpotlightThumbnail: React.FC<SpotlightThumbnailProps> = ({
       ) : sourceUrl ? (
         <img
           src={sourceUrl}
-          alt={researcherName}
+          alt={researcherName || 'Researcher interview thumbnail'}
           onLoad={handleImageLoad}
           style={{
             position: 'relative',
@@ -400,7 +508,7 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Interview video player: ${parsedInfo.name}`}
+      aria-label={parsedInfo.name ? `Interview video player: ${parsedInfo.name}` : `Interview video player: ${parsedInfo.headline}`}
       style={{
         position: 'fixed',
         inset: 0,
@@ -465,19 +573,21 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {parsedInfo.name}
+                {parsedInfo.name || parsedInfo.headline}
               </div>
-              <div
-                style={{
-                  color: '#94a3b8',
-                  fontSize: '12px',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {parsedInfo.department}
-              </div>
+              {parsedInfo.name && (parsedInfo.department || parsedInfo.designation) && (
+                <div
+                  style={{
+                    color: '#94a3b8',
+                    fontSize: '12px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {[parsedInfo.designation, parsedInfo.department].filter(Boolean).join(' • ')}
+                </div>
+              )}
             </div>
           </div>
 
@@ -530,7 +640,7 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
           {isEmbed ? (
             <iframe
               src={videoSrc}
-              title={`Interview with ${parsedInfo.name}`}
+              title={parsedInfo.name ? `Interview with ${parsedInfo.name}` : parsedInfo.headline}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               style={{
@@ -578,9 +688,10 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <Badge variant="teal">Academic Interview</Badge>
-            {parsedInfo.isVerified && <Badge variant="saffron">Verified Faculty</Badge>}
+            {parsedInfo.designation && <Badge variant="saffron">{parsedInfo.designation}</Badge>}
+            {!parsedInfo.designation && parsedInfo.isVerified && <Badge variant="saffron">Verified Contributor</Badge>}
           </div>
 
           <h3
@@ -595,16 +706,25 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
             {parsedInfo.headline}
           </h3>
 
-          <p
-            style={{
-              fontSize: '13px',
-              color: '#94a3b8',
-              margin: '0 0 12px 0',
-              lineHeight: 1.55,
-            }}
-          >
-            {parsedInfo.summary}
-          </p>
+          {parsedInfo.name && (
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#2dd4bf', marginBottom: '8px' }}>
+              {parsedInfo.name}
+              {parsedInfo.department ? ` — ${parsedInfo.department}` : ''}
+            </div>
+          )}
+
+          {parsedInfo.summary && (
+            <p
+              style={{
+                fontSize: '13px',
+                color: '#94a3b8',
+                margin: '0 0 12px 0',
+                lineHeight: 1.55,
+              }}
+            >
+              {parsedInfo.summary}
+            </p>
+          )}
 
           <div
             style={{
@@ -617,13 +737,13 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
               paddingTop: '10px',
             }}
           >
-            <div>{parsedInfo.designation}</div>
-            {onNavigateToDirectory && (
+            <div>{parsedInfo.department || parsedInfo.designation || ''}</div>
+            {onNavigateToDirectory && parsedInfo.name && (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
-                  onNavigateToDirectory(parsedInfo.name);
+                  onNavigateToDirectory(parsedInfo.name!);
                 }}
                 style={{
                   background: 'none',
@@ -738,7 +858,7 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
           </h2>
 
           <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0, lineHeight: 1.55, maxWidth: '720px' }}>
-            Conversations with the minds shaping research, innovation and academic excellence at CJSU.
+            Conversations with the minds shaping research, innovation and academic excellence at CSJMU.
           </p>
 
           {/* Hidden backwards-compatibility hooks for test suites and search indexes */}
@@ -828,53 +948,76 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
               >
                 Featured Conversation
               </span>
-              <span
-                style={{
-                  background: 'rgba(13, 148, 136, 0.1)',
-                  color: '#0f766e',
-                  border: '1px solid rgba(13, 148, 136, 0.25)',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                }}
-              >
-                {featuredParsed.researchArea}
-              </span>
+              {featuredParsed.researchArea && (
+                <span
+                  style={{
+                    background: 'rgba(13, 148, 136, 0.1)',
+                    color: '#0f766e',
+                    border: '1px solid rgba(13, 148, 136, 0.25)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {featuredParsed.researchArea}
+                </span>
+              )}
+              {featuredParsed.designation && (
+                <span
+                  style={{
+                    background: 'rgba(15, 43, 72, 0.08)',
+                    color: '#0f2b48',
+                    border: '1px solid rgba(15, 43, 72, 0.18)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {featuredParsed.designation}
+                </span>
+              )}
             </div>
 
-            {/* Researcher Identity: Highly Prominent */}
-            <div>
-              <h3
-                style={{
-                  fontSize: 'clamp(20px, 2.2vw, 24px)',
-                  fontWeight: 800,
-                  color: '#0f2b48',
-                  margin: '0 0 4px 0',
-                  lineHeight: 1.2,
-                }}
-              >
-                {featuredParsed.name}
-              </h3>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#0d766e',
-                  marginBottom: '2px',
-                }}
-              >
-                {featuredParsed.designation}
+            {/* Researcher Identity: Render only if name is available */}
+            {featuredParsed.name && (
+              <div>
+                <h3
+                  style={{
+                    fontSize: 'clamp(20px, 2.2vw, 24px)',
+                    fontWeight: 800,
+                    color: '#0f2b48',
+                    margin: '0 0 4px 0',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {featuredParsed.name}
+                </h3>
+                {featuredParsed.designation && (
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0d766e',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    {featuredParsed.designation}
+                  </div>
+                )}
+                {featuredParsed.department && (
+                  <div
+                    style={{
+                      fontSize: '12.5px',
+                      color: '#64748b',
+                    }}
+                  >
+                    {featuredParsed.department}
+                  </div>
+                )}
               </div>
-              <div
-                style={{
-                  fontSize: '12.5px',
-                  color: '#64748b',
-                }}
-              >
-                {featuredParsed.department}
-              </div>
-            </div>
+            )}
 
             {/* Headline & Summary */}
             <div
@@ -895,16 +1038,18 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
               >
                 &ldquo;{featuredParsed.headline}&rdquo;
               </h4>
-              <p
-                style={{
-                  fontSize: '13px',
-                  color: '#475569',
-                  margin: 0,
-                  lineHeight: 1.6,
-                }}
-              >
-                {featuredParsed.summary}
-              </p>
+              {featuredParsed.summary && (
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: '#475569',
+                    margin: 0,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {featuredParsed.summary}
+                </p>
+              )}
             </div>
 
             {/* Action Interactions */}
@@ -935,10 +1080,10 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
                 <span>Watch Full Interview</span>
               </button>
 
-              {onNavigateToDirectory && (
+              {onNavigateToDirectory && featuredParsed.name && (
                 <button
                   type="button"
-                  onClick={() => onNavigateToDirectory(featuredParsed.name)}
+                  onClick={() => onNavigateToDirectory(featuredParsed.name!)}
                   style={{
                     background: 'transparent',
                     color: '#64748b',
@@ -987,7 +1132,7 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
                   justifyContent: 'space-between',
                 }}
               >
-                {/* 1. 16:9 Thumbnail container with mixed orientation support */}
+                {/* 1. Actual video thumbnail */}
                 <div>
                   <SpotlightThumbnail
                     videoUrl={spot.video_embed_url}
@@ -997,76 +1142,83 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
                     onPlayClick={() => setSelectedSpotlight(spot)}
                   />
 
-                  {/* 2. Researcher & Interview Information */}
+                  {/* 2-6. Card Content strictly adhering to required 7-step hierarchy */}
                   <div style={{ padding: '18px 20px 14px 20px' }}>
-                    {/* Researcher identity is prominent! */}
-                    <div style={{ marginBottom: '8px' }}>
+                    {/* Step 2: Actual headline */}
+                    <h4
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        color: '#0f2b48',
+                        margin: '0 0 8px 0',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {parsed.headline}
+                    </h4>
+
+                    {/* Step 3: Actual researcher name - only if available */}
+                    {parsed.name && (
                       <div
                         style={{
-                          fontSize: '11px',
-                          color: '#0d766e',
+                          fontSize: '14px',
                           fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
+                          color: '#0d766e',
                           marginBottom: '2px',
                         }}
                       >
-                        {parsed.department}
-                      </div>
-                      <h4
-                        style={{
-                          fontSize: '16.5px',
-                          fontWeight: 800,
-                          color: '#0f2b48',
-                          margin: 0,
-                          lineHeight: 1.25,
-                        }}
-                      >
                         {parsed.name}
-                      </h4>
+                      </div>
+                    )}
+
+                    {/* Step 4: Actual designation / scholar category - only if available */}
+                    {parsed.designation && (
                       <div
                         style={{
                           fontSize: '12px',
-                          color: '#64748b',
-                          marginTop: '2px',
+                          fontWeight: 600,
+                          color: '#475569',
+                          marginBottom: '2px',
                         }}
                       >
                         {parsed.designation}
                       </div>
-                    </div>
+                    )}
 
-                    {/* Interview Headline */}
-                    <h5
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: '#334155',
-                        margin: '8px 0 6px 0',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {parsed.headline}
-                    </h5>
+                    {/* Step 5: Actual department / school - only if available */}
+                    {parsed.department && (
+                      <div
+                        style={{
+                          fontSize: '11.5px',
+                          color: '#64748b',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        {parsed.department}
+                      </div>
+                    )}
 
-                    {/* Summary Snippet */}
-                    <p
-                      style={{
-                        fontSize: '12.5px',
-                        color: '#64748b',
-                        margin: 0,
-                        lineHeight: 1.55,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {parsed.summary}
-                    </p>
+                    {/* Step 6: Actual summary - only if available */}
+                    {parsed.summary && (
+                      <p
+                        style={{
+                          fontSize: '12.5px',
+                          color: '#64748b',
+                          margin: '6px 0 0 0',
+                          lineHeight: 1.55,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {parsed.summary}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* 3. Card Action Footer */}
+                {/* Step 7: Watch Interview action */}
                 <div
                   style={{
                     padding: '12px 20px',

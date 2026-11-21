@@ -57,6 +57,9 @@ export interface PublicAuthor {
   institutional_affiliation?: string | null;
   scopus_id?: string | null;
   is_verified: boolean;
+  designation?: string | null;
+  scholar_category?: string | null;
+  academic_title?: string | null;
 }
 
 export interface PublicCamProject {
@@ -81,12 +84,19 @@ export interface PublicFellowship {
 
 export interface PublicSpotlight {
   id: string;
+  author_id?: string | null;
+  author_name?: string | null;
+  researcher_name?: string | null;
   headline: string;
   summary?: string | null;
   media_type: string;
   media_url?: string | null;
   video_embed_url?: string | null;
   display_order: number;
+  designation?: string | null;
+  scholar_category?: string | null;
+  department?: string | null;
+  research_area?: string | null;
 }
 
 export interface CertificateAuthorPublic {

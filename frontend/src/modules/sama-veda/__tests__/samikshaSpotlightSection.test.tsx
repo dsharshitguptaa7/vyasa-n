@@ -90,7 +90,7 @@ describe('SamikshaSpotlightSection UI/UX Suite', () => {
     expect(screen.getByText(/RESEARCH STORIES · PEOPLE BEHIND THE DISCOVERIES/i)).toBeInTheDocument();
     expect(screen.getByText('Researchers. Ideas. Impact.')).toBeInTheDocument();
     expect(
-      screen.getByText('Conversations with the minds shaping research, innovation and academic excellence at CJSU.')
+      screen.getByText(/Conversations with the minds shaping research, innovation and academic excellence at CSJMU\./i)
     ).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe('SamikshaSpotlightSection UI/UX Suite', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('8. Successfully parses researcher metadata when author is not in directory', () => {
+  it('8. Successfully parses researcher metadata when author is not in directory using actual headline', () => {
     const parsed = parseResearcherFromSpotlight(
       {
         id: 'spot-custom',
@@ -210,6 +210,77 @@ describe('SamikshaSpotlightSection UI/UX Suite', () => {
     );
 
     expect(parsed.name).toBe('Dr. Alok Kumar');
-    expect(parsed.headline).toContain('Academic Excellence');
+    // Actual headline is preserved, not replaced with generic fake text
+    expect(parsed.headline).toBe('Researcher Spotlight: Dr. Alok Kumar');
+    expect(parsed.summary).toBe('Pioneering work in composite materials at the Department of Materials Science.');
+    // Fabricated fallback labels must not exist
+    expect(parsed.designation).not.toBe('Faculty Researcher & Principal Investigator');
+    expect(parsed.department).not.toBe('Department of Advanced Research & Innovation');
+  });
+
+  it('9. Correctly supports PhD Scholars and Research Scholars without assuming faculty or PI status', () => {
+    const phdSpotlight: PublicSpotlight = {
+      id: 'spot-phd',
+      headline: 'Ph.D. Scholar Priya Sharma - Solar Cell Innovations',
+      summary: 'Doctoral research focusing on perovskite solar cells and clean energy applications.',
+      media_url: 'storage/sama_veda/spotlights/priya.jpg',
+      display_order: 1,
+    };
+
+    const parsedPhd = parseResearcherFromSpotlight(phdSpotlight, []);
+    expect(parsedPhd.name).toBe('Priya Sharma');
+    expect(parsedPhd.contributorType).toBe('phd_scholar');
+    expect(parsedPhd.designation).toBe('PhD Scholar');
+    // Must never assume faculty or PI
+    expect(parsedPhd.designation).not.toContain('Faculty');
+    expect(parsedPhd.designation).not.toContain('Principal Investigator');
+
+    const jrfSpotlight: PublicSpotlight = {
+      id: 'spot-jrf',
+      headline: 'Research Scholar Ankit Mishra - Natural Language Processing',
+      summary: 'Junior Research Fellow (JRF) working on low-resource Indic language models.',
+      media_url: 'storage/sama_veda/spotlights/ankit.jpg',
+      display_order: 2,
+    };
+
+    const parsedJrf = parseResearcherFromSpotlight(jrfSpotlight, []);
+    expect(parsedJrf.name).toBe('Ankit Mishra');
+    expect(parsedJrf.contributorType).toBe('research_scholar');
+    expect(parsedJrf.designation).toBe('Junior Research Fellow (JRF)');
+    expect(parsedJrf.designation).not.toContain('Faculty');
+  });
+
+  it('10. Gracefully handles spotlights with missing optional fields without fabricating metadata', () => {
+    const minimalSpotlight: PublicSpotlight = {
+      id: 'spot-sparse',
+      headline: 'Annual Research Symposium Highlights',
+      media_url: null,
+      video_embed_url: 'https://example.com/videos/symposium.mp4',
+      display_order: 1,
+    };
+
+    const parsed = parseResearcherFromSpotlight(minimalSpotlight, []);
+    expect(parsed.headline).toBe('Annual Research Symposium Highlights');
+    // No invented person or fake department/designation
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.designation).toBeUndefined();
+    expect(parsed.department).toBeUndefined();
+    expect(parsed.researchArea).toBeUndefined();
+    expect(parsed.summary).toBeUndefined();
+
+    // Renders gracefully without crashes or fabricated labels
+    render(
+      <SamikshaSpotlightSection
+        spotlights={[minimalSpotlight]}
+        authors={[]}
+        enableFeatured={false}
+      />
+    );
+
+    expect(screen.getByText('Annual Research Symposium Highlights')).toBeInTheDocument();
+    expect(screen.queryByText(/Distinguished Faculty Researcher/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Department of Advanced Research & Innovation/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Faculty Researcher & Principal Investigator/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Watch Interview')).toBeInTheDocument();
   });
 });
