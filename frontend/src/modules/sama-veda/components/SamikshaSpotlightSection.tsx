@@ -17,21 +17,35 @@ export function parseResearcherFromSpotlight(
   spotlight: PublicSpotlight,
   authors: PublicAuthor[] = []
 ): ParsedResearcherInfo {
+  if (!spotlight) {
+    return {
+      name: 'Distinguished Faculty Researcher',
+      designation: 'Faculty Researcher & Principal Investigator',
+      department: 'Department of Advanced Research & Innovation',
+      researchArea: 'Interdisciplinary Studies',
+      headline: 'Advances in Academic Excellence & Research Innovation',
+      summary: 'Conversations with distinguished faculty researchers at CSJMU.',
+      isVerified: true,
+    };
+  }
+
   // 1. Try matching with authors by author_id
   let matchedAuthor: PublicAuthor | undefined;
-  const authorId = (spotlight as any).author_id;
-  if (authorId) {
-    matchedAuthor = authors.find((a) => a.id === authorId);
+  const authorId = (spotlight as any)?.author_id;
+  if (authorId && authors && authors.length > 0) {
+    matchedAuthor = authors.find((a) => a?.id === authorId);
   }
 
   // 2. Try matching with authors by name inside headline or summary
-  if (!matchedAuthor && authors.length > 0) {
+  if (!matchedAuthor && authors && authors.length > 0) {
+    const hl = (spotlight.headline || '').toLowerCase();
+    const sum = (spotlight.summary || '').toLowerCase();
     matchedAuthor = authors.find((a) => {
-      if (!a.full_name) return false;
+      if (!a?.full_name) return false;
       const cleanAuthorName = a.full_name.toLowerCase().trim();
       return (
-        spotlight.headline.toLowerCase().includes(cleanAuthorName) ||
-        (spotlight.summary && spotlight.summary.toLowerCase().includes(cleanAuthorName))
+        (hl && hl.includes(cleanAuthorName)) ||
+        (sum && sum.includes(cleanAuthorName))
       );
     });
   }
@@ -658,12 +672,18 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
 
   // Determine the featured spotlight safely without hardcoding
   const { featuredSpotlight, remainingSpotlights } = useMemo(() => {
-    if (!enableFeatured || spotlights.length === 0) {
-      return { featuredSpotlight: null, remainingSpotlights: spotlights };
+    if (!enableFeatured || !spotlights || spotlights.length === 0) {
+      return { featuredSpotlight: null, remainingSpotlights: spotlights || [] };
     }
 
-    // Sort by display order
-    const sorted = [...spotlights].sort((a, b) => a.display_order - b.display_order);
+    // Sort by display order safely
+    const sorted = [...spotlights]
+      .filter(Boolean)
+      .sort((a, b) => ((a?.display_order ?? 0) - (b?.display_order ?? 0)));
+
+    if (sorted.length === 0) {
+      return { featuredSpotlight: null, remainingSpotlights: [] };
+    }
 
     if (featuredId) {
       const explicitFeatured = sorted.find((s) => s.id === featuredId);

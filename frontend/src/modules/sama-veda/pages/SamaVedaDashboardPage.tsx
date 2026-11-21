@@ -18,6 +18,7 @@ import { SamikshaHero, MetricItem } from '../components/SamikshaHero';
 import { SamikshaAnalytics } from '../components/SamikshaAnalytics';
 import { SamikshaDiscoveryGrid } from '../components/SamikshaDiscoveryGrid';
 import { SamikshaSpotlightSection } from '../components/SamikshaSpotlightSection';
+import { SamikshaErrorBoundary } from '../components/SamikshaErrorBoundary';
 import { SamikshaPublicationsTab } from '../components/SamikshaPublicationsTab';
 import { SamikshaBulletinsTab } from '../components/SamikshaBulletinsTab';
 import { SamikshaResearchersTab } from '../components/SamikshaResearchersTab';
@@ -167,9 +168,11 @@ export const SamaVedaDashboardPage: React.FC = () => {
         const failedSections: string[] = [];
 
         // 0. Authoritative Analytics Overview
-        if (analyticsResult.status === 'fulfilled') {
+        let authoritativeAnalytics: OverviewAnalyticsData | null = null;
+        if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
+          authoritativeAnalytics = analyticsResult.value;
           setAnalyticsData(analyticsResult.value);
-          if (analyticsResult.value?.summary) {
+          if (analyticsResult.value.summary) {
             setTotalPublications(analyticsResult.value.summary.total_publications);
             setTotalAuthors(analyticsResult.value.summary.total_researchers);
             setAuthorVerifiedCount(analyticsResult.value.summary.verified_faculty);
@@ -217,7 +220,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
         // 5. Publications
         if (pubResult.status === 'fulfilled') {
           setPublications(pubResult.value?.items || []);
-          if (!analyticsData?.summary.total_publications) {
+          if (!authoritativeAnalytics?.summary?.total_publications && !analyticsData?.summary?.total_publications) {
             setTotalPublications(pubResult.value?.total || pubResult.value?.items?.length || 0);
           }
           if (pubResult.value?.issue_counts && pubResult.value.issue_counts.length > 0) {
@@ -226,7 +229,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           setPublicationsUnavailable(false);
         } else {
           setPublications([]);
-          if (!analyticsData?.summary.total_publications) {
+          if (!authoritativeAnalytics?.summary?.total_publications && !analyticsData?.summary?.total_publications) {
             setTotalPublications(0);
           }
           setPublicationsUnavailable(true);
@@ -237,7 +240,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           setAuthors(authResult.value?.items || []);
           if (authResult.value?.global_total) {
             setTotalAuthors(authResult.value.global_total);
-          } else if (authResult.value?.total && !analyticsData?.summary.total_researchers) {
+          } else if (authResult.value?.total && !authoritativeAnalytics?.summary?.total_researchers && !analyticsData?.summary?.total_researchers) {
             setTotalAuthors(authResult.value.total);
           }
           if (authResult.value?.global_verified_count !== undefined) {
@@ -248,7 +251,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           setAuthorsUnavailable(false);
         } else {
           setAuthors([]);
-          if (!analyticsData?.summary.total_researchers) {
+          if (!authoritativeAnalytics?.summary?.total_researchers && !analyticsData?.summary?.total_researchers) {
             setTotalAuthors(0);
           }
           setAuthorsUnavailable(true);
@@ -335,7 +338,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
             setAuthors(res?.items || []);
             if (res?.global_total) {
               setTotalAuthors(res.global_total);
-            } else if (res?.total && !analyticsData?.summary.total_researchers) {
+            } else if (res?.total && !analyticsData?.summary?.total_researchers) {
               setTotalAuthors(res.total);
             }
             if (res?.global_verified_count !== undefined) {
@@ -411,35 +414,35 @@ export const SamaVedaDashboardPage: React.FC = () => {
     return [
       {
         label: 'Publications',
-        value: analyticsData?.summary.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length > 0 ? publications.length : 0),
+        value: analyticsData?.summary?.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length > 0 ? publications.length : 0),
         loading,
         unavailable: publicationsUnavailable,
         tabKey: 'publications',
       },
       {
         label: 'Faculty Researchers',
-        value: analyticsData?.summary.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length > 0 ? authors.length : 0),
+        value: analyticsData?.summary?.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length > 0 ? authors.length : 0),
         loading,
         unavailable: authorsUnavailable,
         tabKey: 'authors',
       },
       {
         label: 'Research Bulletins',
-        value: analyticsData?.summary.total_bulletins ?? bulletins.length,
+        value: analyticsData?.summary?.total_bulletins ?? bulletins.length,
         loading,
         unavailable: bulletinsUnavailable,
         tabKey: 'bulletins',
       },
       {
         label: 'Active Fellows',
-        value: analyticsData?.summary.active_fellows ?? (totalScholars > 0 ? totalScholars : null),
+        value: analyticsData?.summary?.active_fellows ?? (totalScholars > 0 ? totalScholars : null),
         loading,
         unavailable: fellowshipsUnavailable,
         tabKey: 'fellowships',
       },
       {
         label: 'CAM-AI Grants',
-        value: analyticsData?.summary.cam_grants ?? camProjects.length,
+        value: analyticsData?.summary?.cam_grants ?? camProjects.length,
         loading,
         unavailable: camProjectsUnavailable,
         tabKey: 'cam-projects',
@@ -479,7 +482,8 @@ export const SamaVedaDashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="samiksha-root-container">
+    <SamikshaErrorBoundary title="SAMIKSHA Research Portal">
+      <div className="samiksha-root-container">
       {/* 0. Clean Institutional Breadcrumb for Authenticated Workspaces */}
       {isAuthenticated && (
         <nav
@@ -523,7 +527,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            समीक्षा Research
+            SAMIKSHA Research
           </button>
           {activeTab !== 'overview' && (
             <>
@@ -647,137 +651,160 @@ export const SamaVedaDashboardPage: React.FC = () => {
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
           {/* 1. Curated Academic Researcher Spotlights & Storytelling */}
-          <SamikshaSpotlightSection
-            spotlights={spotlights}
-            authors={authors}
-            onNavigateToDirectory={(researcherName) => {
-              if (researcherName) {
-                setAuthorSearch(researcherName);
-              }
-              handleTabChange('authors');
-            }}
-          />
+          <SamikshaErrorBoundary title="Researcher Spotlights" isolate>
+            <SamikshaSpotlightSection
+              spotlights={spotlights}
+              authors={authors}
+              onNavigateToDirectory={(researcherName) => {
+                if (researcherName) {
+                  setAuthorSearch(researcherName);
+                }
+                handleTabChange('authors');
+              }}
+            />
+          </SamikshaErrorBoundary>
 
           {/* Interactive Research Analytics Dashboard */}
-          <SamikshaAnalytics
-            analyticsData={analyticsData}
-            publications={publications}
-            totalPublications={analyticsData?.summary.total_publications ?? totalPublications}
-            bulletins={bulletins}
-            authors={authors}
-            totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
-            camProjects={camProjects}
-            loading={loading}
-            onSelectCategory={(cat) => {
-              setPubCategory(cat);
-              handleTabChange('publications');
-            }}
-            onSelectYear={(yr) => {
-              setPubYear(yr);
-              handleTabChange('publications');
-            }}
-            onSelectVolume={(vol) => {
-              setPubVolume(vol);
-              handleTabChange('publications');
-            }}
-            onSelectIssue={(iss, vol) => {
-              if (vol) setPubVolume(vol);
-              setPubIssue(iss);
-              handleTabChange('publications');
-            }}
-            onSelectBulletin={() => {
-              handleTabChange('bulletins');
-            }}
-            onSelectAuthorsTab={() => {
-              handleTabChange('authors');
-            }}
-          />
+          <SamikshaErrorBoundary title="Research Intelligence & Analytics" isolate>
+            <SamikshaAnalytics
+              analyticsData={analyticsData}
+              publications={publications}
+              totalPublications={analyticsData?.summary?.total_publications ?? totalPublications}
+              bulletins={bulletins}
+              authors={authors}
+              totalAuthors={analyticsData?.summary?.total_researchers ?? totalAuthors}
+              camProjects={camProjects}
+              loading={loading}
+              onSelectCategory={(cat) => {
+                setPubCategory(cat);
+                handleTabChange('publications');
+              }}
+              onSelectYear={(yr) => {
+                setPubYear(yr);
+                handleTabChange('publications');
+              }}
+              onSelectVolume={(vol) => {
+                setPubVolume(vol);
+                handleTabChange('publications');
+              }}
+              onSelectIssue={(iss, vol) => {
+                if (vol) setPubVolume(vol);
+                setPubIssue(iss);
+                handleTabChange('publications');
+              }}
+              onSelectBulletin={() => {
+                handleTabChange('bulletins');
+              }}
+              onSelectAuthorsTab={() => {
+                handleTabChange('authors');
+              }}
+            />
+          </SamikshaErrorBoundary>
 
           {/* Research Discovery Pillars Grid */}
-          <SamikshaDiscoveryGrid
-            totalPublications={analyticsData?.summary.total_publications ?? totalPublications}
-            totalBulletins={analyticsData?.summary.total_bulletins ?? bulletins.length}
-            totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
-            totalCamProjects={analyticsData?.summary.cam_grants ?? camProjects.length}
-            totalFellows={analyticsData?.summary.active_fellows ?? totalScholars}
-            onNavigateTab={(tabKey) => handleTabChange(tabKey as ActiveTab)}
-          />
+          <SamikshaErrorBoundary title="Research Discovery Pillars" isolate>
+            <SamikshaDiscoveryGrid
+              totalPublications={analyticsData?.summary?.total_publications ?? totalPublications}
+              totalBulletins={analyticsData?.summary?.total_bulletins ?? bulletins.length}
+              totalAuthors={analyticsData?.summary?.total_researchers ?? totalAuthors}
+              totalCamProjects={analyticsData?.summary?.cam_grants ?? camProjects.length}
+              totalFellows={analyticsData?.summary?.active_fellows ?? totalScholars}
+              onNavigateTab={(tabKey) => handleTabChange(tabKey as ActiveTab)}
+            />
+          </SamikshaErrorBoundary>
         </div>
       )}
 
       {/* TAB 2: PUBLICATIONS ARCHIVE */}
       {activeTab === 'publications' && (
-        <SamikshaPublicationsTab
-          publications={publications}
-          totalPublications={totalPublications}
-          pubSearch={pubSearch}
-          onPubSearchChange={setPubSearch}
-          pubCategory={pubCategory}
-          onPubCategoryChange={setPubCategory}
-          selectedYear={pubYear}
-          onSelectedYearChange={setPubYear}
-          bulletins={bulletins}
-          issueCounts={pubIssueCounts}
-          selectedVolume={pubVolume}
-          onSelectedVolumeChange={setPubVolume}
-          selectedIssue={pubIssue}
-          onSelectedIssueChange={setPubIssue}
-        />
+        <SamikshaErrorBoundary title="Publications Archive">
+          <SamikshaPublicationsTab
+            publications={publications}
+            totalPublications={totalPublications}
+            pubSearch={pubSearch}
+            onPubSearchChange={setPubSearch}
+            pubCategory={pubCategory}
+            onPubCategoryChange={setPubCategory}
+            selectedYear={pubYear}
+            onSelectedYearChange={setPubYear}
+            bulletins={bulletins}
+            issueCounts={pubIssueCounts}
+            selectedVolume={pubVolume}
+            onSelectedVolumeChange={setPubVolume}
+            selectedIssue={pubIssue}
+            onSelectedIssueChange={setPubIssue}
+          />
+        </SamikshaErrorBoundary>
       )}
 
       {/* TAB 3: RESEARCH BULLETINS */}
       {activeTab === 'bulletins' && (
-        <SamikshaBulletinsTab
-          bulletins={bulletins}
-          onDownloadBulletin={handleDownloadBulletin}
-          downloadingId={downloadingBulletinId}
-          publications={publications}
-        />
+        <SamikshaErrorBoundary title="Research Bulletins">
+          <SamikshaBulletinsTab
+            bulletins={bulletins}
+            onDownloadBulletin={handleDownloadBulletin}
+            downloadingId={downloadingBulletinId}
+            publications={publications}
+          />
+        </SamikshaErrorBoundary>
       )}
 
       {/* TAB 4: RESEARCHER DIRECTORY */}
       {activeTab === 'authors' && (
-        <SamikshaResearchersTab
-          authors={authors}
-          totalAuthors={analyticsData?.summary.total_researchers ?? totalAuthors}
-          authoritativeVerifiedCount={analyticsData?.summary.verified_faculty ?? authorVerifiedCount ?? undefined}
-          authoritativeTotalCount={analyticsData?.summary.total_researchers ?? totalAuthors}
-          authorSearch={authorSearch}
-          onAuthorSearchChange={setAuthorSearch}
-          publications={publications}
-          onSelectAuthorPublications={(authorName) => {
-            setPubSearch(authorName);
-            handleTabChange('publications');
-          }}
-          onSelectAuthorCertificates={(authorName) => {
-            setCertQuery(authorName);
-            handleTabChange('certificates');
-          }}
-        />
+        <SamikshaErrorBoundary title="Researcher Directory">
+          <SamikshaResearchersTab
+            authors={authors}
+            totalAuthors={analyticsData?.summary?.total_researchers ?? totalAuthors}
+            authoritativeVerifiedCount={analyticsData?.summary?.verified_faculty ?? authorVerifiedCount ?? undefined}
+            authoritativeTotalCount={analyticsData?.summary?.total_researchers ?? totalAuthors}
+            authorSearch={authorSearch}
+            onAuthorSearchChange={setAuthorSearch}
+            publications={publications}
+            onSelectAuthorPublications={(authorName) => {
+              setPubSearch(authorName);
+              handleTabChange('publications');
+            }}
+            onSelectAuthorCertificates={(authorName) => {
+              setCertQuery(authorName);
+              handleTabChange('certificates');
+            }}
+          />
+        </SamikshaErrorBoundary>
       )}
 
       {/* TAB 5: CERTIFICATE VERIFICATION & FELICITATION */}
       {activeTab === 'certificates' && (
-        <SamikshaFelicitationTab
-          certQuery={certQuery}
-          onCertQueryChange={setCertQuery}
-          onVerifyCertificate={handleVerifyCertificate}
-          certLoading={certLoading}
-          certError={certError}
-          certResult={certResult}
-          onDownloadCertificate={handleDownloadCertificate}
-          publications={publications}
-          totalPublications={totalPublications}
-          bulletins={bulletins}
-          authors={authors}
-        />
+        <SamikshaErrorBoundary title="Certificate Verification & Felicitation">
+          <SamikshaFelicitationTab
+            certQuery={certQuery}
+            onCertQueryChange={setCertQuery}
+            onVerifyCertificate={handleVerifyCertificate}
+            certLoading={certLoading}
+            certError={certError}
+            certResult={certResult}
+            onDownloadCertificate={handleDownloadCertificate}
+            publications={publications}
+            totalPublications={totalPublications}
+            bulletins={bulletins}
+            authors={authors}
+          />
+        </SamikshaErrorBoundary>
       )}
 
       {/* TAB 6: CAM-AI PROJECTS */}
-      {activeTab === 'cam-projects' && <SamikshaCamProjectsTab camProjects={camProjects} />}
+      {activeTab === 'cam-projects' && (
+        <SamikshaErrorBoundary title="CAM-AI Projects">
+          <SamikshaCamProjectsTab camProjects={camProjects} />
+        </SamikshaErrorBoundary>
+      )}
 
       {/* TAB 7: FELLOWSHIP SCHEMES */}
-      {activeTab === 'fellowships' && <SamikshaFellowshipsTab fellowships={fellowships} />}
-    </div>
+      {activeTab === 'fellowships' && (
+        <SamikshaErrorBoundary title="Fellowship Schemes">
+          <SamikshaFellowshipsTab fellowships={fellowships} />
+        </SamikshaErrorBoundary>
+      )}
+      </div>
+    </SamikshaErrorBoundary>
   );
 };

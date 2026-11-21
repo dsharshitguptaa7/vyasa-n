@@ -89,12 +89,12 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   onSelectAuthorsTab,
 }) => {
   // Authoritative total eligible publications
-  const effectiveTotalPubs = analyticsData?.summary.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length);
+  const effectiveTotalPubs = analyticsData?.summary?.total_publications ?? (totalPublications > 0 ? totalPublications : publications.length);
 
   // Authoritative total researchers and verification counts
-  const effectiveTotalAuthors = analyticsData?.summary.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length);
-  const effectiveVerifiedFaculty = analyticsData?.summary.verified_faculty ?? authors.filter((a) => a.is_verified).length;
-  const effectiveProvisionalScholars = analyticsData?.summary.provisional_scholars ?? Math.max(0, effectiveTotalAuthors - effectiveVerifiedFaculty);
+  const effectiveTotalAuthors = analyticsData?.summary?.total_researchers ?? (totalAuthors > 0 ? totalAuthors : authors.length);
+  const effectiveVerifiedFaculty = analyticsData?.summary?.verified_faculty ?? authors.filter((a) => a.is_verified).length;
+  const effectiveProvisionalScholars = analyticsData?.summary?.provisional_scholars ?? Math.max(0, effectiveTotalAuthors - effectiveVerifiedFaculty);
 
   // Chart 1: Dynamic Filter State (Year, Volume, Issue)
   const [trendFilter, setTrendFilter] = useState<'year' | 'volume' | 'issue'>('year');
@@ -363,10 +363,10 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
   // Distinct Output & Grant Metrics (Kept strictly as independent entities)
   const indexingMetrics = useMemo(() => {
-    const doiCount = analyticsData?.indexing_metrics.doi_indexed ?? publications.filter((p) => Boolean(p.doi)).length;
+    const doiCount = analyticsData?.indexing_metrics?.doi_indexed ?? publications.filter((p) => Boolean(p.doi)).length;
     const directCount =
-      analyticsData?.indexing_metrics.direct_peer_reviewed ?? Math.max(0, (effectiveTotalPubs || publications.length) - doiCount);
-    const grantsCount = analyticsData?.summary.cam_grants ?? (camProjects ? camProjects.length : 0);
+      analyticsData?.indexing_metrics?.direct_peer_reviewed ?? Math.max(0, (effectiveTotalPubs || publications.length) - doiCount);
+    const grantsCount = analyticsData?.summary?.cam_grants ?? (camProjects ? camProjects.length : 0);
 
     return {
       doiCount,

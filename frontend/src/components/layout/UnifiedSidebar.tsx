@@ -524,7 +524,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
             </NavLink>
             <button
               type="button"
-              aria-label="Toggle समीक्षा sections"
+              aria-label="Toggle SAMIKSHA समीक्षा sections"
               aria-expanded={isSamikshaOpen}
               onClick={handleSamikshaToggle}
               style={{
