@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { SectionHeading, AppIcon } from '@vyasa/ui';
+import { AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../context/AuthContext';
 import {
   samaVedaService,
@@ -17,6 +17,7 @@ import {
 import { SamikshaHero, MetricItem } from '../components/SamikshaHero';
 import { SamikshaAnalytics } from '../components/SamikshaAnalytics';
 import { SamikshaDiscoveryGrid } from '../components/SamikshaDiscoveryGrid';
+import { SamikshaSpotlightSection } from '../components/SamikshaSpotlightSection';
 import { SamikshaPublicationsTab } from '../components/SamikshaPublicationsTab';
 import { SamikshaBulletinsTab } from '../components/SamikshaBulletinsTab';
 import { SamikshaResearchersTab } from '../components/SamikshaResearchersTab';
@@ -644,60 +645,18 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {/* Faculty Spotlights */}
-          {spotlights.length > 0 && (
-            <div>
-              <SectionHeading
-                eyebrow="Faculty &amp; Scholar Spotlight"
-                title="Featured Research Spotlights"
-                description="Interviews and academic breakthroughs by CSJMU faculty and research scholars."
-              />
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gap: '20px',
-                  marginTop: '16px',
-                }}
-              >
-                {spotlights.map((spot) => (
-                  <div
-                    key={spot.id}
-                    className="samiksha-card samiksha-interactive-lift"
-                    style={{
-                      padding: 0,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {spot.video_embed_url && (
-                      <div
-                        style={{
-                          background: '#000000',
-                          aspectRatio: '16/9',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <video controls playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
-                          <source src={spot.video_embed_url} type="video/mp4" />
-                        </video>
-                      </div>
-                    )}
-                    <div style={{ padding: '20px' }}>
-                      <h4 style={{ fontSize: '16.5px', fontWeight: 800, color: '#0f2b48', margin: '0 0 8px 0', lineHeight: 1.35 }}>
-                        {spot.headline}
-                      </h4>
-                      <p style={{ fontSize: '13px', color: '#64748b', margin: 0, lineHeight: 1.55 }}>
-                        {spot.summary}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+          {/* 1. Curated Academic Researcher Spotlights & Storytelling */}
+          <SamikshaSpotlightSection
+            spotlights={spotlights}
+            authors={authors}
+            onNavigateToDirectory={(researcherName) => {
+              if (researcherName) {
+                setAuthorSearch(researcherName);
+              }
+              handleTabChange('authors');
+            }}
+          />
 
           {/* Interactive Research Analytics Dashboard */}
           <SamikshaAnalytics
@@ -715,6 +674,15 @@ export const SamaVedaDashboardPage: React.FC = () => {
             }}
             onSelectYear={(yr) => {
               setPubYear(yr);
+              handleTabChange('publications');
+            }}
+            onSelectVolume={(vol) => {
+              setPubVolume(vol);
+              handleTabChange('publications');
+            }}
+            onSelectIssue={(iss, vol) => {
+              if (vol) setPubVolume(vol);
+              setPubIssue(iss);
               handleTabChange('publications');
             }}
             onSelectBulletin={() => {

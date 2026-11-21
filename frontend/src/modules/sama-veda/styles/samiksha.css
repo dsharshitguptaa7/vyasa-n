@@ -139,8 +139,9 @@
 .samiksha-nav-btn.is-active {
   color: #0d766e;
   background: #f0fdfa;
+  border: 1px solid #ccfbf1;
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(13, 118, 110, 0.12);
+  box-shadow: 0 1px 4px rgba(13, 118, 110, 0.12);
 }
 
 .samiksha-nav-btn.is-active::after {
@@ -458,6 +459,49 @@
   box-shadow: 0 2px 8px rgba(15, 43, 72, 0.03);
 }
 
+/* Publication Growth Trends Segmented Filter */
+.samiksha-segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  gap: 2px;
+}
+
+.samiksha-segmented-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  line-height: 1.3;
+  user-select: none;
+  outline: none;
+}
+
+.samiksha-segmented-btn:hover:not(.is-active) {
+  color: #0f2b48;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.samiksha-segmented-btn:focus-visible {
+  outline: 2px solid var(--samiksha-teal-bright);
+  outline-offset: 1px;
+}
+
+.samiksha-segmented-btn.is-active {
+  background: #ffffff;
+  color: #0d766e;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 43, 72, 0.08);
+}
+
 /* SAMIKSHA Clean Institutional Empty State Override */
 .samiksha-root-container .vyasa-empty-state {
   background-color: #ffffff;
@@ -744,6 +788,117 @@
   .samiksha-modal-content {
     padding: 24px 20px;
   }
+}
+
+/* ============================================================================
+ * RESEARCHER SPOTLIGHT & STORYTELLING EDITORIAL SYSTEM
+ * ============================================================================ */
+
+.samiksha-featured-interview-card {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.samiksha-featured-interview-card:hover {
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 14px 34px -6px rgba(15, 43, 72, 0.09);
+}
+
+.samiksha-thumbnail-container:hover .samiksha-play-circle {
+  transform: scale(1.1);
+  background: rgba(13, 148, 136, 0.95) !important;
+  border-color: #5eead4 !important;
+  box-shadow: 0 6px 24px rgba(20, 184, 166, 0.5) !important;
+}
+
+.samiksha-thumbnail-container:hover .samiksha-play-badge-overlay {
+  background: rgba(5, 19, 41, 0.18) !important;
+}
+
+.samiksha-play-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 43, 72, 0.35) !important;
+  filter: brightness(1.08);
+}
+
+.samiksha-directory-link-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #0d766e !important;
+}
+
+/* Modal Animation */
+@keyframes samiksha-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive Spotlight Grid & Featured Card */
+@media (max-width: 1024px) {
+  .samiksha-featured-interview-card {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    padding: 20px !important;
+  }
+  .samiksha-spotlight-responsive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+  }
+  .samiksha-pillar-responsive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .samiksha-featured-interview-card {
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+  .samiksha-spotlight-responsive-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .samiksha-pillar-responsive-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+/* ============================================================================
+ * RESEARCH INTELLIGENCE & ANALYTICS RESPONSIVE GRID
+ * ============================================================================ */
+
+.samiksha-analytics-responsive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .samiksha-analytics-responsive-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+.samiksha-analytics-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.samiksha-analytics-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 43, 72, 0.06);
+}
+
+/* Pillar Card Interactive Hover */
+.samiksha-pillar-card:hover .samiksha-action-arrow {
+  transform: translateX(4px);
 }
 
 /* Accessibility / Reduced Motion */

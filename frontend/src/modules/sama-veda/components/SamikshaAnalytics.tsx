@@ -19,6 +19,8 @@ interface SamikshaAnalyticsProps {
   loading?: boolean;
   onSelectCategory?: (category: string) => void;
   onSelectYear?: (year: string) => void;
+  onSelectVolume?: (volume: string) => void;
+  onSelectIssue?: (issue: string, volume?: string) => void;
   onSelectBulletin?: (bulletinId: string) => void;
   onSelectAuthorsTab?: () => void;
 }
@@ -52,6 +54,24 @@ function normalizeCategoryName(raw?: string | null): string {
     .join(' ');
 }
 
+interface TrendDimensionItem {
+  key: string;
+  label: string;
+  count: number;
+  year?: string;
+  volume?: number;
+  issue?: number;
+  title?: string;
+  period?: string;
+  bulletinId?: string;
+}
+
+function getTopRoundedRectPath(x: number, y: number, w: number, h: number, r: number = 4): string {
+  if (h <= 0 || w <= 0) return '';
+  const radius = Math.min(r, w / 2, h);
+  return `M ${x} ${y + h} L ${x} ${y + radius} Q ${x} ${y} ${x + radius} ${y} L ${x + w - radius} ${y} Q ${x + w} ${y} ${x + w} ${y + radius} L ${x + w} ${y + h} Z`;
+}
+
 export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   analyticsData,
   publications,
@@ -63,6 +83,8 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   loading = false,
   onSelectCategory,
   onSelectYear,
+  onSelectVolume,
+  onSelectIssue,
   onSelectBulletin,
   onSelectAuthorsTab,
 }) => {
@@ -74,10 +96,18 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
   const effectiveVerifiedFaculty = analyticsData?.summary.verified_faculty ?? authors.filter((a) => a.is_verified).length;
   const effectiveProvisionalScholars = analyticsData?.summary.provisional_scholars ?? Math.max(0, effectiveTotalAuthors - effectiveVerifiedFaculty);
 
-  // Chart 1: Publication Trends by Year (Authoritative backend dataset with client fallback)
-  const trendData = useMemo(() => {
+  // Chart 1: Dynamic Filter State (Year, Volume, Issue)
+  const [trendFilter, setTrendFilter] = useState<'year' | 'volume' | 'issue'>('year');
+
+  // Chart 1: Dimension 1 - Year Trends Data
+  const yearData = useMemo<TrendDimensionItem[]>(() => {
     if (analyticsData?.yearly_trends && analyticsData.yearly_trends.length > 0) {
-      return analyticsData.yearly_trends;
+      return analyticsData.yearly_trends.map((yt) => ({
+        key: yt.year,
+        label: yt.year,
+        count: yt.count,
+        year: yt.year,
+      }));
     }
     if (!publications || publications.length === 0) return [];
 
@@ -98,10 +128,193 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
     const sortedYears = Object.keys(yearCounts).sort();
     return sortedYears.map((yr) => ({
-      year: yr,
+      key: yr,
+      label: yr,
       count: yearCounts[yr],
+      year: yr,
     }));
   }, [analyticsData, publications]);
+
+  // Chart 1: Dimension 2 - Volume Distribution Data
+  const volumeData = useMemo<TrendDimensionItem[]>(() => {
+    // Priority 1: Authoritative analytics bulletin volumes
+    if (analyticsData?.bulletin_volumes && analyticsData.bulletin_volumes.length > 0) {
+      const volMap = new Map<number, number>();
+      for (const b of analyticsData.bulletin_volumes) {
+        if (b.volume_number != null) {
+          volMap.set(b.volume_number, (volMap.get(b.volume_number) || 0) + (b.actual_publication_count || 0));
+        }
+      }
+      return Array.from(volMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([vol, count]) => ({
+          key: `vol-${vol}`,
+          label: `Vol ${vol}`,
+          count,
+          volume: vol,
+        }));
+    }
+
+    // Priority 2: Client fallback via publications records
+    if (publications && publications.length > 0) {
+      const bulletinVolMap = new Map(bulletins.map((b) => [b.id, b.volume_number]));
+      const volMap = new Map<number, number>();
+      for (const pub of publications) {
+        const vol = pub.volume_number ?? (pub.bulletin_id ? bulletinVolMap.get(pub.bulletin_id) : null);
+        if (vol != null) {
+          volMap.set(vol, (volMap.get(vol) || 0) + 1);
+        }
+      }
+      if (volMap.size > 0) {
+        return Array.from(volMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([vol, count]) => ({
+            key: `vol-${vol}`,
+            label: `Vol ${vol}`,
+            count,
+            volume: vol,
+          }));
+      }
+    }
+
+    // Priority 3: Fallback via bulletins metadata
+    if (bulletins && bulletins.length > 0) {
+      const volMap = new Map<number, number>();
+      for (const b of bulletins) {
+        if (b.volume_number != null) {
+          volMap.set(b.volume_number, (volMap.get(b.volume_number) || 0) + (b.publication_count || 0));
+        }
+      }
+      return Array.from(volMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([vol, count]) => ({
+          key: `vol-${vol}`,
+          label: `Vol ${vol}`,
+          count,
+          volume: vol,
+        }));
+    }
+
+    return [];
+  }, [analyticsData, publications, bulletins]);
+
+  // Chart 1: Dimension 3 - Issue Distribution Data (Grouped by Volume + Issue to prevent collision)
+  const issueData = useMemo<TrendDimensionItem[]>(() => {
+    // Priority 1: Authoritative analytics bulletin volumes
+    if (analyticsData?.bulletin_volumes && analyticsData.bulletin_volumes.length > 0) {
+      return [...analyticsData.bulletin_volumes]
+        .sort((a, b) => a.volume_number - b.volume_number || a.issue_number - b.issue_number)
+        .map((b) => ({
+          key: b.id || `v${b.volume_number}_i${b.issue_number}`,
+          label: b.label || `Vol ${b.volume_number} Iss ${b.issue_number}`,
+          count: b.actual_publication_count || 0,
+          volume: b.volume_number,
+          issue: b.issue_number,
+          title: b.title,
+          period: b.period,
+          bulletinId: b.id,
+        }));
+    }
+
+    // Priority 2: Client fallback via publications records
+    if (publications && publications.length > 0) {
+      const bulletinMap = new Map(bulletins.map((b) => [b.id, b]));
+      const issueMap = new Map<
+        string,
+        {
+          label: string;
+          count: number;
+          volume: number;
+          issue: number;
+          bulletinId?: string;
+          title?: string;
+          period?: string;
+        }
+      >();
+
+      for (const pub of publications) {
+        const b = pub.bulletin_id ? bulletinMap.get(pub.bulletin_id) : undefined;
+        const vol = pub.volume_number ?? b?.volume_number;
+        const iss = pub.issue_number ?? b?.issue_number;
+        if (iss != null) {
+          const key = b?.id || (vol != null ? `v${vol}_i${iss}` : `i${iss}`);
+          const label = b?.title ? `Vol ${vol} Iss ${iss}` : vol != null ? `Vol ${vol} Iss ${iss}` : `Issue ${iss}`;
+          const existing = issueMap.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            issueMap.set(key, {
+              label,
+              count: 1,
+              volume: vol ?? 1,
+              issue: iss,
+              bulletinId: b?.id,
+              title: b?.title,
+              period: b?.publication_period,
+            });
+          }
+        }
+      }
+
+      if (issueMap.size > 0) {
+        return Array.from(issueMap.entries())
+          .sort((a, b) => a[1].volume - b[1].volume || a[1].issue - b[1].issue)
+          .map(([key, item]) => ({
+            key,
+            label: item.label,
+            count: item.count,
+            volume: item.volume,
+            issue: item.issue,
+            bulletinId: item.bulletinId,
+            title: item.title,
+            period: item.period,
+          }));
+      }
+    }
+
+    // Priority 3: Fallback via bulletins metadata
+    if (bulletins && bulletins.length > 0) {
+      return [...bulletins]
+        .sort((a, b) => a.volume_number - b.volume_number || a.issue_number - b.issue_number)
+        .map((b) => ({
+          key: b.id,
+          label: `Vol ${b.volume_number} Iss ${b.issue_number}`,
+          count: b.publication_count || 0,
+          volume: b.volume_number,
+          issue: b.issue_number,
+          title: b.title,
+          period: b.publication_period,
+          bulletinId: b.id,
+        }));
+    }
+
+    return [];
+  }, [analyticsData, publications, bulletins]);
+
+  // Authoritative dataset currently active based on selected filter
+  const currentTrendData = useMemo(() => {
+    switch (trendFilter) {
+      case 'volume':
+        return volumeData;
+      case 'issue':
+        return issueData;
+      case 'year':
+      default:
+        return yearData;
+    }
+  }, [trendFilter, yearData, volumeData, issueData]);
+
+  const filterDescription = useMemo(() => {
+    switch (trendFilter) {
+      case 'volume':
+        return 'Authoritative distribution of verified scholarly works compiled across published bulletin volumes.';
+      case 'issue':
+        return 'Authoritative distribution of verified scholarly works aggregated by distinct bulletin issues.';
+      case 'year':
+      default:
+        return 'Authoritative annual distribution of verified scholarly works cataloged in the institutional repository.';
+    }
+  }, [trendFilter]);
 
   // Chart 2: Output Distribution by Category (Normalized & Reconciled)
   const categoryData = useMemo(() => {
@@ -197,36 +410,84 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
   // SVG Trend Chart Dimensions
   const svgWidth = 520;
-  const svgHeight = 200;
-  const padLeft = 40;
-  const padRight = 20;
-  const padTop = 25;
-  const padBottom = 35;
+  const svgHeight = 210;
+  const padLeft = 44;
+  const padRight = 24;
+  const padTop = 26;
+  const padBottom = 38;
   const chartW = svgWidth - padLeft - padRight;
   const chartH = svgHeight - padTop - padBottom;
 
-  const maxTrend = Math.max(1, ...trendData.map((d) => d.count));
-  const stepX = trendData.length > 1 ? chartW / (trendData.length - 1) : chartW / 2;
+  const maxTrend = Math.max(1, ...currentTrendData.map((d) => d.count));
+  const yMax = maxTrend === 1 ? 2 : maxTrend;
 
-  const points = trendData.map((d, i) => {
-    const x = trendData.length > 1 ? padLeft + i * stepX : padLeft + chartW / 2;
-    const y = padTop + chartH - (d.count / maxTrend) * chartH;
-    return { x, y, ...d };
-  });
+  const yTicks = useMemo(() => {
+    if (yMax <= 2) {
+      return yMax === 1 ? [0, 1] : [0, 1, 2];
+    }
+    const mid = Math.round(yMax / 2);
+    return Array.from(new Set([0, mid, yMax])).sort((a, b) => a - b);
+  }, [yMax]);
+
+  // Points for Line Chart (Year)
+  const yearPoints = useMemo(() => {
+    if (yearData.length === 0) return [];
+    if (yearData.length === 1) {
+      return [
+        {
+          ...yearData[0],
+          x: padLeft + chartW / 2,
+          y: padTop + chartH - (yearData[0].count / yMax) * chartH,
+        },
+      ];
+    }
+    const stepX = chartW / (yearData.length - 1);
+    return yearData.map((d, i) => ({
+      ...d,
+      x: padLeft + i * stepX,
+      y: padTop + chartH - (d.count / yMax) * chartH,
+    }));
+  }, [yearData, chartW, chartH, yMax, padLeft, padTop]);
 
   let trendLinePath = '';
   let trendAreaPath = '';
-  if (points.length > 0) {
-    trendLinePath = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i];
-      const p1 = points[i + 1];
+  if (yearPoints.length > 1) {
+    trendLinePath = `M ${yearPoints[0].x} ${yearPoints[0].y}`;
+    for (let i = 0; i < yearPoints.length - 1; i++) {
+      const p0 = yearPoints[i];
+      const p1 = yearPoints[i + 1];
       const cpX = (p0.x + p1.x) / 2;
       trendLinePath += ` C ${cpX} ${p0.y}, ${cpX} ${p1.y}, ${p1.x} ${p1.y}`;
     }
     const baselineY = padTop + chartH;
-    trendAreaPath = `${trendLinePath} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`;
+    trendAreaPath = `${trendLinePath} L ${yearPoints[yearPoints.length - 1].x} ${baselineY} L ${yearPoints[0].x} ${baselineY} Z`;
   }
+
+  // Bars for Volume & Issue
+  const barItems = useMemo(() => {
+    const data = trendFilter === 'volume' ? volumeData : issueData;
+    if (data.length === 0) return [];
+    const N = data.length;
+    const maxBarW = trendFilter === 'volume' ? 52 : 44;
+    const slotW = chartW / N;
+    const barWidth = N === 1 ? maxBarW : Math.min(maxBarW, Math.max(16, slotW * 0.58));
+
+    return data.map((d, i) => {
+      const x = N === 1 ? padLeft + (chartW - barWidth) / 2 : padLeft + i * slotW + (slotW - barWidth) / 2;
+      const barH = d.count > 0 ? Math.max(5, (d.count / yMax) * chartH) : 0;
+      const y = padTop + chartH - barH;
+      const path = getTopRoundedRectPath(x, y, barWidth, barH, 4);
+      return {
+        ...d,
+        x,
+        y,
+        barWidth,
+        barHeight: barH,
+        centerX: x + barWidth / 2,
+        path,
+      };
+    });
+  }, [trendFilter, volumeData, issueData, chartW, chartH, yMax, padLeft, padTop]);
 
   // Max for Category Chart
   const maxCatCount = Math.max(1, ...categoryData.map((c) => c.count));
@@ -322,59 +583,123 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
       {/* Grid of 4 Interactive Charts */}
       <div
+        className="samiksha-analytics-responsive-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
           gap: '24px',
         }}
       >
-        {/* CHART 1: Research Publication Trends */}
+        {/* CHART 1: Research Publication Trends with Dynamic Dimension Filter */}
         <div
+          className="samiksha-analytics-card"
           style={{
             background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
             border: '1px solid #e2e8f0',
-            borderRadius: '14px',
-            padding: '20px 22px',
+            borderRadius: '16px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
+            boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            minHeight: '440px',
+            boxSizing: 'border-box',
           }}
         >
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
-                1. Publication Growth Trends
-              </h3>
-              <span className="samiksha-pill-badge cyan" style={{ padding: '2px 8px', fontSize: '10.5px' }}>By Year</span>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: '6px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f2b48', margin: 0 }}>
+                  1. Publication Growth Trends
+                </h3>
+                <span
+                  className={`samiksha-pill-badge ${
+                    trendFilter === 'year' ? 'cyan' : trendFilter === 'volume' ? 'teal' : 'navy'
+                  }`}
+                  style={{ padding: '2px 8px', fontSize: '10.5px' }}
+                >
+                  {trendFilter === 'year' ? 'By Year' : trendFilter === 'volume' ? 'By Volume' : 'By Issue'}
+                </span>
+              </div>
+
+              {/* Compact Segmented Control (Year / Volume / Issue) */}
+              <div
+                role="group"
+                aria-label="Filter publication trends by dimension"
+                className="samiksha-segmented-control"
+              >
+                {(['year', 'volume', 'issue'] as const).map((dim) => {
+                  const isActive = trendFilter === dim;
+                  const label = dim === 'year' ? 'Year' : dim === 'volume' ? 'Volume' : 'Issue';
+                  return (
+                    <button
+                      key={dim}
+                      type="button"
+                      onClick={() => {
+                        setTrendFilter(dim);
+                        setHoveredTrendIdx(null);
+                      }}
+                      aria-pressed={isActive}
+                      className={`samiksha-segmented-btn ${isActive ? 'is-active' : ''}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
             <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0', lineHeight: 1.45 }}>
-              Authoritative annual distribution of verified scholarly works cataloged in the institutional repository.
+              {filterDescription}
             </p>
           </div>
 
-          {trendData.length === 0 ? (
+          {currentTrendData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '36px 0', color: '#94a3b8', fontSize: '12.5px' }}>
-              {loading ? 'Compiling publication timeline...' : 'No historical publication year records available.'}
+              {loading
+                ? `Compiling ${trendFilter === 'year' ? 'publication timeline' : trendFilter === 'volume' ? 'volume distribution' : 'issue distribution'}...`
+                : trendFilter === 'year'
+                ? 'No historical publication year records available.'
+                : trendFilter === 'volume'
+                ? 'No volume publication records available.'
+                : 'No issue publication records available.'}
             </div>
           ) : (
             <div style={{ position: 'relative' }}>
               <svg
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
                 style={{ width: '100%', height: 'auto', overflow: 'visible' }}
-                aria-label="Research Publication Trends Chart"
+                aria-label={`Research Publication Trends by ${
+                  trendFilter === 'year' ? 'Year' : trendFilter === 'volume' ? 'Volume' : 'Issue'
+                }`}
               >
                 <defs>
                   <linearGradient id="samikshaTrendGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.32" />
                     <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
                   </linearGradient>
+                  <linearGradient id="samikshaBarGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0d9488" />
+                    <stop offset="100%" stopColor="#14b8a6" />
+                  </linearGradient>
+                  <linearGradient id="samikshaBarHoverGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#d97706" />
+                  </linearGradient>
                 </defs>
 
                 {/* Y-Axis Gridlines */}
-                {[0, 0.5, 1].map((ratio, i) => {
-                  const y = padTop + chartH * (1 - ratio);
-                  const labelVal = Math.round(maxTrend * ratio);
+                {yTicks.map((val, i) => {
+                  const y = padTop + chartH - (val / yMax) * chartH;
                   return (
                     <g key={i}>
                       <line
@@ -394,61 +719,200 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                         textAnchor="end"
                         fontFamily="system-ui, sans-serif"
                       >
-                        {labelVal}
+                        {val}
                       </text>
                     </g>
                   );
                 })}
 
-                {/* Area and Line */}
-                {trendAreaPath && <path d={trendAreaPath} fill="url(#samikshaTrendGradient)" />}
-                {trendLinePath && (
-                  <path
-                    d={trendLinePath}
-                    fill="none"
-                    stroke="#0d9488"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                {/* 1. YEAR LINE CHART */}
+                {trendFilter === 'year' && (
+                  <>
+                    {/* Area and Line for multi-point */}
+                    {yearPoints.length > 1 && trendAreaPath && (
+                      <path d={trendAreaPath} fill="url(#samikshaTrendGradient)" />
+                    )}
+                    {yearPoints.length > 1 && trendLinePath && (
+                      <path
+                        d={trendLinePath}
+                        fill="none"
+                        stroke="#0d9488"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+
+                    {/* Single Point Guideline, Halo and Callout */}
+                    {yearPoints.length === 1 && (
+                      <g>
+                        <line
+                          x1={padLeft}
+                          y1={yearPoints[0].y}
+                          x2={padLeft + chartW}
+                          y2={yearPoints[0].y}
+                          stroke="#14b8a6"
+                          strokeOpacity={0.25}
+                          strokeDasharray="4 4"
+                          strokeWidth={1}
+                        />
+                        <line
+                          x1={yearPoints[0].x}
+                          y1={yearPoints[0].y}
+                          x2={yearPoints[0].x}
+                          y2={padTop + chartH}
+                          stroke="#cbd5e1"
+                          strokeDasharray="3 3"
+                          strokeWidth={1}
+                        />
+                        <circle
+                          cx={yearPoints[0].x}
+                          cy={yearPoints[0].y}
+                          r={16}
+                          fill="#14b8a6"
+                          fillOpacity={0.16}
+                        />
+                        <g style={{ pointerEvents: 'none' }}>
+                          <rect
+                            x={yearPoints[0].x - 48}
+                            y={yearPoints[0].y - 28}
+                            width={96}
+                            height={20}
+                            rx={5}
+                            fill="#0a1f3d"
+                          />
+                          <text
+                            x={yearPoints[0].x}
+                            y={yearPoints[0].y - 14}
+                            fontSize="10.5"
+                            fontWeight="700"
+                            fill="#f59e0b"
+                            textAnchor="middle"
+                          >
+                            {yearPoints[0].count} {yearPoints[0].count === 1 ? 'Publication' : 'Publications'}
+                          </text>
+                        </g>
+                      </g>
+                    )}
+
+                    {/* Data Points */}
+                    {yearPoints.map((p, i) => {
+                      const isHovered = hoveredTrendIdx === i;
+                      return (
+                        <g key={p.key || i}>
+                          <circle
+                            cx={p.x}
+                            cy={p.y}
+                            r={isHovered ? 6.5 : 4.5}
+                            fill={isHovered ? '#f59e0b' : '#0d9488'}
+                            stroke="#ffffff"
+                            strokeWidth={isHovered ? 2.5 : 1.5}
+                            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            onMouseEnter={() => setHoveredTrendIdx(i)}
+                            onMouseLeave={() => setHoveredTrendIdx(null)}
+                            onClick={() => onSelectYear && p.year && onSelectYear(p.year)}
+                          />
+                          <text
+                            x={p.x}
+                            y={padTop + chartH + 18}
+                            fontSize="11"
+                            fontWeight={isHovered ? '700' : '500'}
+                            fill={isHovered ? '#0f2b48' : '#64748b'}
+                            textAnchor="middle"
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => onSelectYear && p.year && onSelectYear(p.year)}
+                          >
+                            {p.year}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </>
                 )}
 
-                {/* Data Points */}
-                {points.map((p, i) => {
-                  const isHovered = hoveredTrendIdx === i;
-                  return (
-                    <g key={i}>
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={isHovered ? 6.5 : 4.5}
-                        fill={isHovered ? '#f59e0b' : '#0d9488'}
-                        stroke="#ffffff"
-                        strokeWidth={isHovered ? 2.5 : 1.5}
-                        style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
-                        onMouseEnter={() => setHoveredTrendIdx(i)}
-                        onMouseLeave={() => setHoveredTrendIdx(null)}
-                        onClick={() => onSelectYear && onSelectYear(p.year)}
-                      />
-                      <text
-                        x={p.x}
-                        y={padTop + chartH + 18}
-                        fontSize="11"
-                        fontWeight={isHovered ? '700' : '500'}
-                        fill={isHovered ? '#0f2b48' : '#64748b'}
-                        textAnchor="middle"
-                        style={{ cursor: 'pointer', userSelect: 'none' }}
-                        onClick={() => onSelectYear && onSelectYear(p.year)}
-                      >
-                        {p.year}
-                      </text>
-                    </g>
-                  );
-                })}
+                {/* 2. VOLUME / ISSUE BAR CHARTS */}
+                {trendFilter !== 'year' && (
+                  <g>
+                    {barItems.map((bar, i) => {
+                      const isHovered = hoveredTrendIdx === i;
+                      return (
+                        <g
+                          key={bar.key || i}
+                          style={{ cursor: 'pointer' }}
+                          onMouseEnter={() => setHoveredTrendIdx(i)}
+                          onMouseLeave={() => setHoveredTrendIdx(null)}
+                          onClick={() => {
+                            if (trendFilter === 'volume') {
+                              if (onSelectVolume && bar.volume != null) {
+                                onSelectVolume(String(bar.volume));
+                              }
+                            } else {
+                              if (onSelectIssue && bar.issue != null) {
+                                onSelectIssue(String(bar.issue), bar.volume != null ? String(bar.volume) : undefined);
+                              }
+                              if (onSelectBulletin && bar.bulletinId) {
+                                onSelectBulletin(bar.bulletinId);
+                              }
+                            }
+                          }}
+                        >
+                          {/* Value callout above bar */}
+                          {bar.count > 0 && (isHovered || barItems.length <= 5) && (
+                            <text
+                              x={bar.centerX}
+                              y={bar.y - 6}
+                              fontSize="10.5"
+                              fontWeight="700"
+                              fill={isHovered ? '#0f2b48' : '#0d766e'}
+                              textAnchor="middle"
+                              style={{ userSelect: 'none' }}
+                            >
+                              {bar.count}
+                            </text>
+                          )}
+
+                          {/* Bar Path */}
+                          {bar.barHeight > 0 ? (
+                            <path
+                              d={bar.path}
+                              fill={isHovered ? 'url(#samikshaBarHoverGradient)' : 'url(#samikshaBarGradient)'}
+                              style={{
+                                transition: 'fill 0.15s ease, opacity 0.15s ease',
+                                filter: isHovered ? 'drop-shadow(0 2px 6px rgba(245, 158, 11, 0.4))' : 'none',
+                              }}
+                            />
+                          ) : (
+                            <line
+                              x1={bar.x}
+                              y1={padTop + chartH}
+                              x2={bar.x + bar.barWidth}
+                              y2={padTop + chartH}
+                              stroke="#cbd5e1"
+                              strokeWidth={2}
+                            />
+                          )}
+
+                          {/* X-axis Label */}
+                          <text
+                            x={bar.centerX}
+                            y={padTop + chartH + 18}
+                            fontSize={barItems.length > 5 ? '9.5' : '10.5'}
+                            fontWeight={isHovered ? '700' : '500'}
+                            fill={isHovered ? '#0f2b48' : '#64748b'}
+                            textAnchor="middle"
+                            style={{ userSelect: 'none' }}
+                          >
+                            {bar.label}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </g>
+                )}
               </svg>
 
               {/* Hover Tooltip Box */}
-              {hoveredTrendIdx !== null && points[hoveredTrendIdx] && (
+              {hoveredTrendIdx !== null && currentTrendData[hoveredTrendIdx] && (
                 <div
                   style={{
                     position: 'absolute',
@@ -462,13 +926,25 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
                     boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
                     pointerEvents: 'none',
                     border: '1px solid rgba(255,255,255,0.1)',
+                    zIndex: 10,
                   }}
                 >
-                  <div style={{ fontWeight: 700, color: '#f59e0b' }}>Year {points[hoveredTrendIdx].year}</div>
+                  <div style={{ fontWeight: 700, color: '#f59e0b' }}>
+                    {trendFilter === 'year'
+                      ? `Year ${currentTrendData[hoveredTrendIdx].year}`
+                      : trendFilter === 'volume'
+                      ? `Volume ${currentTrendData[hoveredTrendIdx].volume}`
+                      : currentTrendData[hoveredTrendIdx].title || currentTrendData[hoveredTrendIdx].label}
+                  </div>
+                  {trendFilter === 'issue' && currentTrendData[hoveredTrendIdx].period && (
+                    <div style={{ fontSize: '10.5px', color: '#cbd5e1', marginBottom: '2px' }}>
+                      {currentTrendData[hoveredTrendIdx].period}
+                    </div>
+                  )}
                   <div>
-                    {points[hoveredTrendIdx].count} Publications (
+                    {currentTrendData[hoveredTrendIdx].count} Publications (
                     {effectiveTotalPubs > 0
-                      ? Math.round((points[hoveredTrendIdx].count / effectiveTotalPubs) * 100)
+                      ? Math.round((currentTrendData[hoveredTrendIdx].count / effectiveTotalPubs) * 100)
                       : 100}
                     %)
                   </div>
@@ -480,15 +956,18 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
         {/* CHART 2: Output Distribution by Category */}
         <div
+          className="samiksha-analytics-card"
           style={{
             background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
             border: '1px solid #e2e8f0',
-            borderRadius: '14px',
-            padding: '20px 22px',
+            borderRadius: '16px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
+            boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            minHeight: '440px',
+            boxSizing: 'border-box',
           }}
         >
           <div>
@@ -587,15 +1066,18 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
         {/* CHART 3: Recognition & Verification Overview */}
         <div
+          className="samiksha-analytics-card"
           style={{
             background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
             border: '1px solid #e2e8f0',
-            borderRadius: '14px',
-            padding: '20px 22px',
+            borderRadius: '16px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
+            boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            minHeight: '440px',
+            boxSizing: 'border-box',
           }}
         >
           <div>
@@ -786,15 +1268,18 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
 
         {/* CHART 4: Bulletin Publishing Volumes */}
         <div
+          className="samiksha-analytics-card"
           style={{
             background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
             border: '1px solid #e2e8f0',
-            borderRadius: '14px',
-            padding: '20px 22px',
+            borderRadius: '16px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 6px rgba(15, 43, 72, 0.02)',
+            boxShadow: '0 2px 10px rgba(15, 43, 72, 0.03)',
+            minHeight: '440px',
+            boxSizing: 'border-box',
           }}
         >
           <div>
