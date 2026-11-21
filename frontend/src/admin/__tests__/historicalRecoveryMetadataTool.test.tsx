@@ -118,6 +118,11 @@ describe('CertificatesPage — Historical Certificate Recovery Metadata & PDF Re
       items: [activeCert, historicalCert],
       total: 2,
     });
+    vi.spyOn(samaAdminService, 'getAuthors').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaAdminService, 'getBulletins').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaAdminService, 'getPublications').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaAdminService, 'getTemplates').mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(samaAdminService, 'getSignatories').mockResolvedValue({ items: [], total: 0 });
   });
 
   it('1. Renders "Edit Recovery Metadata" only for historical certificates', async () => {
@@ -258,5 +263,74 @@ describe('CertificatesPage — Historical Certificate Recovery Metadata & PDF Re
       }));
       expect(screen.getByText(/Recovery metadata and PDF storage references updated successfully/i)).toBeInTheDocument();
     });
+  });
+
+  it('6. DetailsModal renders "Edit Recovery Metadata" and opens repair modal', async () => {
+    render(
+      <MemoryRouter>
+        <CertificatesPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('CSJMU/SAMIKSHA/2026/000002')).toBeInTheDocument();
+    });
+
+    // Find Details button for the historical certificate
+    const detailsButtons = screen.getAllByRole('button', { name: /Details/i });
+    // Click historical certificate's Details button (second card)
+    fireEvent.click(detailsButtons[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Certificate Details — CSJMU\/SAMIKSHA\/2026\/000002/i)).toBeInTheDocument();
+    });
+
+    // In DetailsModal, verify "Edit Recovery Metadata" button is present (along with card button = 2 total)
+    const editBtns = screen.getAllByRole('button', { name: /Edit Recovery Metadata/i });
+    expect(editBtns.length).toBe(2);
+
+    // Click the one inside the DetailsModal
+    fireEvent.click(editBtns[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Edit Recovery Metadata — CSJMU\/SAMIKSHA\/2026\/000002/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/e\.g\. 57201234567/i)).toHaveValue('57209998888');
+    });
+  });
+
+  it('7. Historical certificate with non-standard response shape still reliably renders action', async () => {
+    // Exact shape where is_legacy is undefined, status is REVOKED, but origin is historical
+    const oddShapeCert = {
+      id: 'cert-odd-003',
+      certificate_number: 'CSJMU/SAMIKSHA/2026/000003',
+      origin: 'historical' as const,
+      status: 'REVOKED' as const,
+      title: 'Historical Revoked Certificate',
+      research_title: 'Bio-Polymer Recovery',
+      recipient_name: 'Dr. Edge Case',
+      created_at: '2026-05-01T00:00:00Z',
+      download_count: 0,
+      publication_details: {
+        is_historical_archive: true,
+      },
+    };
+
+    vi.spyOn(samaAdminService, 'getCertificates').mockResolvedValue({
+      items: [oddShapeCert],
+      total: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <CertificatesPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('CSJMU/SAMIKSHA/2026/000003')).toBeInTheDocument();
+    });
+
+    const editBtn = screen.getByRole('button', { name: /Edit Recovery Metadata/i });
+    expect(editBtn).toBeInTheDocument();
   });
 });

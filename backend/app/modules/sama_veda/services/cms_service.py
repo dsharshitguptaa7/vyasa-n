@@ -1165,6 +1165,7 @@ class SamaCmsService:
             id=legacy.id,
             certificate_number=legacy.certificate_number,
             record_type="historical",
+            origin="historical",
             certificate_type=legacy.certificate_type,
             status="REVOKED" if legacy.is_revoked else "HISTORICAL",
             template_id=None,
@@ -1252,6 +1253,8 @@ class SamaCmsService:
                     "notice": f"Notice: Certificate serial number {cert.certificate_number} is also held by a historical printed certificate ({legacy_coll.recipient_name})."
                 }
         out.record_type = "active"
+        out.origin = "active"
+        out.is_legacy = False
         if cert.authors:
             out.recipient_name = cert.authors[0].author_name_snapshot
             out.department = cert.authors[0].department_snapshot

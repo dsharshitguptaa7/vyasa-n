@@ -17,6 +17,7 @@ import type {
   BulkVerifyCertificatesResponse,
   CertificateVerificationItem,
 } from '../../types/sama';
+import { isHistoricalCertificate } from '../../types/sama';
 import { BulkOperationsSection } from './BulkOperationsSection';
 
 type TabKey = 'ledger' | 'approvals' | 'bulk_operations' | 'designer' | 'templates' | 'signatories' | 'verification';
@@ -1953,7 +1954,7 @@ export const CertificatesPage: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {certificates.map((cert) => {
-                  const isLegacy = !!cert.is_legacy || cert.status === 'HISTORICAL';
+                  const isLegacy = isHistoricalCertificate(cert);
                   const isArchived = cert.status === 'ARCHIVED';
                   const isRevoked = cert.is_revoked || cert.status === 'REVOKED';
                   const isSuperseded = cert.status === 'SUPERSEDED';
@@ -2172,18 +2173,27 @@ export const CertificatesPage: React.FC = () => {
 
                           {isLegacy ? (
                             <>
-                              <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#64748B', borderColor: '#E2E8F0', fontSize: '11px' }}>
-                                🔒 Historical Immutable
-                              </Badge>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleOpenEditRecoveryMetadata(cert)}
                                 title="Edit Recovery Metadata & Storage References"
-                                style={{ borderColor: '#6366F1', color: '#4F46E5', fontWeight: 600 }}
+                                style={{
+                                  borderColor: '#6366F1',
+                                  color: '#4F46E5',
+                                  background: '#EEF2FF',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  whiteSpace: 'nowrap',
+                                }}
                               >
+                                <AppIcon name="edit" size={14} style={{ marginRight: '5px' }} />
                                 Edit Recovery Metadata
                               </Button>
+                              <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#64748B', borderColor: '#E2E8F0', fontSize: '11px' }}>
+                                🔒 Historical Immutable
+                              </Badge>
                             </>
                           ) : (
                             <>
@@ -5774,7 +5784,7 @@ export const CertificatesPage: React.FC = () => {
 
               {/* Origin & Status Row */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                {detailsCert.is_legacy ? (
+                {isHistoricalCertificate(detailsCert) ? (
                   <Badge variant="neutral" style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A', fontWeight: 700 }}>
                     📜 Historical / Recovered Registry Record
                   </Badge>
@@ -5896,8 +5906,8 @@ export const CertificatesPage: React.FC = () => {
                   <AppIcon name="clipboard" size={14} style={{ marginRight: '4px' }} />
                   {copiedToken === (detailsCert.verification_token || detailsCert.certificate_number) ? 'Verification Link Copied' : 'Copy Verification Link'}
                 </Button>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {(detailsCert.is_legacy || detailsCert.record_type === 'historical') && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {isHistoricalCertificate(detailsCert) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -5906,8 +5916,18 @@ export const CertificatesPage: React.FC = () => {
                         setShowDetailsModal(false);
                         handleOpenEditRecoveryMetadata(target);
                       }}
-                      style={{ borderColor: '#6366F1', color: '#4F46E5', fontWeight: 600 }}
+                      style={{
+                        borderColor: '#6366F1',
+                        color: '#4F46E5',
+                        background: '#EEF2FF',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title="Edit Historical Recovery Metadata & Storage References"
                     >
+                      <AppIcon name="edit" size={14} style={{ marginRight: '5px' }} />
                       Edit Recovery Metadata
                     </Button>
                   )}

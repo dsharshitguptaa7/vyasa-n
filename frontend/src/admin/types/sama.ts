@@ -415,6 +415,7 @@ export interface FelicitationCertificateItem {
   id: string;
   certificate_number: string;
   record_type?: 'active' | 'historical';
+  origin?: 'active' | 'historical';
   certificate_type?: string;
   status?: CertificateStatus;
   template_id?: string | null;
@@ -496,6 +497,37 @@ export interface TestPdfAvailabilityResponse {
   resolved_path?: string | null;
   message: string;
 }
+
+/**
+ * Reliable, multi-attribute discriminator that identifies historical / recovered SAMIKSHA certificates
+ * across varying API response shapes, legacy flags, and revocation states.
+ * Guarantees active certificates are never misidentified as historical.
+ */
+export const isHistoricalCertificate = (
+  cert: FelicitationCertificateItem | null | undefined
+): boolean => {
+  if (!cert) return false;
+  const recordType = (cert.record_type || '').toLowerCase();
+  const origin = (cert.origin || '').toLowerCase();
+  const status = (cert.status || '').toUpperCase();
+
+  if (recordType === 'historical' || origin === 'historical' || status === 'HISTORICAL') {
+    return true;
+  }
+  if (cert.is_legacy === true) {
+    return true;
+  }
+  if (Boolean(cert.recovery_source)) {
+    return true;
+  }
+  if (cert.publication_details && typeof cert.publication_details === 'object') {
+    const pub = cert.publication_details as Record<string, any>;
+    if (pub.is_historical_archive === true || Boolean(pub.recovery_source)) {
+      return true;
+    }
+  }
+  return false;
+};
 
 export interface IssueCertificatePayload {
   certificate_type?: string;
