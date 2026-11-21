@@ -549,4 +549,74 @@ describe('Research Intelligence Overview Data Integrity Suite', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Issue' }));
     expect(screen.getByText('No issue publication records available.')).toBeInTheDocument();
   });
+
+  it('12. Accurately renders 6 CAM-AI Grants awards dynamically and falls back to project records', () => {
+    // 1. With analyticsData having 6 grants
+    const dataWith6Grants: OverviewAnalyticsData = {
+      ...mockAnalyticsData,
+      summary: {
+        ...mockAnalyticsData.summary,
+        cam_grants: 6,
+      },
+    };
+
+    const { rerender } = render(
+      <SamikshaAnalytics
+        analyticsData={dataWith6Grants}
+        publications={[]}
+        totalPublications={15}
+        bulletins={[]}
+        authors={[]}
+        totalAuthors={279}
+        camProjects={[]}
+      />
+    );
+
+    expect(screen.getByText('CAM-AI Grants').parentElement).toHaveTextContent(/6\s*awards/);
+
+    // 2. Dynamic update when analyticsData summary updates to 7
+    const dataWith7Grants: OverviewAnalyticsData = {
+      ...mockAnalyticsData,
+      summary: {
+        ...mockAnalyticsData.summary,
+        cam_grants: 7,
+      },
+    };
+
+    rerender(
+      <SamikshaAnalytics
+        analyticsData={dataWith7Grants}
+        publications={[]}
+        totalPublications={15}
+        bulletins={[]}
+        authors={[]}
+        totalAuthors={279}
+        camProjects={[]}
+      />
+    );
+
+    expect(screen.getByText('CAM-AI Grants').parentElement).toHaveTextContent(/7\s*awards/);
+
+    // 3. Fallback to 6 camProjects records when analyticsData is null
+    rerender(
+      <SamikshaAnalytics
+        analyticsData={null}
+        publications={[]}
+        totalPublications={15}
+        bulletins={[]}
+        authors={[]}
+        totalAuthors={279}
+        camProjects={[
+          { id: '1', title: 'P1', status: 'Ongoing', principal_investigators: [], co_investigators: [] },
+          { id: '2', title: 'P2', status: 'Sanctioned', principal_investigators: [], co_investigators: [] },
+          { id: '3', title: 'P3', status: 'In Progress', principal_investigators: [], co_investigators: [] },
+          { id: '4', title: 'P4', status: 'Awarded', principal_investigators: [], co_investigators: [] },
+          { id: '5', title: 'P5', status: 'Completed', principal_investigators: [], co_investigators: [] },
+          { id: '6', title: 'P6', status: 'Ongoing', principal_investigators: [], co_investigators: [] },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('CAM-AI Grants').parentElement).toHaveTextContent(/6\s*awards/);
+  });
 });

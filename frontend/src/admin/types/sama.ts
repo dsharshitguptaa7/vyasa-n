@@ -414,6 +414,7 @@ export interface CertificateStatsRecord {
 export interface FelicitationCertificateItem {
   id: string;
   certificate_number: string;
+  record_type?: 'active' | 'historical';
   certificate_type?: string;
   status?: CertificateStatus;
   template_id?: string | null;

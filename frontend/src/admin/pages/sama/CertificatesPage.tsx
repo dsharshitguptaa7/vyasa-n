@@ -287,10 +287,10 @@ export const CertificatesPage: React.FC = () => {
       let isRevokedParam: boolean | undefined = undefined;
       let statusParam: string | undefined = undefined;
       let scopeParam: 'ledger' | undefined = undefined;
-      let originParam: 'all' | 'active' | 'historical' | undefined = originFilter !== 'all' ? originFilter : undefined;
+      let originParam: 'all' | 'active' | 'historical' | undefined = originFilter;
 
       if (statusFilter === 'all') {
-        scopeParam = 'ledger';
+        scopeParam = originParam === 'historical' ? undefined : 'ledger';
       } else if (statusFilter === 'revoked') {
         isRevokedParam = true;
       } else if (statusFilter === 'issued') {
@@ -304,6 +304,12 @@ export const CertificatesPage: React.FC = () => {
         statusParam = 'ARCHIVED';
       } else if (statusFilter === 'historical') {
         originParam = 'historical';
+        statusParam = undefined;
+        scopeParam = undefined;
+      }
+
+      if (originParam === 'historical') {
+        scopeParam = undefined;
       }
 
       const res = await samaAdminService.getCertificates({
@@ -1881,6 +1887,11 @@ export const CertificatesPage: React.FC = () => {
                               <Badge variant="neutral">Draft</Badge>
                             ) : (
                               <Badge variant="teal">ISSUED & VERIFIED</Badge>
+                            )}
+                            {cert.certificate_type && (
+                              <Badge variant="neutral" style={{ background: '#F1F5F9', color: '#475569', fontSize: '11px', borderColor: '#E2E8F0' }}>
+                                {cert.certificate_type}
+                              </Badge>
                             )}
                             {cert.issue_reference && (
                               <Badge variant="neutral" style={{ background: '#F8FAFC', color: '#475569', fontSize: '11px', borderColor: '#E2E8F0' }}>

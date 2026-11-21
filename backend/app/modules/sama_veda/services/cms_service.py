@@ -7,7 +7,7 @@ import zipfile
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, cast, func, or_, select, String
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 logger = logging.getLogger(__name__)
@@ -1148,13 +1148,16 @@ class SamaCmsService:
                     "colliding_serial": legacy.certificate_number,
                     "active_id": str(active_cert.id),
                     "active_recipient": active_author,
+                    "historical_recipient": legacy.recipient_name,
                     "active_token": active_cert.verification_token,
+                    "historical_token": legacy.verification_token,
                     "notice": f"Notice: Serial {legacy.certificate_number} is actively held by digital certificate issued to {active_author}."
                 }
 
         return CertificateOut(
             id=legacy.id,
             certificate_number=legacy.certificate_number,
+            record_type="historical",
             certificate_type=legacy.certificate_type,
             status="REVOKED" if legacy.is_revoked else "HISTORICAL",
             template_id=None,
@@ -1224,9 +1227,14 @@ class SamaCmsService:
                     "colliding_serial": cert.certificate_number,
                     "legacy_id": str(legacy_coll.id),
                     "legacy_recipient": legacy_coll.recipient_name,
+                    "historical_recipient": legacy_coll.recipient_name,
+                    "active_recipient": cert.authors[0].author_name_snapshot if cert.authors else "Active Recipient",
                     "legacy_token": legacy_coll.verification_token,
+                    "historical_token": legacy_coll.verification_token,
+                    "active_token": cert.verification_token,
                     "notice": f"Notice: Certificate serial number {cert.certificate_number} is also held by a historical printed certificate ({legacy_coll.recipient_name})."
                 }
+        out.record_type = "active"
         return out
 
     @classmethod
@@ -1253,8 +1261,12 @@ class SamaCmsService:
         # Origin routing
         if status_norm in ["HISTORICAL", "RECOVERED", "LEGACY"]:
             origin_norm = "historical"
+        elif origin_norm in ["historical", "active"]:
+            pass
         elif scope_norm == "approvals" or status_norm in ["PENDING", "PENDING_APPROVAL", "APPROVAL_QUEUE", "DRAFT", "SCHEDULED", "SUPERSEDED", "ARCHIVED"]:
             origin_norm = "active"
+        elif search and origin_norm not in ["active", "historical"]:
+            origin_norm = "all"
         elif not origin_norm:
             if status_norm == "ISSUED" and not origin:
                 origin_norm = "active"
@@ -1333,7 +1345,8 @@ class SamaCmsService:
                 active_filters.append(FelicitationCertificate.status != "ARCHIVED")
 
         if search:
-            search_pattern = f"%{search.strip()}%"
+            clean_search = search.strip().lstrip("#").strip()
+            search_pattern = f"%{clean_search}%"
             active_filters.append(
                 or_(
                     FelicitationCertificate.certificate_number.ilike(search_pattern),
@@ -1349,16 +1362,23 @@ class SamaCmsService:
         legacy_filters = [LegacyCertificateRegistry.is_legacy == True]
         if is_revoked is not None:
             legacy_filters.append(LegacyCertificateRegistry.is_revoked == is_revoked)
+        elif status_norm == "REVOKED":
+            legacy_filters.append(LegacyCertificateRegistry.is_revoked == True)
+        elif status_norm in ["ISSUED", "ISSUED_ACTIVE"]:
+            legacy_filters.append(LegacyCertificateRegistry.is_revoked == False)
+
         if certificate_type:
             legacy_filters.append(LegacyCertificateRegistry.certificate_type == certificate_type.strip().upper())
         if search:
-            search_pattern = f"%{search.strip()}%"
+            clean_search = search.strip().lstrip("#").strip()
+            search_pattern = f"%{clean_search}%"
             legacy_filters.append(
                 or_(
                     LegacyCertificateRegistry.certificate_number.ilike(search_pattern),
                     LegacyCertificateRegistry.recipient_name.ilike(search_pattern),
                     LegacyCertificateRegistry.research_title.ilike(search_pattern),
                     LegacyCertificateRegistry.verification_token.ilike(search_pattern),
+                    cast(LegacyCertificateRegistry.recovery_metadata, String).ilike(search_pattern),
                 )
             )
         if bulletin_id or author_id or scope_norm == "approvals":

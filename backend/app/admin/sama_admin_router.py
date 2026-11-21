@@ -1475,7 +1475,7 @@ def get_admin_certificate(
             data=data_out.model_dump(),
         )
 
-    from app.modules.sama_veda.models.legacy_certificate import LegacyCertificateRegistry
+    from app.modules.sama_veda.models.certificate import LegacyCertificateRegistry
     legacy = db.get(LegacyCertificateRegistry, certificate_id)
     if legacy:
         data_out = sama_cms_service.format_legacy_certificate_out(legacy, db)
@@ -2654,7 +2654,7 @@ def download_admin_certificate(
             allow_scheduled=True,
         )
 
-    from app.modules.sama_veda.models.legacy_certificate import LegacyCertificateRegistry
+    from app.modules.sama_veda.models.certificate import LegacyCertificateRegistry
     from app.modules.sama_veda.services.legacy_recovery_service import LegacyRecoveryService
     from fastapi.responses import FileResponse
     legacy_cert = db.get(LegacyCertificateRegistry, certificate_id)
@@ -2668,6 +2668,7 @@ def download_admin_certificate(
                 path=str(pdf_path),
                 filename=filename,
                 media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
         raise HTTPException(status_code=404, detail="Historical certificate PDF file not found in storage archive.")
 

@@ -199,3 +199,80 @@ def test_update_cam_project_service_rollback_on_failure():
         sama_cms_service.update_cam_project(mock_db, existing_project, payload)
 
     mock_db.rollback.assert_called_once()
+
+
+def test_overview_analytics_counts_all_cam_projects_regardless_of_status():
+    """Verify SamaAnalyticsService counts all authoritative CAM-AI projects regardless of status."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.models.base import Base
+    import app.modules.sama_veda.models
+    from app.modules.sama_veda.services.analytics_service import sama_analytics_service
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    db = Session()
+
+    try:
+        # Seed 6 projects with diverse valid statuses
+        statuses = ["Ongoing", "Sanctioned", "In Progress", "Awarded", "Completed", "Ongoing"]
+        for idx, stat in enumerate(statuses, start=1):
+            p = CamAiProject(
+                id=uuid.uuid4(),
+                legacy_project_id=idx,
+                title=f"CAM-AI Research Project {idx}",
+                category="Major" if idx <= 3 else "Minor",
+                domain="AI & Computing",
+                status=stat,
+                funding_amount_inr=Decimal(str(idx * 100000)),
+                funding_display=f"₹{idx} Lakhs",
+            )
+            db.add(p)
+        db.commit()
+
+        # 1. Assert exactly 6 projects are counted in overview analytics
+        analytics = sama_analytics_service.get_full_overview_analytics(db)
+        assert analytics["summary"]["cam_grants"] == 6
+
+        # 2. Dynamically add a 7th project
+        p7 = CamAiProject(
+            id=uuid.uuid4(),
+            legacy_project_id=7,
+            title="CAM-AI Drone Project 7",
+            category="Major",
+            domain="Robotics AI",
+            status="Ongoing",
+            funding_amount_inr=Decimal("1500000"),
+            funding_display="₹15 Lakhs",
+        )
+        db.add(p7)
+        db.commit()
+
+        # Verify dynamic metric refresh reflects 7
+        analytics_after_add = sama_analytics_service.get_full_overview_analytics(db)
+        assert analytics_after_add["summary"]["cam_grants"] == 7
+
+        # 3. Update status of project 7 to another valid status
+        p7.status = "Completed"
+        db.commit()
+
+        analytics_after_update = sama_analytics_service.get_full_overview_analytics(db)
+        assert analytics_after_update["summary"]["cam_grants"] == 7
+
+        # 4. Delete project 7
+        db.delete(p7)
+        db.commit()
+
+        # Verify metric dynamically drops back to 6
+        analytics_after_delete = sama_analytics_service.get_full_overview_analytics(db)
+        assert analytics_after_delete["summary"]["cam_grants"] == 6
+
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)

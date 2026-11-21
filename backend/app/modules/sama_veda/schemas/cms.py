@@ -736,6 +736,7 @@ class CertificateOut(BaseModel):
 
     id: uuid.UUID
     certificate_number: str
+    record_type: Optional[str] = "active"
     certificate_type: Optional[str] = "RESEARCH_PUBLICATION"
     status: Optional[str] = "ISSUED"
     template_id: Optional[uuid.UUID] = None

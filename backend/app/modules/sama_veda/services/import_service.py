@@ -31,7 +31,11 @@ from app.modules.sama_veda.schemas.import_schemas import (
 from app.services.audit_service import audit_service
 
 
-CANONICAL_HISTORICAL_DIR = r"C:\Projects\Harshit_Portfolio\research.felicitation.csjmu"
+CANONICAL_HISTORICAL_DIR = (
+    r"C:\Projects\Research Felicitation\research.felicitation.csjmu"
+    if os.path.isdir(r"C:\Projects\Research Felicitation\research.felicitation.csjmu")
+    else r"C:\Projects\Harshit_Portfolio\research.felicitation.csjmu"
+)
 
 
 class SamaImportService:

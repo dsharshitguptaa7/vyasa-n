@@ -366,7 +366,10 @@ export const SamikshaAnalytics: React.FC<SamikshaAnalyticsProps> = ({
     const doiCount = analyticsData?.indexing_metrics?.doi_indexed ?? publications.filter((p) => Boolean(p.doi)).length;
     const directCount =
       analyticsData?.indexing_metrics?.direct_peer_reviewed ?? Math.max(0, (effectiveTotalPubs || publications.length) - doiCount);
-    const grantsCount = analyticsData?.summary?.cam_grants ?? (camProjects ? camProjects.length : 0);
+    const grantsCount =
+      (analyticsData?.summary?.cam_grants !== undefined && analyticsData?.summary?.cam_grants !== null)
+        ? analyticsData.summary.cam_grants
+        : (camProjects ? camProjects.length : 0);
 
     return {
       doiCount,

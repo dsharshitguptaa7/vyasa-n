@@ -11,6 +11,7 @@ import os
 import re
 import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -310,6 +311,14 @@ class LegacyRecoveryService:
                 candidates.append(base)
             candidates.append(ref)
 
+        tok = (legacy.verification_token or "").strip()
+        if tok:
+            candidates.append(f"sama_veda/certificates/{tok}.pdf")
+            candidates.append(f"{tok}.pdf")
+            if cert_no_clean:
+                candidates.append(f"sama_veda/certificates/{tok[:12]}_{cert_no_clean}.pdf")
+                candidates.append(f"{tok[:12]}_{cert_no_clean}.pdf")
+
         seen = set()
         unique = []
         for c in candidates:
@@ -327,8 +336,18 @@ class LegacyRecoveryService:
         via the core storage_service proxy, which downloads and caches the object atomically.
         """
         ref = legacy.source_pdf_reference
-        if ref and os.path.isfile(ref):
-            return str(Path(ref).resolve())
+        if ref:
+            p = Path(ref)
+            if p.is_file():
+                return str(p.resolve())
+            for base_dir in [Path.cwd(), Path.cwd() / "backend", Path.cwd().parent]:
+                candidate = (base_dir / ref).resolve()
+                if candidate.is_file():
+                    return str(candidate)
+                if ref.startswith("backend/"):
+                    sub_candidate = (base_dir / ref[len("backend/"):]).resolve()
+                    if sub_candidate.is_file():
+                        return str(sub_candidate)
 
         try:
             from app.core.storage import storage_service, StorageFileNotFoundError, StorageError

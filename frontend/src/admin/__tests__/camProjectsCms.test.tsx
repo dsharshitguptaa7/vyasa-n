@@ -247,4 +247,37 @@ describe('CAM-AI Projects CMS Page - Data Integrity & Update Flow', () => {
       { name: 'Dr. Anita Roy', department: 'Electronics' },
     ]);
   });
+
+  it('dispatches vyasa:cam-projects-changed event when saving project so Samiksha dashboard refreshes', async () => {
+    vi.spyOn(samaAdminService, 'updateCamProject').mockResolvedValue(mockProjects[0]);
+
+    const eventListener = vi.fn();
+    window.addEventListener('vyasa:cam-projects-changed', eventListener);
+
+    render(
+      <MemoryRouter>
+        <CamProjectsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Autonomous Drone Crop Monitoring System')).toBeInTheDocument();
+    });
+
+    const editButtons = screen.getAllByRole('button', { name: /^Edit$/i });
+    fireEvent.click(editButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit CAM-AI Project')).toBeInTheDocument();
+    });
+
+    const updateButton = screen.getByRole('button', { name: /Update Project/i });
+    fireEvent.click(updateButton);
+
+    await waitFor(() => {
+      expect(eventListener).toHaveBeenCalled();
+    });
+
+    window.removeEventListener('vyasa:cam-projects-changed', eventListener);
+  });
 });

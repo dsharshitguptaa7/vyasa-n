@@ -204,6 +204,9 @@ export const CamProjectsPage: React.FC = () => {
         setSuccessMessage('CAM-AI Project registered successfully.');
       }
 
+      window.dispatchEvent(new CustomEvent('vyasa:cam-projects-changed'));
+      window.dispatchEvent(new CustomEvent('vyasa:refresh-overview'));
+
       setShowAddEditModal(false);
       fetchProjects();
     } catch (err: unknown) {
@@ -221,6 +224,8 @@ export const CamProjectsPage: React.FC = () => {
       setSubmitting(true);
       setError(null);
       await samaAdminService.deleteCamProject(projectToDelete.id);
+      window.dispatchEvent(new CustomEvent('vyasa:cam-projects-changed'));
+      window.dispatchEvent(new CustomEvent('vyasa:refresh-overview'));
       setSuccessMessage('CAM-AI Project deleted successfully.');
       setShowDeleteModal(false);
       setProjectToDelete(null);

@@ -246,7 +246,7 @@ class SamaAnalyticsService:
         direct_peer_reviewed = max(0, total_published - doi_indexed)
         
         total_cam_projects = db.scalar(
-            select(func.count(CamAiProject.id)).where(CamAiProject.status == "active")
+            select(func.count(CamAiProject.id))
         ) or 0
         
         total_fellows = db.scalar(

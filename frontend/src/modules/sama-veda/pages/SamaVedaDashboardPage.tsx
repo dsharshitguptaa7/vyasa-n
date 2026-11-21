@@ -281,8 +281,19 @@ export const SamaVedaDashboardPage: React.FC = () => {
 
     loadOverviewData();
 
+    const handleDataChanged = () => {
+      if (isMounted) {
+        loadOverviewData();
+      }
+    };
+
+    window.addEventListener('vyasa:cam-projects-changed', handleDataChanged);
+    window.addEventListener('vyasa:refresh-overview', handleDataChanged);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('vyasa:cam-projects-changed', handleDataChanged);
+      window.removeEventListener('vyasa:refresh-overview', handleDataChanged);
     };
   }, []);
 
@@ -457,7 +468,9 @@ export const SamaVedaDashboardPage: React.FC = () => {
       },
       {
         label: 'CAM-AI Grants',
-        value: analyticsData?.summary?.cam_grants ?? camProjects.length,
+        value: (analyticsData?.summary?.cam_grants !== undefined && analyticsData?.summary?.cam_grants !== null)
+          ? analyticsData.summary.cam_grants
+          : camProjects.length,
         loading,
         unavailable: camProjectsUnavailable,
         tabKey: 'cam-projects',
@@ -723,7 +736,11 @@ export const SamaVedaDashboardPage: React.FC = () => {
               totalPublications={analyticsData?.summary?.total_publications ?? totalPublications}
               totalBulletins={analyticsData?.summary?.total_bulletins ?? bulletins.length}
               totalAuthors={analyticsData?.summary?.total_researchers ?? totalAuthors}
-              totalCamProjects={analyticsData?.summary?.cam_grants ?? camProjects.length}
+              totalCamProjects={
+                (analyticsData?.summary?.cam_grants !== undefined && analyticsData?.summary?.cam_grants !== null)
+                  ? analyticsData.summary.cam_grants
+                  : camProjects.length
+              }
               totalFellows={analyticsData?.summary?.active_fellows ?? totalScholars}
               onNavigateTab={(tabKey) => handleTabChange(tabKey as ActiveTab)}
             />
