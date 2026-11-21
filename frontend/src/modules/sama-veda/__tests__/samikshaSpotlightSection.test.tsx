@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { SamikshaSpotlightSection, parseResearcherFromSpotlight } from '../components/SamikshaSpotlightSection';
 import { PublicSpotlight, PublicAuthor } from '../services/samaVedaService';
 
@@ -282,5 +282,109 @@ describe('SamikshaSpotlightSection UI/UX Suite', () => {
     expect(screen.queryByText(/Department of Advanced Research & Innovation/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Faculty Researcher & Principal Investigator/i)).not.toBeInTheDocument();
     expect(screen.getByText('Watch Interview')).toBeInTheDocument();
+  });
+
+  it('11. Initial load state transition: Empty initial spotlights followed by API resolution renders successfully without React hook count error', () => {
+    // This specifically tests the root cause of ISSUE 1:
+    // When spotlights is initially empty and then populated asynchronously,
+    // all hooks must execute consistently on both renders without throwing "Rendered more hooks than previous render".
+    const { rerender } = render(
+      <SamikshaSpotlightSection
+        spotlights={[]}
+        authors={mockAuthors}
+        loading={false}
+      />
+    );
+
+    // Initial render is null (empty data)
+    expect(screen.queryByText('Researchers. Ideas. Impact.')).not.toBeInTheDocument();
+
+    // Rerender when async API fetch settles with spotlight records
+    expect(() => {
+      rerender(
+        <SamikshaSpotlightSection
+          spotlights={mockSpotlights}
+          authors={mockAuthors}
+          loading={false}
+        />
+      );
+    }).not.toThrow();
+
+    // Content is now displayed without any Error Boundary intervention or retry requirement
+    expect(screen.getByText('Researchers. Ideas. Impact.')).toBeInTheDocument();
+    expect(screen.getByText('Featured Conversation')).toBeInTheDocument();
+    expect(screen.getAllByText('Prof. Nand Lal').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('12. Renders institutional loading state when loading is true and data is being fetched', () => {
+    render(
+      <SamikshaSpotlightSection
+        spotlights={[]}
+        authors={[]}
+        loading={true}
+      />
+    );
+
+    expect(screen.getByTestId('spotlight-loading-skeleton')).toBeInTheDocument();
+    expect(screen.getByText(/Loading researcher spotlights/i)).toBeInTheDocument();
+    expect(screen.getByText('Researchers. Ideas. Impact.')).toBeInTheDocument();
+  });
+
+  it('13. Simplified Video Player UI: Renders clean white modal with native video controls and no artificial badges or dark panels', () => {
+    render(
+      <SamikshaSpotlightSection
+        spotlights={mockSpotlights}
+        authors={mockAuthors}
+      />
+    );
+
+    // Click on featured interview
+    fireEvent.click(screen.getByText('Watch Full Interview'));
+
+    // Modal dialog is present
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+
+    // Modal card has clean white background (#ffffff)
+    const modalContainer = dialog.querySelector('.samiksha-video-modal-container') as HTMLElement;
+    expect(modalContainer).toBeInTheDocument();
+    expect(modalContainer.style.backgroundColor).toBe('rgb(255, 255, 255)');
+
+    // Header has researcher name and simple close button
+    expect(within(dialog).getByText('Prof. Nand Lal')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Close interview video/i)).toBeInTheDocument();
+
+    // Native HTML5 video player with native controls
+    const video = dialog.querySelector('video') as HTMLVideoElement;
+    expect(video).toBeInTheDocument();
+    expect(video.controls).toBe(true);
+    expect(video.style.objectFit).toBe('contain');
+
+    // Artificial badges like "Academic Interview" or "Verified Contributor" must NOT be in the modal
+    expect(screen.queryByText('Academic Interview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Verified Contributor')).not.toBeInTheDocument();
+  });
+
+  it('14. Orientation handling: Portrait videos adjust container max-width and preserve portrait aspect ratio', () => {
+    // spot-2 has a portrait reel URL
+    render(
+      <SamikshaSpotlightSection
+        spotlights={[mockSpotlights[1]]}
+        authors={mockAuthors}
+        enableFeatured={false}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Watch Interview'));
+
+    const dialog = screen.getByRole('dialog');
+    const modalContainer = dialog.querySelector('.samiksha-video-modal-container') as HTMLElement;
+    expect(modalContainer).toBeInTheDocument();
+    // Portrait max-width is constrained to 440px to prevent wide empty black player
+    expect(modalContainer.style.maxWidth).toBe('440px');
+
+    const video = dialog.querySelector('video') as HTMLVideoElement;
+    expect(video).toBeInTheDocument();
+    expect(video.style.aspectRatio).toBe('9/16');
   });
 });

@@ -522,7 +522,7 @@ def list_public_cam_projects(
     return ApiResponse(
         success=True,
         message="CAM-AI projects retrieved successfully.",
-        data=CamProjectListResponse(total=total, items=items).model_dump(),
+        data=CamProjectListResponse(total=total, items=items).model_dump(mode="json"),
     )
 
 
@@ -543,7 +543,7 @@ def get_public_cam_project(
     return ApiResponse(
         success=True,
         message="CAM-AI project retrieved successfully.",
-        data=CamProjectOut.model_validate(project).model_dump(),
+        data=CamProjectOut.model_validate(project).model_dump(mode="json"),
     )
 
 

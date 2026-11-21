@@ -3,6 +3,11 @@ import { AppIcon, Button, Badge, Modal, Input, Select, EmptyState, LoadingState 
 import { AdminLayout } from '../../components/AdminLayout';
 import { samaAdminService } from '../../services/samaAdminService';
 import type { CamProjectRecord, CreateCamProjectPayload } from '../../types/sama';
+import {
+  extractPrimaryPIName,
+  formatInvestigatorNames,
+  normalizeInvestigatorNames,
+} from '../../utils/investigators';
 
 export const CamProjectsPage: React.FC = () => {
   // State
@@ -29,13 +34,13 @@ export const CamProjectsPage: React.FC = () => {
   // Form state
   const [formData, setFormData] = useState({
     project_title: '',
-    category: 'minor' as 'minor' | 'major' | 'special',
+    category: 'Minor',
     domain: '',
     principal_investigator: '',
     co_investigators_raw: '',
     funding_amount: '',
     funding_amount_display: '',
-    status: 'awarded' as 'awarded' | 'in_progress' | 'completed' | 'terminated',
+    status: 'Ongoing',
     sanction_year: new Date().getFullYear().toString(),
     deliverables_summary: '',
   });
@@ -53,8 +58,8 @@ export const CamProjectsPage: React.FC = () => {
         search: search.trim() || undefined,
       });
 
-      setProjects(res.items);
-      setTotalCount(res.total);
+      setProjects(res.items || []);
+      setTotalCount(res.total || 0);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } }; message?: string };
       setError(e.response?.data?.detail || e.message || 'Failed to load CAM-AI projects');
@@ -79,13 +84,13 @@ export const CamProjectsPage: React.FC = () => {
     setEditingProject(null);
     setFormData({
       project_title: '',
-      category: 'minor',
+      category: 'Minor',
       domain: '',
       principal_investigator: '',
       co_investigators_raw: '',
       funding_amount: '',
       funding_amount_display: '',
-      status: 'awarded',
+      status: 'Ongoing',
       sanction_year: new Date().getFullYear().toString(),
       deliverables_summary: '',
     });
@@ -95,30 +100,38 @@ export const CamProjectsPage: React.FC = () => {
   // Open Edit Modal
   const handleOpenEdit = (project: CamProjectRecord) => {
     setEditingProject(project);
-    const coInvRaw = Array.isArray(project.co_investigators)
-      ? project.co_investigators
-          .map((item) => (typeof item === 'string' ? item : item.name || ''))
-          .filter(Boolean)
-          .join(', ')
-      : '';
+
+    const piName =
+      extractPrimaryPIName(project.principal_investigator, project.principal_investigators) || '';
+    const coInvRaw = normalizeInvestigatorNames(project.co_investigators).join(', ');
+
+    // Normalize category for form select
+    const rawCat = (project.category || '').toLowerCase().trim();
+    let normalizedCategory = 'Minor';
+    if (rawCat === 'major') normalizedCategory = 'Major';
+    else if (rawCat === 'special') normalizedCategory = 'Special';
+
+    // Normalize status for form select
+    const rawStat = (project.status || '').toLowerCase().trim();
+    let normalizedStatus = 'Ongoing';
+    if (rawStat === 'completed') normalizedStatus = 'Completed';
+    else if (rawStat === 'awarded' || rawStat === 'sanctioned') normalizedStatus = 'Sanctioned';
+    else if (rawStat === 'terminated') normalizedStatus = 'Terminated';
 
     setFormData({
       project_title: project.project_title || project.title || '',
-      category: (project.category as 'minor' | 'major' | 'special') || 'minor',
+      category: normalizedCategory,
       domain: project.domain || '',
-      principal_investigator:
-        project.principal_investigator ||
-        (project.principal_investigators && project.principal_investigators[0]?.name) ||
-        '',
+      principal_investigator: piName,
       co_investigators_raw: coInvRaw,
       funding_amount:
-        project.funding_amount != null
-          ? project.funding_amount.toString()
-          : project.funding_amount_inr != null
+        project.funding_amount_inr != null
           ? project.funding_amount_inr.toString()
+          : project.funding_amount != null
+          ? project.funding_amount.toString()
           : '',
       funding_amount_display: project.funding_display || project.funding_amount_display || '',
-      status: (project.status as 'awarded' | 'in_progress' | 'completed' | 'terminated') || 'awarded',
+      status: normalizedStatus,
       sanction_year: project.sanction_year != null ? project.sanction_year.toString() : '',
       deliverables_summary: project.deliverables_summary || '',
     });
@@ -137,20 +150,43 @@ export const CamProjectsPage: React.FC = () => {
       setSubmitting(true);
       setError(null);
 
-      const coInvestigators = formData.co_investigators_raw
+      const coNames = formData.co_investigators_raw
         ? formData.co_investigators_raw.split(',').map((s) => s.trim()).filter(Boolean)
         : [];
+
+      const piName = formData.principal_investigator.trim();
+
+      // Preserve existing PI metadata (department/school) if name is preserved
+      const existingPiObj = editingProject?.principal_investigators?.[0];
+      const piObj = piName
+        ? (typeof existingPiObj === 'object' && existingPiObj && existingPiObj.name === piName
+            ? existingPiObj
+            : { name: piName })
+        : undefined;
+
+      // Preserve existing Co-PI metadata by matching name
+      const existingCoMap = new Map<string, { name: string; department?: string; school?: string }>();
+      if (Array.isArray(editingProject?.co_investigators)) {
+        for (const c of editingProject.co_investigators) {
+          if (typeof c === 'object' && c && 'name' in c) {
+            existingCoMap.set(c.name.toLowerCase().trim(), c);
+          }
+        }
+      }
+
+      const coObjs = coNames.map((name) => {
+        const match = existingCoMap.get(name.toLowerCase().trim());
+        return match ? { ...match } : { name };
+      });
 
       const payload: CreateCamProjectPayload = {
         title: formData.project_title.trim(),
         project_title: formData.project_title.trim(),
         category: formData.category,
         domain: formData.domain.trim() || undefined,
-        principal_investigator: formData.principal_investigator.trim() || undefined,
-        principal_investigators: formData.principal_investigator.trim()
-          ? [{ name: formData.principal_investigator.trim() }]
-          : [],
-        co_investigators: coInvestigators.map((name) => ({ name })),
+        principal_investigator: piName || undefined,
+        principal_investigators: piObj ? [piObj] : [],
+        co_investigators: coObjs,
         funding_amount_inr: formData.funding_amount ? parseFloat(formData.funding_amount) : undefined,
         funding_amount: formData.funding_amount ? parseFloat(formData.funding_amount) : undefined,
         funding_display: formData.funding_amount_display.trim() || undefined,
@@ -198,13 +234,16 @@ export const CamProjectsPage: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'awarded':
-        return <Badge variant="primary">Awarded</Badge>;
+    const s = (status || '').toLowerCase().trim();
+    switch (s) {
+      case 'ongoing':
       case 'in_progress':
-        return <Badge variant="saffron">In Progress</Badge>;
+        return <Badge variant="saffron">Ongoing</Badge>;
       case 'completed':
         return <Badge variant="teal">Completed</Badge>;
+      case 'awarded':
+      case 'sanctioned':
+        return <Badge variant="primary">Sanctioned</Badge>;
       case 'terminated':
         return <Badge variant="neutral">Terminated</Badge>;
       default:
@@ -213,14 +252,10 @@ export const CamProjectsPage: React.FC = () => {
   };
 
   const getCategoryBadge = (cat: string) => {
-    switch (cat) {
-      case 'major':
-        return <Badge variant="saffron">Major Grant</Badge>;
-      case 'minor':
-        return <Badge variant="teal">Minor Grant</Badge>;
-      default:
-        return <Badge variant="neutral">Special</Badge>;
-    }
+    const c = (cat || '').toLowerCase().trim();
+    if (c === 'major') return <Badge variant="saffron">Major Grant</Badge>;
+    if (c === 'minor') return <Badge variant="teal">Minor Grant</Badge>;
+    return <Badge variant="neutral">{cat || 'Special'}</Badge>;
   };
 
   return (
@@ -304,9 +339,9 @@ export const CamProjectsPage: React.FC = () => {
                 }}
                 options={[
                   { value: 'all', label: 'All Categories' },
-                  { value: 'major', label: 'Major Grants' },
-                  { value: 'minor', label: 'Minor Grants' },
-                  { value: 'special', label: 'Special Schemes' },
+                  { value: 'Major', label: 'Major Grants' },
+                  { value: 'Minor', label: 'Minor Grants' },
+                  { value: 'Special', label: 'Special Schemes' },
                 ]}
                 style={{ minWidth: '140px' }}
               />
@@ -322,10 +357,10 @@ export const CamProjectsPage: React.FC = () => {
                 }}
                 options={[
                   { value: 'all', label: 'All Statuses' },
-                  { value: 'awarded', label: 'Awarded' },
-                  { value: 'in_progress', label: 'In Progress' },
-                  { value: 'completed', label: 'Completed' },
-                  { value: 'terminated', label: 'Terminated' },
+                  { value: 'Ongoing', label: 'Ongoing / In Progress' },
+                  { value: 'Sanctioned', label: 'Sanctioned / Awarded' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Terminated', label: 'Terminated' },
                 ]}
                 style={{ minWidth: '130px' }}
               />
@@ -402,62 +437,76 @@ export const CamProjectsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {projects.map((proj) => (
-                  <tr key={proj.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
-                    <td style={{ padding: '12px 16px', maxWidth: '340px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)', lineHeight: 1.4 }}>
-                        {proj.project_title}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
-                        {proj.domain && <span>Domain: <strong>{proj.domain}</strong></span>}
-                        {proj.sanction_year && <span>• Year: {proj.sanction_year}</span>}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                      {getCategoryBadge(proj.category)}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 600, color: '#334155', fontSize: '13px' }}>
-                        PI: {proj.principal_investigator || 'Not assigned'}
-                      </div>
-                      {proj.co_investigators && proj.co_investigators.length > 0 && (
-                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                          Co-PIs: {proj.co_investigators.join(', ')}
+                {projects.map((proj) => {
+                  const displayTitle = proj.project_title || proj.title || 'Untitled Research Project';
+                  const displayPi = extractPrimaryPIName(proj.principal_investigator, proj.principal_investigators) || 'Not assigned';
+                  const displayCoPi = formatInvestigatorNames(proj.co_investigators);
+                  const displayFunding =
+                    proj.funding_amount_display ||
+                    proj.funding_display ||
+                    (proj.funding_amount_inr != null
+                      ? `₹${Number(proj.funding_amount_inr).toLocaleString('en-IN')}`
+                      : proj.funding_amount != null
+                      ? `₹${Number(proj.funding_amount).toLocaleString('en-IN')}`
+                      : 'N/A');
+
+                  return (
+                    <tr key={proj.id} style={{ borderBottom: '1px solid var(--vyasa-border-subtle, #ede7de)' }}>
+                      <td style={{ padding: '12px 16px', maxWidth: '340px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--vyasa-primary, #0f2b48)', lineHeight: 1.4 }}>
+                          {displayTitle}
                         </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: 700, color: '#0f2b48' }}>
-                        {proj.funding_amount_display || (proj.funding_amount != null ? `₹${proj.funding_amount.toLocaleString('en-IN')}` : 'N/A')}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                      {getStatusBadge(proj.status)}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenEdit(proj)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
-                          onClick={() => {
-                            setProjectToDelete(proj);
-                            setShowDeleteModal(true);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                          {proj.domain && <span>Domain: <strong>{proj.domain}</strong></span>}
+                          {proj.sanction_year && <span>• Year: {proj.sanction_year}</span>}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        {getCategoryBadge(proj.category)}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 600, color: '#334155', fontSize: '13px' }}>
+                          PI: {displayPi}
+                        </div>
+                        {displayCoPi && (
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                            Co-PIs: {displayCoPi}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, color: '#0f2b48' }}>
+                          {displayFunding}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                        {getStatusBadge(proj.status)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenEdit(proj)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
+                            onClick={() => {
+                              setProjectToDelete(proj);
+                              setShowDeleteModal(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
@@ -529,11 +578,11 @@ export const CamProjectsPage: React.FC = () => {
                 label="Category"
                 required
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value as 'minor' | 'major' | 'special' })}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 options={[
-                  { value: 'minor', label: 'Minor Grant' },
-                  { value: 'major', label: 'Major Grant' },
-                  { value: 'special', label: 'Special Scheme' },
+                  { value: 'Minor', label: 'Minor Grant' },
+                  { value: 'Major', label: 'Major Grant' },
+                  { value: 'Special', label: 'Special Scheme' },
                 ]}
               />
 
@@ -541,12 +590,12 @@ export const CamProjectsPage: React.FC = () => {
                 label="Status"
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'awarded' | 'in_progress' | 'completed' | 'terminated' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 options={[
-                  { value: 'awarded', label: 'Awarded' },
-                  { value: 'in_progress', label: 'In Progress' },
-                  { value: 'completed', label: 'Completed' },
-                  { value: 'terminated', label: 'Terminated' },
+                  { value: 'Ongoing', label: 'Ongoing / In Progress' },
+                  { value: 'Sanctioned', label: 'Sanctioned / Awarded' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Terminated', label: 'Terminated' },
                 ]}
               />
 

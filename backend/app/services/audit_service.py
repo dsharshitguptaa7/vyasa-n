@@ -6,6 +6,7 @@ and fail-closed error management for sensitive administrative operations.
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 import logging
 from typing import Any, Dict, Optional, Set, Union
 import uuid
@@ -61,6 +62,8 @@ def sanitize_audit_details(details: Optional[Dict[str, Any]]) -> Optional[Dict[s
             ]
         elif isinstance(value, (uuid.UUID, datetime)):
             sanitized[key] = str(value)
+        elif isinstance(value, Decimal):
+            sanitized[key] = float(value)
         else:
             sanitized[key] = value
     return sanitized
@@ -71,6 +74,8 @@ class CentralAuditService:
     Centralized administrative and operational audit service.
     Guarantees consistent recording across all Veda modules and platform core.
     """
+
+    sanitize_audit_details = staticmethod(sanitize_audit_details)
 
     @staticmethod
     def log(

@@ -2,7 +2,7 @@ import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -99,8 +99,8 @@ class PublicationOut(BaseModel):
     is_featured: bool
     published_at: Optional[datetime] = None
     archived_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     author_links: List[PublicationAuthorOut] = []
     volume_number: Optional[int] = None
     issue_number: Optional[int] = None
@@ -201,8 +201,8 @@ class AuthorOut(BaseModel):
     user_id: Optional[uuid.UUID] = None
     is_verified: bool
     verification_notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class AuthorListResponse(BaseModel):
@@ -280,32 +280,161 @@ class BulletinListResponse(BaseModel):
 # 4. CAM-AI PROJECTS
 # ============================================================================
 
+def _normalize_cam_payload_dict(d: Dict[str, Any], is_create: bool = False) -> Dict[str, Any]:
+    # 1. Title mapping
+    if not d.get("title") and d.get("project_title"):
+        d["title"] = d["project_title"]
+    if not d.get("project_title") and d.get("title"):
+        d["project_title"] = d["title"]
+
+    # 2. Category normalization (e.g. 'major' -> 'Major', 'minor' -> 'Minor')
+    cat = d.get("category")
+    if isinstance(cat, str) and cat.strip():
+        c_lower = cat.strip().lower()
+        if c_lower == "major":
+            d["category"] = "Major"
+        elif c_lower == "minor":
+            d["category"] = "Minor"
+        elif c_lower == "special":
+            d["category"] = "Special"
+        else:
+            d["category"] = cat.strip()
+
+    # 3. Status normalization
+    st = d.get("status")
+    if isinstance(st, str) and st.strip():
+        s_lower = st.strip().lower()
+        if s_lower in ("in_progress", "ongoing"):
+            d["status"] = "Ongoing"
+        elif s_lower in ("awarded", "sanctioned"):
+            d["status"] = "Sanctioned"
+        elif s_lower == "completed":
+            d["status"] = "Completed"
+        elif s_lower == "terminated":
+            d["status"] = "Terminated"
+
+    # 4. Domain default (only on create if missing)
+    if is_create and (not d.get("domain") or not str(d.get("domain")).strip()):
+        d["domain"] = "General AI & Interdisciplinary Research"
+
+    # 5. Principal investigator(s)
+    pis = d.get("principal_investigators")
+    pi_str = d.get("principal_investigator")
+    if pis is not None or pi_str is not None:
+        normalized_pis = []
+        if isinstance(pis, list):
+            for item in pis:
+                if isinstance(item, str) and item.strip():
+                    normalized_pis.append({"name": item.strip()})
+                elif isinstance(item, dict):
+                    name = (item.get("name") or item.get("full_name") or "").strip()
+                    if name:
+                        normalized_pis.append({**item, "name": name})
+        elif isinstance(pis, str) and pis.strip():
+            normalized_pis.append({"name": pis.strip()})
+
+        if not normalized_pis and isinstance(pi_str, str) and pi_str.strip():
+            normalized_pis.append({"name": pi_str.strip()})
+
+        if pis is not None or normalized_pis:
+            d["principal_investigators"] = normalized_pis
+
+    # 6. Co-investigator(s)
+    copis = d.get("co_investigators")
+    if copis is not None:
+        normalized_copis = []
+        if isinstance(copis, list):
+            for item in copis:
+                if isinstance(item, str) and item.strip():
+                    normalized_copis.append({"name": item.strip()})
+                elif isinstance(item, dict):
+                    name = (item.get("name") or item.get("full_name") or "").strip()
+                    if name:
+                        normalized_copis.append({**item, "name": name})
+        elif isinstance(copis, str) and copis.strip():
+            for part in copis.split(","):
+                if part.strip():
+                    normalized_copis.append({"name": part.strip()})
+
+        d["co_investigators"] = normalized_copis
+
+    # 7. Funding mapping & display
+    amt = d.get("funding_amount_inr")
+    if amt is None and d.get("funding_amount") is not None:
+        amt = d.get("funding_amount")
+        d["funding_amount_inr"] = amt
+
+    disp = d.get("funding_display")
+    if not disp and d.get("funding_amount_display"):
+        disp = d.get("funding_amount_display")
+        d["funding_display"] = disp
+
+    if not disp and amt is not None:
+        try:
+            num = float(amt)
+            d["funding_display"] = f"₹{num:,.0f}" if num == int(num) else f"₹{num:,.2f}"
+        except (ValueError, TypeError):
+            pass
+
+    return d
+
+
 class CamProjectCreate(BaseModel):
     legacy_project_id: Optional[int] = None
     category: str = Field(..., min_length=2, max_length=50)
-    domain: str = Field(..., min_length=2, max_length=100)
-    title: str = Field(..., min_length=5)
+    domain: str = Field("General AI & Interdisciplinary Research", min_length=2, max_length=100)
+    title: str = Field(..., min_length=3)
     funding_amount_inr: Optional[Decimal] = None
     funding_display: Optional[str] = Field(None, max_length=100)
     status: str = Field("Ongoing", max_length=50)
-    principal_investigators: List[Dict[str, Any]] = Field(default_factory=list)
-    co_investigators: List[Dict[str, Any]] = Field(default_factory=list)
+    principal_investigators: List[Union[Dict[str, Any], str]] = Field(default_factory=list)
+    co_investigators: List[Union[Dict[str, Any], str]] = Field(default_factory=list)
+
+    # Supported frontend aliases
+    project_title: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    funding_amount: Optional[Decimal] = None
+    funding_amount_display: Optional[str] = None
+    sanction_year: Optional[int] = None
+    deliverables_summary: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_create_payload(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return _normalize_cam_payload_dict(dict(data), is_create=True)
+        return data
 
 
 class CamProjectUpdate(BaseModel):
     legacy_project_id: Optional[int] = None
     category: Optional[str] = Field(None, min_length=2, max_length=50)
     domain: Optional[str] = Field(None, min_length=2, max_length=100)
-    title: Optional[str] = Field(None, min_length=5)
+    title: Optional[str] = Field(None, min_length=3)
     funding_amount_inr: Optional[Decimal] = None
     funding_display: Optional[str] = Field(None, max_length=100)
     status: Optional[str] = Field(None, max_length=50)
-    principal_investigators: Optional[List[Dict[str, Any]]] = None
-    co_investigators: Optional[List[Dict[str, Any]]] = None
+    principal_investigators: Optional[List[Union[Dict[str, Any], str]]] = None
+    co_investigators: Optional[List[Union[Dict[str, Any], str]]] = None
+
+    # Supported frontend aliases
+    project_title: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    funding_amount: Optional[Decimal] = None
+    funding_amount_display: Optional[str] = None
+    sanction_year: Optional[int] = None
+    deliverables_summary: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_update_payload(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return _normalize_cam_payload_dict(dict(data), is_create=False)
+        return data
 
 
 class CamProjectOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: uuid.UUID
     legacy_project_id: Optional[int] = None
@@ -317,13 +446,61 @@ class CamProjectOut(BaseModel):
     status: str = "Ongoing"
     principal_investigators: List[Dict[str, Any]] = Field(default_factory=list)
     co_investigators: List[Dict[str, Any]] = Field(default_factory=list)
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    # Convenience aliases for frontend contract compatibility
+    project_title: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    funding_amount: Optional[Decimal] = None
+    funding_amount_display: Optional[str] = None
 
     @field_validator("principal_investigators", "co_investigators", mode="before")
     @classmethod
-    def ensure_list(cls, v):
-        return [] if v is None else v
+    def ensure_list_of_dicts(cls, v: Any) -> List[Dict[str, Any]]:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            parts = [s.strip() for s in v.split(",") if s.strip()]
+            return [{"name": p} for p in parts]
+        if isinstance(v, list):
+            res = []
+            for item in v:
+                if isinstance(item, str) and item.strip():
+                    res.append({"name": item.strip()})
+                elif isinstance(item, dict):
+                    name = (item.get("name") or item.get("full_name") or "").strip()
+                    if name:
+                        res.append({**item, "name": name})
+                    else:
+                        res.append(item)
+            return res
+        return []
+
+    @model_validator(mode="after")
+    def populate_aliases(self) -> "CamProjectOut":
+        if not self.project_title:
+            self.project_title = self.title
+        if not self.principal_investigator and self.principal_investigators:
+            first_pi = self.principal_investigators[0]
+            if isinstance(first_pi, dict):
+                self.principal_investigator = first_pi.get("name") or first_pi.get("full_name") or None
+            elif isinstance(first_pi, str):
+                self.principal_investigator = first_pi
+        if self.funding_amount is None:
+            self.funding_amount = self.funding_amount_inr
+        if not self.funding_amount_display:
+            if self.funding_display:
+                self.funding_amount_display = self.funding_display
+            elif self.funding_amount_inr is not None:
+                try:
+                    num = float(self.funding_amount_inr)
+                    self.funding_amount_display = f"₹{num:,.0f}" if num == int(num) else f"₹{num:,.2f}"
+                except (ValueError, TypeError):
+                    self.funding_amount_display = None
+        if not self.funding_display and self.funding_amount_display:
+            self.funding_display = self.funding_amount_display
+        return self
 
 
 class CamProjectListResponse(BaseModel):
@@ -659,8 +836,8 @@ class SpotlightOut(BaseModel):
     video_embed_url: Optional[str] = None
     display_order: int = 0
     is_active: bool = True
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class SpotlightListResponse(BaseModel):

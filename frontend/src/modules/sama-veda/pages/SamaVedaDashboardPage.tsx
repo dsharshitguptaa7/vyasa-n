@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppIcon } from '@vyasa/ui';
 import { useAuth } from '../../../context/AuthContext';
@@ -131,6 +131,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
   const [fellowshipsUnavailable, setFellowshipsUnavailable] = useState(false);
 
   const [spotlights, setSpotlights] = useState<PublicSpotlight[]>([]);
+  const [spotlightsLoading, setSpotlightsLoading] = useState(true);
 
   // Filter & Search States
   const [pubSearch, setPubSearch] = useState('');
@@ -216,6 +217,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
           setSpotlights([]);
           failedSections.push('Researcher Spotlights');
         }
+        setSpotlightsLoading(false);
 
         // 5. Publications
         if (pubResult.status === 'fulfilled') {
@@ -272,6 +274,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
       } finally {
         if (isMounted) {
           setLoading(false);
+          setSpotlightsLoading(false);
         }
       }
     };
@@ -281,6 +284,18 @@ export const SamaVedaDashboardPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  const handleSpotlightReset = useCallback(async () => {
+    try {
+      setSpotlightsLoading(true);
+      const res = await samaVedaService.getSpotlights();
+      setSpotlights(res?.items || []);
+    } catch {
+      setSpotlights([]);
+    } finally {
+      setSpotlightsLoading(false);
+    }
   }, []);
 
   // Fetch publications on tab switch or filter change
@@ -651,10 +666,11 @@ export const SamaVedaDashboardPage: React.FC = () => {
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
           {/* 1. Curated Academic Researcher Spotlights & Storytelling */}
-          <SamikshaErrorBoundary title="Researcher Spotlights" isolate>
+          <SamikshaErrorBoundary title="Researcher Spotlights" isolate onReset={handleSpotlightReset}>
             <SamikshaSpotlightSection
               spotlights={spotlights}
               authors={authors}
+              loading={spotlightsLoading}
               onNavigateToDirectory={(researcherName) => {
                 if (researcherName) {
                   setAuthorSearch(researcherName);

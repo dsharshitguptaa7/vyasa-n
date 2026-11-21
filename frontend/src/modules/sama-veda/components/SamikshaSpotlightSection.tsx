@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Badge, AppIcon } from '@vyasa/ui';
+import { AppIcon } from '@vyasa/ui';
 import { PublicSpotlight, PublicAuthor } from '../services/samaVedaService';
 
 export interface ParsedResearcherInfo {
@@ -469,7 +469,20 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
   onClose,
   onNavigateToDirectory,
 }) => {
+  const videoSrc = spotlight?.video_embed_url || spotlight?.media_url || '';
+  const isInitialPortrait =
+    videoSrc.toLowerCase().includes('portrait') ||
+    videoSrc.toLowerCase().includes('vertical') ||
+    videoSrc.toLowerCase().includes('reel') ||
+    videoSrc.toLowerCase().includes('short');
+
   const [modalOrientation, setModalOrientation] = useState<'portrait' | 'landscape'>('landscape');
+
+  useEffect(() => {
+    if (isInitialPortrait) {
+      setModalOrientation('portrait');
+    }
+  }, [isInitialPortrait]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -489,7 +502,6 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
 
   if (!spotlight || !parsedInfo) return null;
 
-  const videoSrc = spotlight.video_embed_url || spotlight.media_url || '';
   const isEmbed =
     videoSrc.includes('youtube.com') ||
     videoSrc.includes('youtu.be') ||
@@ -502,6 +514,9 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
     }
   };
 
+  const displayName = parsedInfo.name || parsedInfo.headline;
+  const affiliation = [parsedInfo.designation, parsedInfo.department].filter(Boolean).join(' • ');
+
   return (
     <div
       className="samiksha-video-modal-backdrop"
@@ -513,14 +528,14 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        backgroundColor: 'rgba(5, 19, 41, 0.88)',
-        backdropFilter: 'blur(10px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: '16px',
         boxSizing: 'border-box',
-        animation: 'samiksha-fade-in 0.2s ease-out',
+        animation: 'samiksha-fade-in 0.15s ease-out',
       }}
     >
       <div
@@ -528,67 +543,58 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: modalOrientation === 'portrait' ? '540px' : '920px',
+          maxWidth: modalOrientation === 'portrait' ? '440px' : '780px',
           maxHeight: '90vh',
-          backgroundColor: '#0a1f3d',
-          border: '1px solid rgba(255, 255, 255, 0.16)',
-          borderRadius: '18px',
-          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.75)',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           boxSizing: 'border-box',
         }}
       >
-        {/* Modal Header */}
+        {/* 1. Modal Header: Clean institutional header with name and simple close button */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '16px 22px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            backgroundColor: '#051329',
+            padding: '14px 20px',
+            borderBottom: '1px solid #e2e8f0',
+            backgroundColor: '#ffffff',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-            <span
+          <div style={{ overflow: 'hidden', paddingRight: '12px' }}>
+            <h3
               style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: '#14b8a6',
-                boxShadow: '0 0 8px #14b8a6',
-                flexShrink: 0,
+                margin: 0,
+                fontSize: '15px',
+                fontWeight: 700,
+                color: '#0f2b48',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.3,
               }}
-            />
-            <div style={{ overflow: 'hidden' }}>
+            >
+              {displayName}
+            </h3>
+            {parsedInfo.name && affiliation && (
               <div
                 style={{
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '15px',
+                  fontSize: '12px',
+                  color: '#64748b',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  marginTop: '2px',
                 }}
               >
-                {parsedInfo.name || parsedInfo.headline}
+                {affiliation}
               </div>
-              {parsedInfo.name && (parsedInfo.department || parsedInfo.designation) && (
-                <div
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: '12px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {[parsedInfo.designation, parsedInfo.department].filter(Boolean).join(' • ')}
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <button
@@ -596,22 +602,33 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
             onClick={onClose}
             aria-label="Close interview video"
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: '#f1f5f9',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
-              color: '#ffffff',
+              borderRadius: '6px',
+              width: '32px',
+              height: '32px',
+              color: '#475569',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'background 0.15s ease',
+              flexShrink: 0,
+              padding: 0,
+              transition: 'background-color 0.15s ease, color 0.15s ease',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#e2e8f0';
+              e.currentTarget.style.color = '#0f2b48';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#f1f5f9';
+              e.currentTarget.style.color = '#475569';
             }}
           >
             <svg
               viewBox="0 0 24 24"
-              width="18"
-              height="18"
+              width="16"
+              height="16"
               stroke="currentColor"
               strokeWidth="2.5"
               fill="none"
@@ -624,7 +641,7 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
           </button>
         </div>
 
-        {/* Video Player Box - Preserves natural orientation */}
+        {/* 2. Video Container with Browser Native Controls */}
         <div
           style={{
             position: 'relative',
@@ -632,147 +649,124 @@ const SpotlightVideoModal: React.FC<SpotlightVideoModalProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flex: '1 1 auto',
-            minHeight: '260px',
-            maxHeight: modalOrientation === 'portrait' ? '68vh' : '62vh',
+            width: '100%',
+            overflow: 'hidden',
+            maxHeight: modalOrientation === 'portrait' ? '65vh' : '55vh',
           }}
         >
           {isEmbed ? (
             <iframe
               src={videoSrc}
-              title={parsedInfo.name ? `Interview with ${parsedInfo.name}` : parsedInfo.headline}
+              title={displayName}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               style={{
                 width: '100%',
                 aspectRatio: '16/9',
                 border: 'none',
+                display: 'block',
               }}
             />
           ) : (
-            <div
+            <video
+              src={videoSrc}
+              controls
+              autoPlay
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={handleMetadata}
               style={{
                 width: '100%',
-                height: '100%',
-                maxHeight: modalOrientation === 'portrait' ? '68vh' : '60vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                maxHeight: modalOrientation === 'portrait' ? '65vh' : '55vh',
+                aspectRatio: modalOrientation === 'portrait' ? '9/16' : '16/9',
+                objectFit: 'contain',
+                display: 'block',
+                margin: '0 auto',
               }}
             >
-              <video
-                controls
-                autoPlay
-                playsInline
-                preload="metadata"
-                onLoadedMetadata={handleMetadata}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: modalOrientation === 'portrait' ? '68vh' : '60vh',
-                  aspectRatio: modalOrientation === 'portrait' ? '9/16' : '16/9',
-                  objectFit: 'contain',
-                }}
-              >
-                <source src={videoSrc} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            </div>
+              <source src={videoSrc} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
           )}
         </div>
 
-        {/* Modal Info Footer */}
-        <div
-          style={{
-            padding: '18px 24px',
-            backgroundColor: '#07172e',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <Badge variant="teal">Academic Interview</Badge>
-            {parsedInfo.designation && <Badge variant="saffron">{parsedInfo.designation}</Badge>}
-            {!parsedInfo.designation && parsedInfo.isVerified && <Badge variant="saffron">Verified Contributor</Badge>}
-          </div>
-
-          <h3
-            style={{
-              fontSize: '16.5px',
-              fontWeight: 800,
-              color: '#ffffff',
-              margin: '0 0 6px 0',
-              lineHeight: 1.35,
-            }}
-          >
-            {parsedInfo.headline}
-          </h3>
-
-          {parsedInfo.name && (
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#2dd4bf', marginBottom: '8px' }}>
-              {parsedInfo.name}
-              {parsedInfo.department ? ` — ${parsedInfo.department}` : ''}
-            </div>
-          )}
-
-          {parsedInfo.summary && (
-            <p
-              style={{
-                fontSize: '13px',
-                color: '#94a3b8',
-                margin: '0 0 12px 0',
-                lineHeight: 1.55,
-              }}
-            >
-              {parsedInfo.summary}
-            </p>
-          )}
-
+        {/* 3. Optional Metadata: Clean institutional footer */}
+        {(parsedInfo.headline || parsedInfo.summary || (onNavigateToDirectory && parsedInfo.name)) && (
           <div
             style={{
+              padding: '14px 20px',
+              backgroundColor: '#fafcff',
+              borderTop: '1px solid #e2e8f0',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '12px',
-              color: '#64748b',
-              borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              paddingTop: '10px',
+              flexDirection: 'column',
+              gap: '6px',
             }}
           >
-            <div>{parsedInfo.department || parsedInfo.designation || ''}</div>
-            {onNavigateToDirectory && parsedInfo.name && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onNavigateToDirectory(parsedInfo.name!);
-                }}
+            {parsedInfo.name && parsedInfo.headline && (
+              <div
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#14b8a6',
+                  fontSize: '13.5px',
                   fontWeight: 600,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
+                  color: '#0f2b48',
+                  lineHeight: 1.4,
                 }}
               >
-                View Researcher Profile &rarr;
-              </button>
+                {parsedInfo.headline}
+              </div>
+            )}
+
+            {parsedInfo.summary && (
+              <p
+                style={{
+                  fontSize: '12.5px',
+                  color: '#475569',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                {parsedInfo.summary}
+              </p>
+            )}
+
+            {onNavigateToDirectory && parsedInfo.name && (
+              <div style={{ marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onNavigateToDirectory(parsedInfo.name!);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#0d9488',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span>View Researcher Profile</span>
+                  <span>&rarr;</span>
+                </button>
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
-interface SamikshaSpotlightSectionProps {
+export interface SamikshaSpotlightSectionProps {
   spotlights: PublicSpotlight[];
   authors?: PublicAuthor[];
   featuredId?: string;
   enableFeatured?: boolean;
+  loading?: boolean;
   onNavigateToDirectory?: (researcherName?: string) => void;
 }
 
@@ -781,14 +775,10 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
   authors = [],
   featuredId,
   enableFeatured = true,
+  loading = false,
   onNavigateToDirectory,
 }) => {
   const [selectedSpotlight, setSelectedSpotlight] = useState<PublicSpotlight | null>(null);
-
-  // If no spotlight records exist, render nothing or graceful state (never broken cards)
-  if (!spotlights || spotlights.length === 0) {
-    return null;
-  }
 
   // Determine the featured spotlight safely without hardcoding
   const { featuredSpotlight, remainingSpotlights } = useMemo(() => {
@@ -831,6 +821,75 @@ export const SamikshaSpotlightSection: React.FC<SamikshaSpotlightSectionProps> =
     if (!selectedSpotlight) return null;
     return parseResearcherFromSpotlight(selectedSpotlight, authors);
   }, [selectedSpotlight, authors]);
+
+  // If loading and no spotlights yet, render institutional loading skeleton
+  if (loading && (!spotlights || spotlights.length === 0)) {
+    return (
+      <section aria-labelledby="samiksha-spotlight-heading" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '14px' }}>
+          <div>
+            <div className="samiksha-eyebrow teal" style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: '#0d9488',
+                }}
+              />
+              <span>RESEARCH STORIES &middot; PEOPLE BEHIND THE DISCOVERIES</span>
+            </div>
+
+            <h2
+              id="samiksha-spotlight-heading"
+              className="samiksha-section-title"
+              style={{ fontSize: 'clamp(22px, 2.5vw, 28px)', color: '#0f2b48', margin: '4px 0 6px 0' }}
+            >
+              Researchers. Ideas. Impact.
+            </h2>
+
+            <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0, lineHeight: 1.55, maxWidth: '720px' }}>
+              Conversations with the minds shaping research, innovation and academic excellence at CSJMU.
+            </p>
+          </div>
+        </div>
+
+        <div
+          data-testid="spotlight-loading-skeleton"
+          style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '18px',
+            padding: '24px',
+            minHeight: '220px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', fontSize: '13.5px' }}>
+            <span
+              style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid #0d9488',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                display: 'inline-block',
+                animation: 'samiksha-spin 0.8s linear infinite',
+              }}
+            />
+            <span>Loading researcher spotlights...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // If no spotlight records exist, render nothing or graceful state (never broken cards)
+  if (!spotlights || spotlights.length === 0) {
+    return null;
+  }
 
   return (
     <section aria-labelledby="samiksha-spotlight-heading" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>

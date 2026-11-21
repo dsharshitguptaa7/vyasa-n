@@ -215,6 +215,12 @@ export interface CamProjectInvestigator {
   school?: string;
 }
 
+export {
+  normalizeInvestigatorNames,
+  formatInvestigatorNames,
+  extractPrimaryPIName,
+} from '../utils/investigators';
+
 export interface CamAiProjectItem {
   id: string;
   legacy_project_id?: number | null;

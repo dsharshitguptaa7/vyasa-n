@@ -823,7 +823,22 @@ class SamaCmsService:
         if domain:
             query = query.where(CamAiProject.domain.ilike(f"%{domain.strip()}%"))
         if status:
-            query = query.where(CamAiProject.status == status)
+            norm_status = status.strip()
+            status_map = {
+                "in_progress": "Ongoing",
+                "ongoing": "Ongoing",
+                "awarded": "Sanctioned",
+                "sanctioned": "Sanctioned",
+                "completed": "Completed",
+                "terminated": "Terminated",
+            }
+            resolved_status = status_map.get(norm_status.lower(), norm_status)
+            query = query.where(
+                or_(
+                    CamAiProject.status.ilike(norm_status),
+                    CamAiProject.status.ilike(resolved_status),
+                )
+            )
         if search:
             search_pattern = f"%{search.strip()}%"
             query = query.where(
@@ -839,7 +854,22 @@ class SamaCmsService:
         if domain:
             count_stmt = count_stmt.where(CamAiProject.domain.ilike(f"%{domain.strip()}%"))
         if status:
-            count_stmt = count_stmt.where(CamAiProject.status == status)
+            norm_status = status.strip()
+            status_map = {
+                "in_progress": "Ongoing",
+                "ongoing": "Ongoing",
+                "awarded": "Sanctioned",
+                "sanctioned": "Sanctioned",
+                "completed": "Completed",
+                "terminated": "Terminated",
+            }
+            resolved_status = status_map.get(norm_status.lower(), norm_status)
+            count_stmt = count_stmt.where(
+                or_(
+                    CamAiProject.status.ilike(norm_status),
+                    CamAiProject.status.ilike(resolved_status),
+                )
+            )
         if search:
             search_pattern = f"%{search.strip()}%"
             count_stmt = count_stmt.where(
@@ -864,32 +894,101 @@ class SamaCmsService:
 
     @staticmethod
     def create_cam_project(db: Session, data: CamProjectCreate) -> CamAiProject:
-        project = CamAiProject(
-            legacy_project_id=data.legacy_project_id,
-            category=data.category,
-            domain=data.domain,
-            title=data.title,
-            funding_amount_inr=data.funding_amount_inr,
-            funding_display=data.funding_display,
-            status=data.status,
-            principal_investigators=data.principal_investigators,
-            co_investigators=data.co_investigators,
-        )
-        db.add(project)
-        db.commit()
-        db.refresh(project)
-        return project
+        try:
+            title = data.title or getattr(data, "project_title", None) or "Untitled Research Project"
+            funding_inr = data.funding_amount_inr if data.funding_amount_inr is not None else getattr(data, "funding_amount", None)
+            funding_disp = data.funding_display or getattr(data, "funding_amount_display", None)
+
+            # Ensure investigator lists are composed of dicts
+            pis = []
+            for item in (data.principal_investigators or []):
+                if isinstance(item, dict):
+                    pis.append(item)
+                elif isinstance(item, str) and item.strip():
+                    pis.append({"name": item.strip()})
+
+            copis = []
+            for item in (data.co_investigators or []):
+                if isinstance(item, dict):
+                    copis.append(item)
+                elif isinstance(item, str) and item.strip():
+                    copis.append({"name": item.strip()})
+
+            project = CamAiProject(
+                legacy_project_id=data.legacy_project_id,
+                category=data.category,
+                domain=data.domain,
+                title=title,
+                funding_amount_inr=funding_inr,
+                funding_display=funding_disp,
+                status=data.status,
+                principal_investigators=pis,
+                co_investigators=copis,
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            return project
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def update_cam_project(
         db: Session, project: CamAiProject, data: CamProjectUpdate
     ) -> CamAiProject:
-        update_dict = data.model_dump(exclude_unset=True)
-        for key, value in update_dict.items():
-            setattr(project, key, value)
-        db.commit()
-        db.refresh(project)
-        return project
+        try:
+            update_dict = data.model_dump(exclude_unset=True)
+
+            # Canonical mapping if aliases passed
+            if "project_title" in update_dict and "title" not in update_dict:
+                update_dict["title"] = update_dict["project_title"]
+            if "funding_amount" in update_dict and "funding_amount_inr" not in update_dict:
+                update_dict["funding_amount_inr"] = update_dict["funding_amount"]
+            if "funding_amount_display" in update_dict and "funding_display" not in update_dict:
+                update_dict["funding_display"] = update_dict["funding_amount_display"]
+
+            # Normalize investigators if string entries passed
+            if "principal_investigators" in update_dict and update_dict["principal_investigators"] is not None:
+                norm_pis = []
+                for item in update_dict["principal_investigators"]:
+                    if isinstance(item, dict):
+                        norm_pis.append(item)
+                    elif isinstance(item, str) and item.strip():
+                        norm_pis.append({"name": item.strip()})
+                update_dict["principal_investigators"] = norm_pis
+
+            if "co_investigators" in update_dict and update_dict["co_investigators"] is not None:
+                norm_copis = []
+                for item in update_dict["co_investigators"]:
+                    if isinstance(item, dict):
+                        norm_copis.append(item)
+                    elif isinstance(item, str) and item.strip():
+                        norm_copis.append({"name": item.strip()})
+                update_dict["co_investigators"] = norm_copis
+
+            valid_columns = {
+                "legacy_project_id",
+                "category",
+                "domain",
+                "title",
+                "funding_amount_inr",
+                "funding_display",
+                "status",
+                "principal_investigators",
+                "co_investigators",
+            }
+
+            for key, value in update_dict.items():
+                if key in valid_columns:
+                    setattr(project, key, value)
+
+            db.commit()
+            db.refresh(project)
+            return project
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def delete_cam_project(db: Session, project: CamAiProject) -> None:

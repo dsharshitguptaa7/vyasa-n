@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Badge, EmptyState, SectionHeading, Select, Input, Button, AppIcon } from '@vyasa/ui';
 import { PublicCamProject } from '../services/samaVedaService';
+import { extractPrimaryPIName, formatInvestigatorNames } from '../../../admin/utils/investigators';
 
 interface SamikshaCamProjectsTabProps {
   camProjects: PublicCamProject[];
@@ -27,8 +28,11 @@ export const SamikshaCamProjectsTab: React.FC<SamikshaCamProjectsTabProps> = ({ 
         const q = search.toLowerCase().trim();
         const matchesTitle = p.title?.toLowerCase().includes(q);
         const matchesDomain = p.domain?.toLowerCase().includes(q);
-        const matchesPi = p.principal_investigators?.some((pi) => pi.name?.toLowerCase().includes(q));
-        if (!matchesTitle && !matchesDomain && !matchesPi) return false;
+        const piName = extractPrimaryPIName((p as any).principal_investigator, p.principal_investigators);
+        const matchesPi = (piName || '').toLowerCase().includes(q);
+        const coPiNames = formatInvestigatorNames(p.co_investigators);
+        const matchesCoPi = (coPiNames || '').toLowerCase().includes(q);
+        if (!matchesTitle && !matchesDomain && !matchesPi && !matchesCoPi) return false;
       }
       return true;
     });
@@ -128,7 +132,13 @@ export const SamikshaCamProjectsTab: React.FC<SamikshaCamProjectsTabProps> = ({ 
                       border: '1px solid #99f6e4',
                     }}
                   >
-                    {p.funding_display || 'Funded'}
+                    {p.funding_display ||
+                      (p as any).funding_amount_display ||
+                      (p.funding_amount_inr != null
+                        ? `₹${Number(p.funding_amount_inr).toLocaleString('en-IN')}`
+                        : (p as any).funding_amount != null
+                        ? `₹${Number((p as any).funding_amount).toLocaleString('en-IN')}`
+                        : 'Funded')}
                   </span>
                 </div>
                 {p.domain && (
@@ -140,18 +150,28 @@ export const SamikshaCamProjectsTab: React.FC<SamikshaCamProjectsTabProps> = ({ 
                   {p.title}
                 </h3>
 
-                {p.principal_investigators && p.principal_investigators.length > 0 && (
-                  <div style={{ fontSize: '13px', color: '#334155', marginBottom: '6px' }}>
-                    <strong style={{ color: '#0f2b48' }}>PI:</strong>{' '}
-                    {p.principal_investigators.map((i: any) => `${i.name} (${i.department || 'CSJMU'})`).join(', ')}
-                  </div>
-                )}
-                {p.co_investigators && p.co_investigators.length > 0 && (
-                  <div style={{ fontSize: '12.5px', color: '#64748b' }}>
-                    <strong style={{ color: '#475569' }}>Co-PI:</strong>{' '}
-                    {p.co_investigators.map((i: any) => `${i.name}`).join(', ')}
-                  </div>
-                )}
+                {(() => {
+                  const piName = extractPrimaryPIName((p as any).principal_investigator, p.principal_investigators);
+                  if (!piName) return null;
+                  const piObj = Array.isArray(p.principal_investigators)
+                    ? p.principal_investigators.find((i: any) => typeof i === 'object' && i && i.name)
+                    : null;
+                  const dept = piObj && typeof piObj === 'object' && piObj.department ? ` (${piObj.department})` : '';
+                  return (
+                    <div style={{ fontSize: '13px', color: '#334155', marginBottom: '6px' }}>
+                      <strong style={{ color: '#0f2b48' }}>PI:</strong> {piName}{dept}
+                    </div>
+                  );
+                })()}
+                {(() => {
+                  const coPiDisplay = formatInvestigatorNames(p.co_investigators);
+                  if (!coPiDisplay) return null;
+                  return (
+                    <div style={{ fontSize: '12.5px', color: '#64748b' }}>
+                      <strong style={{ color: '#475569' }}>Co-PI:</strong> {coPiDisplay}
+                    </div>
+                  );
+                })()}
               </div>
               <div
                 style={{

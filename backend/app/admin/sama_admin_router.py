@@ -1055,24 +1055,42 @@ def create_cam_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("sama:content:edit")),
 ):
-    project = sama_cms_service.create_cam_project(db, payload)
+    try:
+        project = sama_cms_service.create_cam_project(db, payload)
+    except SQLAlchemyError as exc:
+        logger.error("Database error creating CAM-AI project: %s", exc, exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database insert failed: {str(exc)}",
+        )
+    except Exception as exc:
+        logger.error("Unexpected error creating CAM-AI project: %s", exc, exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create CAM-AI project record.",
+        )
 
-    audit_service.log_from_request(
-        request=request,
-        db=db,
-        module="sama_veda",
-        action="cam_project_created",
-        entity_name="CamAiProject",
-        entity_id=project.id,
-        actor_user_id=current_user.id,
-        details={"title": project.title, "domain": project.domain, "category": project.category},
-        fail_silent=False,
-    )
+    try:
+        audit_service.log_from_request(
+            request=request,
+            db=db,
+            module="sama_veda",
+            action="cam_project_created",
+            entity_name="CamAiProject",
+            entity_id=project.id,
+            actor_user_id=current_user.id,
+            details=payload.model_dump(mode="json", exclude_unset=True),
+            fail_silent=True,
+        )
+    except Exception as audit_exc:
+        logger.warning("Audit logging failed for CAM-AI project create %s: %s", project.id, audit_exc)
 
     return ApiResponse(
         success=True,
         message="CAM-AI project created successfully.",
-        data=CamProjectOut.model_validate(project).model_dump(),
+        data=CamProjectOut.model_validate(project).model_dump(mode="json"),
     )
 
 
@@ -1088,24 +1106,42 @@ def update_cam_project(
     if not project:
         raise HTTPException(status_code=404, detail="CAM-AI project not found.")
 
-    updated_project = sama_cms_service.update_cam_project(db, project, payload)
+    try:
+        updated_project = sama_cms_service.update_cam_project(db, project, payload)
+    except SQLAlchemyError as exc:
+        logger.error("Database error updating CAM-AI project %s: %s", project_id, exc, exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database update failed: {str(exc)}",
+        )
+    except Exception as exc:
+        logger.error("Unexpected error updating CAM-AI project %s: %s", project_id, exc, exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update CAM-AI project record.",
+        )
 
-    audit_service.log_from_request(
-        request=request,
-        db=db,
-        module="sama_veda",
-        action="cam_project_updated",
-        entity_name="CamAiProject",
-        entity_id=updated_project.id,
-        actor_user_id=current_user.id,
-        details=payload.model_dump(exclude_unset=True),
-        fail_silent=False,
-    )
+    try:
+        audit_service.log_from_request(
+            request=request,
+            db=db,
+            module="sama_veda",
+            action="cam_project_updated",
+            entity_name="CamAiProject",
+            entity_id=updated_project.id,
+            actor_user_id=current_user.id,
+            details=payload.model_dump(mode="json", exclude_unset=True),
+            fail_silent=True,
+        )
+    except Exception as audit_exc:
+        logger.warning("Audit logging failed for CAM-AI project update %s: %s", project_id, audit_exc)
 
     return ApiResponse(
         success=True,
         message="CAM-AI project updated successfully.",
-        data=CamProjectOut.model_validate(updated_project).model_dump(),
+        data=CamProjectOut.model_validate(updated_project).model_dump(mode="json"),
     )
 
 
