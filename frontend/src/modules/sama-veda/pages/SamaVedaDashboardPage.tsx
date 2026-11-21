@@ -491,7 +491,7 @@ export const SamaVedaDashboardPage: React.FC = () => {
     { id: 'publications', label: 'Publications Archive', icon: 'book-open' as const },
     { id: 'bulletins', label: 'Research Bulletins', icon: 'file-text' as const },
     { id: 'authors', label: 'Researcher Directory', icon: 'users' as const },
-    { id: 'certificates', label: 'Certificate Verification', icon: 'shield' as const },
+    { id: 'certificates', label: 'Certificates', icon: 'shield' as const },
     { id: 'cam-projects', label: 'CAM-AI Projects', icon: 'layers' as const },
     { id: 'fellowships', label: 'Fellowship Schemes', icon: 'graduation-cap' as const },
   ];
